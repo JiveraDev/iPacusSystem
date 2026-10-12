@@ -1,0 +1,198 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="2600" height="2112" viewBox="0 0 2600 2112" role="img" aria-labelledby="title desc">
+<title id="title">iPawcus / System backup management</title>
+<desc id="desc">Application modules and verified database references. Original SQL entity definitions are on pages 01 to 09. Dashed dependencies are not foreign keys.</desc>
+<defs><marker id="arrow" markerWidth="9" markerHeight="9" refX="8" refY="4.5" orient="auto" markerUnits="userSpaceOnUse"><path d="M0 0 L8 4.5 L0 9" fill="none" stroke="#8793a3" stroke-width="1.2"/></marker><marker id="inheritance" markerWidth="11" markerHeight="11" refX="10" refY="5" orient="auto" markerUnits="userSpaceOnUse"><path d="M0 0 L10 5 L0 10 Z" fill="#ffffff" stroke="#8793a3" stroke-width="1.2"/></marker></defs>
+<rect width="100%" height="100%" fill="#ffffff"/>
+<text x="80" y="44" font-family="Arial,sans-serif" font-size="25" fill="#2d3748">iPawcus / System backup management</text>
+<text x="80" y="73" font-family="Arial,sans-serif" font-size="14" fill="#596579">React / service / PHP / entity reference · arrows show source-code dependencies; no invented OO inheritance.</text>
+<text x="80" y="100" font-family="Arial,sans-serif" font-size="13" fill="#596579">Dashed: dependency. Solid: migration FK or real class inheritance. Full source evidence accompanies detailed links.</text>
+<text x="80" y="143" font-family="Arial,sans-serif" font-size="14" fill="#596579">UI and system views</text>
+<text x="740" y="143" font-family="Arial,sans-serif" font-size="14" fill="#596579">JavaScript services</text>
+<text x="1400" y="143" font-family="Arial,sans-serif" font-size="14" fill="#596579">PHP backend modules</text>
+<text x="2080" y="143" font-family="Arial,sans-serif" font-size="14" fill="#596579">Database references</text>
+<path d="M500 210 L740 210" fill="none" stroke="#8793a3" stroke-width="1.2" stroke-dasharray="5 4" marker-end="url(#arrow)"><title>src/components/SuperAdminDashboardComponent/BackupManagement.jsx → src/services/systemBackupService.js / uses</title></path>
+<path d="M1160 210 L1270 210 L1270 1196 L1400 1196" fill="none" stroke="#8793a3" stroke-width="1.2" stroke-dasharray="5 4" marker-end="url(#arrow)"><title>src/services/systemBackupService.js → php/system_backups.php / HTTP</title></path>
+<path d="M1840 210 L1950 210 L1950 1407 L1840 1407" fill="none" stroke="#8793a3" stroke-width="1.2" stroke-dasharray="5 4" marker-end="url(#arrow)"><title>php/system_backup_common.php → php/runtime_media.php / includes</title></path>
+<path d="M1840 232 L1970 232 L1970 1582 L1840 1582" fill="none" stroke="#8793a3" stroke-width="1.2" stroke-dasharray="5 4" marker-end="url(#arrow)"><title>php/system_backup_common.php → php/grooming_media.php / includes</title></path>
+<path d="M1840 254 L1950 254 L1950 257 L1913 257 L1913 815 L1950 815 L1950 877 L1840 877" fill="none" stroke="#8793a3" stroke-width="1.2" stroke-dasharray="5 4" marker-end="url(#arrow)"><title>php/system_backup_common.php → php/system_backup_zip.php / includes</title></path>
+<path d="M1840 276 L1950 276 L1950 529 L1840 529" fill="none" stroke="#8793a3" stroke-width="1.2" stroke-dasharray="5 4" marker-end="url(#arrow)"><title>php/system_backup_common.php → php/system_backup_excel.php / includes</title></path>
+<path d="M1840 298 L1970 298 L1970 210 L2080 210" fill="none" stroke="#8793a3" stroke-width="1.2" stroke-dasharray="5 4" marker-end="url(#arrow)"><title>php/system_backup_common.php → db:system_backups / SQL</title></path>
+<path d="M1840 551 L2058 551 L2058 899 L1840 899" fill="none" stroke="#8793a3" stroke-width="1.2" stroke-dasharray="5 4" marker-end="url(#arrow)"><title>php/system_backup_excel.php → php/system_backup_zip.php / includes</title></path>
+<path d="M1840 573 L1970 573 L1970 403 L2080 403" fill="none" stroke="#8793a3" stroke-width="1.2" stroke-dasharray="5 4" marker-end="url(#arrow)"><title>php/system_backup_excel.php → db:queues / SQL</title></path>
+<path d="M1840 595 L1970 595 L1970 596 L2080 596" fill="none" stroke="#8793a3" stroke-width="1.2" stroke-dasharray="5 4" marker-end="url(#arrow)"><title>php/system_backup_excel.php → db:pets_information / SQL</title></path>
+<path d="M1840 617 L1950 617 L1950 620 L1878 620 L1878 789 L2080 789" fill="none" stroke="#8793a3" stroke-width="1.2" stroke-dasharray="5 4" marker-end="url(#arrow)"><title>php/system_backup_excel.php → db:users / SQL</title></path>
+<path d="M1840 639 L1970 639 L1970 982 L2080 982" fill="none" stroke="#8793a3" stroke-width="1.2" stroke-dasharray="5 4" marker-end="url(#arrow)"><title>php/system_backup_excel.php → db:bookings / SQL</title></path>
+<path d="M1840 661 L1950 661 L1950 801 L1913 801 L1913 1175 L2080 1175" fill="none" stroke="#8793a3" stroke-width="1.2" stroke-dasharray="5 4" marker-end="url(#arrow)"><title>php/system_backup_excel.php → db:inventory_batches / SQL</title></path>
+<path d="M1840 683 L1950 683 L1950 686 L1878 686 L1878 1177 L1913 1177 L1913 1368 L2080 1368" fill="none" stroke="#8793a3" stroke-width="1.2" stroke-dasharray="5 4" marker-end="url(#arrow)"><title>php/system_backup_excel.php → db:inventory_items / SQL</title></path>
+<path d="M1840 705 L2058 705 L2058 1520 L1970 1520 L1970 1561 L2080 1561" fill="none" stroke="#8793a3" stroke-width="1.2" stroke-dasharray="5 4" marker-end="url(#arrow)"><title>php/system_backup_excel.php → db:inventory_action_audit / SQL</title></path>
+<path d="M1840 727 L1950 727 L1950 748 L1862 748 L1862 1175 L1913 1175 L1913 1754 L2080 1754" fill="none" stroke="#8793a3" stroke-width="1.2" stroke-dasharray="5 4" marker-end="url(#arrow)"><title>php/system_backup_excel.php → db:grooming_events / SQL</title></path>
+<path d="M1840 749 L1950 749 L1950 1947 L2080 1947" fill="none" stroke="#8793a3" stroke-width="1.2" stroke-dasharray="5 4" marker-end="url(#arrow)"><title>php/system_backup_excel.php → db:pet_record_update_request_events / SQL</title></path>
+<path d="M1840 1196 L1950 1196 L1950 1177 L1913 1177 L1913 638 L1878 638 L1878 550 L2058 550 L2058 320 L1840 320" fill="none" stroke="#8793a3" stroke-width="1.2" stroke-dasharray="5 4" marker-end="url(#arrow)"><title>php/system_backups.php → php/system_backup_common.php / includes</title></path>
+<g data-node="src/components/SuperAdminDashboardComponent/BackupManagement.jsx"><rect x="80" y="170" width="420" height="187" fill="#ffffff" stroke="#c4cbd4" stroke-width="1.2"/><line x1="80" y1="225" x2="500" y2="225" stroke="#c4cbd4"/>
+<text x="94" y="193" font-family="Arial,sans-serif" font-size="16" fill="#2d3748">BackupManagement</text>
+<text x="94" y="212" font-family="Arial,sans-serif" font-size="11.5" fill="#596579">«React component»</text>
+<text x="94" y="248" font-family="Consolas,monospace" font-size="12" fill="#2d3748">- data: state</text>
+<text x="94" y="266" font-family="Consolas,monospace" font-size="12" fill="#2d3748">- loading: state</text>
+<text x="94" y="284" font-family="Consolas,monospace" font-size="12" fill="#2d3748">- loadError: state</text>
+<text x="94" y="302" font-family="Consolas,monospace" font-size="12" fill="#2d3748">+ BackupManagement()</text>
+<text x="94" y="329" font-family="Arial,sans-serif" font-size="11.5" fill="#596579">src/components/SuperAdminDashboardComponent/BackupMa</text>
+<text x="94" y="345" font-family="Arial,sans-serif" font-size="11.5" fill="#596579">  nagement.jsx:75</text>
+</g>
+<g data-node="src/services/systemBackupService.js"><rect x="740" y="170" width="420" height="135" fill="#ffffff" stroke="#c4cbd4" stroke-width="1.2"/><line x1="740" y1="225" x2="1160" y2="225" stroke="#c4cbd4"/>
+<text x="754" y="193" font-family="Arial,sans-serif" font-size="16" fill="#2d3748">systemBackupService</text>
+<text x="754" y="212" font-family="Arial,sans-serif" font-size="11.5" fill="#596579">«JS service module»</text>
+<text x="754" y="248" font-family="Consolas,monospace" font-size="12" fill="#2d3748">+ fetchSystemBackups()</text>
+<text x="754" y="266" font-family="Consolas,monospace" font-size="12" fill="#2d3748">+ downloadLocalSystemBackup()</text>
+<text x="754" y="293" font-family="Arial,sans-serif" font-size="11.5" fill="#596579">src/services/systemBackupService.js:3</text>
+</g>
+<g data-node="php/system_backup_common.php"><rect x="1400" y="170" width="440" height="261" fill="#ffffff" stroke="#c4cbd4" stroke-width="1.2"/><line x1="1400" y1="225" x2="1840" y2="225" stroke="#c4cbd4"/>
+<text x="1414" y="193" font-family="Arial,sans-serif" font-size="16" fill="#2d3748">SystemBackupCommon</text>
+<text x="1414" y="212" font-family="Arial,sans-serif" font-size="11.5" fill="#596579">«PHP module»</text>
+<text x="1414" y="248" font-family="Consolas,monospace" font-size="12" fill="#2d3748">+ ipawcus_backup_module_enabled()</text>
+<text x="1414" y="266" font-family="Consolas,monospace" font-size="12" fill="#2d3748">+ ipawcus_backup_begin_local_download_storage()</text>
+<text x="1414" y="284" font-family="Consolas,monospace" font-size="12" fill="#2d3748">+ ipawcus_backup_base_storage_root()</text>
+<text x="1414" y="302" font-family="Consolas,monospace" font-size="12" fill="#2d3748">+ ipawcus_backup_storage_root()</text>
+<text x="1414" y="320" font-family="Consolas,monospace" font-size="12" fill="#2d3748">+ ipawcus_backup_path()</text>
+<text x="1414" y="338" font-family="Consolas,monospace" font-size="12" fill="#2d3748">+ ipawcus_backup_table_exists()</text>
+<text x="1414" y="356" font-family="Consolas,monospace" font-size="12" fill="#2d3748">+ ipawcus_backup_require_schema()</text>
+<text x="1414" y="374" font-family="Consolas,monospace" font-size="12" fill="#2d3748">+ ipawcus_backup_relative_path()</text>
+<text x="1414" y="392" font-family="Consolas,monospace" font-size="12" fill="#2d3748">+ 30 more operations [source index]</text>
+<text x="1414" y="419" font-family="Arial,sans-serif" font-size="11.5" fill="#596579">php/system_backup_common.php:15</text>
+</g>
+<g data-node="php/system_backup_excel.php"><rect x="1400" y="489" width="440" height="290" fill="#ffffff" stroke="#c4cbd4" stroke-width="1.2"/><line x1="1400" y1="544" x2="1840" y2="544" stroke="#c4cbd4"/>
+<text x="1414" y="512" font-family="Arial,sans-serif" font-size="16" fill="#2d3748">SystemBackupExcel</text>
+<text x="1414" y="531" font-family="Arial,sans-serif" font-size="11.5" fill="#596579">«PHP module»</text>
+<text x="1414" y="567" font-family="Consolas,monospace" font-size="12" fill="#2d3748">+ ipawcus_backup_excel_escape()</text>
+<text x="1414" y="585" font-family="Consolas,monospace" font-size="12" fill="#2d3748">+ ipawcus_backup_excel_column_name()</text>
+<text x="1414" y="603" font-family="Consolas,monospace" font-size="12" fill="#2d3748">+ ipawcus_backup_excel_table_exists()</text>
+<text x="1414" y="621" font-family="Consolas,monospace" font-size="12" fill="#2d3748">+ ipawcus_backup_excel_columns()</text>
+<text x="1414" y="639" font-family="Consolas,monospace" font-size="12" fill="#2d3748">+ ipawcus_backup_excel_has_columns()</text>
+<text x="1414" y="657" font-family="Consolas,monospace" font-size="12" fill="#2d3748">+ ipawcus_backup_excel_rows()</text>
+<text x="1414" y="675" font-family="Consolas,monospace" font-size="12" fill="#2d3748">+ ipawcus_backup_excel_query_sheet()</text>
+<text x="1414" y="693" font-family="Consolas,monospace" font-size="12" fill="#2d3748">+ ipawcus_backup_excel_message_sheet()</text>
+<text x="1414" y="711" font-family="Consolas,monospace" font-size="12" fill="#2d3748">+ 14 more operations [source index]</text>
+<text x="1414" y="767" font-family="Arial,sans-serif" font-size="11.5" fill="#596579">php/system_backup_excel.php:7</text>
+</g>
+<g data-node="php/system_backup_zip.php"><rect x="1400" y="837" width="440" height="261" fill="#ffffff" stroke="#c4cbd4" stroke-width="1.2"/><line x1="1400" y1="892" x2="1840" y2="892" stroke="#c4cbd4"/>
+<text x="1414" y="860" font-family="Arial,sans-serif" font-size="16" fill="#2d3748">SystemBackupZip</text>
+<text x="1414" y="879" font-family="Arial,sans-serif" font-size="11.5" fill="#596579">«PHP module»</text>
+<text x="1414" y="915" font-family="Consolas,monospace" font-size="12" fill="#2d3748">+ __construct()</text>
+<text x="1414" y="933" font-family="Consolas,monospace" font-size="12" fill="#2d3748">+ addString()</text>
+<text x="1414" y="951" font-family="Consolas,monospace" font-size="12" fill="#2d3748">+ addFile()</text>
+<text x="1414" y="969" font-family="Consolas,monospace" font-size="12" fill="#2d3748">+ close()</text>
+<text x="1414" y="987" font-family="Consolas,monospace" font-size="12" fill="#2d3748">+ __destruct()</text>
+<text x="1414" y="1005" font-family="Consolas,monospace" font-size="12" fill="#2d3748">+ addStream()</text>
+<text x="1414" y="1023" font-family="Consolas,monospace" font-size="12" fill="#2d3748">+ normalizeArchivePath()</text>
+<text x="1414" y="1041" font-family="Consolas,monospace" font-size="12" fill="#2d3748">+ dosDateTime()</text>
+<text x="1414" y="1059" font-family="Consolas,monospace" font-size="12" fill="#2d3748">+ 1 more operations [source index]</text>
+<text x="1414" y="1086" font-family="Arial,sans-serif" font-size="11.5" fill="#596579">php/system_backup_zip.php:18</text>
+</g>
+<g data-node="php/system_backups.php"><rect x="1400" y="1156" width="440" height="153" fill="#ffffff" stroke="#c4cbd4" stroke-width="1.2"/><line x1="1400" y1="1211" x2="1840" y2="1211" stroke="#c4cbd4"/>
+<text x="1414" y="1179" font-family="Arial,sans-serif" font-size="16" fill="#2d3748">SystemBackups</text>
+<text x="1414" y="1198" font-family="Arial,sans-serif" font-size="11.5" fill="#596579">«PHP module»</text>
+<text x="1414" y="1234" font-family="Consolas,monospace" font-size="12" fill="#2d3748">+ ipawcus_system_backups_json()</text>
+<text x="1414" y="1252" font-family="Consolas,monospace" font-size="12" fill="#2d3748">+ ipawcus_system_backups_cleanup_temporary_files()</text>
+<text x="1414" y="1270" font-family="Consolas,monospace" font-size="12" fill="#2d3748">+ ipawcus_system_backups_stream_local_export()</text>
+<text x="1414" y="1297" font-family="Arial,sans-serif" font-size="11.5" fill="#596579">php/system_backups.php:25</text>
+</g>
+<g data-node="php/runtime_media.php"><rect x="1400" y="1367" width="440" height="117" fill="#f8fafc" stroke="#c4cbd4" stroke-width="1.2" stroke-dasharray="5 4"/><line x1="1400" y1="1422" x2="1840" y2="1422" stroke="#c4cbd4"/>
+<text x="1414" y="1390" font-family="Arial,sans-serif" font-size="16" fill="#2d3748">RuntimeMedia</text>
+<text x="1414" y="1409" font-family="Arial,sans-serif" font-size="11.5" fill="#596579">«PHP module» / page 41</text>
+<text x="1414" y="1445" font-family="Consolas,monospace" font-size="12" fill="#2d3748">Definition / page 41</text>
+<text x="1414" y="1472" font-family="Arial,sans-serif" font-size="11.5" fill="#596579">php/runtime_media.php:18</text>
+</g>
+<g data-node="php/grooming_media.php"><rect x="1400" y="1542" width="440" height="117" fill="#f8fafc" stroke="#c4cbd4" stroke-width="1.2" stroke-dasharray="5 4"/><line x1="1400" y1="1597" x2="1840" y2="1597" stroke="#c4cbd4"/>
+<text x="1414" y="1565" font-family="Arial,sans-serif" font-size="16" fill="#2d3748">GroomingMedia</text>
+<text x="1414" y="1584" font-family="Arial,sans-serif" font-size="11.5" fill="#596579">«PHP module» / page 32</text>
+<text x="1414" y="1620" font-family="Consolas,monospace" font-size="12" fill="#2d3748">Definition / page 32</text>
+<text x="1414" y="1647" font-family="Arial,sans-serif" font-size="11.5" fill="#596579">php/grooming_media.php:4</text>
+</g>
+<g data-node="db:system_backups"><rect x="2080" y="170" width="440" height="135" fill="#f8fafc" stroke="#c4cbd4" stroke-width="1.2" stroke-dasharray="5 4"/><line x1="2080" y1="225" x2="2520" y2="225" stroke="#c4cbd4"/>
+<text x="2094" y="193" font-family="Arial,sans-serif" font-size="16" fill="#2d3748">SystemBackup</text>
+<text x="2094" y="212" font-family="Arial,sans-serif" font-size="11.5" fill="#596579">«entity» system_backups</text>
+<text x="2094" y="248" font-family="Consolas,monospace" font-size="12" fill="#2d3748">+ backup_id: bigint [PK]</text>
+<text x="2094" y="266" font-family="Consolas,monospace" font-size="12" fill="#2d3748">Full SQL attributes / DB page 09</text>
+<text x="2094" y="293" font-family="Arial,sans-serif" font-size="11.5" fill="#596579">iPawcus_ERD_Schema.sql</text>
+</g>
+<g data-node="db:queues"><rect x="2080" y="363" width="440" height="135" fill="#f8fafc" stroke="#c4cbd4" stroke-width="1.2" stroke-dasharray="5 4"/><line x1="2080" y1="418" x2="2520" y2="418" stroke="#c4cbd4"/>
+<text x="2094" y="386" font-family="Arial,sans-serif" font-size="16" fill="#2d3748">Queue</text>
+<text x="2094" y="405" font-family="Arial,sans-serif" font-size="11.5" fill="#596579">«entity» queues</text>
+<text x="2094" y="441" font-family="Consolas,monospace" font-size="12" fill="#2d3748">+ queue_id: int [PK]</text>
+<text x="2094" y="459" font-family="Consolas,monospace" font-size="12" fill="#2d3748">Full SQL attributes / DB page 04</text>
+<text x="2094" y="486" font-family="Arial,sans-serif" font-size="11.5" fill="#596579">iPawcus_ERD_Schema.sql</text>
+</g>
+<g data-node="db:pets_information"><rect x="2080" y="556" width="440" height="135" fill="#f8fafc" stroke="#c4cbd4" stroke-width="1.2" stroke-dasharray="5 4"/><line x1="2080" y1="611" x2="2520" y2="611" stroke="#c4cbd4"/>
+<text x="2094" y="579" font-family="Arial,sans-serif" font-size="16" fill="#2d3748">Pet</text>
+<text x="2094" y="598" font-family="Arial,sans-serif" font-size="11.5" fill="#596579">«entity» pets_information</text>
+<text x="2094" y="634" font-family="Consolas,monospace" font-size="12" fill="#2d3748">+ pet_id: int [PK]</text>
+<text x="2094" y="652" font-family="Consolas,monospace" font-size="12" fill="#2d3748">Full SQL attributes / DB page 03</text>
+<text x="2094" y="679" font-family="Arial,sans-serif" font-size="11.5" fill="#596579">iPawcus_ERD_Schema.sql</text>
+</g>
+<g data-node="db:users"><rect x="2080" y="749" width="440" height="135" fill="#f8fafc" stroke="#c4cbd4" stroke-width="1.2" stroke-dasharray="5 4"/><line x1="2080" y1="804" x2="2520" y2="804" stroke="#c4cbd4"/>
+<text x="2094" y="772" font-family="Arial,sans-serif" font-size="16" fill="#2d3748">User</text>
+<text x="2094" y="791" font-family="Arial,sans-serif" font-size="11.5" fill="#596579">«entity» users</text>
+<text x="2094" y="827" font-family="Consolas,monospace" font-size="12" fill="#2d3748">+ user_id: int [PK]</text>
+<text x="2094" y="845" font-family="Consolas,monospace" font-size="12" fill="#2d3748">Full SQL attributes / DB page 01</text>
+<text x="2094" y="872" font-family="Arial,sans-serif" font-size="11.5" fill="#596579">iPawcus_ERD_Schema.sql</text>
+</g>
+<g data-node="db:bookings"><rect x="2080" y="942" width="440" height="135" fill="#f8fafc" stroke="#c4cbd4" stroke-width="1.2" stroke-dasharray="5 4"/><line x1="2080" y1="997" x2="2520" y2="997" stroke="#c4cbd4"/>
+<text x="2094" y="965" font-family="Arial,sans-serif" font-size="16" fill="#2d3748">Booking</text>
+<text x="2094" y="984" font-family="Arial,sans-serif" font-size="11.5" fill="#596579">«entity» bookings</text>
+<text x="2094" y="1020" font-family="Consolas,monospace" font-size="12" fill="#2d3748">+ booking_id: int [PK]</text>
+<text x="2094" y="1038" font-family="Consolas,monospace" font-size="12" fill="#2d3748">Full SQL attributes / DB page 04</text>
+<text x="2094" y="1065" font-family="Arial,sans-serif" font-size="11.5" fill="#596579">iPawcus_ERD_Schema.sql</text>
+</g>
+<g data-node="db:inventory_batches"><rect x="2080" y="1135" width="440" height="135" fill="#f8fafc" stroke="#c4cbd4" stroke-width="1.2" stroke-dasharray="5 4"/><line x1="2080" y1="1190" x2="2520" y2="1190" stroke="#c4cbd4"/>
+<text x="2094" y="1158" font-family="Arial,sans-serif" font-size="16" fill="#2d3748">InventoryBatch</text>
+<text x="2094" y="1177" font-family="Arial,sans-serif" font-size="11.5" fill="#596579">«entity» inventory_batches</text>
+<text x="2094" y="1213" font-family="Consolas,monospace" font-size="12" fill="#2d3748">+ batch_id: int [PK]</text>
+<text x="2094" y="1231" font-family="Consolas,monospace" font-size="12" fill="#2d3748">Full SQL attributes / DB page 07</text>
+<text x="2094" y="1258" font-family="Arial,sans-serif" font-size="11.5" fill="#596579">iPawcus_ERD_Schema.sql</text>
+</g>
+<g data-node="db:inventory_items"><rect x="2080" y="1328" width="440" height="135" fill="#f8fafc" stroke="#c4cbd4" stroke-width="1.2" stroke-dasharray="5 4"/><line x1="2080" y1="1383" x2="2520" y2="1383" stroke="#c4cbd4"/>
+<text x="2094" y="1351" font-family="Arial,sans-serif" font-size="16" fill="#2d3748">InventoryItem</text>
+<text x="2094" y="1370" font-family="Arial,sans-serif" font-size="11.5" fill="#596579">«entity» inventory_items</text>
+<text x="2094" y="1406" font-family="Consolas,monospace" font-size="12" fill="#2d3748">+ item_id: int [PK]</text>
+<text x="2094" y="1424" font-family="Consolas,monospace" font-size="12" fill="#2d3748">Full SQL attributes / DB page 07</text>
+<text x="2094" y="1451" font-family="Arial,sans-serif" font-size="11.5" fill="#596579">iPawcus_ERD_Schema.sql</text>
+</g>
+<g data-node="db:inventory_action_audit"><rect x="2080" y="1521" width="440" height="135" fill="#f8fafc" stroke="#c4cbd4" stroke-width="1.2" stroke-dasharray="5 4"/><line x1="2080" y1="1576" x2="2520" y2="1576" stroke="#c4cbd4"/>
+<text x="2094" y="1544" font-family="Arial,sans-serif" font-size="16" fill="#2d3748">InventoryActionAudit</text>
+<text x="2094" y="1563" font-family="Arial,sans-serif" font-size="11.5" fill="#596579">«entity» inventory_action_audit</text>
+<text x="2094" y="1599" font-family="Consolas,monospace" font-size="12" fill="#2d3748">+ inventory_audit_id: bigint [PK]</text>
+<text x="2094" y="1617" font-family="Consolas,monospace" font-size="12" fill="#2d3748">Full SQL attributes / DB page 07</text>
+<text x="2094" y="1644" font-family="Arial,sans-serif" font-size="11.5" fill="#596579">iPawcus_ERD_Schema.sql</text>
+</g>
+<g data-node="db:grooming_events"><rect x="2080" y="1714" width="440" height="135" fill="#f8fafc" stroke="#c4cbd4" stroke-width="1.2" stroke-dasharray="5 4"/><line x1="2080" y1="1769" x2="2520" y2="1769" stroke="#c4cbd4"/>
+<text x="2094" y="1737" font-family="Arial,sans-serif" font-size="16" fill="#2d3748">GroomingEvent</text>
+<text x="2094" y="1756" font-family="Arial,sans-serif" font-size="11.5" fill="#596579">«entity» grooming_events</text>
+<text x="2094" y="1792" font-family="Consolas,monospace" font-size="12" fill="#2d3748">+ event_id: int [PK]</text>
+<text x="2094" y="1810" font-family="Consolas,monospace" font-size="12" fill="#2d3748">Full SQL attributes / DB page 06</text>
+<text x="2094" y="1837" font-family="Arial,sans-serif" font-size="11.5" fill="#596579">iPawcus_ERD_Schema.sql</text>
+</g>
+<g data-node="db:pet_record_update_request_events"><rect x="2080" y="1907" width="440" height="135" fill="#f8fafc" stroke="#c4cbd4" stroke-width="1.2" stroke-dasharray="5 4"/><line x1="2080" y1="1962" x2="2520" y2="1962" stroke="#c4cbd4"/>
+<text x="2094" y="1930" font-family="Arial,sans-serif" font-size="16" fill="#2d3748">PetRecordUpdateRequestEvent</text>
+<text x="2094" y="1949" font-family="Arial,sans-serif" font-size="11.5" fill="#596579">«entity» pet_record_update_request_events</text>
+<text x="2094" y="1985" font-family="Consolas,monospace" font-size="12" fill="#2d3748">+ event_id: bigint [PK]</text>
+<text x="2094" y="2003" font-family="Consolas,monospace" font-size="12" fill="#2d3748">Full SQL attributes / DB page 03</text>
+<text x="2094" y="2030" font-family="Arial,sans-serif" font-size="11.5" fill="#596579">iPawcus_ERD_Schema.sql</text>
+</g>
+<text x="512" y="204" font-family="Consolas,monospace" font-size="11.5" fill="#596579">uses</text>
+<text x="1172" y="204" font-family="Consolas,monospace" font-size="11.5" fill="#596579">HTTP</text>
+<text x="1852" y="204" font-family="Consolas,monospace" font-size="11.5" fill="#596579">includes</text>
+<text x="1852" y="226" font-family="Consolas,monospace" font-size="11.5" fill="#596579">includes</text>
+<text x="1852" y="248" font-family="Consolas,monospace" font-size="11.5" fill="#596579">includes</text>
+<text x="1852" y="270" font-family="Consolas,monospace" font-size="11.5" fill="#596579">includes</text>
+<text x="1852" y="292" font-family="Consolas,monospace" font-size="11.5" fill="#596579">SQL</text>
+<text x="1852" y="545" font-family="Consolas,monospace" font-size="11.5" fill="#596579">includes</text>
+<text x="1852" y="567" font-family="Consolas,monospace" font-size="11.5" fill="#596579">SQL</text>
+<text x="1852" y="589" font-family="Consolas,monospace" font-size="11.5" fill="#596579">SQL</text>
+<text x="1852" y="611" font-family="Consolas,monospace" font-size="11.5" fill="#596579">SQL</text>
+<text x="1852" y="633" font-family="Consolas,monospace" font-size="11.5" fill="#596579">SQL</text>
+<text x="1852" y="655" font-family="Consolas,monospace" font-size="11.5" fill="#596579">SQL</text>
+<text x="1852" y="677" font-family="Consolas,monospace" font-size="11.5" fill="#596579">SQL</text>
+<text x="1852" y="699" font-family="Consolas,monospace" font-size="11.5" fill="#596579">SQL</text>
+<text x="1852" y="721" font-family="Consolas,monospace" font-size="11.5" fill="#596579">SQL</text>
+<text x="1852" y="743" font-family="Consolas,monospace" font-size="11.5" fill="#596579">SQL</text>
+<text x="1852" y="1190" font-family="Consolas,monospace" font-size="11.5" fill="#596579">includes</text>
+</svg>

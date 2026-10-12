@@ -1,0 +1,339 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1032" height="1365" viewBox="0 0 1032 1365" role="img" aria-labelledby="title description">
+<title id="title">iPawcus - Grooming and boarding</title>
+<desc id="description">Conceptual UML class diagram. White three-compartment class boxes with thin gray borders and orthogonal relationships. Attributes and operations describe the existing system, not literal PHP class declarations.</desc>
+<defs><marker id="dependency" markerWidth="8" markerHeight="8" refX="7" refY="4" orient="auto" markerUnits="userSpaceOnUse"><path d="M0 0 L7 4 L0 8" fill="none" stroke="#777777" stroke-width="0.75"/></marker></defs>
+<rect width="100%" height="100%" fill="#ffffff"/>
+<text x="72" y="35" font-family="Arial,sans-serif" font-size="19" fill="#222222" >iPawcus - Grooming and boarding</text>
+<text x="72" y="56" font-family="Arial,sans-serif" font-size="10" fill="#222222" >Conceptual UML model | class name, attributes, operations | + public | ? nullable</text>
+<text x="72" y="73" font-family="Arial,sans-serif" font-size="9.5" fill="#222222" >Solid: association | dashed: application association | dashed arrow: uses | 1 / 0..1 / 0..* multiplicities</text>
+<path d="M491 472.5 L537 472.5 L537 309 L823 309 L823 164.5 L869 164.5" fill="none" stroke="#777777" stroke-width="0.75"><title>boarding_assignments.booking_id -&gt; bookings.booking_id</title></path>
+<path d="M491 486.5 L589 486.5 L589 309.5 L826 309.5 L826 297.5 L872 297.5" fill="none" stroke="#777777" stroke-width="0.75"><title>boarding_assignments.branch_id -&gt; branches.branch_id</title></path>
+<path d="M607 506.5 L561 506.5 L561 500.5 L491 500.5" fill="none" stroke="#777777" stroke-width="0.75"><title>boarding_documents.assignment_id -&gt; boarding_assignments.assignment_id</title></path>
+<path d="M752 492.5 L798 492.5 L798 211 L1004 211 L1004 164.5 L958 164.5" fill="none" stroke="#777777" stroke-width="0.75"><title>boarding_documents.booking_id -&gt; bookings.booking_id</title></path>
+<path d="M752 506.5 L834 506.5 L834 591.5 L880 591.5" fill="none" stroke="#777777" stroke-width="0.75"><title>boarding_documents.pet_id -&gt; pets_information.pet_id</title></path>
+<path d="M752 520.5 L798 520.5 L798 672 L914 672 L914 718" fill="none" stroke="#777777" stroke-width="0.75"><title>boarding_documents.uploaded_by_user_id -&gt; users.user_id</title></path>
+<path d="M215 834 L261 834 L261 493.5 L331 493.5" fill="none" stroke="#777777" stroke-width="0.75"><title>boarding_material_usages.assignment_id -&gt; boarding_assignments.assignment_id</title></path>
+<path d="M215 820 L313 820 L313 311.5 L822 311.5 L822 178.5 L869 178.5" fill="none" stroke="#777777" stroke-width="0.75"><title>boarding_material_usages.booking_id -&gt; bookings.booking_id</title></path>
+<path d="M215 848 L320 848 L320 644 L822 644 L822 458.5 L868 458.5" fill="none" stroke="#777777" stroke-width="0.75"><title>boarding_material_usages.item_id -&gt; inventory_items.item_id</title></path>
+<path d="M215 862 L318.68 862 L318.68 646 L834 646 L834 605.5 L880 605.5" fill="none" stroke="#777777" stroke-width="0.75"><title>boarding_material_usages.pet_id -&gt; pets_information.pet_id</title></path>
+<path d="M215 876 L313.42 876 L313.42 692 L827 692 L827 752 L873 752" fill="none" stroke="#777777" stroke-width="0.75"><title>boarding_material_usages.recorded_by_user_id -&gt; users.user_id</title></path>
+<path d="M215 890 L307 890 L307 691 L826 691 L826 766 L873 766" fill="none" stroke="#777777" stroke-width="0.75"><title>boarding_material_usages.voided_by_user_id -&gt; users.user_id</title></path>
+<path d="M410.5 710 L410.5 664 L414.5 664 L414.5 666 L411 666 L411 620" fill="none" stroke="#777777" stroke-width="0.75"><title>boarding_observations.assignment_id -&gt; boarding_assignments.assignment_id</title></path>
+<path d="M483 854 L529 854 L529 323.5 L854 323.5 L854 233 L893.5 233 L893.5 187" fill="none" stroke="#777777" stroke-width="0.75"><title>boarding_observations.booking_id -&gt; bookings.booking_id</title></path>
+<path d="M483 868 L577.68 868 L577.68 638 L833.68 638 L833.68 619.5 L880 619.5" fill="none" stroke="#777777" stroke-width="0.75"><title>boarding_observations.pet_id -&gt; pets_information.pet_id</title></path>
+<path d="M483 882 L529 882 L529 993 L827 993 L827 780 L873 780" fill="none" stroke="#777777" stroke-width="0.75"><title>boarding_observations.created_by_user_id -&gt; users.user_id</title></path>
+<path d="M612 848.5 L566 848.5 L566 514.5 L491 514.5" fill="none" stroke="#777777" stroke-width="0.75"><title>boarding_tasks.assignment_id -&gt; boarding_assignments.assignment_id</title></path>
+<path d="M747 834.5 L793 834.5 L793 234 L933.5 234 L933.5 187" fill="none" stroke="#777777" stroke-width="0.75"><title>boarding_tasks.booking_id -&gt; bookings.booking_id</title></path>
+<path d="M747 848.5 L838.68 848.5 L838.68 674 L913.5 674 L913.5 628" fill="none" stroke="#777777" stroke-width="0.75"><title>boarding_tasks.pet_id -&gt; pets_information.pet_id</title></path>
+<path d="M747 862.5 L914 862.5 L914 788" fill="none" stroke="#777777" stroke-width="0.75"><title>boarding_tasks.created_by_user_id -&gt; users.user_id</title></path>
+<path d="M353 203.5 L307 203.5 L307 222 L209 222" fill="none" stroke="#777777" stroke-width="0.75"><title>grooming_events.booking_id -&gt; grooming_jobs.booking_id</title></path>
+<path d="M209 236 L255 236 L255 112 L823 112 L823 150.5 L869 150.5" fill="none" stroke="#777777" stroke-width="0.75"><title>grooming_jobs.booking_id -&gt; bookings.booking_id</title></path>
+<path d="M615 216.5 L569 216.5 L569 283 L255 283 L255 250 L209 250" fill="none" stroke="#777777" stroke-width="0.75"><title>grooming_photos.booking_id -&gt; grooming_jobs.booking_id</title></path>
+<path d="M143.5 420 L143.5 374 L147 374 L147 376 L143 376 L143 330" fill="none" stroke="#777777" stroke-width="0.75"><title>grooming_reviews.booking_id -&gt; grooming_jobs.booking_id</title></path>
+<path d="M208 513 L254 513 L254 679 L823 679 L823 738 L873 738" fill="none" stroke="#777777" stroke-width="0.75"><title>grooming_reviews.veterinarian_id -&gt; users.user_id</title></path>
+<path d="M201 1190.5 L285 1190.5 L285 325.5 L826 325.5 L826 311.5 L872 311.5" fill="none" stroke="#777777" stroke-width="0.75"><title>rooms.branch_id -&gt; branches.branch_id</title></path>
+<path d="M472 1184 L518 1184 L518 640 L826 640 L826 325.5 L872 325.5" fill="none" stroke="#777777" stroke-width="0.75"><title>room_unit_statuses.branch_id -&gt; branches.branch_id</title></path>
+<g data-class="grooming_jobs"><title>GroomingJob</title>
+<rect x="77" y="130" width="132" height="200" fill="#ffffff" stroke="#858585" stroke-width="0.8"/>
+<line x1="77" y1="154" x2="209" y2="154" stroke="#858585" stroke-width="0.8"/>
+<line x1="77" y1="294" x2="209" y2="294" stroke="#858585" stroke-width="0.8"/>
+<text x="143" y="146" font-family="Arial,sans-serif" font-size="11" fill="#222222" font-weight="700" text-anchor="middle">GroomingJob</text>
+<text x="87" y="168" font-family="Arial,sans-serif" font-size="10" fill="#222222" >+ bookingId: int</text>
+<text x="87" y="181" font-family="Arial,sans-serif" font-size="10" fill="#222222" >+ status: string</text>
+<text x="87" y="194" font-family="Arial,sans-serif" font-size="10" fill="#222222" >+ performedBy: string</text>
+<text x="87" y="207" font-family="Arial,sans-serif" font-size="10" fill="#222222" >+ detailsJson: string</text>
+<text x="87" y="220" font-family="Arial,sans-serif" font-size="10" fill="#222222" >+ version: int</text>
+<text x="87" y="233" font-family="Arial,sans-serif" font-size="10" fill="#222222" >+ publishedAt: datetime?</text>
+<text x="87" y="246" font-family="Arial,sans-serif" font-size="10" fill="#222222" >+ visitId: int?</text>
+<text x="87" y="259" font-family="Arial,sans-serif" font-size="10" fill="#222222" >+ createdAt: datetime</text>
+<text x="87" y="272" font-family="Arial,sans-serif" font-size="10" fill="#222222" >+ updatedAt: datetime</text>
+<text x="87" y="285" font-family="Arial,sans-serif" font-size="10" fill="#222222" >+ updatedBy: int</text>
+<text x="87" y="308" font-family="Arial,sans-serif" font-size="10" fill="#222222" >+ updateJob()</text>
+<text x="87" y="321" font-family="Arial,sans-serif" font-size="10" fill="#222222" >+ viewJob()</text>
+</g>
+<g data-class="grooming_events"><title>GroomingEvent</title>
+<rect x="353" y="130" width="116" height="135" fill="#ffffff" stroke="#858585" stroke-width="0.8"/>
+<line x1="353" y1="154" x2="469" y2="154" stroke="#858585" stroke-width="0.8"/>
+<line x1="353" y1="242" x2="469" y2="242" stroke="#858585" stroke-width="0.8"/>
+<text x="411" y="146" font-family="Arial,sans-serif" font-size="11" fill="#222222" font-weight="700" text-anchor="middle">GroomingEvent</text>
+<text x="363" y="168" font-family="Arial,sans-serif" font-size="10" fill="#222222" >+ eventId: int</text>
+<text x="363" y="181" font-family="Arial,sans-serif" font-size="10" fill="#222222" >+ bookingId: int</text>
+<text x="363" y="194" font-family="Arial,sans-serif" font-size="10" fill="#222222" >+ actorId: int</text>
+<text x="363" y="207" font-family="Arial,sans-serif" font-size="10" fill="#222222" >+ action: string</text>
+<text x="363" y="220" font-family="Arial,sans-serif" font-size="10" fill="#222222" >+ detailsJson: string</text>
+<text x="363" y="233" font-family="Arial,sans-serif" font-size="10" fill="#222222" >+ createdAt: datetime</text>
+<text x="363" y="256" font-family="Arial,sans-serif" font-size="10" fill="#222222" >+ viewRecord()</text>
+</g>
+<g data-class="grooming_photos"><title>GroomingPhoto</title>
+<rect x="615" y="130" width="129" height="161" fill="#ffffff" stroke="#858585" stroke-width="0.8"/>
+<line x1="615" y1="154" x2="744" y2="154" stroke="#858585" stroke-width="0.8"/>
+<line x1="615" y1="268" x2="744" y2="268" stroke="#858585" stroke-width="0.8"/>
+<text x="679.5" y="146" font-family="Arial,sans-serif" font-size="11" fill="#222222" font-weight="700" text-anchor="middle">GroomingPhoto</text>
+<text x="625" y="168" font-family="Arial,sans-serif" font-size="10" fill="#222222" >+ photoId: int</text>
+<text x="625" y="181" font-family="Arial,sans-serif" font-size="10" fill="#222222" >+ bookingId: int</text>
+<text x="625" y="194" font-family="Arial,sans-serif" font-size="10" fill="#222222" >+ category: string</text>
+<text x="625" y="207" font-family="Arial,sans-serif" font-size="10" fill="#222222" >+ caption: string</text>
+<text x="625" y="220" font-family="Arial,sans-serif" font-size="10" fill="#222222" >+ filePath: string</text>
+<text x="625" y="233" font-family="Arial,sans-serif" font-size="10" fill="#222222" >+ shareWithOwner: bool</text>
+<text x="625" y="246" font-family="Arial,sans-serif" font-size="10" fill="#222222" >+ uploadedBy: int</text>
+<text x="625" y="259" font-family="Arial,sans-serif" font-size="10" fill="#222222" >+ createdAt: datetime</text>
+<text x="625" y="282" font-family="Arial,sans-serif" font-size="10" fill="#222222" >+ uploadPhoto()</text>
+</g>
+<g data-class="grooming_reviews"><title>GroomingReview</title>
+<rect x="79" y="420" width="129" height="174" fill="#ffffff" stroke="#858585" stroke-width="0.8"/>
+<line x1="79" y1="444" x2="208" y2="444" stroke="#858585" stroke-width="0.8"/>
+<line x1="79" y1="571" x2="208" y2="571" stroke="#858585" stroke-width="0.8"/>
+<text x="143.5" y="436" font-family="Arial,sans-serif" font-size="11" fill="#222222" font-weight="700" text-anchor="middle">GroomingReview</text>
+<text x="89" y="458" font-family="Arial,sans-serif" font-size="10" fill="#222222" >+ reviewId: int</text>
+<text x="89" y="471" font-family="Arial,sans-serif" font-size="10" fill="#222222" >+ bookingId: int</text>
+<text x="89" y="484" font-family="Arial,sans-serif" font-size="10" fill="#222222" >+ veterinarianId: int</text>
+<text x="89" y="497" font-family="Arial,sans-serif" font-size="10" fill="#222222" >+ requestedBy: int</text>
+<text x="89" y="510" font-family="Arial,sans-serif" font-size="10" fill="#222222" >+ reason: string</text>
+<text x="89" y="523" font-family="Arial,sans-serif" font-size="10" fill="#222222" >+ outcome: string</text>
+<text x="89" y="536" font-family="Arial,sans-serif" font-size="10" fill="#222222" >+ reviewNotes: string?</text>
+<text x="89" y="549" font-family="Arial,sans-serif" font-size="10" fill="#222222" >+ createdAt: datetime</text>
+<text x="89" y="562" font-family="Arial,sans-serif" font-size="10" fill="#222222" >+ reviewedAt: datetime?</text>
+<text x="89" y="585" font-family="Arial,sans-serif" font-size="10" fill="#222222" >+ viewRecord()</text>
+</g>
+<g data-class="boarding_assignments"><title>BoardingAssignment</title>
+<rect x="331" y="355" width="160" height="265" fill="#ffffff" stroke="#858585" stroke-width="0.8"/>
+<line x1="331" y1="379" x2="491" y2="379" stroke="#858585" stroke-width="0.8"/>
+<line x1="331" y1="558" x2="491" y2="558" stroke="#858585" stroke-width="0.8"/>
+<text x="411" y="371" font-family="Arial,sans-serif" font-size="11" fill="#222222" font-weight="700" text-anchor="middle">BoardingAssignment</text>
+<text x="341" y="393" font-family="Arial,sans-serif" font-size="10" fill="#222222" >+ assignmentId: int</text>
+<text x="341" y="406" font-family="Arial,sans-serif" font-size="10" fill="#222222" >+ bookingId: int</text>
+<text x="341" y="419" font-family="Arial,sans-serif" font-size="10" fill="#222222" >+ branchId: int</text>
+<text x="341" y="432" font-family="Arial,sans-serif" font-size="10" fill="#222222" >+ roomType: string</text>
+<text x="341" y="445" font-family="Arial,sans-serif" font-size="10" fill="#222222" >+ roomNumber: int</text>
+<text x="341" y="458" font-family="Arial,sans-serif" font-size="10" fill="#222222" >+ status: string</text>
+<text x="341" y="471" font-family="Arial,sans-serif" font-size="10" fill="#222222" >+ reservedAt: datetime?</text>
+<text x="341" y="484" font-family="Arial,sans-serif" font-size="10" fill="#222222" >+ actualCheckInAt: datetime?</text>
+<text x="341" y="497" font-family="Arial,sans-serif" font-size="10" fill="#222222" >+ actualCheckOutAt: datetime?</text>
+<text x="341" y="510" font-family="Arial,sans-serif" font-size="10" fill="#222222" >+ desiredCheckOutDate: date?</text>
+<text x="341" y="523" font-family="Arial,sans-serif" font-size="10" fill="#222222" >+ notes: string?</text>
+<text x="341" y="536" font-family="Arial,sans-serif" font-size="10" fill="#222222" >+ createdAt: datetime</text>
+<text x="341" y="549" font-family="Arial,sans-serif" font-size="10" fill="#222222" >+ updatedAt: datetime</text>
+<text x="341" y="572" font-family="Arial,sans-serif" font-size="10" fill="#222222" >+ assignRoom()</text>
+<text x="341" y="585" font-family="Arial,sans-serif" font-size="10" fill="#222222" >+ checkIn()</text>
+<text x="341" y="598" font-family="Arial,sans-serif" font-size="10" fill="#222222" >+ checkOut()</text>
+<text x="341" y="611" font-family="Arial,sans-serif" font-size="10" fill="#222222" >+ updateCheckOut()</text>
+</g>
+<g data-class="boarding_documents"><title>BoardingDocument</title>
+<rect x="607" y="381" width="145" height="239" fill="#ffffff" stroke="#858585" stroke-width="0.8"/>
+<line x1="607" y1="405" x2="752" y2="405" stroke="#858585" stroke-width="0.8"/>
+<line x1="607" y1="584" x2="752" y2="584" stroke="#858585" stroke-width="0.8"/>
+<text x="679.5" y="397" font-family="Arial,sans-serif" font-size="11" fill="#222222" font-weight="700" text-anchor="middle">BoardingDocument</text>
+<text x="617" y="419" font-family="Arial,sans-serif" font-size="10" fill="#222222" >+ documentId: int</text>
+<text x="617" y="432" font-family="Arial,sans-serif" font-size="10" fill="#222222" >+ assignmentId: int?</text>
+<text x="617" y="445" font-family="Arial,sans-serif" font-size="10" fill="#222222" >+ bookingId: int</text>
+<text x="617" y="458" font-family="Arial,sans-serif" font-size="10" fill="#222222" >+ petId: int?</text>
+<text x="617" y="471" font-family="Arial,sans-serif" font-size="10" fill="#222222" >+ documentType: string</text>
+<text x="617" y="484" font-family="Arial,sans-serif" font-size="10" fill="#222222" >+ title: string</text>
+<text x="617" y="497" font-family="Arial,sans-serif" font-size="10" fill="#222222" >+ documentPath: string</text>
+<text x="617" y="510" font-family="Arial,sans-serif" font-size="10" fill="#222222" >+ fileName: string?</text>
+<text x="617" y="523" font-family="Arial,sans-serif" font-size="10" fill="#222222" >+ mimeType: string?</text>
+<text x="617" y="536" font-family="Arial,sans-serif" font-size="10" fill="#222222" >+ notes: string?</text>
+<text x="617" y="549" font-family="Arial,sans-serif" font-size="10" fill="#222222" >+ uploadedByUserId: int?</text>
+<text x="617" y="562" font-family="Arial,sans-serif" font-size="10" fill="#222222" >+ uploadedByName: string?</text>
+<text x="617" y="575" font-family="Arial,sans-serif" font-size="10" fill="#222222" >+ createdAt: datetime</text>
+<text x="617" y="598" font-family="Arial,sans-serif" font-size="10" fill="#222222" >+ addDocument()</text>
+<text x="617" y="611" font-family="Arial,sans-serif" font-size="10" fill="#222222" >+ listDocuments()</text>
+</g>
+<g data-class="boarding_material_usages"><title>BoardingMaterialUsage</title>
+<rect x="72" y="684" width="143" height="330" fill="#ffffff" stroke="#858585" stroke-width="0.8"/>
+<line x1="72" y1="708" x2="215" y2="708" stroke="#858585" stroke-width="0.8"/>
+<line x1="72" y1="978" x2="215" y2="978" stroke="#858585" stroke-width="0.8"/>
+<text x="143.5" y="700" font-family="Arial,sans-serif" font-size="11" fill="#222222" font-weight="700" text-anchor="middle">BoardingMaterialUsage</text>
+<text x="82" y="722" font-family="Arial,sans-serif" font-size="10" fill="#222222" >+ usageId: int</text>
+<text x="82" y="735" font-family="Arial,sans-serif" font-size="10" fill="#222222" >+ clientReference: string?</text>
+<text x="82" y="748" font-family="Arial,sans-serif" font-size="10" fill="#222222" >+ assignmentId: int</text>
+<text x="82" y="761" font-family="Arial,sans-serif" font-size="10" fill="#222222" >+ bookingId: int</text>
+<text x="82" y="774" font-family="Arial,sans-serif" font-size="10" fill="#222222" >+ petId: int?</text>
+<text x="82" y="787" font-family="Arial,sans-serif" font-size="10" fill="#222222" >+ itemId: int?</text>
+<text x="82" y="800" font-family="Arial,sans-serif" font-size="10" fill="#222222" >+ itemName: string</text>
+<text x="82" y="813" font-family="Arial,sans-serif" font-size="10" fill="#222222" >+ category: string?</text>
+<text x="82" y="826" font-family="Arial,sans-serif" font-size="10" fill="#222222" >+ unit: string</text>
+<text x="82" y="839" font-family="Arial,sans-serif" font-size="10" fill="#222222" >+ quantity: decimal</text>
+<text x="82" y="852" font-family="Arial,sans-serif" font-size="10" fill="#222222" >+ unitPrice: decimal</text>
+<text x="82" y="865" font-family="Arial,sans-serif" font-size="10" fill="#222222" >+ notes: string?</text>
+<text x="82" y="878" font-family="Arial,sans-serif" font-size="10" fill="#222222" >+ status: string</text>
+<text x="82" y="891" font-family="Arial,sans-serif" font-size="10" fill="#222222" >+ recordedByUserId: int?</text>
+<text x="82" y="904" font-family="Arial,sans-serif" font-size="10" fill="#222222" >+ recordedByName: string?</text>
+<text x="82" y="917" font-family="Arial,sans-serif" font-size="10" fill="#222222" >+ voidedByUserId: int?</text>
+<text x="82" y="930" font-family="Arial,sans-serif" font-size="10" fill="#222222" >+ voidedByName: string?</text>
+<text x="82" y="943" font-family="Arial,sans-serif" font-size="10" fill="#222222" >+ voidedAt: datetime?</text>
+<text x="82" y="956" font-family="Arial,sans-serif" font-size="10" fill="#222222" >+ createdAt: datetime</text>
+<text x="82" y="969" font-family="Arial,sans-serif" font-size="10" fill="#222222" >+ updatedAt: datetime</text>
+<text x="82" y="992" font-family="Arial,sans-serif" font-size="10" fill="#222222" >+ recordUsage()</text>
+<text x="82" y="1005" font-family="Arial,sans-serif" font-size="10" fill="#222222" >+ removeUsage()</text>
+</g>
+<g data-class="boarding_observations"><title>BoardingObservation</title>
+<rect x="338" y="710" width="145" height="304" fill="#ffffff" stroke="#858585" stroke-width="0.8"/>
+<line x1="338" y1="734" x2="483" y2="734" stroke="#858585" stroke-width="0.8"/>
+<line x1="338" y1="991" x2="483" y2="991" stroke="#858585" stroke-width="0.8"/>
+<text x="410.5" y="726" font-family="Arial,sans-serif" font-size="11" fill="#222222" font-weight="700" text-anchor="middle">BoardingObservation</text>
+<text x="348" y="748" font-family="Arial,sans-serif" font-size="10" fill="#222222" >+ observationId: int</text>
+<text x="348" y="761" font-family="Arial,sans-serif" font-size="10" fill="#222222" >+ assignmentId: int?</text>
+<text x="348" y="774" font-family="Arial,sans-serif" font-size="10" fill="#222222" >+ bookingId: int</text>
+<text x="348" y="787" font-family="Arial,sans-serif" font-size="10" fill="#222222" >+ petId: int?</text>
+<text x="348" y="800" font-family="Arial,sans-serif" font-size="10" fill="#222222" >+ roomType: string</text>
+<text x="348" y="813" font-family="Arial,sans-serif" font-size="10" fill="#222222" >+ roomNumber: int</text>
+<text x="348" y="826" font-family="Arial,sans-serif" font-size="10" fill="#222222" >+ observationType: string</text>
+<text x="348" y="839" font-family="Arial,sans-serif" font-size="10" fill="#222222" >+ notes: string</text>
+<text x="348" y="852" font-family="Arial,sans-serif" font-size="10" fill="#222222" >+ appetiteStatus: string?</text>
+<text x="348" y="865" font-family="Arial,sans-serif" font-size="10" fill="#222222" >+ waterIntakeStatus: string?</text>
+<text x="348" y="878" font-family="Arial,sans-serif" font-size="10" fill="#222222" >+ eliminationStatus: string?</text>
+<text x="348" y="891" font-family="Arial,sans-serif" font-size="10" fill="#222222" >+ behaviorStatus: string?</text>
+<text x="348" y="904" font-family="Arial,sans-serif" font-size="10" fill="#222222" >+ temperatureC: decimal?</text>
+<text x="348" y="917" font-family="Arial,sans-serif" font-size="10" fill="#222222" >+ weightKg: decimal?</text>
+<text x="348" y="930" font-family="Arial,sans-serif" font-size="10" fill="#222222" >+ conditionSeverity: string?</text>
+<text x="348" y="943" font-family="Arial,sans-serif" font-size="10" fill="#222222" >+ requiresVetReview: bool?</text>
+<text x="348" y="956" font-family="Arial,sans-serif" font-size="10" fill="#222222" >+ observedAt: datetime</text>
+<text x="348" y="969" font-family="Arial,sans-serif" font-size="10" fill="#222222" >+ createdByUserId: int?</text>
+<text x="348" y="982" font-family="Arial,sans-serif" font-size="10" fill="#222222" >+ createdAt: datetime</text>
+<text x="348" y="1005" font-family="Arial,sans-serif" font-size="10" fill="#222222" >+ recordObservation()</text>
+</g>
+<g data-class="boarding_tasks"><title>BoardingTask</title>
+<rect x="612" y="710" width="135" height="265" fill="#ffffff" stroke="#858585" stroke-width="0.8"/>
+<line x1="612" y1="734" x2="747" y2="734" stroke="#858585" stroke-width="0.8"/>
+<line x1="612" y1="939" x2="747" y2="939" stroke="#858585" stroke-width="0.8"/>
+<text x="679.5" y="726" font-family="Arial,sans-serif" font-size="11" fill="#222222" font-weight="700" text-anchor="middle">BoardingTask</text>
+<text x="622" y="748" font-family="Arial,sans-serif" font-size="10" fill="#222222" >+ taskId: int</text>
+<text x="622" y="761" font-family="Arial,sans-serif" font-size="10" fill="#222222" >+ assignmentId: int?</text>
+<text x="622" y="774" font-family="Arial,sans-serif" font-size="10" fill="#222222" >+ bookingId: int</text>
+<text x="622" y="787" font-family="Arial,sans-serif" font-size="10" fill="#222222" >+ petId: int?</text>
+<text x="622" y="800" font-family="Arial,sans-serif" font-size="10" fill="#222222" >+ roomType: string</text>
+<text x="622" y="813" font-family="Arial,sans-serif" font-size="10" fill="#222222" >+ roomNumber: int</text>
+<text x="622" y="826" font-family="Arial,sans-serif" font-size="10" fill="#222222" >+ taskType: string</text>
+<text x="622" y="839" font-family="Arial,sans-serif" font-size="10" fill="#222222" >+ dueAt: datetime</text>
+<text x="622" y="852" font-family="Arial,sans-serif" font-size="10" fill="#222222" >+ status: string</text>
+<text x="622" y="865" font-family="Arial,sans-serif" font-size="10" fill="#222222" >+ assignedTo: string?</text>
+<text x="622" y="878" font-family="Arial,sans-serif" font-size="10" fill="#222222" >+ notes: string?</text>
+<text x="622" y="891" font-family="Arial,sans-serif" font-size="10" fill="#222222" >+ completedAt: datetime?</text>
+<text x="622" y="904" font-family="Arial,sans-serif" font-size="10" fill="#222222" >+ createdByUserId: int?</text>
+<text x="622" y="917" font-family="Arial,sans-serif" font-size="10" fill="#222222" >+ createdAt: datetime</text>
+<text x="622" y="930" font-family="Arial,sans-serif" font-size="10" fill="#222222" >+ updatedAt: datetime</text>
+<text x="622" y="953" font-family="Arial,sans-serif" font-size="10" fill="#222222" >+ createTask()</text>
+<text x="622" y="966" font-family="Arial,sans-serif" font-size="10" fill="#222222" >+ completeTask()</text>
+</g>
+<g data-class="rooms"><title>Room</title>
+<rect x="85" y="1104" width="116" height="161" fill="#ffffff" stroke="#858585" stroke-width="0.8"/>
+<line x1="85" y1="1128" x2="201" y2="1128" stroke="#858585" stroke-width="0.8"/>
+<line x1="85" y1="1216" x2="201" y2="1216" stroke="#858585" stroke-width="0.8"/>
+<text x="143" y="1120" font-family="Arial,sans-serif" font-size="11" fill="#222222" font-weight="700" text-anchor="middle">Room</text>
+<text x="95" y="1142" font-family="Arial,sans-serif" font-size="10" fill="#222222" >+ roomId: int</text>
+<text x="95" y="1155" font-family="Arial,sans-serif" font-size="10" fill="#222222" >+ branchId: int</text>
+<text x="95" y="1168" font-family="Arial,sans-serif" font-size="10" fill="#222222" >+ roomType: string</text>
+<text x="95" y="1181" font-family="Arial,sans-serif" font-size="10" fill="#222222" >+ totalCapacity: int</text>
+<text x="95" y="1194" font-family="Arial,sans-serif" font-size="10" fill="#222222" >+ description: string?</text>
+<text x="95" y="1207" font-family="Arial,sans-serif" font-size="10" fill="#222222" >+ createdAt: datetime</text>
+<text x="95" y="1230" font-family="Arial,sans-serif" font-size="10" fill="#222222" >+ createRooms()</text>
+<text x="95" y="1243" font-family="Arial,sans-serif" font-size="10" fill="#222222" >+ updateRoom()</text>
+<text x="95" y="1256" font-family="Arial,sans-serif" font-size="10" fill="#222222" >+ checkAvailability()</text>
+</g>
+<g data-class="room_unit_statuses"><title>RoomUnitStatus</title>
+<rect x="349" y="1104" width="123" height="148" fill="#ffffff" stroke="#858585" stroke-width="0.8"/>
+<line x1="349" y1="1128" x2="472" y2="1128" stroke="#858585" stroke-width="0.8"/>
+<line x1="349" y1="1229" x2="472" y2="1229" stroke="#858585" stroke-width="0.8"/>
+<text x="410.5" y="1120" font-family="Arial,sans-serif" font-size="11" fill="#222222" font-weight="700" text-anchor="middle">RoomUnitStatus</text>
+<text x="359" y="1142" font-family="Arial,sans-serif" font-size="10" fill="#222222" >+ roomUnitStatusId: int</text>
+<text x="359" y="1155" font-family="Arial,sans-serif" font-size="10" fill="#222222" >+ branchId: int</text>
+<text x="359" y="1168" font-family="Arial,sans-serif" font-size="10" fill="#222222" >+ roomType: string</text>
+<text x="359" y="1181" font-family="Arial,sans-serif" font-size="10" fill="#222222" >+ roomNumber: int</text>
+<text x="359" y="1194" font-family="Arial,sans-serif" font-size="10" fill="#222222" >+ status: string</text>
+<text x="359" y="1207" font-family="Arial,sans-serif" font-size="10" fill="#222222" >+ notes: string?</text>
+<text x="359" y="1220" font-family="Arial,sans-serif" font-size="10" fill="#222222" >+ updatedAt: datetime</text>
+<text x="359" y="1243" font-family="Arial,sans-serif" font-size="10" fill="#222222" >+ updateStatus()</text>
+</g>
+<g data-class="bookings"><title>Booking (reference to the same class on its detail sheet)</title>
+<rect x="869" y="130" width="89" height="57" fill="#ffffff" stroke="#858585" stroke-width="0.8"/>
+<line x1="869" y1="154" x2="958" y2="154" stroke="#858585" stroke-width="0.8"/>
+<line x1="869" y1="177" x2="958" y2="177" stroke="#858585" stroke-width="0.8"/>
+<text x="913.5" y="146" font-family="Arial,sans-serif" font-size="11" fill="#222222" font-weight="700" text-anchor="middle">Booking</text>
+<text x="879" y="168" font-family="Arial,sans-serif" font-size="10" fill="#222222" >+ bookingId: int</text>
+</g>
+<g data-class="branches"><title>Branch (reference to the same class on its detail sheet)</title>
+<rect x="872" y="277" width="84" height="57" fill="#ffffff" stroke="#858585" stroke-width="0.8"/>
+<line x1="872" y1="301" x2="956" y2="301" stroke="#858585" stroke-width="0.8"/>
+<line x1="872" y1="324" x2="956" y2="324" stroke="#858585" stroke-width="0.8"/>
+<text x="914" y="293" font-family="Arial,sans-serif" font-size="11" fill="#222222" font-weight="700" text-anchor="middle">Branch</text>
+<text x="882" y="315" font-family="Arial,sans-serif" font-size="10" fill="#222222" >+ branchId: int</text>
+</g>
+<g data-class="inventory_items"><title>InventoryItem (reference to the same class on its detail sheet)</title>
+<rect x="868" y="424" width="92" height="57" fill="#ffffff" stroke="#858585" stroke-width="0.8"/>
+<line x1="868" y1="448" x2="960" y2="448" stroke="#858585" stroke-width="0.8"/>
+<line x1="868" y1="471" x2="960" y2="471" stroke="#858585" stroke-width="0.8"/>
+<text x="914" y="440" font-family="Arial,sans-serif" font-size="11" fill="#222222" font-weight="700" text-anchor="middle">InventoryItem</text>
+<text x="878" y="462" font-family="Arial,sans-serif" font-size="10" fill="#222222" >+ itemId: int</text>
+</g>
+<g data-class="pets_information"><title>Pet (reference to the same class on its detail sheet)</title>
+<rect x="880" y="571" width="67" height="57" fill="#ffffff" stroke="#858585" stroke-width="0.8"/>
+<line x1="880" y1="595" x2="947" y2="595" stroke="#858585" stroke-width="0.8"/>
+<line x1="880" y1="618" x2="947" y2="618" stroke="#858585" stroke-width="0.8"/>
+<text x="913.5" y="587" font-family="Arial,sans-serif" font-size="11" fill="#222222" font-weight="700" text-anchor="middle">Pet</text>
+<text x="890" y="609" font-family="Arial,sans-serif" font-size="10" fill="#222222" >+ petId: int</text>
+</g>
+<g data-class="users"><title>User (reference to the same class on its detail sheet)</title>
+<rect x="873" y="718" width="82" height="70" fill="#ffffff" stroke="#858585" stroke-width="0.8"/>
+<line x1="873" y1="742" x2="955" y2="742" stroke="#858585" stroke-width="0.8"/>
+<line x1="873" y1="778" x2="955" y2="778" stroke="#858585" stroke-width="0.8"/>
+<text x="914" y="734" font-family="Arial,sans-serif" font-size="11" fill="#222222" font-weight="700" text-anchor="middle">User</text>
+<text x="883" y="756" font-family="Arial,sans-serif" font-size="10" fill="#222222" >+ userId: int</text>
+<text x="883" y="769" font-family="Arial,sans-serif" font-size="10" fill="#222222" >+ role: string?</text>
+</g>
+<text x="499" y="467.5" font-family="Arial,sans-serif" font-size="9" fill="#222222" style="font-family:Consolas,monospace">0..*</text>
+<text x="853.42" y="159.5" font-family="Arial,sans-serif" font-size="9" fill="#222222" style="font-family:Consolas,monospace">1</text>
+<text x="499" y="481.5" font-family="Arial,sans-serif" font-size="9" fill="#222222" style="font-family:Consolas,monospace">0..*</text>
+<text x="856.42" y="292.5" font-family="Arial,sans-serif" font-size="9" fill="#222222" style="font-family:Consolas,monospace">1</text>
+<text x="574.68" y="501.5" font-family="Arial,sans-serif" font-size="9" fill="#222222" style="font-family:Consolas,monospace">0..*</text>
+<text x="499" y="495.5" font-family="Arial,sans-serif" font-size="9" fill="#222222" style="font-family:Consolas,monospace">0..1</text>
+<text x="760" y="487.5" font-family="Arial,sans-serif" font-size="9" fill="#222222" style="font-family:Consolas,monospace">0..*</text>
+<text x="966" y="159.5" font-family="Arial,sans-serif" font-size="9" fill="#222222" style="font-family:Consolas,monospace">1</text>
+<text x="760" y="501.5" font-family="Arial,sans-serif" font-size="9" fill="#222222" style="font-family:Consolas,monospace">0..*</text>
+<text x="847.68" y="586.5" font-family="Arial,sans-serif" font-size="9" fill="#222222" style="font-family:Consolas,monospace">0..1</text>
+<text x="760" y="515.5" font-family="Arial,sans-serif" font-size="9" fill="#222222" style="font-family:Consolas,monospace">0..*</text>
+<text x="920" y="696" font-family="Arial,sans-serif" font-size="9" fill="#222222" style="font-family:Consolas,monospace">0..1</text>
+<text x="223" y="829" font-family="Arial,sans-serif" font-size="9" fill="#222222" style="font-family:Consolas,monospace">0..*</text>
+<text x="315.42" y="488.5" font-family="Arial,sans-serif" font-size="9" fill="#222222" style="font-family:Consolas,monospace">1</text>
+<text x="223" y="815" font-family="Arial,sans-serif" font-size="9" fill="#222222" style="font-family:Consolas,monospace">0..*</text>
+<text x="853.42" y="173.5" font-family="Arial,sans-serif" font-size="9" fill="#222222" style="font-family:Consolas,monospace">1</text>
+<text x="223" y="843" font-family="Arial,sans-serif" font-size="9" fill="#222222" style="font-family:Consolas,monospace">0..*</text>
+<text x="835.68" y="453.5" font-family="Arial,sans-serif" font-size="9" fill="#222222" style="font-family:Consolas,monospace">0..1</text>
+<text x="223" y="857" font-family="Arial,sans-serif" font-size="9" fill="#222222" style="font-family:Consolas,monospace">0..*</text>
+<text x="847.68" y="600.5" font-family="Arial,sans-serif" font-size="9" fill="#222222" style="font-family:Consolas,monospace">0..1</text>
+<text x="223" y="871" font-family="Arial,sans-serif" font-size="9" fill="#222222" style="font-family:Consolas,monospace">0..*</text>
+<text x="840.68" y="747" font-family="Arial,sans-serif" font-size="9" fill="#222222" style="font-family:Consolas,monospace">0..1</text>
+<text x="223" y="885" font-family="Arial,sans-serif" font-size="9" fill="#222222" style="font-family:Consolas,monospace">0..*</text>
+<text x="840.68" y="761" font-family="Arial,sans-serif" font-size="9" fill="#222222" style="font-family:Consolas,monospace">0..1</text>
+<text x="416.5" y="688" font-family="Arial,sans-serif" font-size="9" fill="#222222" style="font-family:Consolas,monospace">0..*</text>
+<text x="417" y="641" font-family="Arial,sans-serif" font-size="9" fill="#222222" style="font-family:Consolas,monospace">0..1</text>
+<text x="491" y="849" font-family="Arial,sans-serif" font-size="9" fill="#222222" style="font-family:Consolas,monospace">0..*</text>
+<text x="899.5" y="208" font-family="Arial,sans-serif" font-size="9" fill="#222222" style="font-family:Consolas,monospace">1</text>
+<text x="491" y="863" font-family="Arial,sans-serif" font-size="9" fill="#222222" style="font-family:Consolas,monospace">0..*</text>
+<text x="847.68" y="614.5" font-family="Arial,sans-serif" font-size="9" fill="#222222" style="font-family:Consolas,monospace">0..1</text>
+<text x="491" y="877" font-family="Arial,sans-serif" font-size="9" fill="#222222" style="font-family:Consolas,monospace">0..*</text>
+<text x="840.68" y="775" font-family="Arial,sans-serif" font-size="9" fill="#222222" style="font-family:Consolas,monospace">0..1</text>
+<text x="579.68" y="843.5" font-family="Arial,sans-serif" font-size="9" fill="#222222" style="font-family:Consolas,monospace">0..*</text>
+<text x="499" y="509.5" font-family="Arial,sans-serif" font-size="9" fill="#222222" style="font-family:Consolas,monospace">0..1</text>
+<text x="755" y="829.5" font-family="Arial,sans-serif" font-size="9" fill="#222222" style="font-family:Consolas,monospace">0..*</text>
+<text x="939.5" y="208" font-family="Arial,sans-serif" font-size="9" fill="#222222" style="font-family:Consolas,monospace">1</text>
+<text x="755" y="843.5" font-family="Arial,sans-serif" font-size="9" fill="#222222" style="font-family:Consolas,monospace">0..*</text>
+<text x="919.5" y="649" font-family="Arial,sans-serif" font-size="9" fill="#222222" style="font-family:Consolas,monospace">0..1</text>
+<text x="755" y="857.5" font-family="Arial,sans-serif" font-size="9" fill="#222222" style="font-family:Consolas,monospace">0..*</text>
+<text x="920" y="809" font-family="Arial,sans-serif" font-size="9" fill="#222222" style="font-family:Consolas,monospace">0..1</text>
+<text x="320.68" y="198.5" font-family="Arial,sans-serif" font-size="9" fill="#222222" style="font-family:Consolas,monospace">0..*</text>
+<text x="217" y="217" font-family="Arial,sans-serif" font-size="9" fill="#222222" style="font-family:Consolas,monospace">1</text>
+<text x="217" y="231" font-family="Arial,sans-serif" font-size="9" fill="#222222" style="font-family:Consolas,monospace">0..1</text>
+<text x="853.42" y="145.5" font-family="Arial,sans-serif" font-size="9" fill="#222222" style="font-family:Consolas,monospace">1</text>
+<text x="582.68" y="211.5" font-family="Arial,sans-serif" font-size="9" fill="#222222" style="font-family:Consolas,monospace">0..*</text>
+<text x="217" y="245" font-family="Arial,sans-serif" font-size="9" fill="#222222" style="font-family:Consolas,monospace">1</text>
+<text x="149.5" y="398" font-family="Arial,sans-serif" font-size="9" fill="#222222" style="font-family:Consolas,monospace">0..*</text>
+<text x="149" y="351" font-family="Arial,sans-serif" font-size="9" fill="#222222" style="font-family:Consolas,monospace">1</text>
+<text x="216" y="508" font-family="Arial,sans-serif" font-size="9" fill="#222222" style="font-family:Consolas,monospace">0..*</text>
+<text x="857.42" y="733" font-family="Arial,sans-serif" font-size="9" fill="#222222" style="font-family:Consolas,monospace">1</text>
+<text x="209" y="1185.5" font-family="Arial,sans-serif" font-size="9" fill="#222222" style="font-family:Consolas,monospace">0..*</text>
+<text x="856.42" y="306.5" font-family="Arial,sans-serif" font-size="9" fill="#222222" style="font-family:Consolas,monospace">1</text>
+<text x="480" y="1179" font-family="Arial,sans-serif" font-size="9" fill="#222222" style="font-family:Consolas,monospace">0..*</text>
+<text x="856.42" y="320.5" font-family="Arial,sans-serif" font-size="9" fill="#222222" style="font-family:Consolas,monospace">1</text>
+<text x="72" y="1343" font-family="Arial,sans-serif" font-size="9" fill="#222222" >Reference boxes repeat an existing class. Empty operation compartments indicate supporting state.</text>
+</svg>

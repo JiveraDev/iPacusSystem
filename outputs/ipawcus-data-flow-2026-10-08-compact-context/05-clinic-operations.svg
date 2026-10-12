@@ -1,0 +1,97 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1728" height="784" viewBox="0 0 1728 784" role="img" aria-labelledby="title desc">
+<title id="title">4.0 — Clinic Operations</title><desc id="desc">Plain black-and-white logical data-flow diagram with roles, numbered processes, open-ended data stores and labeled data arrows.</desc>
+<defs><marker id="arrow" markerWidth="8" markerHeight="8" refX="7" refY="4" orient="auto" markerUnits="userSpaceOnUse"><path d="M0 0 L7 4 L0 8 Z" fill="#000000"/></marker></defs>
+<rect width="100%" height="100%" fill="#ffffff"/>
+<text x="60" y="34" font-family="Arial,sans-serif" font-size="24" fill="#000000">4.0 — Clinic Operations</text>
+<text x="60" y="64" font-family="Arial,sans-serif" font-size="14" fill="#000000">Expansion of process 4.0. Each user role and each data store appears once.</text>
+<path d="M230 136 L248 136 L248 167 L715 167" fill="none" stroke="#000000" stroke-width="1.2" marker-end="url(#arrow)"><title>Care, room and stay entries</title></path>
+<text x="516" y="159" font-family="Arial,sans-serif" font-size="14" fill="#000000">Care, room and stay entries</text>
+<path d="M715 195 L255 195 L255 154 L230 154" fill="none" stroke="#000000" stroke-width="1.2" marker-end="url(#arrow)"><title>Care and room status</title></path>
+<text x="554" y="187" font-family="Arial,sans-serif" font-size="14" fill="#000000">Care and room status</text>
+<path d="M1454 153 L1360 153 L1360 153 L960 153" fill="none" stroke="#000000" stroke-width="1.2" marker-end="url(#arrow)"><title>Grooming and boarding bookings</title></path>
+<text x="1025" y="145" font-family="Arial,sans-serif" font-size="14" fill="#000000">Grooming and boarding bookings</text>
+<path d="M1454 223 L1367 223 L1367 181 L960 181" fill="none" stroke="#000000" stroke-width="1.2" marker-end="url(#arrow)"><title>Room and care records</title></path>
+<text x="1025" y="173" font-family="Arial,sans-serif" font-size="14" fill="#000000">Room and care records</text>
+<path d="M960 209 L1374 209 L1374 241 L1454 241" fill="none" stroke="#000000" stroke-width="1.2" marker-end="url(#arrow)"><title>Stay, observation and grooming data</title></path>
+<text x="1025" y="201" font-family="Arial,sans-serif" font-size="14" fill="#000000">Stay, observation and grooming data</text>
+<path d="M230 172 L262 172 L262 335 L715 335" fill="none" stroke="#000000" stroke-width="1.2" marker-end="url(#arrow)"><title>Service and stock entries</title></path>
+<text x="532" y="327" font-family="Arial,sans-serif" font-size="14" fill="#000000">Service and stock entries</text>
+<path d="M715 363 L269 363 L269 190 L230 190" fill="none" stroke="#000000" stroke-width="1.2" marker-end="url(#arrow)"><title>Service and stock status</title></path>
+<text x="537" y="355" font-family="Arial,sans-serif" font-size="14" fill="#000000">Service and stock status</text>
+<path d="M1454 259 L1381 259 L1381 335 L960 335" fill="none" stroke="#000000" stroke-width="1.2" marker-end="url(#arrow)"><title>Service prices and inventory</title></path>
+<text x="1025" y="327" font-family="Arial,sans-serif" font-size="14" fill="#000000">Service prices and inventory</text>
+<path d="M960 363 L1388 363 L1388 277 L1454 277" fill="none" stroke="#000000" stroke-width="1.2" marker-end="url(#arrow)"><title>Service and stock changes</title></path>
+<text x="1025" y="355" font-family="Arial,sans-serif" font-size="14" fill="#000000">Service and stock changes</text>
+<path d="M230 208 L276 208 L276 489 L715 489" fill="none" stroke="#000000" stroke-width="1.2" marker-end="url(#arrow)"><title>Charges and payment verification</title></path>
+<text x="479" y="481" font-family="Arial,sans-serif" font-size="14" fill="#000000">Charges and payment verification</text>
+<path d="M230 513 L283 513 L283 517 L715 517" fill="none" stroke="#000000" stroke-width="1.2" marker-end="url(#arrow)"><title>Payment proof</title></path>
+<text x="598" y="509" font-family="Arial,sans-serif" font-size="14" fill="#000000">Payment proof</text>
+<path d="M715 545 L290 545 L290 531 L230 531" fill="none" stroke="#000000" stroke-width="1.2" marker-end="url(#arrow)"><title>Invoice and payment status</title></path>
+<text x="517" y="537" font-family="Arial,sans-serif" font-size="14" fill="#000000">Invoice and payment status</text>
+<path d="M1454 295 L1395 295 L1395 503 L960 503" fill="none" stroke="#000000" stroke-width="1.2" marker-end="url(#arrow)"><title>Charges and payment records</title></path>
+<text x="1025" y="495" font-family="Arial,sans-serif" font-size="14" fill="#000000">Charges and payment records</text>
+<path d="M960 531 L1402 531 L1402 313 L1454 313" fill="none" stroke="#000000" stroke-width="1.2" marker-end="url(#arrow)"><title>Invoice and verified payments</title></path>
+<text x="1025" y="523" font-family="Arial,sans-serif" font-size="14" fill="#000000">Invoice and verified payments</text>
+<path d="M230 226 L297 226 L297 657 L715 657" fill="none" stroke="#000000" stroke-width="1.2" marker-end="url(#arrow)"><title>Refund details</title></path>
+<text x="600" y="649" font-family="Arial,sans-serif" font-size="14" fill="#000000">Refund details</text>
+<path d="M230 685 L304 685 L304 685 L715 685" fill="none" stroke="#000000" stroke-width="1.2" marker-end="url(#arrow)"><title>Payment-method settings</title></path>
+<text x="530" y="677" font-family="Arial,sans-serif" font-size="14" fill="#000000">Payment-method settings</text>
+<path d="M715 713 L311 713 L311 549 L230 549" fill="none" stroke="#000000" stroke-width="1.2" marker-end="url(#arrow)"><title>Refund status</title></path>
+<text x="603" y="705" font-family="Arial,sans-serif" font-size="14" fill="#000000">Refund status</text>
+<path d="M1454 331 L1409 331 L1409 671 L960 671" fill="none" stroke="#000000" stroke-width="1.2" marker-end="url(#arrow)"><title>Payment and refund eligibility</title></path>
+<text x="1025" y="663" font-family="Arial,sans-serif" font-size="14" fill="#000000">Payment and refund eligibility</text>
+<path d="M960 699 L1416 699 L1416 349 L1454 349" fill="none" stroke="#000000" stroke-width="1.2" marker-end="url(#arrow)"><title>Refund and payment settings</title></path>
+<text x="1025" y="691" font-family="Arial,sans-serif" font-size="14" fill="#000000">Refund and payment settings</text>
+<g data-node="05-clinic-operations-p-4.1"><title>4.1</title>
+<rect x="715" y="112" width="245" height="112" rx="11" fill="#ffffff" stroke="#000000" stroke-width="1.2"/>
+<line x1="715" y1="138" x2="960" y2="138" stroke="#000000" stroke-width="1.2"/>
+<text x="837.5" y="132" font-family="Arial,sans-serif" font-size="16" fill="#000000" text-anchor="middle" font-weight="700">4.1</text>
+<text x="837.5" y="177.5" font-family="Arial,sans-serif" font-size="16" fill="#000000" text-anchor="middle">Manage Grooming</text>
+<text x="837.5" y="196.5" font-family="Arial,sans-serif" font-size="16" fill="#000000" text-anchor="middle">and Boarding</text>
+</g>
+<g data-node="05-clinic-operations-p-4.2"><title>4.2</title>
+<rect x="715" y="280" width="245" height="112" rx="11" fill="#ffffff" stroke="#000000" stroke-width="1.2"/>
+<line x1="715" y1="306" x2="960" y2="306" stroke="#000000" stroke-width="1.2"/>
+<text x="837.5" y="300" font-family="Arial,sans-serif" font-size="16" fill="#000000" text-anchor="middle" font-weight="700">4.2</text>
+<text x="837.5" y="345.5" font-family="Arial,sans-serif" font-size="16" fill="#000000" text-anchor="middle">Manage Services</text>
+<text x="837.5" y="364.5" font-family="Arial,sans-serif" font-size="16" fill="#000000" text-anchor="middle">and Inventory</text>
+</g>
+<g data-node="05-clinic-operations-p-4.3"><title>4.3</title>
+<rect x="715" y="448" width="245" height="112" rx="11" fill="#ffffff" stroke="#000000" stroke-width="1.2"/>
+<line x1="715" y1="474" x2="960" y2="474" stroke="#000000" stroke-width="1.2"/>
+<text x="837.5" y="468" font-family="Arial,sans-serif" font-size="16" fill="#000000" text-anchor="middle" font-weight="700">4.3</text>
+<text x="837.5" y="513.5" font-family="Arial,sans-serif" font-size="16" fill="#000000" text-anchor="middle">Process Billing</text>
+<text x="837.5" y="532.5" font-family="Arial,sans-serif" font-size="16" fill="#000000" text-anchor="middle">and Payments</text>
+</g>
+<g data-node="05-clinic-operations-p-4.4"><title>4.4</title>
+<rect x="715" y="616" width="245" height="112" rx="11" fill="#ffffff" stroke="#000000" stroke-width="1.2"/>
+<line x1="715" y1="642" x2="960" y2="642" stroke="#000000" stroke-width="1.2"/>
+<text x="837.5" y="636" font-family="Arial,sans-serif" font-size="16" fill="#000000" text-anchor="middle" font-weight="700">4.4</text>
+<text x="837.5" y="681.5" font-family="Arial,sans-serif" font-size="16" fill="#000000" text-anchor="middle">Process Refunds</text>
+<text x="837.5" y="700.5" font-family="Arial,sans-serif" font-size="16" fill="#000000" text-anchor="middle">and Payment Settings</text>
+</g>
+<g data-node="05-clinic-operations-ref-admin"><title>admin</title>
+<rect x="60" y="120" width="170" height="122" rx="0" fill="#ffffff" stroke="#000000" stroke-width="1.2"/>
+<text x="145" y="187" font-family="Arial,sans-serif" font-size="16" fill="#000000" text-anchor="middle" font-weight="700">Admin</text>
+</g>
+<g data-node="05-clinic-operations-ref-owner"><title>owner</title>
+<rect x="60" y="497" width="170" height="68" rx="0" fill="#ffffff" stroke="#000000" stroke-width="1.2"/>
+<text x="145" y="537" font-family="Arial,sans-serif" font-size="16" fill="#000000" text-anchor="middle" font-weight="700">Pet Owner</text>
+</g>
+<g data-node="05-clinic-operations-ref-super"><title>super</title>
+<rect x="60" y="651" width="170" height="68" rx="0" fill="#ffffff" stroke="#000000" stroke-width="1.2"/>
+<text x="145" y="691" font-family="Arial,sans-serif" font-size="16" fill="#000000" text-anchor="middle" font-weight="700">Super Admin</text>
+</g>
+<g data-node="05-clinic-operations-ref-D2"><title>D2</title>
+<path d="M1684 119 H1454 V187 H1684 M1494 119 V187" fill="#ffffff" stroke="#000000" stroke-width="1.2"/>
+<text x="1474" y="159" font-family="Arial,sans-serif" font-size="16" fill="#000000" text-anchor="middle">D2</text>
+<text x="1589" y="149.5" font-family="Arial,sans-serif" font-size="16" fill="#000000" text-anchor="middle">Booking and</text>
+<text x="1589" y="168.5" font-family="Arial,sans-serif" font-size="16" fill="#000000" text-anchor="middle">Clinical Records</text>
+</g>
+<g data-node="05-clinic-operations-ref-D4"><title>D4</title>
+<path d="M1684 207 H1454 V365 H1684 M1494 207 V365" fill="#ffffff" stroke="#000000" stroke-width="1.2"/>
+<text x="1474" y="292" font-family="Arial,sans-serif" font-size="16" fill="#000000" text-anchor="middle">D4</text>
+<text x="1589" y="282.5" font-family="Arial,sans-serif" font-size="16" fill="#000000" text-anchor="middle">Clinic Operations</text>
+<text x="1589" y="301.5" font-family="Arial,sans-serif" font-size="16" fill="#000000" text-anchor="middle">and Billing Records</text>
+</g>
+</svg>

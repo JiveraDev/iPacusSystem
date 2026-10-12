@@ -1,0 +1,23 @@
+{
+  "mainClasses": 16,
+  "previousOverviewClasses": 35,
+  "selectedRelations": 18,
+  "mappedDetailedResponsibilities": 91,
+  "persistentObjects": 89,
+  "retainedSourceOperations": 174,
+  "checkedCurrentSourceFiles": 57,
+  "checkedSegments": 60,
+  "labelsAboveOwnLine": 35,
+  "classBoxIntersections": 0,
+  "labelLineIntersections": 0,
+  "labelLabelIntersections": 0,
+  "textOverflows": 0,
+  "oneEditableSheet": true,
+  "originalDiagramsPreserved": true,
+  "contentSizedClassBoxes": true,
+  "columnCentersPreserved": true,
+  "sharedWireSegments": 0,
+  "wireCrossingsWithBridges": 3,
+  "applicationChanged": false,
+  "databaseChanged": false
+}

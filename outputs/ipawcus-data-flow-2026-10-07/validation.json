@@ -1,0 +1,20 @@
+{
+  "pages": 7,
+  "main_processes": 5,
+  "main_data_flows": 24,
+  "processes_checked": 27,
+  "data_flows_checked": 137,
+  "tables_mapped_once": 89,
+  "black_and_white_only": true,
+  "labels_above_their_own_arrows": true,
+  "figure_intersections": 0,
+  "label_intersections": 0,
+  "text_overflows": 0,
+  "each_user_once_per_sheet": true,
+  "each_data_store_once_per_sheet": true,
+  "overlapping_connector_segments": 0,
+  "source_files_exist": true,
+  "previous_diagram_preserved": true,
+  "application_modified": false,
+  "database_modified": false
+}

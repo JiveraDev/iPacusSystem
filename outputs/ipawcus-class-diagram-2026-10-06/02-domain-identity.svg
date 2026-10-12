@@ -1,0 +1,192 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1920" height="1161" viewBox="0 0 1920 1161" role="img" aria-labelledby="title desc">
+<title id="title">iPawcus — Identity and access</title>
+<desc id="desc">Domain UML class diagram: names, typed attributes, operations, and relationships. Every label is above its own relationship line near the class. Lines avoid all class boxes. Supporting pages include the complete domain model.</desc>
+<defs><marker id="dependency" markerWidth="9" markerHeight="9" refX="8" refY="4.5" orient="auto" markerUnits="userSpaceOnUse"><path d="M0 0 L8 4.5 L0 9" fill="none" stroke="#858585" stroke-width="1.1"/></marker></defs>
+<rect width="100%" height="100%" fill="#ffffff"/>
+<text x="90" y="40" font-family="Arial,sans-serif" font-size="25" fill="#202020" >iPawcus — Identity and access</text>
+<text x="90" y="68" font-family="Arial,sans-serif" font-size="13" fill="#202020" >Classes show attributes and operations. Solid: association · dashed: logical association · dashed arrow: dependency.</text>
+<text x="90" y="91" font-family="Arial,sans-serif" font-size="12" fill="#202020" >1 required · 0..1 optional · 0..* zero-to-many · ? nullable · source and operation mappings in DOMAIN-REFERENCE.md.</text>
+<path d="M560 165 L420 165" fill="none" stroke="#858585" stroke-width="1.1"><title>admin_profiles.user_id → users.user_id / admin_profiles_ibfk_1</title></path>
+<path d="M560 689 L504 689 L504 237 L420 237" fill="none" stroke="#858585" stroke-width="1.1"><title>email_otp_tokens.user_id → users.user_id / email_otp_user_fk</title></path>
+<path d="M420 183 L476 183 L476 113 L1444 113 L1444 165 L1500 165" fill="none" stroke="#858585" stroke-width="1.1"><title>users.preferred_branch_id → branches.branch_id / users_preferred_branch_fk</title></path>
+<path d="M420 667 L476 667 L476 219 L420 219" fill="none" stroke="#858585" stroke-width="1.1"><title>user_auth_identities.user_id → users.user_id / fk_user_auth_identity_user</title></path>
+<path d="M1030 165 L974 165 L974 108 L504 108 L504 201 L420 201" fill="none" stroke="#858585" stroke-width="1.1"><title>veterinarian_profiles.user_id → users.user_id / veterinarian_profiles_ibfk_1</title></path>
+<g data-class="users"><title>User</title>
+<rect x="90" y="135" width="330" height="438" fill="#ffffff" stroke="#767676" stroke-width="1.2"/>
+<line x1="90" y1="165" x2="420" y2="165" stroke="#767676" stroke-width="1"/>
+<line x1="90" y1="497" x2="420" y2="497" stroke="#767676" stroke-width="1"/>
+<text x="255" y="155" font-family="Arial,sans-serif" font-size="14" fill="#202020" text-anchor="middle" font-weight="600">User</text>
+<text x="102" y="182" font-family="Arial,sans-serif" font-size="12" fill="#202020" >+ userId: int</text>
+<text x="102" y="198" font-family="Arial,sans-serif" font-size="12" fill="#202020" >+ firstName: string?</text>
+<text x="102" y="214" font-family="Arial,sans-serif" font-size="12" fill="#202020" >+ lastName: string</text>
+<text x="102" y="230" font-family="Arial,sans-serif" font-size="12" fill="#202020" >+ email: string</text>
+<text x="102" y="246" font-family="Arial,sans-serif" font-size="12" fill="#202020" >+ emailVerifiedAt: datetime?</text>
+<text x="102" y="262" font-family="Arial,sans-serif" font-size="12" fill="#202020" >+ address: string</text>
+<text x="102" y="278" font-family="Arial,sans-serif" font-size="12" fill="#202020" >+ passwordHash: string?</text>
+<text x="102" y="294" font-family="Arial,sans-serif" font-size="12" fill="#202020" >+ passwordChangedAt: datetime?</text>
+<text x="102" y="310" font-family="Arial,sans-serif" font-size="12" fill="#202020" >+ emergencyNumber: string?</text>
+<text x="102" y="326" font-family="Arial,sans-serif" font-size="12" fill="#202020" >+ phoneNumber: string?</text>
+<text x="102" y="342" font-family="Arial,sans-serif" font-size="12" fill="#202020" >+ role: string?</text>
+<text x="102" y="358" font-family="Arial,sans-serif" font-size="12" fill="#202020" >+ accountStatus: string</text>
+<text x="102" y="374" font-family="Arial,sans-serif" font-size="12" fill="#202020" >+ deactivatedAt: datetime?</text>
+<text x="102" y="390" font-family="Arial,sans-serif" font-size="12" fill="#202020" >+ deactivationReason: string?</text>
+<text x="102" y="406" font-family="Arial,sans-serif" font-size="12" fill="#202020" >+ createdAt: datetime</text>
+<text x="102" y="422" font-family="Arial,sans-serif" font-size="12" fill="#202020" >+ lastSeenAt: datetime?</text>
+<text x="102" y="438" font-family="Arial,sans-serif" font-size="12" fill="#202020" >+ profileImageUrl: string?</text>
+<text x="102" y="454" font-family="Arial,sans-serif" font-size="12" fill="#202020" >+ birthdate: date?</text>
+<text x="102" y="470" font-family="Arial,sans-serif" font-size="12" fill="#202020" >+ preferredBranchId: int?</text>
+<text x="102" y="486" font-family="Arial,sans-serif" font-size="12" fill="#202020" >+ activityLogFile: string?</text>
+<text x="102" y="514" font-family="Arial,sans-serif" font-size="12" fill="#202020" >+ login()</text>
+<text x="102" y="530" font-family="Arial,sans-serif" font-size="12" fill="#202020" >+ logout()</text>
+<text x="102" y="546" font-family="Arial,sans-serif" font-size="12" fill="#202020" >+ updateProfile()</text>
+<text x="102" y="562" font-family="Arial,sans-serif" font-size="12" fill="#202020" >+ updatePassword()</text>
+</g>
+<g data-class="admin_profiles"><title>AdminProfile</title>
+<rect x="560" y="135" width="330" height="214" fill="#ffffff" stroke="#767676" stroke-width="1.2"/>
+<line x1="560" y1="165" x2="890" y2="165" stroke="#767676" stroke-width="1"/>
+<line x1="560" y1="321" x2="890" y2="321" stroke="#767676" stroke-width="1"/>
+<text x="725" y="155" font-family="Arial,sans-serif" font-size="14" fill="#202020" text-anchor="middle" font-weight="600">AdminProfile</text>
+<text x="572" y="182" font-family="Arial,sans-serif" font-size="12" fill="#202020" >+ profileId: int</text>
+<text x="572" y="198" font-family="Arial,sans-serif" font-size="12" fill="#202020" >+ userId: int</text>
+<text x="572" y="214" font-family="Arial,sans-serif" font-size="12" fill="#202020" >+ employeeId: string?</text>
+<text x="572" y="230" font-family="Arial,sans-serif" font-size="12" fill="#202020" >+ hireDate: date?</text>
+<text x="572" y="246" font-family="Arial,sans-serif" font-size="12" fill="#202020" >+ employmentStatus: string?</text>
+<text x="572" y="262" font-family="Arial,sans-serif" font-size="12" fill="#202020" >+ createdAt: datetime</text>
+<text x="572" y="278" font-family="Arial,sans-serif" font-size="12" fill="#202020" >+ position: string?</text>
+<text x="572" y="294" font-family="Arial,sans-serif" font-size="12" fill="#202020" >+ isActive: bool?</text>
+<text x="572" y="310" font-family="Arial,sans-serif" font-size="12" fill="#202020" >+ yearsOfExperience: int?</text>
+<text x="572" y="338" font-family="Arial,sans-serif" font-size="12" fill="#202020" >+ updateProfile()</text>
+</g>
+<g data-class="veterinarian_profiles"><title>VeterinarianProfile</title>
+<rect x="1030" y="135" width="330" height="294" fill="#ffffff" stroke="#767676" stroke-width="1.2"/>
+<line x1="1030" y1="165" x2="1360" y2="165" stroke="#767676" stroke-width="1"/>
+<line x1="1030" y1="369" x2="1360" y2="369" stroke="#767676" stroke-width="1"/>
+<text x="1195" y="155" font-family="Arial,sans-serif" font-size="14" fill="#202020" text-anchor="middle" font-weight="600">VeterinarianProfile</text>
+<text x="1042" y="182" font-family="Arial,sans-serif" font-size="12" fill="#202020" >+ profileId: int</text>
+<text x="1042" y="198" font-family="Arial,sans-serif" font-size="12" fill="#202020" >+ userId: int</text>
+<text x="1042" y="214" font-family="Arial,sans-serif" font-size="12" fill="#202020" >+ veterinarianId: string?</text>
+<text x="1042" y="230" font-family="Arial,sans-serif" font-size="12" fill="#202020" >+ licenseNumber: string?</text>
+<text x="1042" y="246" font-family="Arial,sans-serif" font-size="12" fill="#202020" >+ specialization: string?</text>
+<text x="1042" y="262" font-family="Arial,sans-serif" font-size="12" fill="#202020" >+ consultationRate: decimal?</text>
+<text x="1042" y="278" font-family="Arial,sans-serif" font-size="12" fill="#202020" >+ yearsOfExperience: int?</text>
+<text x="1042" y="294" font-family="Arial,sans-serif" font-size="12" fill="#202020" >+ hireDate: date?</text>
+<text x="1042" y="310" font-family="Arial,sans-serif" font-size="12" fill="#202020" >+ isAcceptingPatients: bool?</text>
+<text x="1042" y="326" font-family="Arial,sans-serif" font-size="12" fill="#202020" >+ isActive: bool?</text>
+<text x="1042" y="342" font-family="Arial,sans-serif" font-size="12" fill="#202020" >+ createdAt: datetime</text>
+<text x="1042" y="358" font-family="Arial,sans-serif" font-size="12" fill="#202020" >+ experienceHistory: string?</text>
+<text x="1042" y="386" font-family="Arial,sans-serif" font-size="12" fill="#202020" >+ updateProfile()</text>
+<text x="1042" y="402" font-family="Arial,sans-serif" font-size="12" fill="#202020" >+ setAcceptingPatients()</text>
+<text x="1042" y="418" font-family="Arial,sans-serif" font-size="12" fill="#202020" >+ receivePatient()</text>
+</g>
+<g data-class="user_auth_identities"><title>UserAuthIdentity</title>
+<rect x="90" y="637" width="330" height="198" fill="#ffffff" stroke="#767676" stroke-width="1.2"/>
+<line x1="90" y1="667" x2="420" y2="667" stroke="#767676" stroke-width="1"/>
+<line x1="90" y1="791" x2="420" y2="791" stroke="#767676" stroke-width="1"/>
+<text x="255" y="657" font-family="Arial,sans-serif" font-size="14" fill="#202020" text-anchor="middle" font-weight="600">UserAuthIdentity</text>
+<text x="102" y="684" font-family="Arial,sans-serif" font-size="12" fill="#202020" >+ identityId: int</text>
+<text x="102" y="700" font-family="Arial,sans-serif" font-size="12" fill="#202020" >+ userId: int</text>
+<text x="102" y="716" font-family="Arial,sans-serif" font-size="12" fill="#202020" >+ provider: string</text>
+<text x="102" y="732" font-family="Arial,sans-serif" font-size="12" fill="#202020" >+ providerSubject: string</text>
+<text x="102" y="748" font-family="Arial,sans-serif" font-size="12" fill="#202020" >+ providerEmail: string?</text>
+<text x="102" y="764" font-family="Arial,sans-serif" font-size="12" fill="#202020" >+ linkedAt: datetime</text>
+<text x="102" y="780" font-family="Arial,sans-serif" font-size="12" fill="#202020" >+ lastLoginAt: datetime?</text>
+<text x="102" y="808" font-family="Arial,sans-serif" font-size="12" fill="#202020" >+ connectGoogle()</text>
+<text x="102" y="824" font-family="Arial,sans-serif" font-size="12" fill="#202020" >+ checkConnection()</text>
+</g>
+<g data-class="admin_feature_permissions"><title>AdminFeaturePermission</title>
+<rect x="560" y="413" width="330" height="182" fill="#ffffff" stroke="#767676" stroke-width="1.2"/>
+<line x1="560" y1="443" x2="890" y2="443" stroke="#767676" stroke-width="1"/>
+<line x1="560" y1="567" x2="890" y2="567" stroke="#767676" stroke-width="1"/>
+<text x="725" y="433" font-family="Arial,sans-serif" font-size="14" fill="#202020" text-anchor="middle" font-weight="600">AdminFeaturePermission</text>
+<text x="572" y="460" font-family="Arial,sans-serif" font-size="12" fill="#202020" >+ permissionId: int</text>
+<text x="572" y="476" font-family="Arial,sans-serif" font-size="12" fill="#202020" >+ userId: int</text>
+<text x="572" y="492" font-family="Arial,sans-serif" font-size="12" fill="#202020" >+ featureKey: string</text>
+<text x="572" y="508" font-family="Arial,sans-serif" font-size="12" fill="#202020" >+ isAllowed: bool</text>
+<text x="572" y="524" font-family="Arial,sans-serif" font-size="12" fill="#202020" >+ updatedByUserId: int?</text>
+<text x="572" y="540" font-family="Arial,sans-serif" font-size="12" fill="#202020" >+ createdAt: datetime</text>
+<text x="572" y="556" font-family="Arial,sans-serif" font-size="12" fill="#202020" >+ updatedAt: datetime</text>
+<text x="572" y="584" font-family="Arial,sans-serif" font-size="12" fill="#202020" >+ savePermissions()</text>
+</g>
+<g data-class="admin_feature_permission_audit"><title>AdminPermissionAudit</title>
+<rect x="1030" y="493" width="330" height="162" fill="#ffffff" stroke="#767676" stroke-width="1.2"/>
+<line x1="1030" y1="523" x2="1360" y2="523" stroke="#767676" stroke-width="1"/>
+<line x1="1030" y1="631" x2="1360" y2="631" stroke="#767676" stroke-width="1"/>
+<text x="1195" y="513" font-family="Arial,sans-serif" font-size="14" fill="#202020" text-anchor="middle" font-weight="600">AdminPermissionAudit</text>
+<text x="1042" y="540" font-family="Arial,sans-serif" font-size="12" fill="#202020" >+ auditId: int</text>
+<text x="1042" y="556" font-family="Arial,sans-serif" font-size="12" fill="#202020" >+ targetUserId: int</text>
+<text x="1042" y="572" font-family="Arial,sans-serif" font-size="12" fill="#202020" >+ changedByUserId: int</text>
+<text x="1042" y="588" font-family="Arial,sans-serif" font-size="12" fill="#202020" >+ previousPermissions: json?</text>
+<text x="1042" y="604" font-family="Arial,sans-serif" font-size="12" fill="#202020" >+ newPermissions: json</text>
+<text x="1042" y="620" font-family="Arial,sans-serif" font-size="12" fill="#202020" >+ createdAt: datetime</text>
+</g>
+<g data-class="api_access_tokens"><title>ApiAccessToken</title>
+<rect x="90" y="899" width="330" height="182" fill="#ffffff" stroke="#767676" stroke-width="1.2"/>
+<line x1="90" y1="929" x2="420" y2="929" stroke="#767676" stroke-width="1"/>
+<line x1="90" y1="1053" x2="420" y2="1053" stroke="#767676" stroke-width="1"/>
+<text x="255" y="919" font-family="Arial,sans-serif" font-size="14" fill="#202020" text-anchor="middle" font-weight="600">ApiAccessToken</text>
+<text x="102" y="946" font-family="Arial,sans-serif" font-size="12" fill="#202020" >+ tokenId: int</text>
+<text x="102" y="962" font-family="Arial,sans-serif" font-size="12" fill="#202020" >+ userId: int</text>
+<text x="102" y="978" font-family="Arial,sans-serif" font-size="12" fill="#202020" >+ tokenHash: string</text>
+<text x="102" y="994" font-family="Arial,sans-serif" font-size="12" fill="#202020" >+ createdAt: datetime</text>
+<text x="102" y="1010" font-family="Arial,sans-serif" font-size="12" fill="#202020" >+ expiresAt: datetime</text>
+<text x="102" y="1026" font-family="Arial,sans-serif" font-size="12" fill="#202020" >+ lastUsedAt: datetime?</text>
+<text x="102" y="1042" font-family="Arial,sans-serif" font-size="12" fill="#202020" >+ revokedAt: datetime?</text>
+<text x="102" y="1070" font-family="Arial,sans-serif" font-size="12" fill="#202020" >+ viewRecord()</text>
+</g>
+<g data-class="email_otp_tokens"><title>EmailOtpToken</title>
+<rect x="560" y="659" width="330" height="310" fill="#ffffff" stroke="#767676" stroke-width="1.2"/>
+<line x1="560" y1="689" x2="890" y2="689" stroke="#767676" stroke-width="1"/>
+<line x1="560" y1="925" x2="890" y2="925" stroke="#767676" stroke-width="1"/>
+<text x="725" y="679" font-family="Arial,sans-serif" font-size="14" fill="#202020" text-anchor="middle" font-weight="600">EmailOtpToken</text>
+<text x="572" y="706" font-family="Arial,sans-serif" font-size="12" fill="#202020" >+ otpId: int</text>
+<text x="572" y="722" font-family="Arial,sans-serif" font-size="12" fill="#202020" >+ userId: int?</text>
+<text x="572" y="738" font-family="Arial,sans-serif" font-size="12" fill="#202020" >+ email: string</text>
+<text x="572" y="754" font-family="Arial,sans-serif" font-size="12" fill="#202020" >+ purpose: string</text>
+<text x="572" y="770" font-family="Arial,sans-serif" font-size="12" fill="#202020" >+ tokenHash: string</text>
+<text x="572" y="786" font-family="Arial,sans-serif" font-size="12" fill="#202020" >+ expiresAt: datetime</text>
+<text x="572" y="802" font-family="Arial,sans-serif" font-size="12" fill="#202020" >+ usedAt: datetime?</text>
+<text x="572" y="818" font-family="Arial,sans-serif" font-size="12" fill="#202020" >+ attemptCount: int</text>
+<text x="572" y="834" font-family="Arial,sans-serif" font-size="12" fill="#202020" >+ maxAttempts: int</text>
+<text x="572" y="850" font-family="Arial,sans-serif" font-size="12" fill="#202020" >+ lastSentAt: datetime?</text>
+<text x="572" y="866" font-family="Arial,sans-serif" font-size="12" fill="#202020" >+ requestIp: string?</text>
+<text x="572" y="882" font-family="Arial,sans-serif" font-size="12" fill="#202020" >+ userAgent: string?</text>
+<text x="572" y="898" font-family="Arial,sans-serif" font-size="12" fill="#202020" >+ createdAt: datetime</text>
+<text x="572" y="914" font-family="Arial,sans-serif" font-size="12" fill="#202020" >+ updatedAt: datetime</text>
+<text x="572" y="942" font-family="Arial,sans-serif" font-size="12" fill="#202020" >+ sendVerification()</text>
+<text x="572" y="958" font-family="Arial,sans-serif" font-size="12" fill="#202020" >+ verifyEmail()</text>
+</g>
+<g data-class="google_auth_onboarding_tokens"><title>GoogleAuthOnboardingToken</title>
+<rect x="1030" y="719" width="330" height="230" fill="#ffffff" stroke="#767676" stroke-width="1.2"/>
+<line x1="1030" y1="749" x2="1360" y2="749" stroke="#767676" stroke-width="1"/>
+<line x1="1030" y1="921" x2="1360" y2="921" stroke="#767676" stroke-width="1"/>
+<text x="1195" y="739" font-family="Arial,sans-serif" font-size="14" fill="#202020" text-anchor="middle" font-weight="600">GoogleAuthOnboardingToken</text>
+<text x="1042" y="766" font-family="Arial,sans-serif" font-size="12" fill="#202020" >+ onboardingId: int</text>
+<text x="1042" y="782" font-family="Arial,sans-serif" font-size="12" fill="#202020" >+ tokenHash: string</text>
+<text x="1042" y="798" font-family="Arial,sans-serif" font-size="12" fill="#202020" >+ providerSubject: string</text>
+<text x="1042" y="814" font-family="Arial,sans-serif" font-size="12" fill="#202020" >+ email: string</text>
+<text x="1042" y="830" font-family="Arial,sans-serif" font-size="12" fill="#202020" >+ firstName: string?</text>
+<text x="1042" y="846" font-family="Arial,sans-serif" font-size="12" fill="#202020" >+ lastName: string?</text>
+<text x="1042" y="862" font-family="Arial,sans-serif" font-size="12" fill="#202020" >+ pictureUrl: string?</text>
+<text x="1042" y="878" font-family="Arial,sans-serif" font-size="12" fill="#202020" >+ expiresAt: datetime</text>
+<text x="1042" y="894" font-family="Arial,sans-serif" font-size="12" fill="#202020" >+ consumedAt: datetime?</text>
+<text x="1042" y="910" font-family="Arial,sans-serif" font-size="12" fill="#202020" >+ createdAt: datetime</text>
+<text x="1042" y="938" font-family="Arial,sans-serif" font-size="12" fill="#202020" >+ completeRegistration()</text>
+</g>
+<g data-class="branches"><title>Branch / full definition on sheet 3</title>
+<rect x="1500" y="135" width="330" height="82" fill="#ffffff" stroke="#767676" stroke-width="1.2"/>
+<line x1="1500" y1="165" x2="1830" y2="165" stroke="#767676" stroke-width="1"/>
+<line x1="1500" y1="193" x2="1830" y2="193" stroke="#767676" stroke-width="1"/>
+<text x="1665" y="155" font-family="Arial,sans-serif" font-size="14" fill="#202020" text-anchor="middle" font-weight="600">Branch</text>
+<text x="1512" y="182" font-family="Arial,sans-serif" font-size="12" fill="#202020" >+ branchId: int</text>
+</g>
+<text x="518" y="160" font-family="Consolas,monospace" font-size="11.5" fill="#202020" data-relationship="domain-identity-edge-0" data-endpoint="start">0..*</text>
+<text x="432" y="160" font-family="Consolas,monospace" font-size="11.5" fill="#202020" data-relationship="domain-identity-edge-0" data-endpoint="end">1</text>
+<text x="518" y="684" font-family="Consolas,monospace" font-size="11.5" fill="#202020" data-relationship="domain-identity-edge-1" data-endpoint="start">0..*</text>
+<text x="432" y="232" font-family="Consolas,monospace" font-size="11.5" fill="#202020" data-relationship="domain-identity-edge-1" data-endpoint="end">0..1</text>
+<text x="432" y="178" font-family="Consolas,monospace" font-size="11.5" fill="#202020" data-relationship="domain-identity-edge-2" data-endpoint="start">0..*</text>
+<text x="1458" y="160" font-family="Consolas,monospace" font-size="11.5" fill="#202020" data-relationship="domain-identity-edge-2" data-endpoint="end">0..1</text>
+<text x="432" y="662" font-family="Consolas,monospace" font-size="11.5" fill="#202020" data-relationship="domain-identity-edge-3" data-endpoint="start">0..*</text>
+<text x="432" y="214" font-family="Consolas,monospace" font-size="11.5" fill="#202020" data-relationship="domain-identity-edge-3" data-endpoint="end">1</text>
+<text x="988" y="160" font-family="Consolas,monospace" font-size="11.5" fill="#202020" data-relationship="domain-identity-edge-4" data-endpoint="start">0..*</text>
+<text x="432" y="196" font-family="Consolas,monospace" font-size="11.5" fill="#202020" data-relationship="domain-identity-edge-4" data-endpoint="end">1</text>
+</svg>

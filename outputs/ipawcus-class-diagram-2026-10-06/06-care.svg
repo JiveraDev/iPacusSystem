@@ -1,0 +1,257 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1940" height="1602" viewBox="0 0 1940 1602" role="img" aria-labelledby="title desc">
+<title id="title">iPawcus / Grooming and boarding</title><desc id="desc">UML entity class diagram. Relationship lines avoid all unrelated class boxes. Source: iPawcus_ERD_Schema.sql.</desc>
+<defs><marker id="arrow" markerWidth="9" markerHeight="9" refX="8" refY="4.5" orient="auto" markerUnits="userSpaceOnUse"><path d="M0 0 L8 4.5 L0 9" fill="none" stroke="#8793a3" stroke-width="1.4"/></marker></defs>
+<rect width="100%" height="100%" fill="#ffffff"/>
+<text x="110" y="45" font-family="Arial,sans-serif" font-size="26" font-weight="600" fill="#2d3748">iPawcus / Grooming and boarding</text>
+<text x="110" y="76" font-family="Arial,sans-serif" font-size="14" fill="#596579">Complete attributes for this module; reference boxes link to other pages.</text>
+<text x="110" y="100" font-family="Arial,sans-serif" font-size="13" fill="#596579">1 required · 0..1 optional · 0..* zero-to-many · ? nullable · PK primary key · FK foreign key · UK unique key</text>
+<path d="M450 210 L506 210 L506 128 L1434 128 L1434 212 L1490 212" fill="none" stroke="#8793a3" stroke-width="1.2" stroke-linejoin="round" marker-end="url(#arrow)"><title>grooming_jobs.booking_id → bookings.booking_id [grooming_booking_fk]</title></path>
+<path d="M570 228 L450 228" fill="none" stroke="#8793a3" stroke-width="1.2" stroke-linejoin="round" marker-end="url(#arrow)"><title>grooming_events.booking_id → grooming_jobs.booking_id [grooming_event_job_fk]</title></path>
+<path d="M1030 228 L974 228 L974 348 L506 348 L506 246 L450 246" fill="none" stroke="#8793a3" stroke-width="1.2" stroke-linejoin="round" marker-end="url(#arrow)"><title>grooming_photos.booking_id → grooming_jobs.booking_id [grooming_photo_job_fk]</title></path>
+<path d="M450 566 L514 566 L514 264 L450 264" fill="none" stroke="#8793a3" stroke-width="1.2" stroke-linejoin="round" marker-end="url(#arrow)"><title>grooming_reviews.booking_id → grooming_jobs.booking_id [grooming_review_job_fk]</title></path>
+<path d="M450 584 L506 584 L506 786 L1434 786 L1434 1088 L1490 1088" fill="none" stroke="#8793a3" stroke-width="1.2" stroke-linejoin="round" marker-end="url(#arrow)"><title>grooming_reviews.veterinarian_id → users.user_id [grooming_review_vet_fk]</title></path>
+<path d="M910 496 L966 496 L966 384 L1434 384 L1434 230 L1490 230" fill="none" stroke="#8793a3" stroke-width="1.2" stroke-linejoin="round" marker-end="url(#arrow)"><title>boarding_assignments.booking_id → bookings.booking_id [boarding_assignment_booking_fk]</title></path>
+<path d="M910 514 L1008 514 L1008 430 L1434 430 L1434 476 L1490 476" fill="none" stroke="#8793a3" stroke-width="1.2" stroke-linejoin="round" marker-end="url(#arrow)"><title>boarding_assignments.branch_id → branches.branch_id [boarding_assignment_branch_fk]</title></path>
+<path d="M1030 530 L974 530 L974 478 L910 478" fill="none" stroke="#8793a3" stroke-width="1.2" stroke-linejoin="round" marker-end="url(#arrow)"><title>boarding_documents.assignment_id → boarding_assignments.assignment_id [boarding_documents_assignment_fk]</title></path>
+<path d="M1370 548 L1426 548 L1426 248 L1490 248" fill="none" stroke="#8793a3" stroke-width="1.2" stroke-linejoin="round" marker-end="url(#arrow)"><title>boarding_documents.booking_id → bookings.booking_id [boarding_documents_booking_fk]</title></path>
+<path d="M1370 566 L1426 566 L1426 860 L1490 860" fill="none" stroke="#8793a3" stroke-width="1.2" stroke-linejoin="round" marker-end="url(#arrow)"><title>boarding_documents.pet_id → pets_information.pet_id [boarding_documents_pet_fk]</title></path>
+<path d="M1370 692 L1446 692 L1446 1104 L1434 1104 L1434 1106 L1490 1106" fill="none" stroke="#8793a3" stroke-width="1.2" stroke-linejoin="round" marker-end="url(#arrow)"><title>boarding_documents.uploaded_by_user_id → users.user_id [boarding_documents_uploaded_by_fk]</title></path>
+<path d="M450 904 L506 904 L506 786 L494 786 L494 496 L570 496" fill="none" stroke="#8793a3" stroke-width="1.2" stroke-linejoin="round" marker-end="url(#arrow)"><title>boarding_material_usages.assignment_id → boarding_assignments.assignment_id [boarding_material_assignment_fk]</title></path>
+<path d="M450 922 L547 922 L547 392 L1414 392 L1414 266 L1490 266" fill="none" stroke="#8793a3" stroke-width="1.2" stroke-linejoin="round" marker-end="url(#arrow)"><title>boarding_material_usages.booking_id → bookings.booking_id [boarding_material_booking_fk]</title></path>
+<path d="M450 958 L548 958 L548 776 L1434 776 L1434 686 L1490 686" fill="none" stroke="#8793a3" stroke-width="1.2" stroke-linejoin="round" marker-end="url(#arrow)"><title>boarding_material_usages.item_id → inventory_items.item_id [boarding_material_item_fk]</title></path>
+<path d="M450 940 L526 940 L526 740 L1008 740 L1008 822 L1414 822 L1414 878 L1490 878" fill="none" stroke="#8793a3" stroke-width="1.2" stroke-linejoin="round" marker-end="url(#arrow)"><title>boarding_material_usages.pet_id → pets_information.pet_id [boarding_material_pet_fk]</title></path>
+<path d="M450 1102 L506 1102 L506 1240 L1434 1240 L1434 1124 L1490 1124" fill="none" stroke="#8793a3" stroke-width="1.2" stroke-linejoin="round" marker-end="url(#arrow)"><title>boarding_material_usages.recorded_by_user_id → users.user_id [boarding_material_recorded_by_fk]</title></path>
+<path d="M450 1138 L548 1138 L548 1258 L1426 1258 L1426 1142 L1490 1142" fill="none" stroke="#8793a3" stroke-width="1.2" stroke-linejoin="round" marker-end="url(#arrow)"><title>boarding_material_usages.voided_by_user_id → users.user_id [boarding_material_voided_by_fk]</title></path>
+<path d="M910 886 L966 886 L966 532 L910 532" fill="none" stroke="#8793a3" stroke-width="1.2" stroke-linejoin="round" marker-end="url(#arrow)"><title>boarding_observations.assignment_id → boarding_assignments.assignment_id [boarding_observation_assignment_fk]</title></path>
+<path d="M910 904 L986 904 L986 394 L1392 394 L1392 284 L1490 284" fill="none" stroke="#8793a3" stroke-width="1.2" stroke-linejoin="round" marker-end="url(#arrow)"><title>boarding_observations.booking_id → bookings.booking_id [boarding_observation_booking_fk]</title></path>
+<path d="M910 922 L974 922 L974 822 L1392 822 L1392 896 L1490 896" fill="none" stroke="#8793a3" stroke-width="1.2" stroke-linejoin="round" marker-end="url(#arrow)"><title>boarding_observations.pet_id → pets_information.pet_id [boarding_observation_pet_fk]</title></path>
+<path d="M910 1174 L966 1174 L966 1204 L1414 1204 L1414 1160 L1490 1160" fill="none" stroke="#8793a3" stroke-width="1.2" stroke-linejoin="round" marker-end="url(#arrow)"><title>boarding_observations.created_by_user_id → users.user_id [boarding_observation_user_fk]</title></path>
+<path d="M1030 922 L954 922 L954 564 L966 564 L966 550 L910 550" fill="none" stroke="#8793a3" stroke-width="1.2" stroke-linejoin="round" marker-end="url(#arrow)"><title>boarding_tasks.assignment_id → boarding_assignments.assignment_id [boarding_task_assignment_fk]</title></path>
+<path d="M1370 940 L1426 940 L1426 822 L1414 822 L1414 302 L1490 302" fill="none" stroke="#8793a3" stroke-width="1.2" stroke-linejoin="round" marker-end="url(#arrow)"><title>boarding_tasks.booking_id → bookings.booking_id [boarding_task_booking_fk]</title></path>
+<path d="M1370 958 L1426 958 L1426 940 L1414 940 L1414 914 L1490 914" fill="none" stroke="#8793a3" stroke-width="1.2" stroke-linejoin="round" marker-end="url(#arrow)"><title>boarding_tasks.pet_id → pets_information.pet_id [boarding_task_pet_fk]</title></path>
+<path d="M1370 1120 L1446 1120 L1446 1176 L1434 1176 L1434 1178 L1490 1178" fill="none" stroke="#8793a3" stroke-width="1.2" stroke-linejoin="round" marker-end="url(#arrow)"><title>boarding_tasks.created_by_user_id → users.user_id [boarding_task_user_fk]</title></path>
+<path d="M450 1404 L506 1404 L506 1286 L986 1286 L986 904 L1008 904 L1008 786 L1392 786 L1392 690 L1434 690 L1434 494 L1490 494" fill="none" stroke="#8793a3" stroke-width="1.2" stroke-linejoin="round" marker-end="url(#arrow)"><title>rooms.branch_id → branches.branch_id [rooms_branch_fk]</title></path>
+<path d="M910 1386 L1392 1386 L1392 1118 L1414 1118 L1414 740 L1446 740 L1446 514 L1434 514 L1434 512 L1490 512" fill="none" stroke="#8793a3" stroke-width="1.2" stroke-linejoin="round" marker-end="url(#arrow)"><title>room_unit_statuses.branch_id → branches.branch_id [room_unit_status_branch_fk]</title></path>
+<g id="grooming_jobs"><rect x="110" y="150" width="340" height="248" fill="#ffffff" stroke="#c4cbd4" stroke-width="1.2"/><line x1="110" y1="198" x2="450" y2="198" stroke="#c4cbd4"/><text x="126" y="173" font-family="Arial,sans-serif" font-size="17" font-weight="600" fill="#2d3748">GroomingJob</text><text x="126" y="190" font-family="Arial,sans-serif" font-size="11.5" fill="#596579">grooming_jobs</text>
+<text x="124" y="214" font-family="Consolas,monospace" font-size="12" fill="#2d3748">+ booking_id: int(11) [PK,FK]</text>
+<text x="124" y="232" font-family="Consolas,monospace" font-size="12" fill="#2d3748">+ status: varchar(24)</text>
+<text x="124" y="250" font-family="Consolas,monospace" font-size="12" fill="#2d3748">+ performed_by: varchar(120)</text>
+<text x="124" y="268" font-family="Consolas,monospace" font-size="12" fill="#2d3748">+ details_json: longtext</text>
+<text x="124" y="286" font-family="Consolas,monospace" font-size="12" fill="#2d3748">+ version: int(11)</text>
+<text x="124" y="304" font-family="Consolas,monospace" font-size="12" fill="#2d3748">+ published_at: datetime ?</text>
+<text x="124" y="322" font-family="Consolas,monospace" font-size="12" fill="#2d3748">+ visit_id: int(11) ?</text>
+<text x="124" y="340" font-family="Consolas,monospace" font-size="12" fill="#2d3748">+ created_at: datetime</text>
+<text x="124" y="358" font-family="Consolas,monospace" font-size="12" fill="#2d3748">+ updated_at: datetime</text>
+<text x="124" y="376" font-family="Consolas,monospace" font-size="12" fill="#2d3748">+ updated_by: int(11)</text>
+</g>
+<g id="grooming_events"><rect x="570" y="150" width="340" height="176" fill="#ffffff" stroke="#c4cbd4" stroke-width="1.2"/><line x1="570" y1="198" x2="910" y2="198" stroke="#c4cbd4"/><text x="586" y="173" font-family="Arial,sans-serif" font-size="17" font-weight="600" fill="#2d3748">GroomingEvent</text><text x="586" y="190" font-family="Arial,sans-serif" font-size="11.5" fill="#596579">grooming_events</text>
+<text x="584" y="214" font-family="Consolas,monospace" font-size="12" fill="#2d3748">+ event_id: int(11) [PK]</text>
+<text x="584" y="232" font-family="Consolas,monospace" font-size="12" fill="#2d3748">+ booking_id: int(11) [FK]</text>
+<text x="584" y="250" font-family="Consolas,monospace" font-size="12" fill="#2d3748">+ actor_id: int(11)</text>
+<text x="584" y="268" font-family="Consolas,monospace" font-size="12" fill="#2d3748">+ action: varchar(40)</text>
+<text x="584" y="286" font-family="Consolas,monospace" font-size="12" fill="#2d3748">+ details_json: longtext</text>
+<text x="584" y="304" font-family="Consolas,monospace" font-size="12" fill="#2d3748">+ created_at: datetime</text>
+</g>
+<g id="grooming_photos"><rect x="1030" y="150" width="340" height="212" fill="#ffffff" stroke="#c4cbd4" stroke-width="1.2"/><line x1="1030" y1="198" x2="1370" y2="198" stroke="#c4cbd4"/><text x="1046" y="173" font-family="Arial,sans-serif" font-size="17" font-weight="600" fill="#2d3748">GroomingPhoto</text><text x="1046" y="190" font-family="Arial,sans-serif" font-size="11.5" fill="#596579">grooming_photos</text>
+<text x="1044" y="214" font-family="Consolas,monospace" font-size="12" fill="#2d3748">+ photo_id: int(11) [PK]</text>
+<text x="1044" y="232" font-family="Consolas,monospace" font-size="12" fill="#2d3748">+ booking_id: int(11) [FK]</text>
+<text x="1044" y="250" font-family="Consolas,monospace" font-size="12" fill="#2d3748">+ category: varchar(20)</text>
+<text x="1044" y="268" font-family="Consolas,monospace" font-size="12" fill="#2d3748">+ caption: varchar(300)</text>
+<text x="1044" y="286" font-family="Consolas,monospace" font-size="12" fill="#2d3748">+ file_path: varchar(255) [UK]</text>
+<text x="1044" y="304" font-family="Consolas,monospace" font-size="12" fill="#2d3748">+ share_with_owner: tinyint(1)</text>
+<text x="1044" y="322" font-family="Consolas,monospace" font-size="12" fill="#2d3748">+ uploaded_by: int(11)</text>
+<text x="1044" y="340" font-family="Consolas,monospace" font-size="12" fill="#2d3748">+ created_at: datetime</text>
+</g>
+<g id="grooming_reviews"><rect x="110" y="488" width="340" height="230" fill="#ffffff" stroke="#c4cbd4" stroke-width="1.2"/><line x1="110" y1="536" x2="450" y2="536" stroke="#c4cbd4"/><text x="126" y="511" font-family="Arial,sans-serif" font-size="17" font-weight="600" fill="#2d3748">GroomingReview</text><text x="126" y="528" font-family="Arial,sans-serif" font-size="11.5" fill="#596579">grooming_reviews</text>
+<text x="124" y="552" font-family="Consolas,monospace" font-size="12" fill="#2d3748">+ review_id: int(11) [PK]</text>
+<text x="124" y="570" font-family="Consolas,monospace" font-size="12" fill="#2d3748">+ booking_id: int(11) [FK]</text>
+<text x="124" y="588" font-family="Consolas,monospace" font-size="12" fill="#2d3748">+ veterinarian_id: int(11) [FK]</text>
+<text x="124" y="606" font-family="Consolas,monospace" font-size="12" fill="#2d3748">+ requested_by: int(11)</text>
+<text x="124" y="624" font-family="Consolas,monospace" font-size="12" fill="#2d3748">+ reason: text</text>
+<text x="124" y="642" font-family="Consolas,monospace" font-size="12" fill="#2d3748">+ outcome: varchar(24)</text>
+<text x="124" y="660" font-family="Consolas,monospace" font-size="12" fill="#2d3748">+ review_notes: text ?</text>
+<text x="124" y="678" font-family="Consolas,monospace" font-size="12" fill="#2d3748">+ created_at: datetime</text>
+<text x="124" y="696" font-family="Consolas,monospace" font-size="12" fill="#2d3748">+ reviewed_at: datetime ?</text>
+</g>
+<g id="boarding_assignments"><rect x="570" y="416" width="340" height="302" fill="#ffffff" stroke="#c4cbd4" stroke-width="1.2"/><line x1="570" y1="464" x2="910" y2="464" stroke="#c4cbd4"/><text x="586" y="439" font-family="Arial,sans-serif" font-size="17" font-weight="600" fill="#2d3748">BoardingAssignment</text><text x="586" y="456" font-family="Arial,sans-serif" font-size="11.5" fill="#596579">boarding_assignments</text>
+<text x="584" y="480" font-family="Consolas,monospace" font-size="12" fill="#2d3748">+ assignment_id: int(11) [PK]</text>
+<text x="584" y="498" font-family="Consolas,monospace" font-size="12" fill="#2d3748">+ booking_id: int(11) [FK]</text>
+<text x="584" y="516" font-family="Consolas,monospace" font-size="12" fill="#2d3748">+ branch_id: int(11) [FK]</text>
+<text x="584" y="534" font-family="Consolas,monospace" font-size="12" fill="#2d3748">+ room_type: varchar(50)</text>
+<text x="584" y="552" font-family="Consolas,monospace" font-size="12" fill="#2d3748">+ room_number: int(11)</text>
+<text x="584" y="570" font-family="Consolas,monospace" font-size="12" fill="#2d3748">+ status: enum</text>
+<text x="584" y="588" font-family="Consolas,monospace" font-size="12" fill="#2d3748">+ reserved_at: datetime ?</text>
+<text x="584" y="606" font-family="Consolas,monospace" font-size="12" fill="#2d3748">+ actual_check_in_at: datetime ?</text>
+<text x="584" y="624" font-family="Consolas,monospace" font-size="12" fill="#2d3748">+ actual_check_out_at: datetime ?</text>
+<text x="584" y="642" font-family="Consolas,monospace" font-size="12" fill="#2d3748">+ desired_check_out_date: date ?</text>
+<text x="584" y="660" font-family="Consolas,monospace" font-size="12" fill="#2d3748">+ notes: text ?</text>
+<text x="584" y="678" font-family="Consolas,monospace" font-size="12" fill="#2d3748">+ created_at: timestamp</text>
+<text x="584" y="696" font-family="Consolas,monospace" font-size="12" fill="#2d3748">+ updated_at: timestamp</text>
+</g>
+<g id="boarding_documents"><rect x="1030" y="452" width="340" height="302" fill="#ffffff" stroke="#c4cbd4" stroke-width="1.2"/><line x1="1030" y1="500" x2="1370" y2="500" stroke="#c4cbd4"/><text x="1046" y="475" font-family="Arial,sans-serif" font-size="17" font-weight="600" fill="#2d3748">BoardingDocument</text><text x="1046" y="492" font-family="Arial,sans-serif" font-size="11.5" fill="#596579">boarding_documents</text>
+<text x="1044" y="516" font-family="Consolas,monospace" font-size="12" fill="#2d3748">+ document_id: int(11) [PK]</text>
+<text x="1044" y="534" font-family="Consolas,monospace" font-size="12" fill="#2d3748">+ assignment_id: int(11) ? [FK]</text>
+<text x="1044" y="552" font-family="Consolas,monospace" font-size="12" fill="#2d3748">+ booking_id: int(11) [FK]</text>
+<text x="1044" y="570" font-family="Consolas,monospace" font-size="12" fill="#2d3748">+ pet_id: int(11) ? [FK]</text>
+<text x="1044" y="588" font-family="Consolas,monospace" font-size="12" fill="#2d3748">+ document_type: enum</text>
+<text x="1044" y="606" font-family="Consolas,monospace" font-size="12" fill="#2d3748">+ title: varchar(180)</text>
+<text x="1044" y="624" font-family="Consolas,monospace" font-size="12" fill="#2d3748">+ document_path: varchar(255)</text>
+<text x="1044" y="642" font-family="Consolas,monospace" font-size="12" fill="#2d3748">+ file_name: varchar(255) ?</text>
+<text x="1044" y="660" font-family="Consolas,monospace" font-size="12" fill="#2d3748">+ mime_type: varchar(120) ?</text>
+<text x="1044" y="678" font-family="Consolas,monospace" font-size="12" fill="#2d3748">+ notes: text ?</text>
+<text x="1044" y="696" font-family="Consolas,monospace" font-size="12" fill="#2d3748">+ uploaded_by_user_id: int(11) ? [FK]</text>
+<text x="1044" y="714" font-family="Consolas,monospace" font-size="12" fill="#2d3748">+ uploaded_by_name: varchar(220) ?</text>
+<text x="1044" y="732" font-family="Consolas,monospace" font-size="12" fill="#2d3748">+ created_at: timestamp</text>
+</g>
+<g id="boarding_material_usages"><rect x="110" y="808" width="340" height="428" fill="#ffffff" stroke="#c4cbd4" stroke-width="1.2"/><line x1="110" y1="856" x2="450" y2="856" stroke="#c4cbd4"/><text x="126" y="831" font-family="Arial,sans-serif" font-size="17" font-weight="600" fill="#2d3748">BoardingMaterialUsage</text><text x="126" y="848" font-family="Arial,sans-serif" font-size="11.5" fill="#596579">boarding_material_usages</text>
+<text x="124" y="872" font-family="Consolas,monospace" font-size="12" fill="#2d3748">+ usage_id: int(11) [PK]</text>
+<text x="124" y="890" font-family="Consolas,monospace" font-size="12" fill="#2d3748">+ client_reference: varchar(100) ?</text>
+<text x="124" y="908" font-family="Consolas,monospace" font-size="12" fill="#2d3748">+ assignment_id: int(11) [FK]</text>
+<text x="124" y="926" font-family="Consolas,monospace" font-size="12" fill="#2d3748">+ booking_id: int(11) [FK]</text>
+<text x="124" y="944" font-family="Consolas,monospace" font-size="12" fill="#2d3748">+ pet_id: int(11) ? [FK]</text>
+<text x="124" y="962" font-family="Consolas,monospace" font-size="12" fill="#2d3748">+ item_id: int(11) ? [FK]</text>
+<text x="124" y="980" font-family="Consolas,monospace" font-size="12" fill="#2d3748">+ item_name: varchar(180)</text>
+<text x="124" y="998" font-family="Consolas,monospace" font-size="12" fill="#2d3748">+ category: varchar(100) ?</text>
+<text x="124" y="1016" font-family="Consolas,monospace" font-size="12" fill="#2d3748">+ unit: varchar(50)</text>
+<text x="124" y="1034" font-family="Consolas,monospace" font-size="12" fill="#2d3748">+ quantity: decimal(10,2)</text>
+<text x="124" y="1052" font-family="Consolas,monospace" font-size="12" fill="#2d3748">+ unit_price: decimal(10,2)</text>
+<text x="124" y="1070" font-family="Consolas,monospace" font-size="12" fill="#2d3748">+ notes: text ?</text>
+<text x="124" y="1088" font-family="Consolas,monospace" font-size="12" fill="#2d3748">+ status: enum</text>
+<text x="124" y="1106" font-family="Consolas,monospace" font-size="12" fill="#2d3748">+ recorded_by_user_id: int(11) ? [FK]</text>
+<text x="124" y="1124" font-family="Consolas,monospace" font-size="12" fill="#2d3748">+ recorded_by_name: varchar(220) ?</text>
+<text x="124" y="1142" font-family="Consolas,monospace" font-size="12" fill="#2d3748">+ voided_by_user_id: int(11) ? [FK]</text>
+<text x="124" y="1160" font-family="Consolas,monospace" font-size="12" fill="#2d3748">+ voided_by_name: varchar(220) ?</text>
+<text x="124" y="1178" font-family="Consolas,monospace" font-size="12" fill="#2d3748">+ voided_at: datetime ?</text>
+<text x="124" y="1196" font-family="Consolas,monospace" font-size="12" fill="#2d3748">+ created_at: timestamp</text>
+<text x="124" y="1214" font-family="Consolas,monospace" font-size="12" fill="#2d3748">+ updated_at: timestamp</text>
+</g>
+<g id="boarding_observations"><rect x="570" y="808" width="340" height="410" fill="#ffffff" stroke="#c4cbd4" stroke-width="1.2"/><line x1="570" y1="856" x2="910" y2="856" stroke="#c4cbd4"/><text x="586" y="831" font-family="Arial,sans-serif" font-size="17" font-weight="600" fill="#2d3748">BoardingObservation</text><text x="586" y="848" font-family="Arial,sans-serif" font-size="11.5" fill="#596579">boarding_observations</text>
+<text x="584" y="872" font-family="Consolas,monospace" font-size="12" fill="#2d3748">+ observation_id: int(11) [PK]</text>
+<text x="584" y="890" font-family="Consolas,monospace" font-size="12" fill="#2d3748">+ assignment_id: int(11) ? [FK]</text>
+<text x="584" y="908" font-family="Consolas,monospace" font-size="12" fill="#2d3748">+ booking_id: int(11) [FK]</text>
+<text x="584" y="926" font-family="Consolas,monospace" font-size="12" fill="#2d3748">+ pet_id: int(11) ? [FK]</text>
+<text x="584" y="944" font-family="Consolas,monospace" font-size="12" fill="#2d3748">+ room_type: varchar(50)</text>
+<text x="584" y="962" font-family="Consolas,monospace" font-size="12" fill="#2d3748">+ room_number: int(11)</text>
+<text x="584" y="980" font-family="Consolas,monospace" font-size="12" fill="#2d3748">+ observation_type: varchar(40)</text>
+<text x="584" y="998" font-family="Consolas,monospace" font-size="12" fill="#2d3748">+ notes: text</text>
+<text x="584" y="1016" font-family="Consolas,monospace" font-size="12" fill="#2d3748">+ appetite_status: varchar(40) ?</text>
+<text x="584" y="1034" font-family="Consolas,monospace" font-size="12" fill="#2d3748">+ water_intake_status: varchar(40) ?</text>
+<text x="584" y="1052" font-family="Consolas,monospace" font-size="12" fill="#2d3748">+ elimination_status: varchar(40) ?</text>
+<text x="584" y="1070" font-family="Consolas,monospace" font-size="12" fill="#2d3748">+ behavior_status: varchar(40) ?</text>
+<text x="584" y="1088" font-family="Consolas,monospace" font-size="12" fill="#2d3748">+ temperature_c: decimal(5,2) ?</text>
+<text x="584" y="1106" font-family="Consolas,monospace" font-size="12" fill="#2d3748">+ weight_kg: decimal(8,2) ?</text>
+<text x="584" y="1124" font-family="Consolas,monospace" font-size="12" fill="#2d3748">+ condition_severity: varchar(40) ?</text>
+<text x="584" y="1142" font-family="Consolas,monospace" font-size="12" fill="#2d3748">+ requires_vet_review: tinyint(1) ?</text>
+<text x="584" y="1160" font-family="Consolas,monospace" font-size="12" fill="#2d3748">+ observed_at: datetime</text>
+<text x="584" y="1178" font-family="Consolas,monospace" font-size="12" fill="#2d3748">+ created_by_user_id: int(11) ? [FK]</text>
+<text x="584" y="1196" font-family="Consolas,monospace" font-size="12" fill="#2d3748">+ created_at: timestamp</text>
+</g>
+<g id="boarding_tasks"><rect x="1030" y="844" width="340" height="338" fill="#ffffff" stroke="#c4cbd4" stroke-width="1.2"/><line x1="1030" y1="892" x2="1370" y2="892" stroke="#c4cbd4"/><text x="1046" y="867" font-family="Arial,sans-serif" font-size="17" font-weight="600" fill="#2d3748">BoardingTask</text><text x="1046" y="884" font-family="Arial,sans-serif" font-size="11.5" fill="#596579">boarding_tasks</text>
+<text x="1044" y="908" font-family="Consolas,monospace" font-size="12" fill="#2d3748">+ task_id: int(11) [PK]</text>
+<text x="1044" y="926" font-family="Consolas,monospace" font-size="12" fill="#2d3748">+ assignment_id: int(11) ? [FK]</text>
+<text x="1044" y="944" font-family="Consolas,monospace" font-size="12" fill="#2d3748">+ booking_id: int(11) [FK]</text>
+<text x="1044" y="962" font-family="Consolas,monospace" font-size="12" fill="#2d3748">+ pet_id: int(11) ? [FK]</text>
+<text x="1044" y="980" font-family="Consolas,monospace" font-size="12" fill="#2d3748">+ room_type: varchar(50)</text>
+<text x="1044" y="998" font-family="Consolas,monospace" font-size="12" fill="#2d3748">+ room_number: int(11)</text>
+<text x="1044" y="1016" font-family="Consolas,monospace" font-size="12" fill="#2d3748">+ task_type: varchar(40)</text>
+<text x="1044" y="1034" font-family="Consolas,monospace" font-size="12" fill="#2d3748">+ due_at: datetime</text>
+<text x="1044" y="1052" font-family="Consolas,monospace" font-size="12" fill="#2d3748">+ status: enum</text>
+<text x="1044" y="1070" font-family="Consolas,monospace" font-size="12" fill="#2d3748">+ assigned_to: varchar(120) ?</text>
+<text x="1044" y="1088" font-family="Consolas,monospace" font-size="12" fill="#2d3748">+ notes: text ?</text>
+<text x="1044" y="1106" font-family="Consolas,monospace" font-size="12" fill="#2d3748">+ completed_at: datetime ?</text>
+<text x="1044" y="1124" font-family="Consolas,monospace" font-size="12" fill="#2d3748">+ created_by_user_id: int(11) ? [FK]</text>
+<text x="1044" y="1142" font-family="Consolas,monospace" font-size="12" fill="#2d3748">+ created_at: timestamp</text>
+<text x="1044" y="1160" font-family="Consolas,monospace" font-size="12" fill="#2d3748">+ updated_at: timestamp</text>
+</g>
+<g id="rooms"><rect x="110" y="1326" width="340" height="176" fill="#ffffff" stroke="#c4cbd4" stroke-width="1.2"/><line x1="110" y1="1374" x2="450" y2="1374" stroke="#c4cbd4"/><text x="126" y="1349" font-family="Arial,sans-serif" font-size="17" font-weight="600" fill="#2d3748">Room</text><text x="126" y="1366" font-family="Arial,sans-serif" font-size="11.5" fill="#596579">rooms</text>
+<text x="124" y="1390" font-family="Consolas,monospace" font-size="12" fill="#2d3748">+ room_id: int(11) [PK]</text>
+<text x="124" y="1408" font-family="Consolas,monospace" font-size="12" fill="#2d3748">+ branch_id: int(11) [FK]</text>
+<text x="124" y="1426" font-family="Consolas,monospace" font-size="12" fill="#2d3748">+ room_type: enum</text>
+<text x="124" y="1444" font-family="Consolas,monospace" font-size="12" fill="#2d3748">+ total_capacity: int(11)</text>
+<text x="124" y="1462" font-family="Consolas,monospace" font-size="12" fill="#2d3748">+ description: text ?</text>
+<text x="124" y="1480" font-family="Consolas,monospace" font-size="12" fill="#2d3748">+ created_at: timestamp</text>
+</g>
+<g id="room_unit_statuses"><rect x="570" y="1308" width="340" height="194" fill="#ffffff" stroke="#c4cbd4" stroke-width="1.2"/><line x1="570" y1="1356" x2="910" y2="1356" stroke="#c4cbd4"/><text x="586" y="1331" font-family="Arial,sans-serif" font-size="17" font-weight="600" fill="#2d3748">RoomUnitStatus</text><text x="586" y="1348" font-family="Arial,sans-serif" font-size="11.5" fill="#596579">room_unit_statuses</text>
+<text x="584" y="1372" font-family="Consolas,monospace" font-size="12" fill="#2d3748">+ room_unit_status_id: int(11) [PK]</text>
+<text x="584" y="1390" font-family="Consolas,monospace" font-size="12" fill="#2d3748">+ branch_id: int(11) [FK]</text>
+<text x="584" y="1408" font-family="Consolas,monospace" font-size="12" fill="#2d3748">+ room_type: varchar(50)</text>
+<text x="584" y="1426" font-family="Consolas,monospace" font-size="12" fill="#2d3748">+ room_number: int(11)</text>
+<text x="584" y="1444" font-family="Consolas,monospace" font-size="12" fill="#2d3748">+ status: enum</text>
+<text x="584" y="1462" font-family="Consolas,monospace" font-size="12" fill="#2d3748">+ notes: text ?</text>
+<text x="584" y="1480" font-family="Consolas,monospace" font-size="12" fill="#2d3748">+ updated_at: timestamp</text>
+</g>
+<g id="bookings"><rect x="1490" y="150" width="340" height="184" fill="#f8fafc" stroke="#c4cbd4" stroke-width="1.2" stroke-dasharray="5 4"/><line x1="1490" y1="198" x2="1830" y2="198" stroke="#c4cbd4"/><text x="1506" y="173" font-family="Arial,sans-serif" font-size="17" font-weight="600" fill="#2d3748">Booking</text><text x="1506" y="190" font-family="Arial,sans-serif" font-size="11.5" fill="#596579">bookings · reference / page 04</text>
+<text x="1504" y="214" font-family="Consolas,monospace" font-size="12" fill="#2d3748">+ booking_id: int(11) [PK]</text>
+<text x="1504" y="322" font-family="Arial,sans-serif" font-size="11.5" fill="#596579">Full class on page 04</text>
+</g>
+<g id="branches"><rect x="1490" y="414" width="340" height="130" fill="#f8fafc" stroke="#c4cbd4" stroke-width="1.2" stroke-dasharray="5 4"/><line x1="1490" y1="462" x2="1830" y2="462" stroke="#c4cbd4"/><text x="1506" y="437" font-family="Arial,sans-serif" font-size="17" font-weight="600" fill="#2d3748">Branch</text><text x="1506" y="454" font-family="Arial,sans-serif" font-size="11.5" fill="#596579">branches · reference / page 02</text>
+<text x="1504" y="478" font-family="Consolas,monospace" font-size="12" fill="#2d3748">+ branch_id: int(11) [PK]</text>
+<text x="1504" y="532" font-family="Arial,sans-serif" font-size="11.5" fill="#596579">Full class on page 02</text>
+</g>
+<g id="inventory_items"><rect x="1490" y="624" width="340" height="94" fill="#f8fafc" stroke="#c4cbd4" stroke-width="1.2" stroke-dasharray="5 4"/><line x1="1490" y1="672" x2="1830" y2="672" stroke="#c4cbd4"/><text x="1506" y="647" font-family="Arial,sans-serif" font-size="17" font-weight="600" fill="#2d3748">InventoryItem</text><text x="1506" y="664" font-family="Arial,sans-serif" font-size="11.5" fill="#596579">inventory_items · reference / page 07</text>
+<text x="1504" y="688" font-family="Consolas,monospace" font-size="12" fill="#2d3748">+ item_id: int(11) [PK]</text>
+<text x="1504" y="706" font-family="Arial,sans-serif" font-size="11.5" fill="#596579">Full class on page 07</text>
+</g>
+<g id="pets_information"><rect x="1490" y="798" width="340" height="148" fill="#f8fafc" stroke="#c4cbd4" stroke-width="1.2" stroke-dasharray="5 4"/><line x1="1490" y1="846" x2="1830" y2="846" stroke="#c4cbd4"/><text x="1506" y="821" font-family="Arial,sans-serif" font-size="17" font-weight="600" fill="#2d3748">Pet</text><text x="1506" y="838" font-family="Arial,sans-serif" font-size="11.5" fill="#596579">pets_information · reference / page 03</text>
+<text x="1504" y="862" font-family="Consolas,monospace" font-size="12" fill="#2d3748">+ pet_id: int(11) [PK]</text>
+<text x="1504" y="934" font-family="Arial,sans-serif" font-size="11.5" fill="#596579">Full class on page 03</text>
+</g>
+<g id="users"><rect x="1490" y="1026" width="340" height="184" fill="#f8fafc" stroke="#c4cbd4" stroke-width="1.2" stroke-dasharray="5 4"/><line x1="1490" y1="1074" x2="1830" y2="1074" stroke="#c4cbd4"/><text x="1506" y="1049" font-family="Arial,sans-serif" font-size="17" font-weight="600" fill="#2d3748">User</text><text x="1506" y="1066" font-family="Arial,sans-serif" font-size="11.5" fill="#596579">users · reference / page 01</text>
+<text x="1504" y="1090" font-family="Consolas,monospace" font-size="12" fill="#2d3748">+ user_id: int(11) [PK]</text>
+<text x="1504" y="1198" font-family="Arial,sans-serif" font-size="11.5" fill="#596579">Full class on page 01</text>
+</g>
+<text x="462" y="205" font-family="Consolas,monospace" font-size="11.5" fill="#596579" data-relationship="care-edge-0" data-endpoint="start">0..1</text>
+<text x="1469" y="207" font-family="Consolas,monospace" font-size="11.5" fill="#596579" data-relationship="care-edge-0" data-endpoint="end">1</text>
+<text x="528" y="223" font-family="Consolas,monospace" font-size="11.5" fill="#596579" data-relationship="care-edge-1" data-endpoint="start">0..*</text>
+<text x="462" y="223" font-family="Consolas,monospace" font-size="11.5" fill="#596579" data-relationship="care-edge-1" data-endpoint="end">1</text>
+<text x="988" y="223" font-family="Consolas,monospace" font-size="11.5" fill="#596579" data-relationship="care-edge-2" data-endpoint="start">0..*</text>
+<text x="462" y="241" font-family="Consolas,monospace" font-size="11.5" fill="#596579" data-relationship="care-edge-2" data-endpoint="end">1</text>
+<text x="462" y="561" font-family="Consolas,monospace" font-size="11.5" fill="#596579" data-relationship="care-edge-3" data-endpoint="start">0..*</text>
+<text x="462" y="259" font-family="Consolas,monospace" font-size="11.5" fill="#596579" data-relationship="care-edge-3" data-endpoint="end">1</text>
+<text x="462" y="579" font-family="Consolas,monospace" font-size="11.5" fill="#596579" data-relationship="care-edge-4" data-endpoint="start">0..*</text>
+<text x="1469" y="1083" font-family="Consolas,monospace" font-size="11.5" fill="#596579" data-relationship="care-edge-4" data-endpoint="end">1</text>
+<text x="922" y="491" font-family="Consolas,monospace" font-size="11.5" fill="#596579" data-relationship="care-edge-5" data-endpoint="start">0..*</text>
+<text x="1469" y="225" font-family="Consolas,monospace" font-size="11.5" fill="#596579" data-relationship="care-edge-5" data-endpoint="end">1</text>
+<text x="922" y="509" font-family="Consolas,monospace" font-size="11.5" fill="#596579" data-relationship="care-edge-6" data-endpoint="start">0..*</text>
+<text x="1469" y="471" font-family="Consolas,monospace" font-size="11.5" fill="#596579" data-relationship="care-edge-6" data-endpoint="end">1</text>
+<text x="988" y="525" font-family="Consolas,monospace" font-size="11.5" fill="#596579" data-relationship="care-edge-7" data-endpoint="start">0..*</text>
+<text x="922" y="473" font-family="Consolas,monospace" font-size="11.5" fill="#596579" data-relationship="care-edge-7" data-endpoint="end">0..1</text>
+<text x="1382" y="543" font-family="Consolas,monospace" font-size="11.5" fill="#596579" data-relationship="care-edge-8" data-endpoint="start">0..*</text>
+<text x="1469" y="243" font-family="Consolas,monospace" font-size="11.5" fill="#596579" data-relationship="care-edge-8" data-endpoint="end">1</text>
+<text x="1382" y="561" font-family="Consolas,monospace" font-size="11.5" fill="#596579" data-relationship="care-edge-9" data-endpoint="start">0..*</text>
+<text x="1448" y="855" font-family="Consolas,monospace" font-size="11.5" fill="#596579" data-relationship="care-edge-9" data-endpoint="end">0..1</text>
+<text x="1382" y="687" font-family="Consolas,monospace" font-size="11.5" fill="#596579" data-relationship="care-edge-10" data-endpoint="start">0..*</text>
+<text x="1448" y="1101" font-family="Consolas,monospace" font-size="11.5" fill="#596579" data-relationship="care-edge-10" data-endpoint="end">0..1</text>
+<text x="462" y="899" font-family="Consolas,monospace" font-size="11.5" fill="#596579" data-relationship="care-edge-11" data-endpoint="start">0..*</text>
+<text x="549" y="491" font-family="Consolas,monospace" font-size="11.5" fill="#596579" data-relationship="care-edge-11" data-endpoint="end">1</text>
+<text x="462" y="917" font-family="Consolas,monospace" font-size="11.5" fill="#596579" data-relationship="care-edge-12" data-endpoint="start">0..*</text>
+<text x="1469" y="261" font-family="Consolas,monospace" font-size="11.5" fill="#596579" data-relationship="care-edge-12" data-endpoint="end">1</text>
+<text x="462" y="953" font-family="Consolas,monospace" font-size="11.5" fill="#596579" data-relationship="care-edge-13" data-endpoint="start">0..*</text>
+<text x="1448" y="681" font-family="Consolas,monospace" font-size="11.5" fill="#596579" data-relationship="care-edge-13" data-endpoint="end">0..1</text>
+<text x="462" y="935" font-family="Consolas,monospace" font-size="11.5" fill="#596579" data-relationship="care-edge-14" data-endpoint="start">0..*</text>
+<text x="1448" y="873" font-family="Consolas,monospace" font-size="11.5" fill="#596579" data-relationship="care-edge-14" data-endpoint="end">0..1</text>
+<text x="462" y="1097" font-family="Consolas,monospace" font-size="11.5" fill="#596579" data-relationship="care-edge-15" data-endpoint="start">0..*</text>
+<text x="1448" y="1119" font-family="Consolas,monospace" font-size="11.5" fill="#596579" data-relationship="care-edge-15" data-endpoint="end">0..1</text>
+<text x="462" y="1133" font-family="Consolas,monospace" font-size="11.5" fill="#596579" data-relationship="care-edge-16" data-endpoint="start">0..*</text>
+<text x="1448" y="1137" font-family="Consolas,monospace" font-size="11.5" fill="#596579" data-relationship="care-edge-16" data-endpoint="end">0..1</text>
+<text x="922" y="881" font-family="Consolas,monospace" font-size="11.5" fill="#596579" data-relationship="care-edge-17" data-endpoint="start">0..*</text>
+<text x="922" y="527" font-family="Consolas,monospace" font-size="11.5" fill="#596579" data-relationship="care-edge-17" data-endpoint="end">0..1</text>
+<text x="922" y="899" font-family="Consolas,monospace" font-size="11.5" fill="#596579" data-relationship="care-edge-18" data-endpoint="start">0..*</text>
+<text x="1469" y="279" font-family="Consolas,monospace" font-size="11.5" fill="#596579" data-relationship="care-edge-18" data-endpoint="end">1</text>
+<text x="922" y="917" font-family="Consolas,monospace" font-size="11.5" fill="#596579" data-relationship="care-edge-19" data-endpoint="start">0..*</text>
+<text x="1448" y="891" font-family="Consolas,monospace" font-size="11.5" fill="#596579" data-relationship="care-edge-19" data-endpoint="end">0..1</text>
+<text x="922" y="1169" font-family="Consolas,monospace" font-size="11.5" fill="#596579" data-relationship="care-edge-20" data-endpoint="start">0..*</text>
+<text x="1448" y="1155" font-family="Consolas,monospace" font-size="11.5" fill="#596579" data-relationship="care-edge-20" data-endpoint="end">0..1</text>
+<text x="988" y="917" font-family="Consolas,monospace" font-size="11.5" fill="#596579" data-relationship="care-edge-21" data-endpoint="start">0..*</text>
+<text x="922" y="545" font-family="Consolas,monospace" font-size="11.5" fill="#596579" data-relationship="care-edge-21" data-endpoint="end">0..1</text>
+<text x="1382" y="935" font-family="Consolas,monospace" font-size="11.5" fill="#596579" data-relationship="care-edge-22" data-endpoint="start">0..*</text>
+<text x="1469" y="297" font-family="Consolas,monospace" font-size="11.5" fill="#596579" data-relationship="care-edge-22" data-endpoint="end">1</text>
+<text x="1382" y="953" font-family="Consolas,monospace" font-size="11.5" fill="#596579" data-relationship="care-edge-23" data-endpoint="start">0..*</text>
+<text x="1448" y="909" font-family="Consolas,monospace" font-size="11.5" fill="#596579" data-relationship="care-edge-23" data-endpoint="end">0..1</text>
+<text x="1382" y="1115" font-family="Consolas,monospace" font-size="11.5" fill="#596579" data-relationship="care-edge-24" data-endpoint="start">0..*</text>
+<text x="1448" y="1173" font-family="Consolas,monospace" font-size="11.5" fill="#596579" data-relationship="care-edge-24" data-endpoint="end">0..1</text>
+<text x="462" y="1399" font-family="Consolas,monospace" font-size="11.5" fill="#596579" data-relationship="care-edge-25" data-endpoint="start">0..*</text>
+<text x="1469" y="489" font-family="Consolas,monospace" font-size="11.5" fill="#596579" data-relationship="care-edge-25" data-endpoint="end">1</text>
+<text x="922" y="1381" font-family="Consolas,monospace" font-size="11.5" fill="#596579" data-relationship="care-edge-26" data-endpoint="start">0..*</text>
+<text x="1469" y="507" font-family="Consolas,monospace" font-size="11.5" fill="#596579" data-relationship="care-edge-26" data-endpoint="end">1</text>
+</svg>

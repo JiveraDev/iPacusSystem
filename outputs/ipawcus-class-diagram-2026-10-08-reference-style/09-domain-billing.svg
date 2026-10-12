@@ -1,0 +1,400 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1167" height="1456" viewBox="0 0 1167 1456" role="img" aria-labelledby="title description">
+<title id="title">iPawcus - Billing and service catalogues</title>
+<desc id="description">Conceptual UML class diagram. White three-compartment class boxes with thin gray borders and orthogonal relationships. Attributes and operations describe the existing system, not literal PHP class declarations.</desc>
+<defs><marker id="dependency" markerWidth="8" markerHeight="8" refX="7" refY="4" orient="auto" markerUnits="userSpaceOnUse"><path d="M0 0 L7 4 L0 8" fill="none" stroke="#777777" stroke-width="0.75"/></marker></defs>
+<rect width="100%" height="100%" fill="#ffffff"/>
+<text x="72" y="35" font-family="Arial,sans-serif" font-size="19" fill="#222222" >iPawcus - Billing and service catalogues</text>
+<text x="72" y="56" font-family="Arial,sans-serif" font-size="10" fill="#222222" >Conceptual UML model | class name, attributes, operations | + public | ? nullable</text>
+<text x="72" y="73" font-family="Arial,sans-serif" font-size="9.5" fill="#222222" >Solid: association | dashed: application association | dashed arrow: uses | 1 / 0..1 / 0..* multiplicities</text>
+<path d="M540 1235.5 L586 1235.5 L586 325.5 L979 325.5" fill="none" stroke="#777777" stroke-width="0.75"><title>booking_payment_refunds.booking_id -&gt; bookings.booking_id</title></path>
+<path d="M359 1242.5 L313 1242.5 L313 1257 L243 1257" fill="none" stroke="#777777" stroke-width="0.75"><title>booking_payment_refunds.booking_payment_submission_id -&gt; booking_payment_submissions.submission_id</title></path>
+<path d="M540 1249.5 L941.68 1249.5 L941.68 1128 L1044 1128 L1044 1082" fill="none" stroke="#777777" stroke-width="0.75"><title>booking_payment_refunds.processed_by_user_id -&gt; users.user_id</title></path>
+<path d="M243 1215 L289 1215 L289 426 L657 426 L657 311.5 L979 311.5" fill="none" stroke="#777777" stroke-width="0.75"><title>booking_payment_submissions.booking_id -&gt; bookings.booking_id</title></path>
+<path d="M243 1243 L289 1243 L289 1361 L937 1361 L937 1154 L1004 1154 L1004 1082" fill="none" stroke="#777777" stroke-width="0.75"><title>booking_payment_submissions.reviewed_by_user_id -&gt; users.user_id</title></path>
+<path d="M243 1229 L324.68 1229 L324.68 755 L629 755 L629 527.5 L675 527.5" fill="none" stroke="#777777" stroke-width="0.75"><title>booking_payment_submissions.linked_visit_payment_id -&gt; visit_payments.payment_id</title></path>
+<path d="M220 256 L266 256 L266 809 L638 809 L638 1032 L983 1032" fill="none" stroke="#777777" stroke-width="0.75"><title>service_catalog.created_by_user_id -&gt; users.user_id</title></path>
+<path d="M814 1119 L1111 1119 L1111 1067 L1065 1067" fill="none" stroke="#777777" stroke-width="0.75"><title>service_display_settings.updated_by_user_id -&gt; users.user_id</title></path>
+<path d="M837 216.5 L883 216.5 L883 231 L1023.5 231 L1023.5 277" fill="none" stroke="#777777" stroke-width="0.75"><title>special_service_booking_items.booking_id -&gt; bookings.booking_id</title></path>
+<path d="M656 216.5 L610 216.5 L610 268 L526 268" fill="none" stroke="#777777" stroke-width="0.75"><title>special_service_booking_items.special_service_id -&gt; special_service_catalog.special_service_id</title></path>
+<path d="M526 282 L572 282 L572 692 L948.68 692 L948.68 966 L1004 966 L1004 1012" fill="none" stroke="#777777" stroke-width="0.75"><title>special_service_catalog.created_by_user_id -&gt; users.user_id</title></path>
+<path d="M224 543 L270 543 L270 428 L650 428 L650 363 L936 363 L936 458.5 L982 458.5" fill="none" stroke="#777777" stroke-width="0.75"><title>visits.branch_id -&gt; branches.branch_id</title></path>
+<path d="M224 641 L270 641 L270 1112 L661 1112 L661 1206.5 L976 1206.5" fill="none" stroke="#777777" stroke-width="0.75"><title>visits.diagnosis_id -&gt; vet_diagnoses.diagnosis_id</title></path>
+<path d="M224 571 L349 571 L349 480 L640.68 480 L640.68 646 L944 646 L944 745.5 L990 745.5" fill="none" stroke="#777777" stroke-width="0.75"><title>visits.pet_id -&gt; pets_information.pet_id</title></path>
+<path d="M224 613 L332.68 613 L332.68 793 L629 793 L629 1034 L937 1034 L937 1046 L983 1046" fill="none" stroke="#777777" stroke-width="0.75"><title>visits.owner_user_id -&gt; users.user_id</title></path>
+<path d="M224 627 L331 627 L331 770 L621.68 770 L621.68 1030 L936 1030 L936 1060 L983 1060" fill="none" stroke="#777777" stroke-width="0.75"><title>visits.veterinarian_user_id -&gt; users.user_id</title></path>
+<path d="M224 599 L321 599 L321 769 L610 769 L610 980 L937 980 L937 899.5 L983 899.5" fill="none" stroke="#777777" stroke-width="0.75"><title>visits.queue_id -&gt; queues.queue_id</title></path>
+<path d="M224 515 L342.68 515 L342.68 444.5 L640.68 444.5 L640.68 309 L933 309 L933 297.5 L979 297.5" fill="none" stroke="#777777" stroke-width="0.75"><title>visits.booking_id -&gt; bookings.booking_id</title></path>
+<path d="M531 609.5 L577 609.5 L577 309.5 L907 309.5 L907 164.5 L953 164.5" fill="none" stroke="#777777" stroke-width="0.75"><title>visit_charges.boarding_material_usage_id -&gt; boarding_material_usages.usage_id</title></path>
+<path d="M531 637.5 L577 637.5 L577 994 L1111 994 L1111 1039 L1065 1039" fill="none" stroke="#777777" stroke-width="0.75"><title>visit_charges.created_by_user_id -&gt; users.user_id</title></path>
+<path d="M367 630.5 L270 630.5 L270 557 L224 557" fill="none" stroke="#777777" stroke-width="0.75"><title>visit_charges.visit_id -&gt; visits.visit_id</title></path>
+<path d="M367 616.5 L272 616.5 L272 242 L220 242" fill="none" stroke="#777777" stroke-width="0.75"><title>visit_charges.service_id -&gt; service_catalog.service_id</title></path>
+<path d="M531 623.5 L657 623.5 L657 638 L932 638 L932 605.5 L978 605.5" fill="none" stroke="#777777" stroke-width="0.75"><title>visit_charges.item_id -&gt; inventory_items.item_id</title></path>
+<path d="M226 921 L272 921 L272 1058 L661 1058 L661 1025 L935 1025 L935 1074 L983 1074" fill="none" stroke="#777777" stroke-width="0.75"><title>visit_invoice_documents.created_by_user_id -&gt; users.user_id</title></path>
+<path d="M226 893 L272 893 L272 757 L621.68 757 L621.68 499.5 L675 499.5" fill="none" stroke="#777777" stroke-width="0.75"><title>visit_invoice_documents.payment_id -&gt; visit_payments.payment_id</title></path>
+<path d="M226 907 L359 907 L359 757.5 L638 757.5 L638 641 L943.68 641 L943.68 759.5 L990 759.5" fill="none" stroke="#777777" stroke-width="0.75"><title>visit_invoice_documents.pet_id -&gt; pets_information.pet_id</title></path>
+<path d="M157.5 788 L157.5 742 L161.5 742 L161.5 744 L157.5 744 L157.5 698" fill="none" stroke="#777777" stroke-width="0.75"><title>visit_invoice_documents.visit_id -&gt; visits.visit_id</title></path>
+<path d="M818 506.5 L864 506.5 L864 946.5 L1044 946.5 L1044 1012" fill="none" stroke="#777777" stroke-width="0.75"><title>visit_payments.received_by_user_id -&gt; users.user_id</title></path>
+<path d="M675 485.5 L629 485.5 L629 471.5 L277.32 471.5 L277.32 529 L224 529" fill="none" stroke="#777777" stroke-width="0.75"><title>visit_payments.visit_id -&gt; visits.visit_id</title></path>
+<path d="M521 932.5 L567 932.5 L567 513.5 L675 513.5" fill="none" stroke="#777777" stroke-width="0.75"><title>visit_payment_refunds.visit_payment_id -&gt; visit_payments.payment_id</title></path>
+<path d="M521 946.5 L567 946.5 L567 993 L1113 993 L1113 1053 L1065 1053" fill="none" stroke="#777777" stroke-width="0.75"><title>visit_payment_refunds.processed_by_user_id -&gt; users.user_id</title></path>
+<path d="M377 939.5 L277.32 939.5 L277.32 585 L224 585" fill="none" stroke="#777777" stroke-width="0.75"><title>visit_payment_refunds.visit_id -&gt; visits.visit_id</title></path>
+<g data-class="service_catalog"><title>ServiceCatalog</title>
+<rect x="94" y="130" width="126" height="226" fill="#ffffff" stroke="#858585" stroke-width="0.8"/>
+<line x1="94" y1="154" x2="220" y2="154" stroke="#858585" stroke-width="0.8"/>
+<line x1="94" y1="307" x2="220" y2="307" stroke="#858585" stroke-width="0.8"/>
+<text x="157" y="146" font-family="Arial,sans-serif" font-size="11" fill="#222222" font-weight="700" text-anchor="middle">ServiceCatalog</text>
+<text x="104" y="168" font-family="Arial,sans-serif" font-size="10" fill="#222222" >+ serviceId: int</text>
+<text x="104" y="181" font-family="Arial,sans-serif" font-size="10" fill="#222222" >+ serviceCode: string?</text>
+<text x="104" y="194" font-family="Arial,sans-serif" font-size="10" fill="#222222" >+ serviceName: string</text>
+<text x="104" y="207" font-family="Arial,sans-serif" font-size="10" fill="#222222" >+ serviceType: string</text>
+<text x="104" y="220" font-family="Arial,sans-serif" font-size="10" fill="#222222" >+ description: string?</text>
+<text x="104" y="233" font-family="Arial,sans-serif" font-size="10" fill="#222222" >+ basePrice: decimal</text>
+<text x="104" y="246" font-family="Arial,sans-serif" font-size="10" fill="#222222" >+ isMajorService: bool</text>
+<text x="104" y="259" font-family="Arial,sans-serif" font-size="10" fill="#222222" >+ isActive: bool?</text>
+<text x="104" y="272" font-family="Arial,sans-serif" font-size="10" fill="#222222" >+ createdByUserId: int?</text>
+<text x="104" y="285" font-family="Arial,sans-serif" font-size="10" fill="#222222" >+ createdAt: datetime</text>
+<text x="104" y="298" font-family="Arial,sans-serif" font-size="10" fill="#222222" >+ updatedAt: datetime</text>
+<text x="104" y="321" font-family="Arial,sans-serif" font-size="10" fill="#222222" >+ saveService()</text>
+<text x="104" y="334" font-family="Arial,sans-serif" font-size="10" fill="#222222" >+ updateMaterials()</text>
+<text x="104" y="347" font-family="Arial,sans-serif" font-size="10" fill="#222222" >+ deactivate()</text>
+</g>
+<g data-class="special_service_catalog"><title>SpecialServiceCatalog</title>
+<rect x="372" y="130" width="154" height="278" fill="#ffffff" stroke="#858585" stroke-width="0.8"/>
+<line x1="372" y1="154" x2="526" y2="154" stroke="#858585" stroke-width="0.8"/>
+<line x1="372" y1="372" x2="526" y2="372" stroke="#858585" stroke-width="0.8"/>
+<text x="449" y="146" font-family="Arial,sans-serif" font-size="11" fill="#222222" font-weight="700" text-anchor="middle">SpecialServiceCatalog</text>
+<text x="382" y="168" font-family="Arial,sans-serif" font-size="10" fill="#222222" >+ specialServiceId: int</text>
+<text x="382" y="181" font-family="Arial,sans-serif" font-size="10" fill="#222222" >+ serviceCode: string</text>
+<text x="382" y="194" font-family="Arial,sans-serif" font-size="10" fill="#222222" >+ serviceTitle: string</text>
+<text x="382" y="207" font-family="Arial,sans-serif" font-size="10" fill="#222222" >+ serviceDescription: string?</text>
+<text x="382" y="220" font-family="Arial,sans-serif" font-size="10" fill="#222222" >+ serviceDetails: string?</text>
+<text x="382" y="233" font-family="Arial,sans-serif" font-size="10" fill="#222222" >+ priceLabel: string?</text>
+<text x="382" y="246" font-family="Arial,sans-serif" font-size="10" fill="#222222" >+ basePrice: decimal?</text>
+<text x="382" y="259" font-family="Arial,sans-serif" font-size="10" fill="#222222" >+ durationLabel: string?</text>
+<text x="382" y="272" font-family="Arial,sans-serif" font-size="10" fill="#222222" >+ maxPets: int</text>
+<text x="382" y="285" font-family="Arial,sans-serif" font-size="10" fill="#222222" >+ sortOrder: int</text>
+<text x="382" y="298" font-family="Arial,sans-serif" font-size="10" fill="#222222" >+ isActive: bool</text>
+<text x="382" y="311" font-family="Arial,sans-serif" font-size="10" fill="#222222" >+ dateRestrictionType: string?</text>
+<text x="382" y="324" font-family="Arial,sans-serif" font-size="10" fill="#222222" >+ dateStart: date?</text>
+<text x="382" y="337" font-family="Arial,sans-serif" font-size="10" fill="#222222" >+ dateEnd: date?</text>
+<text x="382" y="350" font-family="Arial,sans-serif" font-size="10" fill="#222222" >+ createdByUserId: int?</text>
+<text x="382" y="363" font-family="Arial,sans-serif" font-size="10" fill="#222222" >+ createdAt: datetime</text>
+<text x="382" y="386" font-family="Arial,sans-serif" font-size="10" fill="#222222" >+ createService()</text>
+<text x="382" y="399" font-family="Arial,sans-serif" font-size="10" fill="#222222" >+ updateService()</text>
+</g>
+<g data-class="special_service_booking_items"><title>SpecialServiceBookingItem</title>
+<rect x="656" y="130" width="181" height="161" fill="#ffffff" stroke="#858585" stroke-width="0.8"/>
+<line x1="656" y1="154" x2="837" y2="154" stroke="#858585" stroke-width="0.8"/>
+<line x1="656" y1="268" x2="837" y2="268" stroke="#858585" stroke-width="0.8"/>
+<text x="746.5" y="146" font-family="Arial,sans-serif" font-size="11" fill="#222222" font-weight="700" text-anchor="middle">SpecialServiceBookingItem</text>
+<text x="666" y="168" font-family="Arial,sans-serif" font-size="10" fill="#222222" >+ bookingSpecialServiceId: int</text>
+<text x="666" y="181" font-family="Arial,sans-serif" font-size="10" fill="#222222" >+ bookingId: int</text>
+<text x="666" y="194" font-family="Arial,sans-serif" font-size="10" fill="#222222" >+ specialServiceId: int?</text>
+<text x="666" y="207" font-family="Arial,sans-serif" font-size="10" fill="#222222" >+ customServiceTitle: string?</text>
+<text x="666" y="220" font-family="Arial,sans-serif" font-size="10" fill="#222222" >+ customServiceDescription: string?</text>
+<text x="666" y="233" font-family="Arial,sans-serif" font-size="10" fill="#222222" >+ customServiceDetails: string?</text>
+<text x="666" y="246" font-family="Arial,sans-serif" font-size="10" fill="#222222" >+ sequenceNo: int</text>
+<text x="666" y="259" font-family="Arial,sans-serif" font-size="10" fill="#222222" >+ createdAt: datetime</text>
+<text x="666" y="282" font-family="Arial,sans-serif" font-size="10" fill="#222222" >+ viewRecord()</text>
+</g>
+<g data-class="visits"><title>Visit</title>
+<rect x="91" y="446" width="133" height="252" fill="#ffffff" stroke="#858585" stroke-width="0.8"/>
+<line x1="91" y1="470" x2="224" y2="470" stroke="#858585" stroke-width="0.8"/>
+<line x1="91" y1="649" x2="224" y2="649" stroke="#858585" stroke-width="0.8"/>
+<text x="157.5" y="462" font-family="Arial,sans-serif" font-size="11" fill="#222222" font-weight="700" text-anchor="middle">Visit</text>
+<text x="101" y="484" font-family="Arial,sans-serif" font-size="10" fill="#222222" >+ visitId: int</text>
+<text x="101" y="497" font-family="Arial,sans-serif" font-size="10" fill="#222222" >+ branchId: int</text>
+<text x="101" y="510" font-family="Arial,sans-serif" font-size="10" fill="#222222" >+ petId: int</text>
+<text x="101" y="523" font-family="Arial,sans-serif" font-size="10" fill="#222222" >+ ownerUserId: int</text>
+<text x="101" y="536" font-family="Arial,sans-serif" font-size="10" fill="#222222" >+ veterinarianUserId: int?</text>
+<text x="101" y="549" font-family="Arial,sans-serif" font-size="10" fill="#222222" >+ queueId: int?</text>
+<text x="101" y="562" font-family="Arial,sans-serif" font-size="10" fill="#222222" >+ bookingId: int?</text>
+<text x="101" y="575" font-family="Arial,sans-serif" font-size="10" fill="#222222" >+ diagnosisId: int?</text>
+<text x="101" y="588" font-family="Arial,sans-serif" font-size="10" fill="#222222" >+ sourceType: string</text>
+<text x="101" y="601" font-family="Arial,sans-serif" font-size="10" fill="#222222" >+ visitStatus: string?</text>
+<text x="101" y="614" font-family="Arial,sans-serif" font-size="10" fill="#222222" >+ billingStatus: string?</text>
+<text x="101" y="627" font-family="Arial,sans-serif" font-size="10" fill="#222222" >+ createdAt: datetime</text>
+<text x="101" y="640" font-family="Arial,sans-serif" font-size="10" fill="#222222" >+ updatedAt: datetime</text>
+<text x="101" y="663" font-family="Arial,sans-serif" font-size="10" fill="#222222" >+ createVisit()</text>
+<text x="101" y="676" font-family="Arial,sans-serif" font-size="10" fill="#222222" >+ updateStatus()</text>
+<text x="101" y="689" font-family="Arial,sans-serif" font-size="10" fill="#222222" >+ calculateBalance()</text>
+</g>
+<g data-class="visit_charges"><title>VisitCharge</title>
+<rect x="367" y="498" width="164" height="239" fill="#ffffff" stroke="#858585" stroke-width="0.8"/>
+<line x1="367" y1="522" x2="531" y2="522" stroke="#858585" stroke-width="0.8"/>
+<line x1="367" y1="701" x2="531" y2="701" stroke="#858585" stroke-width="0.8"/>
+<text x="449" y="514" font-family="Arial,sans-serif" font-size="11" fill="#222222" font-weight="700" text-anchor="middle">VisitCharge</text>
+<text x="377" y="536" font-family="Arial,sans-serif" font-size="10" fill="#222222" >+ chargeId: int</text>
+<text x="377" y="549" font-family="Arial,sans-serif" font-size="10" fill="#222222" >+ visitId: int</text>
+<text x="377" y="562" font-family="Arial,sans-serif" font-size="10" fill="#222222" >+ chargeType: string</text>
+<text x="377" y="575" font-family="Arial,sans-serif" font-size="10" fill="#222222" >+ serviceId: int?</text>
+<text x="377" y="588" font-family="Arial,sans-serif" font-size="10" fill="#222222" >+ itemId: int?</text>
+<text x="377" y="601" font-family="Arial,sans-serif" font-size="10" fill="#222222" >+ boardingMaterialUsageId: int?</text>
+<text x="377" y="614" font-family="Arial,sans-serif" font-size="10" fill="#222222" >+ description: string</text>
+<text x="377" y="627" font-family="Arial,sans-serif" font-size="10" fill="#222222" >+ quantity: decimal</text>
+<text x="377" y="640" font-family="Arial,sans-serif" font-size="10" fill="#222222" >+ unitPrice: decimal</text>
+<text x="377" y="653" font-family="Arial,sans-serif" font-size="10" fill="#222222" >+ subtotal: decimal</text>
+<text x="377" y="666" font-family="Arial,sans-serif" font-size="10" fill="#222222" >+ createdByUserId: int?</text>
+<text x="377" y="679" font-family="Arial,sans-serif" font-size="10" fill="#222222" >+ createdAt: datetime</text>
+<text x="377" y="692" font-family="Arial,sans-serif" font-size="10" fill="#222222" >+ updatedAt: datetime</text>
+<text x="377" y="715" font-family="Arial,sans-serif" font-size="10" fill="#222222" >+ saveCharges()</text>
+<text x="377" y="728" font-family="Arial,sans-serif" font-size="10" fill="#222222" >+ replaceCharges()</text>
+</g>
+<g data-class="visit_payments"><title>VisitPayment</title>
+<rect x="675" y="381" width="143" height="239" fill="#ffffff" stroke="#858585" stroke-width="0.8"/>
+<line x1="675" y1="405" x2="818" y2="405" stroke="#858585" stroke-width="0.8"/>
+<line x1="675" y1="584" x2="818" y2="584" stroke="#858585" stroke-width="0.8"/>
+<text x="746.5" y="397" font-family="Arial,sans-serif" font-size="11" fill="#222222" font-weight="700" text-anchor="middle">VisitPayment</text>
+<text x="685" y="419" font-family="Arial,sans-serif" font-size="10" fill="#222222" >+ paymentId: int</text>
+<text x="685" y="432" font-family="Arial,sans-serif" font-size="10" fill="#222222" >+ visitId: int</text>
+<text x="685" y="445" font-family="Arial,sans-serif" font-size="10" fill="#222222" >+ paymentMethod: string</text>
+<text x="685" y="458" font-family="Arial,sans-serif" font-size="10" fill="#222222" >+ paymentStatus: string</text>
+<text x="685" y="471" font-family="Arial,sans-serif" font-size="10" fill="#222222" >+ amount: decimal</text>
+<text x="685" y="484" font-family="Arial,sans-serif" font-size="10" fill="#222222" >+ referenceNumber: string?</text>
+<text x="685" y="497" font-family="Arial,sans-serif" font-size="10" fill="#222222" >+ proofUrl: string?</text>
+<text x="685" y="510" font-family="Arial,sans-serif" font-size="10" fill="#222222" >+ notes: string?</text>
+<text x="685" y="523" font-family="Arial,sans-serif" font-size="10" fill="#222222" >+ paidAt: datetime</text>
+<text x="685" y="536" font-family="Arial,sans-serif" font-size="10" fill="#222222" >+ receivedByUserId: int?</text>
+<text x="685" y="549" font-family="Arial,sans-serif" font-size="10" fill="#222222" >+ receivedByName: string?</text>
+<text x="685" y="562" font-family="Arial,sans-serif" font-size="10" fill="#222222" >+ createdAt: datetime</text>
+<text x="685" y="575" font-family="Arial,sans-serif" font-size="10" fill="#222222" >+ updatedAt: datetime</text>
+<text x="685" y="598" font-family="Arial,sans-serif" font-size="10" fill="#222222" >+ recordPayment()</text>
+<text x="685" y="611" font-family="Arial,sans-serif" font-size="10" fill="#222222" >+ requestRefund()</text>
+</g>
+<g data-class="visit_invoice_documents"><title>VisitInvoiceDocument</title>
+<rect x="89" y="788" width="137" height="226" fill="#ffffff" stroke="#858585" stroke-width="0.8"/>
+<line x1="89" y1="812" x2="226" y2="812" stroke="#858585" stroke-width="0.8"/>
+<line x1="89" y1="978" x2="226" y2="978" stroke="#858585" stroke-width="0.8"/>
+<text x="157.5" y="804" font-family="Arial,sans-serif" font-size="11" fill="#222222" font-weight="700" text-anchor="middle">VisitInvoiceDocument</text>
+<text x="99" y="826" font-family="Arial,sans-serif" font-size="10" fill="#222222" >+ invoiceDocumentId: int</text>
+<text x="99" y="839" font-family="Arial,sans-serif" font-size="10" fill="#222222" >+ invoiceNumber: string</text>
+<text x="99" y="852" font-family="Arial,sans-serif" font-size="10" fill="#222222" >+ visitId: int</text>
+<text x="99" y="865" font-family="Arial,sans-serif" font-size="10" fill="#222222" >+ paymentId: int</text>
+<text x="99" y="878" font-family="Arial,sans-serif" font-size="10" fill="#222222" >+ petId: int</text>
+<text x="99" y="891" font-family="Arial,sans-serif" font-size="10" fill="#222222" >+ filePath: string</text>
+<text x="99" y="904" font-family="Arial,sans-serif" font-size="10" fill="#222222" >+ fileName: string</text>
+<text x="99" y="917" font-family="Arial,sans-serif" font-size="10" fill="#222222" >+ mimeType: string</text>
+<text x="99" y="930" font-family="Arial,sans-serif" font-size="10" fill="#222222" >+ paperWidth: string</text>
+<text x="99" y="943" font-family="Arial,sans-serif" font-size="10" fill="#222222" >+ createdByUserId: int?</text>
+<text x="99" y="956" font-family="Arial,sans-serif" font-size="10" fill="#222222" >+ createdByName: string?</text>
+<text x="99" y="969" font-family="Arial,sans-serif" font-size="10" fill="#222222" >+ createdAt: datetime</text>
+<text x="99" y="992" font-family="Arial,sans-serif" font-size="10" fill="#222222" >+ saveInvoice()</text>
+<text x="99" y="1005" font-family="Arial,sans-serif" font-size="10" fill="#222222" >+ listInvoices()</text>
+</g>
+<g data-class="visit_payment_refunds"><title>VisitPaymentRefund</title>
+<rect x="377" y="827" width="144" height="213" fill="#ffffff" stroke="#858585" stroke-width="0.8"/>
+<line x1="377" y1="851" x2="521" y2="851" stroke="#858585" stroke-width="0.8"/>
+<line x1="377" y1="1017" x2="521" y2="1017" stroke="#858585" stroke-width="0.8"/>
+<text x="449" y="843" font-family="Arial,sans-serif" font-size="11" fill="#222222" font-weight="700" text-anchor="middle">VisitPaymentRefund</text>
+<text x="387" y="865" font-family="Arial,sans-serif" font-size="10" fill="#222222" >+ refundId: int</text>
+<text x="387" y="878" font-family="Arial,sans-serif" font-size="10" fill="#222222" >+ visitPaymentId: int</text>
+<text x="387" y="891" font-family="Arial,sans-serif" font-size="10" fill="#222222" >+ visitId: int</text>
+<text x="387" y="904" font-family="Arial,sans-serif" font-size="10" fill="#222222" >+ amount: decimal</text>
+<text x="387" y="917" font-family="Arial,sans-serif" font-size="10" fill="#222222" >+ refundMethod: string</text>
+<text x="387" y="930" font-family="Arial,sans-serif" font-size="10" fill="#222222" >+ referenceNumber: string?</text>
+<text x="387" y="943" font-family="Arial,sans-serif" font-size="10" fill="#222222" >+ reason: string</text>
+<text x="387" y="956" font-family="Arial,sans-serif" font-size="10" fill="#222222" >+ refundStatus: string</text>
+<text x="387" y="969" font-family="Arial,sans-serif" font-size="10" fill="#222222" >+ processedAt: datetime</text>
+<text x="387" y="982" font-family="Arial,sans-serif" font-size="10" fill="#222222" >+ processedByUserId: int</text>
+<text x="387" y="995" font-family="Arial,sans-serif" font-size="10" fill="#222222" >+ processedByName: string</text>
+<text x="387" y="1008" font-family="Arial,sans-serif" font-size="10" fill="#222222" >+ createdAt: datetime</text>
+<text x="387" y="1031" font-family="Arial,sans-serif" font-size="10" fill="#222222" >+ processRefund()</text>
+</g>
+<g data-class="payment_methods"><title>PaymentMethod</title>
+<rect x="656" y="710" width="181" height="252" fill="#ffffff" stroke="#858585" stroke-width="0.8"/>
+<line x1="656" y1="734" x2="837" y2="734" stroke="#858585" stroke-width="0.8"/>
+<line x1="656" y1="926" x2="837" y2="926" stroke="#858585" stroke-width="0.8"/>
+<text x="746.5" y="726" font-family="Arial,sans-serif" font-size="11" fill="#222222" font-weight="700" text-anchor="middle">PaymentMethod</text>
+<text x="666" y="748" font-family="Arial,sans-serif" font-size="10" fill="#222222" >+ methodKey: string</text>
+<text x="666" y="761" font-family="Arial,sans-serif" font-size="10" fill="#222222" >+ label: string</text>
+<text x="666" y="774" font-family="Arial,sans-serif" font-size="10" fill="#222222" >+ accountName: string?</text>
+<text x="666" y="787" font-family="Arial,sans-serif" font-size="10" fill="#222222" >+ accountNumber: string?</text>
+<text x="666" y="800" font-family="Arial,sans-serif" font-size="10" fill="#222222" >+ instructions: string?</text>
+<text x="666" y="813" font-family="Arial,sans-serif" font-size="10" fill="#222222" >+ qrImageUrl: string?</text>
+<text x="666" y="826" font-family="Arial,sans-serif" font-size="10" fill="#222222" >+ isActive: bool</text>
+<text x="666" y="839" font-family="Arial,sans-serif" font-size="10" fill="#222222" >+ requiresProof: bool</text>
+<text x="666" y="852" font-family="Arial,sans-serif" font-size="10" fill="#222222" >+ sortOrder: int</text>
+<text x="666" y="865" font-family="Arial,sans-serif" font-size="10" fill="#222222" >+ updatedByUserId: int?</text>
+<text x="666" y="878" font-family="Arial,sans-serif" font-size="10" fill="#222222" >+ updatedAt: datetime</text>
+<text x="666" y="891" font-family="Arial,sans-serif" font-size="10" fill="#222222" >+ createdAt: datetime</text>
+<text x="666" y="904" font-family="Arial,sans-serif" font-size="10" fill="#222222" >+ methodType: string</text>
+<text x="666" y="917" font-family="Arial,sans-serif" font-size="10" fill="#222222" >+ accountNumberEncrypted: string?</text>
+<text x="666" y="940" font-family="Arial,sans-serif" font-size="10" fill="#222222" >+ updateMethods()</text>
+<text x="666" y="953" font-family="Arial,sans-serif" font-size="10" fill="#222222" >+ requestChangeOtp()</text>
+</g>
+<g data-class="booking_payment_submissions"><title>BookingPaymentSubmission</title>
+<rect x="72" y="1104" width="171" height="252" fill="#ffffff" stroke="#858585" stroke-width="0.8"/>
+<line x1="72" y1="1128" x2="243" y2="1128" stroke="#858585" stroke-width="0.8"/>
+<line x1="72" y1="1333" x2="243" y2="1333" stroke="#858585" stroke-width="0.8"/>
+<text x="157.5" y="1120" font-family="Arial,sans-serif" font-size="11" fill="#222222" font-weight="700" text-anchor="middle">BookingPaymentSubmission</text>
+<text x="82" y="1142" font-family="Arial,sans-serif" font-size="10" fill="#222222" >+ submissionId: int</text>
+<text x="82" y="1155" font-family="Arial,sans-serif" font-size="10" fill="#222222" >+ bookingId: int</text>
+<text x="82" y="1168" font-family="Arial,sans-serif" font-size="10" fill="#222222" >+ purpose: string</text>
+<text x="82" y="1181" font-family="Arial,sans-serif" font-size="10" fill="#222222" >+ amount: decimal</text>
+<text x="82" y="1194" font-family="Arial,sans-serif" font-size="10" fill="#222222" >+ paymentMethod: string</text>
+<text x="82" y="1207" font-family="Arial,sans-serif" font-size="10" fill="#222222" >+ referenceNumber: string?</text>
+<text x="82" y="1220" font-family="Arial,sans-serif" font-size="10" fill="#222222" >+ proofUrl: string?</text>
+<text x="82" y="1233" font-family="Arial,sans-serif" font-size="10" fill="#222222" >+ submissionStatus: string</text>
+<text x="82" y="1246" font-family="Arial,sans-serif" font-size="10" fill="#222222" >+ submittedAt: datetime</text>
+<text x="82" y="1259" font-family="Arial,sans-serif" font-size="10" fill="#222222" >+ reviewedAt: datetime?</text>
+<text x="82" y="1272" font-family="Arial,sans-serif" font-size="10" fill="#222222" >+ reviewedByUserId: int?</text>
+<text x="82" y="1285" font-family="Arial,sans-serif" font-size="10" fill="#222222" >+ reviewNotes: string?</text>
+<text x="82" y="1298" font-family="Arial,sans-serif" font-size="10" fill="#222222" >+ linkedVisitPaymentId: int?</text>
+<text x="82" y="1311" font-family="Arial,sans-serif" font-size="10" fill="#222222" >+ createdAt: datetime</text>
+<text x="82" y="1324" font-family="Arial,sans-serif" font-size="10" fill="#222222" >+ updatedAt: datetime</text>
+<text x="82" y="1347" font-family="Arial,sans-serif" font-size="10" fill="#222222" >+ reviewPayment()</text>
+</g>
+<g data-class="booking_payment_refunds"><title>BookingPaymentRefund</title>
+<rect x="359" y="1130" width="181" height="213" fill="#ffffff" stroke="#858585" stroke-width="0.8"/>
+<line x1="359" y1="1154" x2="540" y2="1154" stroke="#858585" stroke-width="0.8"/>
+<line x1="359" y1="1320" x2="540" y2="1320" stroke="#858585" stroke-width="0.8"/>
+<text x="449.5" y="1146" font-family="Arial,sans-serif" font-size="11" fill="#222222" font-weight="700" text-anchor="middle">BookingPaymentRefund</text>
+<text x="369" y="1168" font-family="Arial,sans-serif" font-size="10" fill="#222222" >+ refundId: int</text>
+<text x="369" y="1181" font-family="Arial,sans-serif" font-size="10" fill="#222222" >+ bookingPaymentSubmissionId: int</text>
+<text x="369" y="1194" font-family="Arial,sans-serif" font-size="10" fill="#222222" >+ bookingId: int</text>
+<text x="369" y="1207" font-family="Arial,sans-serif" font-size="10" fill="#222222" >+ amount: decimal</text>
+<text x="369" y="1220" font-family="Arial,sans-serif" font-size="10" fill="#222222" >+ refundMethod: string</text>
+<text x="369" y="1233" font-family="Arial,sans-serif" font-size="10" fill="#222222" >+ referenceNumber: string?</text>
+<text x="369" y="1246" font-family="Arial,sans-serif" font-size="10" fill="#222222" >+ reason: string</text>
+<text x="369" y="1259" font-family="Arial,sans-serif" font-size="10" fill="#222222" >+ refundStatus: string</text>
+<text x="369" y="1272" font-family="Arial,sans-serif" font-size="10" fill="#222222" >+ processedAt: datetime</text>
+<text x="369" y="1285" font-family="Arial,sans-serif" font-size="10" fill="#222222" >+ processedByUserId: int</text>
+<text x="369" y="1298" font-family="Arial,sans-serif" font-size="10" fill="#222222" >+ processedByName: string</text>
+<text x="369" y="1311" font-family="Arial,sans-serif" font-size="10" fill="#222222" >+ createdAt: datetime</text>
+<text x="369" y="1334" font-family="Arial,sans-serif" font-size="10" fill="#222222" >+ processRefund()</text>
+</g>
+<g data-class="service_display_settings"><title>ServiceDisplaySetting</title>
+<rect x="679" y="1052" width="135" height="122" fill="#ffffff" stroke="#858585" stroke-width="0.8"/>
+<line x1="679" y1="1076" x2="814" y2="1076" stroke="#858585" stroke-width="0.8"/>
+<line x1="679" y1="1151" x2="814" y2="1151" stroke="#858585" stroke-width="0.8"/>
+<text x="746.5" y="1068" font-family="Arial,sans-serif" font-size="11" fill="#222222" font-weight="700" text-anchor="middle">ServiceDisplaySetting</text>
+<text x="689" y="1090" font-family="Arial,sans-serif" font-size="10" fill="#222222" >+ settingsKey: string</text>
+<text x="689" y="1103" font-family="Arial,sans-serif" font-size="10" fill="#222222" >+ settingsJson: string</text>
+<text x="689" y="1116" font-family="Arial,sans-serif" font-size="10" fill="#222222" >+ updatedByUserId: int?</text>
+<text x="689" y="1129" font-family="Arial,sans-serif" font-size="10" fill="#222222" >+ createdAt: datetime</text>
+<text x="689" y="1142" font-family="Arial,sans-serif" font-size="10" fill="#222222" >+ updatedAt: datetime</text>
+<text x="689" y="1165" font-family="Arial,sans-serif" font-size="10" fill="#222222" >+ saveDisplaySettings()</text>
+</g>
+<g data-class="boarding_material_usages"><title>BoardingMaterialUsage (reference to the same class on its detail sheet)</title>
+<rect x="953" y="130" width="142" height="57" fill="#ffffff" stroke="#858585" stroke-width="0.8"/>
+<line x1="953" y1="154" x2="1095" y2="154" stroke="#858585" stroke-width="0.8"/>
+<line x1="953" y1="177" x2="1095" y2="177" stroke="#858585" stroke-width="0.8"/>
+<text x="1024" y="146" font-family="Arial,sans-serif" font-size="11" fill="#222222" font-weight="700" text-anchor="middle">BoardingMaterialUsage</text>
+<text x="963" y="168" font-family="Arial,sans-serif" font-size="10" fill="#222222" >+ usageId: int</text>
+</g>
+<g data-class="bookings"><title>Booking (reference to the same class on its detail sheet)</title>
+<rect x="979" y="277" width="89" height="57" fill="#ffffff" stroke="#858585" stroke-width="0.8"/>
+<line x1="979" y1="301" x2="1068" y2="301" stroke="#858585" stroke-width="0.8"/>
+<line x1="979" y1="324" x2="1068" y2="324" stroke="#858585" stroke-width="0.8"/>
+<text x="1023.5" y="293" font-family="Arial,sans-serif" font-size="11" fill="#222222" font-weight="700" text-anchor="middle">Booking</text>
+<text x="989" y="315" font-family="Arial,sans-serif" font-size="10" fill="#222222" >+ bookingId: int</text>
+</g>
+<g data-class="branches"><title>Branch (reference to the same class on its detail sheet)</title>
+<rect x="982" y="424" width="84" height="57" fill="#ffffff" stroke="#858585" stroke-width="0.8"/>
+<line x1="982" y1="448" x2="1066" y2="448" stroke="#858585" stroke-width="0.8"/>
+<line x1="982" y1="471" x2="1066" y2="471" stroke="#858585" stroke-width="0.8"/>
+<text x="1024" y="440" font-family="Arial,sans-serif" font-size="11" fill="#222222" font-weight="700" text-anchor="middle">Branch</text>
+<text x="992" y="462" font-family="Arial,sans-serif" font-size="10" fill="#222222" >+ branchId: int</text>
+</g>
+<g data-class="inventory_items"><title>InventoryItem (reference to the same class on its detail sheet)</title>
+<rect x="978" y="571" width="92" height="57" fill="#ffffff" stroke="#858585" stroke-width="0.8"/>
+<line x1="978" y1="595" x2="1070" y2="595" stroke="#858585" stroke-width="0.8"/>
+<line x1="978" y1="618" x2="1070" y2="618" stroke="#858585" stroke-width="0.8"/>
+<text x="1024" y="587" font-family="Arial,sans-serif" font-size="11" fill="#222222" font-weight="700" text-anchor="middle">InventoryItem</text>
+<text x="988" y="609" font-family="Arial,sans-serif" font-size="10" fill="#222222" >+ itemId: int</text>
+</g>
+<g data-class="pets_information"><title>Pet (reference to the same class on its detail sheet)</title>
+<rect x="990" y="718" width="67" height="57" fill="#ffffff" stroke="#858585" stroke-width="0.8"/>
+<line x1="990" y1="742" x2="1057" y2="742" stroke="#858585" stroke-width="0.8"/>
+<line x1="990" y1="765" x2="1057" y2="765" stroke="#858585" stroke-width="0.8"/>
+<text x="1023.5" y="734" font-family="Arial,sans-serif" font-size="11" fill="#222222" font-weight="700" text-anchor="middle">Pet</text>
+<text x="1000" y="756" font-family="Arial,sans-serif" font-size="10" fill="#222222" >+ petId: int</text>
+</g>
+<g data-class="queues"><title>QueueEntry (reference to the same class on its detail sheet)</title>
+<rect x="983" y="865" width="82" height="57" fill="#ffffff" stroke="#858585" stroke-width="0.8"/>
+<line x1="983" y1="889" x2="1065" y2="889" stroke="#858585" stroke-width="0.8"/>
+<line x1="983" y1="912" x2="1065" y2="912" stroke="#858585" stroke-width="0.8"/>
+<text x="1024" y="881" font-family="Arial,sans-serif" font-size="11" fill="#222222" font-weight="700" text-anchor="middle">QueueEntry</text>
+<text x="993" y="903" font-family="Arial,sans-serif" font-size="10" fill="#222222" >+ queueId: int</text>
+</g>
+<g data-class="users"><title>User (reference to the same class on its detail sheet)</title>
+<rect x="983" y="1012" width="82" height="70" fill="#ffffff" stroke="#858585" stroke-width="0.8"/>
+<line x1="983" y1="1036" x2="1065" y2="1036" stroke="#858585" stroke-width="0.8"/>
+<line x1="983" y1="1072" x2="1065" y2="1072" stroke="#858585" stroke-width="0.8"/>
+<text x="1024" y="1028" font-family="Arial,sans-serif" font-size="11" fill="#222222" font-weight="700" text-anchor="middle">User</text>
+<text x="993" y="1050" font-family="Arial,sans-serif" font-size="10" fill="#222222" >+ userId: int</text>
+<text x="993" y="1063" font-family="Arial,sans-serif" font-size="10" fill="#222222" >+ role: string?</text>
+</g>
+<g data-class="vet_diagnoses"><title>Diagnosis (reference to the same class on its detail sheet)</title>
+<rect x="976" y="1172" width="96" height="57" fill="#ffffff" stroke="#858585" stroke-width="0.8"/>
+<line x1="976" y1="1196" x2="1072" y2="1196" stroke="#858585" stroke-width="0.8"/>
+<line x1="976" y1="1219" x2="1072" y2="1219" stroke="#858585" stroke-width="0.8"/>
+<text x="1024" y="1188" font-family="Arial,sans-serif" font-size="11" fill="#222222" font-weight="700" text-anchor="middle">Diagnosis</text>
+<text x="986" y="1210" font-family="Arial,sans-serif" font-size="10" fill="#222222" >+ diagnosisId: int</text>
+</g>
+<text x="548" y="1230.5" font-family="Arial,sans-serif" font-size="9" fill="#222222" style="font-family:Consolas,monospace">0..*</text>
+<text x="963.42" y="320.5" font-family="Arial,sans-serif" font-size="9" fill="#222222" style="font-family:Consolas,monospace">1</text>
+<text x="326.68" y="1237.5" font-family="Arial,sans-serif" font-size="9" fill="#222222" style="font-family:Consolas,monospace">0..*</text>
+<text x="251" y="1252" font-family="Arial,sans-serif" font-size="9" fill="#222222" style="font-family:Consolas,monospace">1</text>
+<text x="548" y="1244.5" font-family="Arial,sans-serif" font-size="9" fill="#222222" style="font-family:Consolas,monospace">0..*</text>
+<text x="1050" y="1103" font-family="Arial,sans-serif" font-size="9" fill="#222222" style="font-family:Consolas,monospace">1</text>
+<text x="251" y="1210" font-family="Arial,sans-serif" font-size="9" fill="#222222" style="font-family:Consolas,monospace">0..*</text>
+<text x="963.42" y="306.5" font-family="Arial,sans-serif" font-size="9" fill="#222222" style="font-family:Consolas,monospace">1</text>
+<text x="251" y="1238" font-family="Arial,sans-serif" font-size="9" fill="#222222" style="font-family:Consolas,monospace">0..*</text>
+<text x="1010" y="1103" font-family="Arial,sans-serif" font-size="9" fill="#222222" style="font-family:Consolas,monospace">0..1</text>
+<text x="251" y="1224" font-family="Arial,sans-serif" font-size="9" fill="#222222" style="font-family:Consolas,monospace">0..1</text>
+<text x="642.68" y="522.5" font-family="Arial,sans-serif" font-size="9" fill="#222222" style="font-family:Consolas,monospace">0..1</text>
+<text x="228" y="251" font-family="Arial,sans-serif" font-size="9" fill="#222222" style="font-family:Consolas,monospace">0..*</text>
+<text x="950.68" y="1027" font-family="Arial,sans-serif" font-size="9" fill="#222222" style="font-family:Consolas,monospace">0..1</text>
+<text x="822" y="1114" font-family="Arial,sans-serif" font-size="9" fill="#222222" style="font-family:Consolas,monospace">0..*</text>
+<text x="1073" y="1062" font-family="Arial,sans-serif" font-size="9" fill="#222222" style="font-family:Consolas,monospace">0..1</text>
+<text x="845" y="211.5" font-family="Arial,sans-serif" font-size="9" fill="#222222" style="font-family:Consolas,monospace">0..*</text>
+<text x="1029.5" y="255" font-family="Arial,sans-serif" font-size="9" fill="#222222" style="font-family:Consolas,monospace">1</text>
+<text x="623.68" y="211.5" font-family="Arial,sans-serif" font-size="9" fill="#222222" style="font-family:Consolas,monospace">0..*</text>
+<text x="534" y="263" font-family="Arial,sans-serif" font-size="9" fill="#222222" style="font-family:Consolas,monospace">0..1</text>
+<text x="534" y="277" font-family="Arial,sans-serif" font-size="9" fill="#222222" style="font-family:Consolas,monospace">0..*</text>
+<text x="1010" y="990" font-family="Arial,sans-serif" font-size="9" fill="#222222" style="font-family:Consolas,monospace">0..1</text>
+<text x="232" y="538" font-family="Arial,sans-serif" font-size="9" fill="#222222" style="font-family:Consolas,monospace">0..*</text>
+<text x="966.42" y="453.5" font-family="Arial,sans-serif" font-size="9" fill="#222222" style="font-family:Consolas,monospace">1</text>
+<text x="232" y="636" font-family="Arial,sans-serif" font-size="9" fill="#222222" style="font-family:Consolas,monospace">0..1</text>
+<text x="943.68" y="1201.5" font-family="Arial,sans-serif" font-size="9" fill="#222222" style="font-family:Consolas,monospace">0..1</text>
+<text x="232" y="566" font-family="Arial,sans-serif" font-size="9" fill="#222222" style="font-family:Consolas,monospace">0..*</text>
+<text x="974.42" y="740.5" font-family="Arial,sans-serif" font-size="9" fill="#222222" style="font-family:Consolas,monospace">1</text>
+<text x="232" y="608" font-family="Arial,sans-serif" font-size="9" fill="#222222" style="font-family:Consolas,monospace">0..*</text>
+<text x="967.42" y="1041" font-family="Arial,sans-serif" font-size="9" fill="#222222" style="font-family:Consolas,monospace">1</text>
+<text x="232" y="622" font-family="Arial,sans-serif" font-size="9" fill="#222222" style="font-family:Consolas,monospace">0..*</text>
+<text x="950.68" y="1055" font-family="Arial,sans-serif" font-size="9" fill="#222222" style="font-family:Consolas,monospace">0..1</text>
+<text x="232" y="594" font-family="Arial,sans-serif" font-size="9" fill="#222222" style="font-family:Consolas,monospace">0..*</text>
+<text x="950.68" y="894.5" font-family="Arial,sans-serif" font-size="9" fill="#222222" style="font-family:Consolas,monospace">0..1</text>
+<text x="232" y="510" font-family="Arial,sans-serif" font-size="9" fill="#222222" style="font-family:Consolas,monospace">0..*</text>
+<text x="946.68" y="292.5" font-family="Arial,sans-serif" font-size="9" fill="#222222" style="font-family:Consolas,monospace">0..1</text>
+<text x="539" y="604.5" font-family="Arial,sans-serif" font-size="9" fill="#222222" style="font-family:Consolas,monospace">0..1</text>
+<text x="920.68" y="159.5" font-family="Arial,sans-serif" font-size="9" fill="#222222" style="font-family:Consolas,monospace">0..1</text>
+<text x="539" y="632.5" font-family="Arial,sans-serif" font-size="9" fill="#222222" style="font-family:Consolas,monospace">0..*</text>
+<text x="1073" y="1034" font-family="Arial,sans-serif" font-size="9" fill="#222222" style="font-family:Consolas,monospace">0..1</text>
+<text x="334.68" y="625.5" font-family="Arial,sans-serif" font-size="9" fill="#222222" style="font-family:Consolas,monospace">0..*</text>
+<text x="232" y="552" font-family="Arial,sans-serif" font-size="9" fill="#222222" style="font-family:Consolas,monospace">1</text>
+<text x="334.68" y="611.5" font-family="Arial,sans-serif" font-size="9" fill="#222222" style="font-family:Consolas,monospace">0..*</text>
+<text x="228" y="237" font-family="Arial,sans-serif" font-size="9" fill="#222222" style="font-family:Consolas,monospace">0..1</text>
+<text x="539" y="618.5" font-family="Arial,sans-serif" font-size="9" fill="#222222" style="font-family:Consolas,monospace">0..*</text>
+<text x="945.68" y="600.5" font-family="Arial,sans-serif" font-size="9" fill="#222222" style="font-family:Consolas,monospace">0..1</text>
+<text x="234" y="916" font-family="Arial,sans-serif" font-size="9" fill="#222222" style="font-family:Consolas,monospace">0..*</text>
+<text x="950.68" y="1069" font-family="Arial,sans-serif" font-size="9" fill="#222222" style="font-family:Consolas,monospace">0..1</text>
+<text x="234" y="888" font-family="Arial,sans-serif" font-size="9" fill="#222222" style="font-family:Consolas,monospace">0..1</text>
+<text x="659.42" y="494.5" font-family="Arial,sans-serif" font-size="9" fill="#222222" style="font-family:Consolas,monospace">1</text>
+<text x="234" y="902" font-family="Arial,sans-serif" font-size="9" fill="#222222" style="font-family:Consolas,monospace">0..*</text>
+<text x="974.42" y="754.5" font-family="Arial,sans-serif" font-size="9" fill="#222222" style="font-family:Consolas,monospace">1</text>
+<text x="163.5" y="766" font-family="Arial,sans-serif" font-size="9" fill="#222222" style="font-family:Consolas,monospace">0..*</text>
+<text x="163.5" y="719" font-family="Arial,sans-serif" font-size="9" fill="#222222" style="font-family:Consolas,monospace">1</text>
+<text x="826" y="501.5" font-family="Arial,sans-serif" font-size="9" fill="#222222" style="font-family:Consolas,monospace">0..*</text>
+<text x="1050" y="990" font-family="Arial,sans-serif" font-size="9" fill="#222222" style="font-family:Consolas,monospace">0..1</text>
+<text x="642.68" y="480.5" font-family="Arial,sans-serif" font-size="9" fill="#222222" style="font-family:Consolas,monospace">0..*</text>
+<text x="232" y="524" font-family="Arial,sans-serif" font-size="9" fill="#222222" style="font-family:Consolas,monospace">1</text>
+<text x="529" y="927.5" font-family="Arial,sans-serif" font-size="9" fill="#222222" style="font-family:Consolas,monospace">0..*</text>
+<text x="659.42" y="508.5" font-family="Arial,sans-serif" font-size="9" fill="#222222" style="font-family:Consolas,monospace">1</text>
+<text x="529" y="941.5" font-family="Arial,sans-serif" font-size="9" fill="#222222" style="font-family:Consolas,monospace">0..*</text>
+<text x="1073" y="1048" font-family="Arial,sans-serif" font-size="9" fill="#222222" style="font-family:Consolas,monospace">1</text>
+<text x="344.68" y="934.5" font-family="Arial,sans-serif" font-size="9" fill="#222222" style="font-family:Consolas,monospace">0..*</text>
+<text x="232" y="580" font-family="Arial,sans-serif" font-size="9" fill="#222222" style="font-family:Consolas,monospace">1</text>
+<text x="72" y="1434" font-family="Arial,sans-serif" font-size="9" fill="#222222" >Reference boxes repeat an existing class. Empty operation compartments indicate supporting state.</text>
+</svg>

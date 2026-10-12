@@ -1,0 +1,99 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="2600" height="1165" viewBox="0 0 2600 1165" role="img" aria-labelledby="title desc">
+<title id="title">iPawcus / Clinic assignments and vet availability / 2 of 2</title>
+<desc id="desc">Application modules and verified database references. Original SQL entity definitions are on pages 01 to 09. Dashed dependencies are not foreign keys.</desc>
+<defs><marker id="arrow" markerWidth="9" markerHeight="9" refX="8" refY="4.5" orient="auto" markerUnits="userSpaceOnUse"><path d="M0 0 L8 4.5 L0 9" fill="none" stroke="#8793a3" stroke-width="1.2"/></marker><marker id="inheritance" markerWidth="11" markerHeight="11" refX="10" refY="5" orient="auto" markerUnits="userSpaceOnUse"><path d="M0 0 L10 5 L0 10 Z" fill="#ffffff" stroke="#8793a3" stroke-width="1.2"/></marker></defs>
+<rect width="100%" height="100%" fill="#ffffff"/>
+<text x="80" y="44" font-family="Arial,sans-serif" font-size="25" fill="#2d3748">iPawcus / Clinic assignments and vet availability / 2 of 2</text>
+<text x="80" y="73" font-family="Arial,sans-serif" font-size="14" fill="#596579">React / service / PHP / entity reference · arrows show source-code dependencies; no invented OO inheritance.</text>
+<text x="80" y="100" font-family="Arial,sans-serif" font-size="13" fill="#596579">Dashed: dependency. Solid: migration FK or real class inheritance. Full source evidence accompanies detailed links.</text>
+<text x="1400" y="143" font-family="Arial,sans-serif" font-size="14" fill="#596579">PHP backend modules</text>
+<text x="2080" y="143" font-family="Arial,sans-serif" font-size="14" fill="#596579">Database references</text>
+<path d="M1840 210 L1950 210 L1950 642 L1840 642" fill="none" stroke="#8793a3" stroke-width="1.2" stroke-dasharray="5 4" marker-end="url(#arrow)"><title>php/veterinarian_booking_schedule.php → php/branch_helpers.php / includes</title></path>
+<path d="M1840 232 L1970 232 L1970 817 L1840 817" fill="none" stroke="#8793a3" stroke-width="1.2" stroke-dasharray="5 4" marker-end="url(#arrow)"><title>php/veterinarian_booking_schedule.php → php/booking_slot_helpers.php / includes</title></path>
+<path d="M1840 254 L1970 254 L1970 210 L2080 210" fill="none" stroke="#8793a3" stroke-width="1.2" stroke-dasharray="5 4" marker-end="url(#arrow)"><title>php/veterinarian_booking_schedule.php → db:user_branch_assignments / SQL</title></path>
+<path d="M1840 276 L1950 276 L1950 279 L1913 279 L1913 403 L2080 403" fill="none" stroke="#8793a3" stroke-width="1.2" stroke-dasharray="5 4" marker-end="url(#arrow)"><title>php/veterinarian_booking_schedule.php → db:veterinarian_booking_clinics / SQL</title></path>
+<path d="M1840 298 L1950 298 L1950 364 L1913 364 L1913 614 L2080 614" fill="none" stroke="#8793a3" stroke-width="1.2" stroke-dasharray="5 4" marker-end="url(#arrow)"><title>php/veterinarian_booking_schedule.php → db:users / SQL</title></path>
+<path d="M1840 426 L2058 426 L2058 664 L1840 664" fill="none" stroke="#8793a3" stroke-width="1.2" stroke-dasharray="5 4" marker-end="url(#arrow)"><title>php/veterinarian_branch_schedules.php → php/branch_helpers.php / includes</title></path>
+<path d="M1840 448 L1950 448 L1950 451 L1878 451 L1878 938 L1950 938 L1950 992 L1840 992" fill="none" stroke="#8793a3" stroke-width="1.2" stroke-dasharray="5 4" marker-end="url(#arrow)"><title>php/veterinarian_branch_schedules.php → php/notification_helpers.php / includes</title></path>
+<path d="M1840 470 L1950 470 L1950 807 L2080 807" fill="none" stroke="#8793a3" stroke-width="1.2" stroke-dasharray="5 4" marker-end="url(#arrow)"><title>php/veterinarian_branch_schedules.php → db:veterinarian_branch_schedules / SQL</title></path>
+<path d="M1840 492 L1950 492 L1950 513 L1862 513 L1862 1000 L2080 1000" fill="none" stroke="#8793a3" stroke-width="1.2" stroke-dasharray="5 4" marker-end="url(#arrow)"><title>php/veterinarian_branch_schedules.php → db:branches / SQL</title></path>
+<path d="M1840 514 L1970 514 L1970 636 L2080 636" fill="none" stroke="#8793a3" stroke-width="1.2" stroke-dasharray="5 4" marker-end="url(#arrow)"><title>php/veterinarian_branch_schedules.php → db:users / SQL</title></path>
+<g data-node="php/veterinarian_booking_schedule.php"><rect x="1400" y="170" width="440" height="158" fill="#ffffff" stroke="#c4cbd4" stroke-width="1.2"/><line x1="1400" y1="225" x2="1840" y2="225" stroke="#c4cbd4"/>
+<text x="1414" y="193" font-family="Arial,sans-serif" font-size="16" fill="#2d3748">VeterinarianBookingSchedule</text>
+<text x="1414" y="212" font-family="Arial,sans-serif" font-size="11.5" fill="#596579">«PHP module»</text>
+<text x="1414" y="248" font-family="Consolas,monospace" font-size="12" fill="#2d3748">+ vet_booking_schedule_data()</text>
+<text x="1414" y="316" font-family="Arial,sans-serif" font-size="11.5" fill="#596579">php/veterinarian_booking_schedule.php:11</text>
+</g>
+<g data-node="php/veterinarian_branch_schedules.php"><rect x="1400" y="386" width="440" height="158" fill="#ffffff" stroke="#c4cbd4" stroke-width="1.2"/><line x1="1400" y1="441" x2="1840" y2="441" stroke="#c4cbd4"/>
+<text x="1414" y="409" font-family="Arial,sans-serif" font-size="16" fill="#2d3748">VeterinarianBranchSchedules</text>
+<text x="1414" y="428" font-family="Arial,sans-serif" font-size="11.5" fill="#596579">«PHP module»</text>
+<text x="1414" y="464" font-family="Consolas,monospace" font-size="12" fill="#2d3748">+ vet_visit_normalize_services()</text>
+<text x="1414" y="482" font-family="Consolas,monospace" font-size="12" fill="#2d3748">+ vet_visit_parse_date()</text>
+<text x="1414" y="500" font-family="Consolas,monospace" font-size="12" fill="#2d3748">+ vet_visit_range_occurrences()</text>
+<text x="1414" y="532" font-family="Arial,sans-serif" font-size="11.5" fill="#596579">php/veterinarian_branch_schedules.php:9</text>
+</g>
+<g data-node="php/branch_helpers.php"><rect x="1400" y="602" width="440" height="117" fill="#f8fafc" stroke="#c4cbd4" stroke-width="1.2" stroke-dasharray="5 4"/><line x1="1400" y1="657" x2="1840" y2="657" stroke="#c4cbd4"/>
+<text x="1414" y="625" font-family="Arial,sans-serif" font-size="16" fill="#2d3748">BranchHelpers</text>
+<text x="1414" y="644" font-family="Arial,sans-serif" font-size="11.5" fill="#596579">«PHP module» / page 17</text>
+<text x="1414" y="680" font-family="Consolas,monospace" font-size="12" fill="#2d3748">Definition / page 17</text>
+<text x="1414" y="707" font-family="Arial,sans-serif" font-size="11.5" fill="#596579">php/branch_helpers.php:3</text>
+</g>
+<g data-node="php/booking_slot_helpers.php"><rect x="1400" y="777" width="440" height="117" fill="#f8fafc" stroke="#c4cbd4" stroke-width="1.2" stroke-dasharray="5 4"/><line x1="1400" y1="832" x2="1840" y2="832" stroke="#c4cbd4"/>
+<text x="1414" y="800" font-family="Arial,sans-serif" font-size="16" fill="#2d3748">BookingSlotHelpers</text>
+<text x="1414" y="819" font-family="Arial,sans-serif" font-size="11.5" fill="#596579">«PHP module» / page 23</text>
+<text x="1414" y="855" font-family="Consolas,monospace" font-size="12" fill="#2d3748">Definition / page 23</text>
+<text x="1414" y="882" font-family="Arial,sans-serif" font-size="11.5" fill="#596579">php/booking_slot_helpers.php:13</text>
+</g>
+<g data-node="db:user_branch_assignments"><rect x="2080" y="170" width="440" height="135" fill="#f8fafc" stroke="#c4cbd4" stroke-width="1.2" stroke-dasharray="5 4"/><line x1="2080" y1="225" x2="2520" y2="225" stroke="#c4cbd4"/>
+<text x="2094" y="193" font-family="Arial,sans-serif" font-size="16" fill="#2d3748">UserBranchAssignment</text>
+<text x="2094" y="212" font-family="Arial,sans-serif" font-size="11.5" fill="#596579">«entity» user_branch_assignments</text>
+<text x="2094" y="248" font-family="Consolas,monospace" font-size="12" fill="#2d3748">+ user_branch_assignment_id: int [PK]</text>
+<text x="2094" y="266" font-family="Consolas,monospace" font-size="12" fill="#2d3748">Full SQL attributes / DB page 02</text>
+<text x="2094" y="293" font-family="Arial,sans-serif" font-size="11.5" fill="#596579">iPawcus_ERD_Schema.sql</text>
+</g>
+<g data-node="db:veterinarian_booking_clinics"><rect x="2080" y="363" width="440" height="153" fill="#f8fafc" stroke="#c4cbd4" stroke-width="1.2" stroke-dasharray="5 4"/><line x1="2080" y1="418" x2="2520" y2="418" stroke="#c4cbd4"/>
+<text x="2094" y="386" font-family="Arial,sans-serif" font-size="16" fill="#2d3748">VetClinicBookingPreference</text>
+<text x="2094" y="405" font-family="Arial,sans-serif" font-size="11.5" fill="#596579">«entity» veterinarian_booking_clinics</text>
+<text x="2094" y="441" font-family="Consolas,monospace" font-size="12" fill="#2d3748">+ veterinarian_user_id: int [PK]</text>
+<text x="2094" y="459" font-family="Consolas,monospace" font-size="12" fill="#2d3748">+ branch_id: int [PK]</text>
+<text x="2094" y="477" font-family="Consolas,monospace" font-size="12" fill="#2d3748">Full SQL attributes / DB page 02</text>
+<text x="2094" y="504" font-family="Arial,sans-serif" font-size="11.5" fill="#596579">iPawcus_ERD_Schema.sql</text>
+</g>
+<g data-node="db:users"><rect x="2080" y="574" width="440" height="135" fill="#f8fafc" stroke="#c4cbd4" stroke-width="1.2" stroke-dasharray="5 4"/><line x1="2080" y1="629" x2="2520" y2="629" stroke="#c4cbd4"/>
+<text x="2094" y="597" font-family="Arial,sans-serif" font-size="16" fill="#2d3748">User</text>
+<text x="2094" y="616" font-family="Arial,sans-serif" font-size="11.5" fill="#596579">«entity» users</text>
+<text x="2094" y="652" font-family="Consolas,monospace" font-size="12" fill="#2d3748">+ user_id: int [PK]</text>
+<text x="2094" y="670" font-family="Consolas,monospace" font-size="12" fill="#2d3748">Full SQL attributes / DB page 01</text>
+<text x="2094" y="697" font-family="Arial,sans-serif" font-size="11.5" fill="#596579">iPawcus_ERD_Schema.sql</text>
+</g>
+<g data-node="php/notification_helpers.php"><rect x="1400" y="952" width="440" height="117" fill="#f8fafc" stroke="#c4cbd4" stroke-width="1.2" stroke-dasharray="5 4"/><line x1="1400" y1="1007" x2="1840" y2="1007" stroke="#c4cbd4"/>
+<text x="1414" y="975" font-family="Arial,sans-serif" font-size="16" fill="#2d3748">NotificationHelpers</text>
+<text x="1414" y="994" font-family="Arial,sans-serif" font-size="11.5" fill="#596579">«PHP module» / page 38</text>
+<text x="1414" y="1030" font-family="Consolas,monospace" font-size="12" fill="#2d3748">Definition / page 38</text>
+<text x="1414" y="1057" font-family="Arial,sans-serif" font-size="11.5" fill="#596579">php/notification_helpers.php:10</text>
+</g>
+<g data-node="db:veterinarian_branch_schedules"><rect x="2080" y="767" width="440" height="135" fill="#f8fafc" stroke="#c4cbd4" stroke-width="1.2" stroke-dasharray="5 4"/><line x1="2080" y1="822" x2="2520" y2="822" stroke="#c4cbd4"/>
+<text x="2094" y="790" font-family="Arial,sans-serif" font-size="16" fill="#2d3748">LegacyVetClinicVisit</text>
+<text x="2094" y="809" font-family="Arial,sans-serif" font-size="11.5" fill="#596579">«entity» veterinarian_branch_schedules</text>
+<text x="2094" y="845" font-family="Consolas,monospace" font-size="12" fill="#2d3748">+ visit_schedule_id: int [PK]</text>
+<text x="2094" y="863" font-family="Consolas,monospace" font-size="12" fill="#2d3748">Full SQL attributes / DB page 02</text>
+<text x="2094" y="890" font-family="Arial,sans-serif" font-size="11.5" fill="#596579">iPawcus_ERD_Schema.sql</text>
+</g>
+<g data-node="db:branches"><rect x="2080" y="960" width="440" height="135" fill="#f8fafc" stroke="#c4cbd4" stroke-width="1.2" stroke-dasharray="5 4"/><line x1="2080" y1="1015" x2="2520" y2="1015" stroke="#c4cbd4"/>
+<text x="2094" y="983" font-family="Arial,sans-serif" font-size="16" fill="#2d3748">Branch</text>
+<text x="2094" y="1002" font-family="Arial,sans-serif" font-size="11.5" fill="#596579">«entity» branches</text>
+<text x="2094" y="1038" font-family="Consolas,monospace" font-size="12" fill="#2d3748">+ branch_id: int [PK]</text>
+<text x="2094" y="1056" font-family="Consolas,monospace" font-size="12" fill="#2d3748">Full SQL attributes / DB page 02</text>
+<text x="2094" y="1083" font-family="Arial,sans-serif" font-size="11.5" fill="#596579">iPawcus_ERD_Schema.sql</text>
+</g>
+<text x="1852" y="204" font-family="Consolas,monospace" font-size="11.5" fill="#596579">includes</text>
+<text x="1852" y="226" font-family="Consolas,monospace" font-size="11.5" fill="#596579">includes</text>
+<text x="1852" y="248" font-family="Consolas,monospace" font-size="11.5" fill="#596579">SQL</text>
+<text x="1852" y="270" font-family="Consolas,monospace" font-size="11.5" fill="#596579">SQL</text>
+<text x="1852" y="292" font-family="Consolas,monospace" font-size="11.5" fill="#596579">SQL</text>
+<text x="1852" y="420" font-family="Consolas,monospace" font-size="11.5" fill="#596579">includes</text>
+<text x="1852" y="442" font-family="Consolas,monospace" font-size="11.5" fill="#596579">includes</text>
+<text x="1852" y="464" font-family="Consolas,monospace" font-size="11.5" fill="#596579">SQL</text>
+<text x="1852" y="486" font-family="Consolas,monospace" font-size="11.5" fill="#596579">SQL</text>
+<text x="1852" y="508" font-family="Consolas,monospace" font-size="11.5" fill="#596579">SQL</text>
+</svg>

@@ -1,0 +1,1413 @@
+classDiagram
+direction LR
+%% Generated from iPawcus_ERD_Schema.sql; actual SQL entity attributes.
+class AdminFeaturePermission {
+    +bigint permission_id
+    +int user_id
+    +varchar feature_key
+    +tinyint is_allowed
+    +int updated_by_user_id
+    +timestamp created_at
+    +timestamp updated_at
+}
+class AdminFeaturePermissionAudit {
+    +bigint audit_id
+    +int target_user_id
+    +int changed_by_user_id
+    +json previous_permissions
+    +json new_permissions
+    +timestamp created_at
+}
+class AdminProfile {
+    +int id
+    +int user_id
+    +varchar employee_id
+    +date hire_date
+    +enum employment_status
+    +timestamp created_at
+    +varchar postionn
+    +tinyint is_active
+    +int years_of_experience
+}
+class ApiAccessToken {
+    +int token_id
+    +int user_id
+    +char token_hash
+    +datetime created_at
+    +datetime expires_at
+    +datetime last_used_at
+    +datetime revoked_at
+}
+class BoardingAssignment {
+    +int assignment_id
+    +int booking_id
+    +int branch_id
+    +varchar room_type
+    +int room_number
+    +enum status
+    +datetime reserved_at
+    +datetime actual_check_in_at
+    +datetime actual_check_out_at
+    +date desired_check_out_date
+    +text notes
+    +timestamp created_at
+    +timestamp updated_at
+}
+class BoardingDocument {
+    +int document_id
+    +int assignment_id
+    +int booking_id
+    +int pet_id
+    +enum document_type
+    +varchar title
+    +varchar document_path
+    +varchar file_name
+    +varchar mime_type
+    +text notes
+    +int uploaded_by_user_id
+    +varchar uploaded_by_name
+    +timestamp created_at
+}
+class BoardingMaterialUsage {
+    +int usage_id
+    +varchar client_reference
+    +int assignment_id
+    +int booking_id
+    +int pet_id
+    +int item_id
+    +varchar item_name
+    +varchar category
+    +varchar unit
+    +decimal quantity
+    +decimal unit_price
+    +text notes
+    +enum status
+    +int recorded_by_user_id
+    +varchar recorded_by_name
+    +int voided_by_user_id
+    +varchar voided_by_name
+    +datetime voided_at
+    +timestamp created_at
+    +timestamp updated_at
+}
+class BoardingObservation {
+    +int observation_id
+    +int assignment_id
+    +int booking_id
+    +int pet_id
+    +varchar room_type
+    +int room_number
+    +varchar observation_type
+    +text notes
+    +varchar appetite_status
+    +varchar water_intake_status
+    +varchar elimination_status
+    +varchar behavior_status
+    +decimal temperature_c
+    +decimal weight_kg
+    +varchar condition_severity
+    +tinyint requires_vet_review
+    +datetime observed_at
+    +int created_by_user_id
+    +timestamp created_at
+}
+class BoardingTask {
+    +int task_id
+    +int assignment_id
+    +int booking_id
+    +int pet_id
+    +varchar room_type
+    +int room_number
+    +varchar task_type
+    +datetime due_at
+    +enum status
+    +varchar assigned_to
+    +text notes
+    +datetime completed_at
+    +int created_by_user_id
+    +timestamp created_at
+    +timestamp updated_at
+}
+class Booking {
+    +int booking_id
+    +int user_id
+    +int pet_id
+    +varchar booking_number
+    +int branch_id
+    +int original_branch_id
+    +enum service_type
+    +date booking_date
+    +time booking_time
+    +enum status
+    +decimal price
+    +decimal boarding_overstay_daily_rate
+    +text notes
+    +tinyint is_home_service
+    +text address
+    +varchar payment_proof_url
+    +varchar payment_method
+    +varchar payment_reference
+    +tinyint is_online_consultation
+    +varchar veterinarian_id
+    +timestamp created_at
+    +text Image_Booking_Concern_Path
+    +enum registered_status
+    +varchar petType
+    +varchar unregistered_pet_name
+    +varchar unregistered_pet_breed
+    +varchar unregistered_pet_age
+    +varchar unregistered_pet_weight
+    +varchar unregistered_pet_color_markings
+    +text signature_path
+    +longtext consent_forms
+    +varchar consent_status
+    +decimal transport_fee
+    +date check_in_date
+    +date check_out_date
+    +varchar room_size
+    +text add_ons
+    +varchar emergency_contact
+    +enum hotel_boarding_type
+    +enum admission_type
+    +int source_visit_id
+    +int source_diagnosis_id
+    +int source_grooming_booking_id
+    +int referred_by_vet_user_id
+    +text confinement_reason
+    +text care_instructions
+    +enum owner_approval_status
+    +datetime owner_approved_at
+    +int billing_charge_id
+}
+class BookingBranchTransfer {
+    +int transfer_id
+    +int booking_id
+    +int from_branch_id
+    +int to_branch_id
+    +int transferred_by_user_id
+    +varchar reason
+    +tinyint payment_review_required
+    +timestamp transferred_at
+}
+class BookingPaymentRefund {
+    +int refund_id
+    +int booking_payment_submission_id
+    +int booking_id
+    +decimal amount
+    +varchar refund_method
+    +varchar reference_number
+    +varchar reason
+    +enum refund_status
+    +datetime processed_at
+    +int processed_by_user_id
+    +varchar processed_by_name
+    +timestamp created_at
+}
+class BookingPaymentSubmission {
+    +int submission_id
+    +int booking_id
+    +enum purpose
+    +decimal amount
+    +varchar payment_method
+    +varchar reference_number
+    +varchar proof_url
+    +enum submission_status
+    +datetime submitted_at
+    +datetime reviewed_at
+    +int reviewed_by_user_id
+    +varchar review_notes
+    +int linked_visit_payment_id
+    +timestamp created_at
+    +timestamp updated_at
+}
+class BookingPet {
+    +int booking_pet_id
+    +int booking_id
+    +int pet_id
+    +timestamp created_at
+}
+class Branch {
+    +int branch_id
+    +varchar branch_code
+    +varchar branch_name
+    +enum branch_type
+    +text address
+    +varchar phone_number
+    +varchar map_url
+    +tinyint is_main
+    +enum status
+    +timestamp created_at
+    +timestamp updated_at
+}
+class BranchClosure {
+    +int closure_id
+    +int branch_id
+    +date closure_date
+    +varchar reason
+    +int created_by_user_id
+    +timestamp created_at
+}
+class BranchOperatingHour {
+    +int operating_hour_id
+    +int branch_id
+    +tinyint day_of_week
+    +time opens_at
+    +time closes_at
+    +tinyint is_closed
+    +timestamp created_at
+    +timestamp updated_at
+}
+class BranchServiceAvailability {
+    +int branch_service_id
+    +int branch_id
+    +varchar service_key
+    +varchar service_label
+    +enum availability_mode
+    +tinyint booking_enabled
+    +tinyint queue_enabled
+    +tinyint is_active
+    +timestamp created_at
+    +timestamp updated_at
+}
+class ConsentFile {
+    +int file_id
+    +varchar file_name
+    +varchar file_type
+    +varchar file_size
+    +longtext content
+    +varchar category
+    +text pet_owner_contexts
+    +timestamp uploaded_at
+}
+class ConsentFormRecord {
+    +int consent_record_id
+    +int consent_file_id
+    +int booking_id
+    +int queue_id
+    +int visit_id
+    +int owner_user_id
+    +int pet_id
+    +varchar consent_type
+    +varchar service_name
+    +enum status
+    +enum source
+    +datetime requested_at
+    +varchar signed_document_path
+    +datetime signed_at
+    +datetime released_at
+    +varchar signed_file_path
+    +varchar physical_file_path
+    +varchar signer_name
+    +int processed_by_user_id
+    +varchar processed_by_name
+    +text notes
+    +timestamp created_at
+    +timestamp updated_at
+}
+class EmailOtpToken {
+    +int otp_id
+    +int user_id
+    +varchar email
+    +enum purpose
+    +char token_hash
+    +datetime expires_at
+    +datetime used_at
+    +int attempt_count
+    +int max_attempts
+    +datetime last_sent_at
+    +varchar request_ip
+    +varchar user_agent
+    +timestamp created_at
+    +timestamp updated_at
+}
+class GoogleAuthOnboardingToken {
+    +bigint onboarding_id
+    +char token_hash
+    +varchar provider_subject
+    +varchar email
+    +varchar first_name
+    +varchar last_name
+    +varchar picture_url
+    +datetime expires_at
+    +datetime consumed_at
+    +datetime created_at
+}
+class GroomingEvent {
+    +int event_id
+    +int booking_id
+    +int actor_id
+    +varchar action
+    +longtext details_json
+    +datetime created_at
+}
+class GroomingJob {
+    +int booking_id
+    +varchar status
+    +varchar performed_by
+    +longtext details_json
+    +int version
+    +datetime published_at
+    +int visit_id
+    +datetime created_at
+    +datetime updated_at
+    +int updated_by
+}
+class GroomingPhoto {
+    +int photo_id
+    +int booking_id
+    +varchar category
+    +varchar caption
+    +varchar file_path
+    +tinyint share_with_owner
+    +int uploaded_by
+    +datetime created_at
+}
+class GroomingReview {
+    +int review_id
+    +int booking_id
+    +int veterinarian_id
+    +int requested_by
+    +text reason
+    +varchar outcome
+    +text review_notes
+    +datetime created_at
+    +datetime reviewed_at
+}
+class HistoryBeforeRegistration {
+    +varchar current_medication
+    +varchar veterinarian_notes
+    +int pet_id
+    +date last_visit_Date
+}
+class InventoryActionAudit {
+    +bigint inventory_audit_id
+    +varchar action_type
+    +int item_id
+    +int batch_id
+    +int location_id
+    +text reason
+    +longtext before_state_json
+    +longtext after_state_json
+    +int performed_by_user_id
+    +varchar performed_by_name
+    +timestamp responsibility_confirmed_at
+    +timestamp created_at
+}
+class InventoryBatch {
+    +int batch_id
+    +int item_id
+    +varchar batch_number
+    +int quantity
+    +date manufacturing_date
+    +date expiry_date
+    +decimal unit_cost
+    +timestamp created_at
+    +int location_id
+}
+class InventoryBranchItem {
+    +int branch_id
+    +int item_id
+    +int primary_location_id
+    +enum status
+    +datetime removed_at
+    +int removed_by_user_id
+    +varchar removal_reason
+    +timestamp created_at
+    +timestamp updated_at
+}
+class InventoryItem {
+    +int item_id
+    +varchar item_name
+    +varchar generic_name
+    +varchar sku
+    +varchar barcode
+    +text description
+    +varchar category
+    +varchar brand
+    +varchar unit
+    +int reorder_level
+    +decimal unit_cost
+    +decimal selling_price
+    +int expiry_warning_days
+    +varchar profile_image_path
+    +enum status
+    +int created_by_user_id
+    +varchar created_by_name
+    +timestamp created_at
+    +timestamp updated_at
+    +int location_id
+}
+class InventoryLocation {
+    +int location_id
+    +int branch_id
+    +varchar location_name
+    +enum location_type
+    +text address
+    +enum status
+    +timestamp created_at
+    +varchar storage_area
+}
+class InventoryStockMovement {
+    +int movement_id
+    +int item_id
+    +int batch_id
+    +int location_id
+    +enum movement_type
+    +int quantity_change
+    +int quantity_before
+    +int quantity_after
+    +varchar reference_type
+    +int reference_id
+    +text remarks
+    +int performed_by_user_id
+    +varchar performed_by_name
+    +timestamp created_at
+}
+class InventoryStockReceipt {
+    +int receipt_id
+    +int branch_id
+    +date receiving_date
+    +varchar delivery_note_number
+    +varchar proof_image_path
+    +text notes
+    +int received_by_user_id
+    +varchar received_by_name
+    +timestamp created_at
+}
+class InventoryStockReceiptItem {
+    +int receipt_item_id
+    +int receipt_id
+    +int item_id
+    +int supplier_id
+    +int batch_id
+    +varchar batch_number
+    +int quantity_received
+    +date expiry_date
+    +decimal unit_cost
+    +int location_id
+}
+class InventorySupplier {
+    +int supplier_id
+    +varchar supplier_name
+    +varchar contact_number
+    +varchar email
+    +text address
+    +enum status
+    +timestamp created_at
+}
+class InventoryTransfer {
+    +int inventory_transfer_id
+    +varchar transfer_number
+    +int from_location_id
+    +int to_location_id
+    +enum status
+    +text notes
+    +int created_by_user_id
+    +int received_by_user_id
+    +timestamp created_at
+    +datetime received_at
+}
+class InventoryTransferItem {
+    +int inventory_transfer_item_id
+    +int inventory_transfer_id
+    +int item_id
+    +int source_batch_id
+    +int quantity
+    +timestamp created_at
+}
+class MailQueue {
+    +int queue_id
+    +varchar to_email
+    +varchar to_name
+    +varchar subject
+    +mediumtext html_body
+    +mediumtext text_body
+    +text options_json
+    +int notification_id
+    +enum status
+    +tinyint priority
+    +int attempts
+    +int max_attempts
+    +datetime available_at
+    +datetime locked_at
+    +char lock_token
+    +datetime sent_at
+    +text last_error
+    +timestamp created_at
+    +timestamp updated_at
+}
+class NotificationPreference {
+    +int user_id
+    +tinyint email_enabled
+    +tinyint in_app_enabled
+    +tinyint browser_push_enabled
+    +tinyint booking_updates
+    +tinyint schedule_reminders
+    +tinyint payment_updates
+    +tinyint diagnosis_updates
+    +tinyint queue_updates
+    +tinyint boarding_updates
+    +tinyint ownership_updates
+    +tinyint reminder_24h
+    +tinyint reminder_2h
+    +tinyint reminder_same_day
+    +timestamp created_at
+    +timestamp updated_at
+}
+class NotificationPushSubscription {
+    +int subscription_id
+    +int user_id
+    +text endpoint
+    +char endpoint_hash
+    +text p256dh
+    +text auth
+    +varchar content_encoding
+    +text user_agent
+    +tinyint is_active
+    +datetime last_sent_at
+    +text last_error
+    +timestamp created_at
+    +timestamp updated_at
+}
+class OnlineConsultation {
+    +int online_consultation_id
+    +int booking_id
+    +int owner_user_id
+    +int veterinarian_user_id
+    +datetime scheduled_start
+    +datetime scheduled_end
+    +enum meeting_provider
+    +text meeting_url
+    +varchar meeting_code
+    +varchar google_calendar_event_id
+    +enum status
+    +datetime vet_started_at
+    +datetime owner_joined_at
+    +datetime ended_at
+    +timestamp created_at
+    +timestamp updated_at
+}
+class OnlineConsultationDiagnosis {
+    +int diagnosis_id
+    +int online_consultation_id
+    +int booking_id
+    +int veterinarian_user_id
+    +text diagnosis
+    +text recommendations
+    +text treatment
+    +text medications
+    +text notes
+    +json vital_signs
+    +json symptoms
+    +json lab_tests
+    +datetime finalized_at
+    +timestamp created_at
+    +timestamp updated_at
+}
+class OnlineConsultationReschedule {
+    +int reschedule_id
+    +int online_consultation_id
+    +datetime old_start
+    +datetime old_end
+    +datetime new_start
+    +datetime new_end
+    +text reason
+    +int changed_by_user_id
+    +timestamp created_at
+}
+class PaymentMethod {
+    +varchar method_key
+    +varchar label
+    +varchar account_name
+    +varchar account_number
+    +text instructions
+    +varchar qr_image_url
+    +tinyint is_active
+    +tinyint requires_proof
+    +int sort_order
+    +int updated_by_user_id
+    +timestamp updated_at
+    +timestamp created_at
+    +varchar method_type
+    +mediumtext account_number_encrypted
+}
+class Pet {
+    +int pet_id
+    +varchar pet_name
+    +varchar pet_species
+    +varchar pet_breed
+    +date pet_BDAY
+    +enum pet_status
+    +varchar pet_gender
+    +decimal pet_weight
+    +int pet_microchip
+    +varchar pet_Temp_owner
+    +varchar pet_allergies
+    +varchar pet_color_marking
+    +varchar pet_sharable_ID
+    +varchar pet_age
+    +varchar setpetImage_url
+    +tinyint is_archived
+    +datetime archived_at
+    +int archived_by_user_id
+    +varchar archive_reason
+}
+class PetAllergy {
+    +int allergy_id
+    +int pet_id
+    +varchar allergen
+    +varchar severity
+    +varchar reaction
+    +varchar source
+    +varchar verification_status
+    +int created_by_user_id
+    +int updated_by_user_id
+    +int verified_by_user_id
+    +datetime verified_at
+    +timestamp created_at
+    +timestamp updated_at
+}
+class PetCatalogOption {
+    +int option_id
+    +varchar species
+    +varchar breed
+    +int approved_by_user_id
+    +timestamp created_at
+    +timestamp updated_at
+}
+class PetCoparentRequest {
+    +int request_id
+    +int pet_id
+    +int requester_user_id
+    +int primary_owner_user_id
+    +enum status
+    +varchar request_token
+    +text requester_message
+    +text decision_note
+    +datetime created_at
+    +datetime updated_at
+    +datetime decided_at
+}
+class PetMedicalCertificate {
+    +bigint certificate_id
+    +varchar certificate_number
+    +int pet_id
+    +int request_id
+    +int veterinarian_user_id
+    +int branch_id
+    +date examination_date
+    +date valid_until
+    +text clinical_findings
+    +text certification_statement
+    +varchar signature_path
+    +enum status
+    +datetime owner_viewed_at
+    +timestamp created_at
+    +timestamp updated_at
+}
+class PetMedicalRecordGroup {
+    +int group_id
+    +int pet_id
+    +varchar title
+    +text summary
+    +tinyint visible_to_owner
+    +int sort_order
+    +int created_by_user_id
+    +int updated_by_user_id
+    +timestamp created_at
+    +timestamp updated_at
+}
+class PetMedicalRecordGroupItem {
+    +int item_id
+    +int group_id
+    +varchar source_type
+    +int source_id
+    +varchar title
+    +text summary
+    +text revision_notes
+    +datetime service_date
+    +int sort_order
+    +longtext source_snapshot
+    +longtext revision_snapshot
+    +int added_by_user_id
+    +int updated_by_user_id
+    +timestamp created_at
+    +timestamp updated_at
+}
+class PetOwnership {
+    +int link_id
+    +int user_id
+    +int pet_id
+    +varchar relationship
+    +tinyint is_primary
+    +timestamp linked_at
+}
+class PetOwnerTodo {
+    +int todo_id
+    +int user_id
+    +varchar title
+    +text details
+    +varchar category
+    +datetime start_at
+    +datetime end_at
+    +enum status
+    +datetime completed_at
+    +timestamp created_at
+    +timestamp updated_at
+}
+class PetRecordUpdateRequest {
+    +int request_id
+    +varchar request_number
+    +int branch_id
+    +int pet_id
+    +int owner_user_id
+    +text requested_changes
+    +varchar payment_method
+    +decimal payment_amount
+    +enum payment_status
+    +varchar payment_proof_url
+    +varchar payment_reference
+    +enum status
+    +text admin_notes
+    +text veterinarian_notes
+    +int assigned_veterinarian_user_id
+    +int reviewed_by_user_id
+    +int completed_by_user_id
+    +datetime reviewed_at
+    +datetime completed_at
+    +char baseline_snapshot_hash
+    +char completed_snapshot_hash
+    +timestamp created_at
+    +timestamp updated_at
+}
+class PetRecordUpdateRequestEvent {
+    +bigint event_id
+    +int request_id
+    +varchar event_type
+    +varchar from_status
+    +varchar to_status
+    +varchar from_payment_status
+    +varchar to_payment_status
+    +int actor_user_id
+    +text note
+    +timestamp created_at
+}
+class PetVaccination {
+    +int vax_id
+    +int pet_id
+    +varchar vax_name
+    +date vax_date
+    +date vax_next_due
+    +varchar vax_applicator
+    +enum vax_status
+    +timestamp created_at
+}
+class PrescriptionEvent {
+    +bigint event_id
+    +int plan_id
+    +int item_id
+    +int actor_user_id
+    +varchar event_type
+    +json event_data
+    +timestamp created_at
+}
+class PrescriptionItem {
+    +int item_id
+    +int plan_id
+    +varchar client_item_key
+    +varchar medicine
+    +varchar dose
+    +varchar route
+    +int times_count
+    +varchar frequency
+    +enum schedule_type
+    +int interval_hours
+    +json time_slots
+    +json days_of_week
+    +int duration_number
+    +varchar duration_unit
+    +text instructions
+    +date recommended_start_date
+    +datetime start_at
+    +datetime end_at
+    +enum status
+    +int replaces_item_id
+    +timestamp created_at
+    +timestamp updated_at
+}
+class PrescriptionOccurrence {
+    +bigint occurrence_id
+    +int item_id
+    +datetime due_at
+    +enum status
+    +datetime completed_at
+    +int completed_by_user_id
+    +varchar completion_notes
+    +timestamp created_at
+    +timestamp updated_at
+}
+class PrescriptionPlan {
+    +int plan_id
+    +int pet_id
+    +int owner_user_id
+    +int veterinarian_user_id
+    +varchar source_type
+    +int source_record_id
+    +varchar source_label
+    +int version_number
+    +enum status
+    +char content_hash
+    +int supersedes_plan_id
+    +datetime issued_at
+    +timestamp created_at
+    +timestamp updated_at
+}
+class Queue {
+    +int queue_id
+    +int pet_id
+    +int user_id
+    +int booking_id
+    +int branch_id
+    +varchar service_name
+    +int queue_number
+    +date queue_date
+    +enum status
+    +enum priority
+    +text complaint
+    +varchar image_path
+    +varchar signiture_self_service_path
+    +varchar queue_source
+    +tinyint verified_by_admin
+    +datetime timestamp
+}
+class Room {
+    +int room_id
+    +int branch_id
+    +enum room_type
+    +int total_capacity
+    +text description
+    +timestamp created_at
+}
+class RoomUnitStatus {
+    +int room_unit_status_id
+    +int branch_id
+    +varchar room_type
+    +int room_number
+    +enum status
+    +text notes
+    +timestamp updated_at
+}
+class ServiceCatalog {
+    +int service_id
+    +varchar service_code
+    +varchar service_name
+    +enum service_type
+    +text description
+    +decimal base_price
+    +tinyint is_major_service
+    +tinyint is_active
+    +int created_by_user_id
+    +timestamp created_at
+    +timestamp updated_at
+}
+class ServiceDisplaySetting {
+    +varchar settings_key
+    +longtext settings_json
+    +int updated_by_user_id
+    +timestamp created_at
+    +timestamp updated_at
+}
+class ServiceMaterial {
+    +int service_material_id
+    +int service_id
+    +int item_id
+    +varchar material_name
+    +decimal qty_used
+    +enum billable_policy
+    +timestamp created_at
+    +timestamp updated_at
+}
+class SpecialServiceBookingItem {
+    +int booking_special_service_id
+    +int booking_id
+    +int special_service_id
+    +varchar custom_service_title
+    +text custom_service_description
+    +text custom_service_details
+    +int sequence_no
+    +timestamp created_at
+}
+class SpecialServiceCatalog {
+    +int special_service_id
+    +varchar service_code
+    +varchar service_title
+    +text service_description
+    +text service_details
+    +varchar price_label
+    +decimal base_price
+    +varchar duration_label
+    +int max_pets
+    +int sort_order
+    +tinyint is_active
+    +enum date_restriction_type
+    +date date_start
+    +date date_end
+    +int created_by_user_id
+    +timestamp created_at
+}
+class SystemBackup {
+    +bigint backup_id
+    +char backup_uuid
+    +enum backup_type
+    +enum status
+    +tinyint progress_percent
+    +varchar progress_stage
+    +bigint parent_backup_id
+    +bigint base_backup_id
+    +varchar archive_name
+    +varchar archive_path
+    +varchar state_path
+    +bigint archive_size
+    +char checksum_sha256
+    +bigint scanned_row_count
+    +bigint changed_row_count
+    +int included_file_count
+    +int deleted_file_count
+    +int created_by_user_id
+    +varchar created_by_name
+    +datetime started_at
+    +datetime completed_at
+    +varchar error_message
+    +timestamp created_at
+}
+class SystemBackupSetting {
+    +tinyint settings_id
+    +tinyint automatic_enabled
+    +time automatic_time
+    +varchar storage_directory
+    +datetime last_automatic_attempt_at
+    +enum last_automatic_status
+    +bigint last_automatic_backup_id
+    +int updated_by_user_id
+    +varchar updated_by_name
+    +timestamp updated_at
+}
+class User {
+    +int user_id
+    +varchar first_Name
+    +varchar last_Name
+    +varchar mail_Address
+    +datetime email_verified_at
+    +varchar personal_Address
+    +varchar user_password
+    +datetime password_changed_at
+    +varchar emergencyNumber
+    +varchar phoneNumber
+    +varchar role
+    +enum account_status
+    +datetime deactivated_at
+    +text deactivation_reason
+    +timestamp created_at
+    +datetime last_seen_at
+    +varchar setProfilePic_url
+    +date birthdate
+    +int preferred_branch_id
+    +varchar activity_log_file
+}
+class UserAuthIdentity {
+    +bigint identity_id
+    +int user_id
+    +varchar provider
+    +varchar provider_subject
+    +varchar provider_email
+    +datetime linked_at
+    +datetime last_login_at
+}
+class UserBranchAssignment {
+    +int user_branch_assignment_id
+    +int user_id
+    +int branch_id
+    +tinyint is_primary
+    +tinyint is_active
+    +int assigned_by_user_id
+    +timestamp assigned_at
+    +datetime ended_at
+}
+class UserNotification {
+    +int notification_id
+    +int user_id
+    +int branch_id
+    +varchar type
+    +varchar category
+    +varchar title
+    +text message
+    +varchar push_title
+    +text push_message
+    +varchar redirect_path
+    +tinyint in_app_visible
+    +varchar dedupe_key
+    +varchar email_subject
+    +enum email_status
+    +datetime email_sent_at
+    +text email_error
+    +enum push_status
+    +datetime push_sent_at
+    +text push_error
+    +datetime read_at
+    +timestamp created_at
+    +timestamp updated_at
+}
+class VetClinicBookingPreference {
+    +int veterinarian_user_id
+    +int branch_id
+    +tinyint accepts_bookings
+    +timestamp updated_at
+}
+class LegacyVetTimeOff {
+    +int time_off_id
+    +int veterinarian_user_id
+    +datetime starts_at
+    +datetime ends_at
+    +varchar notes
+}
+class LegacyVetClinicVisit {
+    +int visit_schedule_id
+    +int veterinarian_user_id
+    +int branch_id
+    +datetime starts_at
+    +datetime ends_at
+    +longtext service_keys
+    +smallint appointment_capacity
+    +text notes
+    +enum status
+    +int created_by_user_id
+    +timestamp created_at
+    +timestamp updated_at
+}
+class VeterinarianProfile {
+    +int id
+    +int user_id
+    +varchar veterinarian_id
+    +varchar prc_license_number
+    +text specialization
+    +decimal consultation_rate
+    +int years_of_experience
+    +date hire_date
+    +tinyint is_accepting_patients
+    +tinyint is_active
+    +timestamp created_at
+    +longtext experience_history
+}
+class LegacyVetWorkingHours {
+    +int working_hours_id
+    +int veterinarian_user_id
+    +int branch_id
+    +tinyint day_of_week
+    +time starts_at
+    +time ends_at
+}
+class VetDiagnosis {
+    +int diagnosis_id
+    +int queue_id
+    +int booking_id
+    +int assignment_id
+    +int pet_id
+    +int veterinarian_user_id
+    +varchar veterinarian_name
+    +enum diagnosis_type
+    +varchar service_name
+    +text chief_complaint
+    +text major_symptoms
+    +text symptoms
+    +text physical_exam
+    +text diagnosis
+    +text treatment
+    +text lab_results
+    +date follow_up_date
+    +text notes
+    +json vital_signs
+    +json prescriptions
+    +json custom_sections
+    +json attachments
+    +json source_uploads
+    +datetime finalized_at
+    +timestamp created_at
+    +timestamp updated_at
+}
+class VetQueueAssignment {
+    +int assignment_id
+    +int queue_id
+    +int veterinarian_user_id
+    +varchar veterinarian_name
+    +enum status
+    +datetime received_at
+    +datetime returned_at
+    +datetime completed_at
+    +text return_reason
+    +timestamp created_at
+    +timestamp updated_at
+}
+class OnlineVetSchedule {
+    +int schedule_id
+    +int user_id
+    +varchar day_of_week
+    +varchar time_slot
+    +tinyint is_available
+}
+class Visit {
+    +int visit_id
+    +int branch_id
+    +int pet_id
+    +int owner_user_id
+    +int veterinarian_user_id
+    +int queue_id
+    +int booking_id
+    +int diagnosis_id
+    +enum source_type
+    +enum visit_status
+    +enum billing_status
+    +timestamp created_at
+    +timestamp updated_at
+}
+class VisitCharge {
+    +int charge_id
+    +int visit_id
+    +enum charge_type
+    +int service_id
+    +int item_id
+    +int boarding_material_usage_id
+    +varchar description
+    +decimal quantity
+    +decimal unit_price
+    +decimal subtotal
+    +int created_by_user_id
+    +timestamp created_at
+    +timestamp updated_at
+}
+class VisitInvoiceDocument {
+    +int invoice_document_id
+    +varchar invoice_number
+    +int visit_id
+    +int payment_id
+    +int pet_id
+    +varchar file_path
+    +varchar file_name
+    +varchar mime_type
+    +varchar paper_width
+    +int created_by_user_id
+    +varchar created_by_name
+    +timestamp created_at
+}
+class VisitPayment {
+    +int payment_id
+    +int visit_id
+    +varchar payment_method
+    +enum payment_status
+    +decimal amount
+    +varchar reference_number
+    +varchar proof_url
+    +text notes
+    +datetime paid_at
+    +int received_by_user_id
+    +varchar received_by_name
+    +timestamp created_at
+    +timestamp updated_at
+}
+class VisitPaymentRefund {
+    +int refund_id
+    +int visit_payment_id
+    +int visit_id
+    +decimal amount
+    +varchar refund_method
+    +varchar reference_number
+    +varchar reason
+    +enum refund_status
+    +datetime processed_at
+    +int processed_by_user_id
+    +varchar processed_by_name
+    +timestamp created_at
+}
+AdminProfile "0..*" --> "1" User : user_id
+BoardingAssignment "0..*" --> "1" Booking : booking_id
+BoardingAssignment "0..*" --> "1" Branch : branch_id
+BoardingDocument "0..*" --> "0..1" BoardingAssignment : assignment_id
+BoardingDocument "0..*" --> "1" Booking : booking_id
+BoardingDocument "0..*" --> "0..1" Pet : pet_id
+BoardingDocument "0..*" --> "0..1" User : uploaded_by_user_id
+BoardingMaterialUsage "0..*" --> "1" BoardingAssignment : assignment_id
+BoardingMaterialUsage "0..*" --> "1" Booking : booking_id
+BoardingMaterialUsage "0..*" --> "0..1" InventoryItem : item_id
+BoardingMaterialUsage "0..*" --> "0..1" Pet : pet_id
+BoardingMaterialUsage "0..*" --> "0..1" User : recorded_by_user_id
+BoardingMaterialUsage "0..*" --> "0..1" User : voided_by_user_id
+BoardingObservation "0..*" --> "0..1" BoardingAssignment : assignment_id
+BoardingObservation "0..*" --> "1" Booking : booking_id
+BoardingObservation "0..*" --> "0..1" Pet : pet_id
+BoardingObservation "0..*" --> "0..1" User : created_by_user_id
+BoardingTask "0..*" --> "0..1" BoardingAssignment : assignment_id
+BoardingTask "0..*" --> "1" Booking : booking_id
+BoardingTask "0..*" --> "0..1" Pet : pet_id
+BoardingTask "0..*" --> "0..1" User : created_by_user_id
+Booking "0..*" --> "1" Branch : branch_id
+Booking "0..*" --> "1" User : user_id
+Booking "0..*" --> "0..1" Pet : pet_id
+Booking "0..*" --> "0..1" Branch : original_branch_id
+BookingBranchTransfer "0..*" --> "1" User : transferred_by_user_id
+BookingBranchTransfer "0..*" --> "1" Booking : booking_id
+BookingBranchTransfer "0..*" --> "1" Branch : from_branch_id
+BookingBranchTransfer "0..*" --> "1" Branch : to_branch_id
+BookingPaymentRefund "0..*" --> "1" Booking : booking_id
+BookingPaymentRefund "0..*" --> "1" BookingPaymentSubmission : booking_payment_submission_id
+BookingPaymentRefund "0..*" --> "1" User : processed_by_user_id
+BookingPaymentSubmission "0..*" --> "1" Booking : booking_id
+BookingPaymentSubmission "0..*" --> "0..1" User : reviewed_by_user_id
+BookingPaymentSubmission "0..1" --> "0..1" VisitPayment : linked_visit_payment_id
+BookingPet "0..*" --> "1" Booking : booking_id
+BookingPet "0..*" --> "1" Pet : pet_id
+BranchClosure "0..*" --> "1" Branch : branch_id
+BranchClosure "0..*" --> "0..1" User : created_by_user_id
+BranchOperatingHour "0..*" --> "1" Branch : branch_id
+BranchServiceAvailability "0..*" --> "1" Branch : branch_id
+EmailOtpToken "0..*" --> "0..1" User : user_id
+GroomingEvent "0..*" --> "1" GroomingJob : booking_id
+GroomingJob "0..1" --> "1" Booking : booking_id
+GroomingPhoto "0..*" --> "1" GroomingJob : booking_id
+GroomingReview "0..*" --> "1" GroomingJob : booking_id
+GroomingReview "0..*" --> "1" User : veterinarian_id
+HistoryBeforeRegistration "0..*" --> "0..1" Pet : pet_id
+InventoryActionAudit "0..*" --> "0..1" InventoryBatch : batch_id
+InventoryActionAudit "0..*" --> "0..1" InventoryItem : item_id
+InventoryActionAudit "0..*" --> "0..1" InventoryLocation : location_id
+InventoryActionAudit "0..*" --> "1" User : performed_by_user_id
+InventoryBatch "0..*" --> "1" InventoryItem : item_id
+InventoryBatch "0..*" --> "1" InventoryLocation : location_id
+InventoryBranchItem "0..*" --> "1" Branch : branch_id
+InventoryBranchItem "0..*" --> "1" InventoryItem : item_id
+InventoryBranchItem "0..*" --> "1" InventoryLocation : primary_location_id
+InventoryBranchItem "0..*" --> "0..1" User : removed_by_user_id
+InventoryItem "0..*" --> "1" User : created_by_user_id
+InventoryItem "0..*" --> "1" InventoryLocation : location_id
+InventoryLocation "0..*" --> "1" Branch : branch_id
+InventoryStockMovement "0..*" --> "0..1" InventoryBatch : batch_id
+InventoryStockMovement "0..*" --> "1" InventoryItem : item_id
+InventoryStockMovement "0..*" --> "0..1" InventoryLocation : location_id
+InventoryStockMovement "0..*" --> "1" User : performed_by_user_id
+InventoryStockReceipt "0..*" --> "1" Branch : branch_id
+InventoryStockReceipt "0..*" --> "1" User : received_by_user_id
+InventoryStockReceiptItem "0..*" --> "0..1" InventoryBatch : batch_id
+InventoryStockReceiptItem "0..*" --> "1" InventoryItem : item_id
+InventoryStockReceiptItem "0..*" --> "1" InventoryLocation : location_id
+InventoryStockReceiptItem "0..*" --> "1" InventoryStockReceipt : receipt_id
+InventoryStockReceiptItem "0..*" --> "1" InventorySupplier : supplier_id
+InventoryTransfer "0..*" --> "1" User : created_by_user_id
+InventoryTransfer "0..*" --> "1" InventoryLocation : from_location_id
+InventoryTransfer "0..*" --> "0..1" User : received_by_user_id
+InventoryTransfer "0..*" --> "1" InventoryLocation : to_location_id
+InventoryTransferItem "0..*" --> "1" InventoryBatch : source_batch_id
+InventoryTransferItem "0..*" --> "1" InventoryItem : item_id
+InventoryTransferItem "0..*" --> "1" InventoryTransfer : inventory_transfer_id
+NotificationPreference "0..1" --> "1" User : user_id
+NotificationPushSubscription "0..*" --> "1" User : user_id
+OnlineConsultation "0..1" --> "1" Booking : booking_id
+OnlineConsultation "0..*" --> "1" User : owner_user_id
+OnlineConsultation "0..*" --> "1" User : veterinarian_user_id
+OnlineConsultationDiagnosis "0..1" --> "1" OnlineConsultation : online_consultation_id
+OnlineConsultationDiagnosis "0..*" --> "1" Booking : booking_id
+OnlineConsultationDiagnosis "0..*" --> "1" User : veterinarian_user_id
+OnlineConsultationReschedule "0..*" --> "1" OnlineConsultation : online_consultation_id
+OnlineConsultationReschedule "0..*" --> "0..1" User : changed_by_user_id
+PetAllergy "0..*" --> "0..1" User : created_by_user_id
+PetAllergy "0..*" --> "1" Pet : pet_id
+PetAllergy "0..*" --> "0..1" User : updated_by_user_id
+PetAllergy "0..*" --> "0..1" User : verified_by_user_id
+PetMedicalCertificate "0..*" --> "1" Pet : pet_id
+PetMedicalCertificate "0..*" --> "0..1" PetRecordUpdateRequest : request_id
+PetMedicalCertificate "0..*" --> "1" User : veterinarian_user_id
+PetMedicalRecordGroup "0..*" --> "1" Pet : pet_id
+PetMedicalRecordGroupItem "0..*" --> "1" PetMedicalRecordGroup : group_id
+PetOwnership "0..*" --> "0..1" User : user_id
+PetOwnership "0..*" --> "0..1" Pet : pet_id
+PetOwnerTodo "0..*" --> "1" User : user_id
+PetRecordUpdateRequest "0..*" --> "1" Branch : branch_id
+PetRecordUpdateRequest "0..*" --> "0..1" User : assigned_veterinarian_user_id
+PetRecordUpdateRequest "0..*" --> "0..1" User : completed_by_user_id
+PetRecordUpdateRequest "0..*" --> "0..1" User : owner_user_id
+PetRecordUpdateRequest "0..*" --> "1" Pet : pet_id
+PetRecordUpdateRequest "0..*" --> "0..1" User : reviewed_by_user_id
+PetRecordUpdateRequestEvent "0..*" --> "0..1" User : actor_user_id
+PetRecordUpdateRequestEvent "0..*" --> "1" PetRecordUpdateRequest : request_id
+PetVaccination "0..*" --> "1" Pet : pet_id
+PrescriptionEvent "0..*" --> "0..1" User : actor_user_id
+PrescriptionEvent "0..*" --> "0..1" PrescriptionItem : item_id
+PrescriptionEvent "0..*" --> "1" PrescriptionPlan : plan_id
+PrescriptionItem "0..*" --> "1" PrescriptionPlan : plan_id
+PrescriptionItem "0..*" --> "0..1" PrescriptionItem : replaces_item_id
+PrescriptionOccurrence "0..*" --> "0..1" User : completed_by_user_id
+PrescriptionOccurrence "0..*" --> "1" PrescriptionItem : item_id
+PrescriptionPlan "0..*" --> "0..1" User : owner_user_id
+PrescriptionPlan "0..*" --> "1" Pet : pet_id
+PrescriptionPlan "0..*" --> "0..1" PrescriptionPlan : supersedes_plan_id
+PrescriptionPlan "0..*" --> "1" User : veterinarian_user_id
+Queue "0..*" --> "0..1" Booking : booking_id
+Queue "0..*" --> "1" Branch : branch_id
+Queue "0..*" --> "1" Pet : pet_id
+Queue "0..*" --> "1" User : user_id
+Room "0..*" --> "1" Branch : branch_id
+RoomUnitStatus "0..*" --> "1" Branch : branch_id
+ServiceCatalog "0..*" --> "0..1" User : created_by_user_id
+ServiceDisplaySetting "0..*" --> "0..1" User : updated_by_user_id
+ServiceMaterial "0..*" --> "1" ServiceCatalog : service_id
+ServiceMaterial "0..*" --> "0..1" InventoryItem : item_id
+SpecialServiceBookingItem "0..*" --> "1" Booking : booking_id
+SpecialServiceBookingItem "0..*" --> "0..1" SpecialServiceCatalog : special_service_id
+SpecialServiceCatalog "0..*" --> "0..1" User : created_by_user_id
+SystemBackup "0..*" --> "0..1" User : created_by_user_id
+SystemBackup "0..*" --> "0..1" SystemBackup : base_backup_id
+SystemBackup "0..*" --> "0..1" SystemBackup : parent_backup_id
+SystemBackupSetting "0..*" --> "0..1" User : updated_by_user_id
+SystemBackupSetting "0..*" --> "0..1" SystemBackup : last_automatic_backup_id
+User "0..*" --> "0..1" Branch : preferred_branch_id
+UserAuthIdentity "0..*" --> "1" User : user_id
+UserBranchAssignment "0..*" --> "0..1" User : assigned_by_user_id
+UserBranchAssignment "0..*" --> "1" Branch : branch_id
+UserBranchAssignment "0..*" --> "1" User : user_id
+UserNotification "0..*" --> "0..1" Branch : branch_id
+UserNotification "0..*" --> "1" User : user_id
+VetClinicBookingPreference "0..*" --> "1" Branch : branch_id
+VetClinicBookingPreference "0..*" --> "1" User : veterinarian_user_id
+LegacyVetTimeOff "0..*" --> "1" User : veterinarian_user_id
+LegacyVetClinicVisit "0..*" --> "1" Branch : branch_id
+LegacyVetClinicVisit "0..*" --> "1" User : created_by_user_id
+LegacyVetClinicVisit "0..*" --> "1" User : veterinarian_user_id
+VeterinarianProfile "0..*" --> "1" User : user_id
+LegacyVetWorkingHours "0..*" --> "1" Branch : branch_id
+LegacyVetWorkingHours "0..*" --> "1" User : veterinarian_user_id
+VetDiagnosis "0..*" --> "0..1" VetQueueAssignment : assignment_id
+VetDiagnosis "0..*" --> "0..1" Booking : booking_id
+VetDiagnosis "0..*" --> "1" Pet : pet_id
+VetDiagnosis "0..1" --> "0..1" Queue : queue_id
+VetDiagnosis "0..*" --> "1" User : veterinarian_user_id
+VetQueueAssignment "0..*" --> "1" Queue : queue_id
+VetQueueAssignment "0..*" --> "1" User : veterinarian_user_id
+OnlineVetSchedule "0..*" --> "1" User : user_id
+Visit "0..*" --> "1" Branch : branch_id
+Visit "0..1" --> "0..1" VetDiagnosis : diagnosis_id
+Visit "0..*" --> "1" Pet : pet_id
+Visit "0..*" --> "1" User : owner_user_id
+Visit "0..*" --> "0..1" User : veterinarian_user_id
+Visit "0..*" --> "0..1" Queue : queue_id
+Visit "0..*" --> "0..1" Booking : booking_id
+VisitCharge "0..1" --> "0..1" BoardingMaterialUsage : boarding_material_usage_id
+VisitCharge "0..*" --> "0..1" User : created_by_user_id
+VisitCharge "0..*" --> "1" Visit : visit_id
+VisitCharge "0..*" --> "0..1" ServiceCatalog : service_id
+VisitCharge "0..*" --> "0..1" InventoryItem : item_id
+VisitInvoiceDocument "0..*" --> "0..1" User : created_by_user_id
+VisitInvoiceDocument "0..1" --> "1" VisitPayment : payment_id
+VisitInvoiceDocument "0..*" --> "1" Pet : pet_id
+VisitInvoiceDocument "0..*" --> "1" Visit : visit_id
+VisitPayment "0..*" --> "0..1" User : received_by_user_id
+VisitPayment "0..*" --> "1" Visit : visit_id
+VisitPaymentRefund "0..*" --> "1" VisitPayment : visit_payment_id
+VisitPaymentRefund "0..*" --> "1" User : processed_by_user_id
+VisitPaymentRefund "0..*" --> "1" Visit : visit_id

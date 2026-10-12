@@ -1,0 +1,111 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1735" height="957" viewBox="0 0 1735 957" role="img" aria-labelledby="title desc">
+<title id="title">1.0 — Accounts and Pets</title><desc id="desc">Plain black-and-white logical data-flow diagram with roles, numbered processes, open-ended data stores and labeled data arrows.</desc>
+<defs><marker id="arrow" markerWidth="8" markerHeight="8" refX="7" refY="4" orient="auto" markerUnits="userSpaceOnUse"><path d="M0 0 L7 4 L0 8 Z" fill="#000000"/></marker></defs>
+<rect width="100%" height="100%" fill="#ffffff"/>
+<text x="60" y="34" font-family="Arial,sans-serif" font-size="24" fill="#000000">1.0 — Accounts and Pets</text>
+<text x="60" y="64" font-family="Arial,sans-serif" font-size="14" fill="#000000">Expansion of process 1.0. Each user role and each data store appears once.</text>
+<path d="M230 128 L248 128 L248 153 L715 153" fill="none" stroke="#000000" stroke-width="1.2" marker-end="url(#arrow)"><title>Credentials and profile details</title></path>
+<text x="504" y="145" font-family="Arial,sans-serif" font-size="14" fill="#000000">Credentials and profile details</text>
+<path d="M715 181 L255 181 L255 146 L230 146" fill="none" stroke="#000000" stroke-width="1.2" marker-end="url(#arrow)"><title>Access and profile status</title></path>
+<text x="533" y="173" font-family="Arial,sans-serif" font-size="14" fill="#000000">Access and profile status</text>
+<path d="M230 279 L262 279 L262 209 L715 209" fill="none" stroke="#000000" stroke-width="1.2" marker-end="url(#arrow)"><title>Credentials and profile details</title></path>
+<text x="504" y="201" font-family="Arial,sans-serif" font-size="14" fill="#000000">Credentials and profile details</text>
+<path d="M715 237 L269 237 L269 297 L230 297" fill="none" stroke="#000000" stroke-width="1.2" marker-end="url(#arrow)"><title>Access and profile status</title></path>
+<text x="533" y="229" font-family="Arial,sans-serif" font-size="14" fill="#000000">Access and profile status</text>
+<path d="M230 367 L276 367 L276 265 L715 265" fill="none" stroke="#000000" stroke-width="1.2" marker-end="url(#arrow)"><title>Credentials and profile details</title></path>
+<text x="504" y="257" font-family="Arial,sans-serif" font-size="14" fill="#000000">Credentials and profile details</text>
+<path d="M715 293 L283 293 L283 385 L230 385" fill="none" stroke="#000000" stroke-width="1.2" marker-end="url(#arrow)"><title>Access and profile status</title></path>
+<text x="533" y="285" font-family="Arial,sans-serif" font-size="14" fill="#000000">Access and profile status</text>
+<path d="M230 446 L290 446 L290 321 L715 321" fill="none" stroke="#000000" stroke-width="1.2" marker-end="url(#arrow)"><title>Credentials and profile details</title></path>
+<text x="504" y="313" font-family="Arial,sans-serif" font-size="14" fill="#000000">Credentials and profile details</text>
+<path d="M715 349 L297 349 L297 464 L230 464" fill="none" stroke="#000000" stroke-width="1.2" marker-end="url(#arrow)"><title>Access and profile status</title></path>
+<text x="533" y="341" font-family="Arial,sans-serif" font-size="14" fill="#000000">Access and profile status</text>
+<path d="M1461 188 L1360 188 L1360 237 L960 237" fill="none" stroke="#000000" stroke-width="1.2" marker-end="url(#arrow)"><title>User and role records</title></path>
+<text x="1025" y="229" font-family="Arial,sans-serif" font-size="14" fill="#000000">User and role records</text>
+<path d="M960 265 L1367 265 L1367 206 L1461 206" fill="none" stroke="#000000" stroke-width="1.2" marker-end="url(#arrow)"><title>Account changes</title></path>
+<text x="1025" y="257" font-family="Arial,sans-serif" font-size="14" fill="#000000">Account changes</text>
+<path d="M230 482 L304 482 L304 475 L715 475" fill="none" stroke="#000000" stroke-width="1.2" marker-end="url(#arrow)"><title>Clinic and role assignments</title></path>
+<text x="518" y="467" font-family="Arial,sans-serif" font-size="14" fill="#000000">Clinic and role assignments</text>
+<path d="M715 503 L311 503 L311 500 L230 500" fill="none" stroke="#000000" stroke-width="1.2" marker-end="url(#arrow)"><title>Assignment status</title></path>
+<text x="575" y="495" font-family="Arial,sans-serif" font-size="14" fill="#000000">Assignment status</text>
+<path d="M1461 224 L1374 224 L1374 475 L960 475" fill="none" stroke="#000000" stroke-width="1.2" marker-end="url(#arrow)"><title>Personnel and access records</title></path>
+<text x="1025" y="467" font-family="Arial,sans-serif" font-size="14" fill="#000000">Personnel and access records</text>
+<path d="M960 503 L1381 503 L1381 242 L1461 242" fill="none" stroke="#000000" stroke-width="1.2" marker-end="url(#arrow)"><title>Clinic access changes</title></path>
+<text x="1025" y="495" font-family="Arial,sans-serif" font-size="14" fill="#000000">Clinic access changes</text>
+<path d="M230 164 L318 164 L318 643 L715 643" fill="none" stroke="#000000" stroke-width="1.2" marker-end="url(#arrow)"><title>Pet details</title></path>
+<text x="624" y="635" font-family="Arial,sans-serif" font-size="14" fill="#000000">Pet details</text>
+<path d="M715 671 L325 671 L325 182 L230 182" fill="none" stroke="#000000" stroke-width="1.2" marker-end="url(#arrow)"><title>Pet record status</title></path>
+<text x="583" y="663" font-family="Arial,sans-serif" font-size="14" fill="#000000">Pet record status</text>
+<path d="M1461 260 L1388 260 L1388 643 L960 643" fill="none" stroke="#000000" stroke-width="1.2" marker-end="url(#arrow)"><title>Existing pet records</title></path>
+<text x="1025" y="635" font-family="Arial,sans-serif" font-size="14" fill="#000000">Existing pet records</text>
+<path d="M960 671 L1395 671 L1395 278 L1461 278" fill="none" stroke="#000000" stroke-width="1.2" marker-end="url(#arrow)"><title>Pet record changes</title></path>
+<text x="1025" y="663" font-family="Arial,sans-serif" font-size="14" fill="#000000">Pet record changes</text>
+<path d="M230 200 L332 200 L332 825 L715 825" fill="none" stroke="#000000" stroke-width="1.2" marker-end="url(#arrow)"><title>Ownership and record requests</title></path>
+<text x="493" y="817" font-family="Arial,sans-serif" font-size="14" fill="#000000">Ownership and record requests</text>
+<path d="M715 853 L339 853 L339 218 L230 218" fill="none" stroke="#000000" stroke-width="1.2" marker-end="url(#arrow)"><title>Ownership and medical history</title></path>
+<text x="497" y="845" font-family="Arial,sans-serif" font-size="14" fill="#000000">Ownership and medical history</text>
+<path d="M1461 296 L1402 296 L1402 797 L960 797" fill="none" stroke="#000000" stroke-width="1.2" marker-end="url(#arrow)"><title>Pet details and ownership</title></path>
+<text x="1025" y="789" font-family="Arial,sans-serif" font-size="14" fill="#000000">Pet details and ownership</text>
+<path d="M960 825 L1409 825 L1409 314 L1461 314" fill="none" stroke="#000000" stroke-width="1.2" marker-end="url(#arrow)"><title>Ownership changes</title></path>
+<text x="1025" y="817" font-family="Arial,sans-serif" font-size="14" fill="#000000">Ownership changes</text>
+<path d="M1461 858 L1416 858 L1416 853 L960 853" fill="none" stroke="#000000" stroke-width="1.2" marker-end="url(#arrow)"><title>Medical record history</title></path>
+<text x="1025" y="845" font-family="Arial,sans-serif" font-size="14" fill="#000000">Medical record history</text>
+<path d="M960 881 L1423 881 L1423 876 L1461 876" fill="none" stroke="#000000" stroke-width="1.2" marker-end="url(#arrow)"><title>Medical-record requests</title></path>
+<text x="1025" y="873" font-family="Arial,sans-serif" font-size="14" fill="#000000">Medical-record requests</text>
+<g data-node="02-accounts-and-pets-p-1.1"><title>1.1</title>
+<rect x="715" y="112" width="245" height="252" rx="11" fill="#ffffff" stroke="#000000" stroke-width="1.2"/>
+<line x1="715" y1="138" x2="960" y2="138" stroke="#000000" stroke-width="1.2"/>
+<text x="837.5" y="132" font-family="Arial,sans-serif" font-size="16" fill="#000000" text-anchor="middle" font-weight="600">1.1</text>
+<text x="837.5" y="247.5" font-family="Arial,sans-serif" font-size="16" fill="#000000" text-anchor="middle">Authenticate and</text>
+<text x="837.5" y="266.5" font-family="Arial,sans-serif" font-size="16" fill="#000000" text-anchor="middle">Manage Accounts</text>
+</g>
+<g data-node="02-accounts-and-pets-p-1.2"><title>1.2</title>
+<rect x="715" y="420" width="245" height="112" rx="11" fill="#ffffff" stroke="#000000" stroke-width="1.2"/>
+<line x1="715" y1="446" x2="960" y2="446" stroke="#000000" stroke-width="1.2"/>
+<text x="837.5" y="440" font-family="Arial,sans-serif" font-size="16" fill="#000000" text-anchor="middle" font-weight="600">1.2</text>
+<text x="837.5" y="485.5" font-family="Arial,sans-serif" font-size="16" fill="#000000" text-anchor="middle">Assign Personnel</text>
+<text x="837.5" y="504.5" font-family="Arial,sans-serif" font-size="16" fill="#000000" text-anchor="middle">to Clinics</text>
+</g>
+<g data-node="02-accounts-and-pets-p-1.3"><title>1.3</title>
+<rect x="715" y="588" width="245" height="112" rx="11" fill="#ffffff" stroke="#000000" stroke-width="1.2"/>
+<line x1="715" y1="614" x2="960" y2="614" stroke="#000000" stroke-width="1.2"/>
+<text x="837.5" y="608" font-family="Arial,sans-serif" font-size="16" fill="#000000" text-anchor="middle" font-weight="600">1.3</text>
+<text x="837.5" y="653.5" font-family="Arial,sans-serif" font-size="16" fill="#000000" text-anchor="middle">Register and</text>
+<text x="837.5" y="672.5" font-family="Arial,sans-serif" font-size="16" fill="#000000" text-anchor="middle">Update Pets</text>
+</g>
+<g data-node="02-accounts-and-pets-p-1.4"><title>1.4</title>
+<rect x="715" y="756" width="245" height="140" rx="11" fill="#ffffff" stroke="#000000" stroke-width="1.2"/>
+<line x1="715" y1="782" x2="960" y2="782" stroke="#000000" stroke-width="1.2"/>
+<text x="837.5" y="776" font-family="Arial,sans-serif" font-size="16" fill="#000000" text-anchor="middle" font-weight="600">1.4</text>
+<text x="837.5" y="835.5" font-family="Arial,sans-serif" font-size="16" fill="#000000" text-anchor="middle">Manage Ownership</text>
+<text x="837.5" y="854.5" font-family="Arial,sans-serif" font-size="16" fill="#000000" text-anchor="middle">and Medical History</text>
+</g>
+<g data-node="02-accounts-and-pets-ref-owner"><title>owner</title>
+<rect x="60" y="112" width="170" height="122" rx="0" fill="#ffffff" stroke="#000000" stroke-width="1.2"/>
+<text x="145" y="179" font-family="Arial,sans-serif" font-size="16" fill="#000000" text-anchor="middle" font-weight="600">Pet Owner</text>
+</g>
+<g data-node="02-accounts-and-pets-ref-admin"><title>admin</title>
+<rect x="60" y="254" width="170" height="68" rx="0" fill="#ffffff" stroke="#000000" stroke-width="1.2"/>
+<text x="145" y="294" font-family="Arial,sans-serif" font-size="16" fill="#000000" text-anchor="middle" font-weight="600">Admin</text>
+</g>
+<g data-node="02-accounts-and-pets-ref-vet"><title>vet</title>
+<rect x="60" y="342" width="170" height="68" rx="0" fill="#ffffff" stroke="#000000" stroke-width="1.2"/>
+<text x="145" y="382" font-family="Arial,sans-serif" font-size="16" fill="#000000" text-anchor="middle" font-weight="600">Veterinarian</text>
+</g>
+<g data-node="02-accounts-and-pets-ref-super"><title>super</title>
+<rect x="60" y="430" width="170" height="86" rx="0" fill="#ffffff" stroke="#000000" stroke-width="1.2"/>
+<text x="145" y="479" font-family="Arial,sans-serif" font-size="16" fill="#000000" text-anchor="middle" font-weight="600">Super Admin</text>
+</g>
+<g data-node="02-accounts-and-pets-ref-D1"><title>D1</title>
+<path d="M1691 172 H1461 V330 H1691 M1501 172 V330" fill="#ffffff" stroke="#000000" stroke-width="1.2"/>
+<text x="1481" y="257" font-family="Arial,sans-serif" font-size="16" fill="#000000" text-anchor="middle">D1</text>
+<text x="1596" y="247.5" font-family="Arial,sans-serif" font-size="16" fill="#000000" text-anchor="middle">Account and</text>
+<text x="1596" y="266.5" font-family="Arial,sans-serif" font-size="16" fill="#000000" text-anchor="middle">Pet Records</text>
+</g>
+<g data-node="02-accounts-and-pets-ref-D2"><title>D2</title>
+<path d="M1691 833 H1461 V901 H1691 M1501 833 V901" fill="#ffffff" stroke="#000000" stroke-width="1.2"/>
+<text x="1481" y="873" font-family="Arial,sans-serif" font-size="16" fill="#000000" text-anchor="middle">D2</text>
+<text x="1596" y="863.5" font-family="Arial,sans-serif" font-size="16" fill="#000000" text-anchor="middle">Booking and</text>
+<text x="1596" y="882.5" font-family="Arial,sans-serif" font-size="16" fill="#000000" text-anchor="middle">Clinical Records</text>
+</g>
+</svg>

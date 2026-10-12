@@ -1,0 +1,214 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1053" height="1261" viewBox="0 0 1053 1261" role="img" aria-labelledby="title description">
+<title id="title">iPawcus - Clinics and scheduling</title>
+<desc id="description">Conceptual UML class diagram. White three-compartment class boxes with thin gray borders and orthogonal relationships. Attributes and operations describe the existing system, not literal PHP class declarations.</desc>
+<defs><marker id="dependency" markerWidth="8" markerHeight="8" refX="7" refY="4" orient="auto" markerUnits="userSpaceOnUse"><path d="M0 0 L7 4 L0 8" fill="none" stroke="#777777" stroke-width="0.75"/></marker></defs>
+<rect width="100%" height="100%" fill="#ffffff"/>
+<text x="72" y="35" font-family="Arial,sans-serif" font-size="19" fill="#222222" >iPawcus - Clinics and scheduling</text>
+<text x="72" y="56" font-family="Arial,sans-serif" font-size="10" fill="#222222" >Conceptual UML model | class name, attributes, operations | + public | ? nullable</text>
+<text x="72" y="73" font-family="Arial,sans-serif" font-size="9.5" fill="#222222" >Solid: association | dashed: application association | dashed arrow: uses | 1 / 0..1 / 0..* multiplicities</text>
+<path d="M636 203.5 L590 203.5 L590 309 L259 309 L259 221 L213 221" fill="none" stroke="#777777" stroke-width="0.75"><title>branch_closures.branch_id -&gt; branches.branch_id</title></path>
+<path d="M762 203.5 L808 203.5 L808 224 L1027 224 L1027 164 L981 164" fill="none" stroke="#777777" stroke-width="0.75"><title>branch_closures.created_by_user_id -&gt; users.user_id</title></path>
+<path d="M353 216.5 L307 216.5 L307 235 L213 235" fill="none" stroke="#777777" stroke-width="0.75"><title>branch_operating_hours.branch_id -&gt; branches.branch_id</title></path>
+<path d="M149 446 L149 400 L132.5 400 L132.5 402 L128.5 402 L128.5 356" fill="none" stroke="#777777" stroke-width="0.75"><title>branch_service_availability.branch_id -&gt; branches.branch_id</title></path>
+<path d="M500 467 L546 467 L546 283 L853 283 L853 150 L899 150" fill="none" stroke="#777777" stroke-width="0.75"><title>user_branch_assignments.assigned_by_user_id -&gt; users.user_id</title></path>
+<path d="M342 474 L296 474 L296 263 L213 263" fill="none" stroke="#777777" stroke-width="0.75"><title>user_branch_assignments.branch_id -&gt; branches.branch_id</title></path>
+<path d="M500 481 L546 481 L546 495 L920 495 L920 200" fill="none" stroke="#777777" stroke-width="0.75"><title>user_branch_assignments.user_id -&gt; users.user_id</title></path>
+<path d="M616 422 L570 422 L570 337 L268 337 L268 249 L213 249" fill="none" stroke="#777777" stroke-width="0.75"><title>veterinarian_booking_clinics.branch_id -&gt; branches.branch_id</title></path>
+<path d="M783 422 L829 422 L829 246 L960 246 L960 200" fill="none" stroke="#777777" stroke-width="0.75"><title>veterinarian_booking_clinics.veterinarian_user_id -&gt; users.user_id</title></path>
+<path d="M763 627.5 L864.68 627.5 L864.68 84 L940 84 L940 130" fill="none" stroke="#777777" stroke-width="0.75"><title>veterinarian_booking_time_off.veterinarian_user_id -&gt; users.user_id</title></path>
+<path d="M149 948 L149 902 L244 902 L244 402 L168.5 402 L168.5 356" fill="none" stroke="#777777" stroke-width="0.75"><title>veterinarian_branch_schedules.branch_id -&gt; branches.branch_id</title></path>
+<path d="M222 1053.5 L817.32 1053.5 L817.32 178 L899 178" fill="none" stroke="#777777" stroke-width="0.75"><title>veterinarian_branch_schedules.created_by_user_id -&gt; users.user_id</title></path>
+<path d="M222 1067.5 L581.68 1067.5 L581.68 337 L809 337 L809 192 L899 192" fill="none" stroke="#777777" stroke-width="0.75"><title>veterinarian_branch_schedules.veterinarian_user_id -&gt; users.user_id</title></path>
+<path d="M346 712 L300 712 L300 277 L213 277" fill="none" stroke="#777777" stroke-width="0.75"><title>veterinarian_working_hours.branch_id -&gt; branches.branch_id</title></path>
+<path d="M496 712 L1023 712 L1023 189.5 L1027 189.5 L1027 178 L981 178" fill="none" stroke="#777777" stroke-width="0.75"><title>veterinarian_working_hours.veterinarian_user_id -&gt; users.user_id</title></path>
+<path d="M209 796.5 L255 796.5 L255 363 L598 363 L598 309 L801 309 L801 164 L899 164" fill="none" stroke="#777777" stroke-width="0.75"><title>vet_schedules.user_id -&gt; users.user_id</title></path>
+<g data-class="branches"><title>Branch</title>
+<rect x="84" y="130" width="129" height="226" fill="#ffffff" stroke="#858585" stroke-width="0.8"/>
+<line x1="84" y1="154" x2="213" y2="154" stroke="#858585" stroke-width="0.8"/>
+<line x1="84" y1="307" x2="213" y2="307" stroke="#858585" stroke-width="0.8"/>
+<text x="148.5" y="146" font-family="Arial,sans-serif" font-size="11" fill="#222222" font-weight="700" text-anchor="middle">Branch</text>
+<text x="94" y="168" font-family="Arial,sans-serif" font-size="10" fill="#222222" >+ branchId: int</text>
+<text x="94" y="181" font-family="Arial,sans-serif" font-size="10" fill="#222222" >+ branchCode: string</text>
+<text x="94" y="194" font-family="Arial,sans-serif" font-size="10" fill="#222222" >+ branchName: string</text>
+<text x="94" y="207" font-family="Arial,sans-serif" font-size="10" fill="#222222" >+ branchType: string</text>
+<text x="94" y="220" font-family="Arial,sans-serif" font-size="10" fill="#222222" >+ address: string</text>
+<text x="94" y="233" font-family="Arial,sans-serif" font-size="10" fill="#222222" >+ phoneNumber: string?</text>
+<text x="94" y="246" font-family="Arial,sans-serif" font-size="10" fill="#222222" >+ mapUrl: string?</text>
+<text x="94" y="259" font-family="Arial,sans-serif" font-size="10" fill="#222222" >+ isMain: bool</text>
+<text x="94" y="272" font-family="Arial,sans-serif" font-size="10" fill="#222222" >+ status: string</text>
+<text x="94" y="285" font-family="Arial,sans-serif" font-size="10" fill="#222222" >+ createdAt: datetime</text>
+<text x="94" y="298" font-family="Arial,sans-serif" font-size="10" fill="#222222" >+ updatedAt: datetime</text>
+<text x="94" y="321" font-family="Arial,sans-serif" font-size="10" fill="#222222" >+ listBranches()</text>
+<text x="94" y="334" font-family="Arial,sans-serif" font-size="10" fill="#222222" >+ checkAvailability()</text>
+<text x="94" y="347" font-family="Arial,sans-serif" font-size="10" fill="#222222" >+ relocateBooking()</text>
+</g>
+<g data-class="branch_operating_hours"><title>BranchOperatingHour</title>
+<rect x="353" y="130" width="135" height="161" fill="#ffffff" stroke="#858585" stroke-width="0.8"/>
+<line x1="353" y1="154" x2="488" y2="154" stroke="#858585" stroke-width="0.8"/>
+<line x1="353" y1="268" x2="488" y2="268" stroke="#858585" stroke-width="0.8"/>
+<text x="420.5" y="146" font-family="Arial,sans-serif" font-size="11" fill="#222222" font-weight="700" text-anchor="middle">BranchOperatingHour</text>
+<text x="363" y="168" font-family="Arial,sans-serif" font-size="10" fill="#222222" >+ operatingHourId: int</text>
+<text x="363" y="181" font-family="Arial,sans-serif" font-size="10" fill="#222222" >+ branchId: int</text>
+<text x="363" y="194" font-family="Arial,sans-serif" font-size="10" fill="#222222" >+ dayOfWeek: int</text>
+<text x="363" y="207" font-family="Arial,sans-serif" font-size="10" fill="#222222" >+ opensAt: time?</text>
+<text x="363" y="220" font-family="Arial,sans-serif" font-size="10" fill="#222222" >+ closesAt: time?</text>
+<text x="363" y="233" font-family="Arial,sans-serif" font-size="10" fill="#222222" >+ isClosed: bool</text>
+<text x="363" y="246" font-family="Arial,sans-serif" font-size="10" fill="#222222" >+ createdAt: datetime</text>
+<text x="363" y="259" font-family="Arial,sans-serif" font-size="10" fill="#222222" >+ updatedAt: datetime</text>
+<text x="363" y="282" font-family="Arial,sans-serif" font-size="10" fill="#222222" >+ checkClinicHours()</text>
+</g>
+<g data-class="branch_closures"><title>BranchClosure</title>
+<rect x="636" y="130" width="126" height="135" fill="#ffffff" stroke="#858585" stroke-width="0.8"/>
+<line x1="636" y1="154" x2="762" y2="154" stroke="#858585" stroke-width="0.8"/>
+<line x1="636" y1="242" x2="762" y2="242" stroke="#858585" stroke-width="0.8"/>
+<text x="699" y="146" font-family="Arial,sans-serif" font-size="11" fill="#222222" font-weight="700" text-anchor="middle">BranchClosure</text>
+<text x="646" y="168" font-family="Arial,sans-serif" font-size="10" fill="#222222" >+ closureId: int</text>
+<text x="646" y="181" font-family="Arial,sans-serif" font-size="10" fill="#222222" >+ branchId: int</text>
+<text x="646" y="194" font-family="Arial,sans-serif" font-size="10" fill="#222222" >+ closureDate: date</text>
+<text x="646" y="207" font-family="Arial,sans-serif" font-size="10" fill="#222222" >+ reason: string?</text>
+<text x="646" y="220" font-family="Arial,sans-serif" font-size="10" fill="#222222" >+ createdByUserId: int?</text>
+<text x="646" y="233" font-family="Arial,sans-serif" font-size="10" fill="#222222" >+ createdAt: datetime</text>
+<text x="646" y="256" font-family="Arial,sans-serif" font-size="10" fill="#222222" >+ checkClosure()</text>
+</g>
+<g data-class="branch_service_availability"><title>BranchServiceAvailability</title>
+<rect x="72" y="446" width="154" height="187" fill="#ffffff" stroke="#858585" stroke-width="0.8"/>
+<line x1="72" y1="470" x2="226" y2="470" stroke="#858585" stroke-width="0.8"/>
+<line x1="72" y1="610" x2="226" y2="610" stroke="#858585" stroke-width="0.8"/>
+<text x="149" y="462" font-family="Arial,sans-serif" font-size="11" fill="#222222" font-weight="700" text-anchor="middle">BranchServiceAvailability</text>
+<text x="82" y="484" font-family="Arial,sans-serif" font-size="10" fill="#222222" >+ branchServiceId: int</text>
+<text x="82" y="497" font-family="Arial,sans-serif" font-size="10" fill="#222222" >+ branchId: int</text>
+<text x="82" y="510" font-family="Arial,sans-serif" font-size="10" fill="#222222" >+ serviceKey: string</text>
+<text x="82" y="523" font-family="Arial,sans-serif" font-size="10" fill="#222222" >+ serviceLabel: string</text>
+<text x="82" y="536" font-family="Arial,sans-serif" font-size="10" fill="#222222" >+ availabilityMode: string</text>
+<text x="82" y="549" font-family="Arial,sans-serif" font-size="10" fill="#222222" >+ bookingEnabled: bool</text>
+<text x="82" y="562" font-family="Arial,sans-serif" font-size="10" fill="#222222" >+ queueEnabled: bool</text>
+<text x="82" y="575" font-family="Arial,sans-serif" font-size="10" fill="#222222" >+ isActive: bool</text>
+<text x="82" y="588" font-family="Arial,sans-serif" font-size="10" fill="#222222" >+ createdAt: datetime</text>
+<text x="82" y="601" font-family="Arial,sans-serif" font-size="10" fill="#222222" >+ updatedAt: datetime</text>
+<text x="82" y="624" font-family="Arial,sans-serif" font-size="10" fill="#222222" >+ checkServiceAvailability()</text>
+</g>
+<g data-class="user_branch_assignments"><title>UserBranchAssignment</title>
+<rect x="342" y="381" width="158" height="174" fill="#ffffff" stroke="#858585" stroke-width="0.8"/>
+<line x1="342" y1="405" x2="500" y2="405" stroke="#858585" stroke-width="0.8"/>
+<line x1="342" y1="519" x2="500" y2="519" stroke="#858585" stroke-width="0.8"/>
+<text x="421" y="397" font-family="Arial,sans-serif" font-size="11" fill="#222222" font-weight="700" text-anchor="middle">UserBranchAssignment</text>
+<text x="352" y="419" font-family="Arial,sans-serif" font-size="10" fill="#222222" >+ userBranchAssignmentId: int</text>
+<text x="352" y="432" font-family="Arial,sans-serif" font-size="10" fill="#222222" >+ userId: int</text>
+<text x="352" y="445" font-family="Arial,sans-serif" font-size="10" fill="#222222" >+ branchId: int</text>
+<text x="352" y="458" font-family="Arial,sans-serif" font-size="10" fill="#222222" >+ isPrimary: bool</text>
+<text x="352" y="471" font-family="Arial,sans-serif" font-size="10" fill="#222222" >+ isActive: bool</text>
+<text x="352" y="484" font-family="Arial,sans-serif" font-size="10" fill="#222222" >+ assignedByUserId: int?</text>
+<text x="352" y="497" font-family="Arial,sans-serif" font-size="10" fill="#222222" >+ assignedAt: datetime</text>
+<text x="352" y="510" font-family="Arial,sans-serif" font-size="10" fill="#222222" >+ endedAt: datetime?</text>
+<text x="352" y="533" font-family="Arial,sans-serif" font-size="10" fill="#222222" >+ assignClinic()</text>
+<text x="352" y="546" font-family="Arial,sans-serif" font-size="10" fill="#222222" >+ setPrimaryClinic()</text>
+</g>
+<g data-class="veterinarian_booking_clinics"><title>VetClinicBookingPreference</title>
+<rect x="616" y="355" width="167" height="122" fill="#ffffff" stroke="#858585" stroke-width="0.8"/>
+<line x1="616" y1="379" x2="783" y2="379" stroke="#858585" stroke-width="0.8"/>
+<line x1="616" y1="441" x2="783" y2="441" stroke="#858585" stroke-width="0.8"/>
+<text x="699.5" y="371" font-family="Arial,sans-serif" font-size="11" fill="#222222" font-weight="700" text-anchor="middle">VetClinicBookingPreference</text>
+<text x="626" y="393" font-family="Arial,sans-serif" font-size="10" fill="#222222" >+ veterinarianUserId: int</text>
+<text x="626" y="406" font-family="Arial,sans-serif" font-size="10" fill="#222222" >+ branchId: int</text>
+<text x="626" y="419" font-family="Arial,sans-serif" font-size="10" fill="#222222" >+ acceptsBookings: bool</text>
+<text x="626" y="432" font-family="Arial,sans-serif" font-size="10" fill="#222222" >+ updatedAt: datetime</text>
+<text x="626" y="455" font-family="Arial,sans-serif" font-size="10" fill="#222222" >+ setAcceptsBookings()</text>
+<text x="626" y="468" font-family="Arial,sans-serif" font-size="10" fill="#222222" >+ listAcceptedClinics()</text>
+</g>
+<g data-class="vet_schedules"><title>OnlineVetSchedule</title>
+<rect x="89" y="723" width="120" height="135" fill="#ffffff" stroke="#858585" stroke-width="0.8"/>
+<line x1="89" y1="747" x2="209" y2="747" stroke="#858585" stroke-width="0.8"/>
+<line x1="89" y1="822" x2="209" y2="822" stroke="#858585" stroke-width="0.8"/>
+<text x="149" y="739" font-family="Arial,sans-serif" font-size="11" fill="#222222" font-weight="700" text-anchor="middle">OnlineVetSchedule</text>
+<text x="99" y="761" font-family="Arial,sans-serif" font-size="10" fill="#222222" >+ scheduleId: int</text>
+<text x="99" y="774" font-family="Arial,sans-serif" font-size="10" fill="#222222" >+ userId: int</text>
+<text x="99" y="787" font-family="Arial,sans-serif" font-size="10" fill="#222222" >+ dayOfWeek: string</text>
+<text x="99" y="800" font-family="Arial,sans-serif" font-size="10" fill="#222222" >+ timeSlot: string</text>
+<text x="99" y="813" font-family="Arial,sans-serif" font-size="10" fill="#222222" >+ isAvailable: bool?</text>
+<text x="99" y="836" font-family="Arial,sans-serif" font-size="10" fill="#222222" >+ updateAvailability()</text>
+<text x="99" y="849" font-family="Arial,sans-serif" font-size="10" fill="#222222" >+ listAvailableSlots()</text>
+</g>
+<g data-class="veterinarian_working_hours"><title>LegacyVetWorkingHours</title>
+<rect x="346" y="645" width="150" height="122" fill="#ffffff" stroke="#858585" stroke-width="0.8"/>
+<line x1="346" y1="669" x2="496" y2="669" stroke="#858585" stroke-width="0.8"/>
+<line x1="346" y1="757" x2="496" y2="757" stroke="#858585" stroke-width="0.8"/>
+<text x="421" y="661" font-family="Arial,sans-serif" font-size="11" fill="#222222" font-weight="700" text-anchor="middle">LegacyVetWorkingHours</text>
+<text x="356" y="683" font-family="Arial,sans-serif" font-size="10" fill="#222222" >+ workingHoursId: int</text>
+<text x="356" y="696" font-family="Arial,sans-serif" font-size="10" fill="#222222" >+ veterinarianUserId: int</text>
+<text x="356" y="709" font-family="Arial,sans-serif" font-size="10" fill="#222222" >+ branchId: int</text>
+<text x="356" y="722" font-family="Arial,sans-serif" font-size="10" fill="#222222" >+ dayOfWeek: int</text>
+<text x="356" y="735" font-family="Arial,sans-serif" font-size="10" fill="#222222" >+ startsAt: time</text>
+<text x="356" y="748" font-family="Arial,sans-serif" font-size="10" fill="#222222" >+ endsAt: time</text>
+</g>
+<g data-class="veterinarian_booking_time_off"><title>LegacyVetTimeOff</title>
+<rect x="635" y="567" width="128" height="109" fill="#ffffff" stroke="#858585" stroke-width="0.8"/>
+<line x1="635" y1="591" x2="763" y2="591" stroke="#858585" stroke-width="0.8"/>
+<line x1="635" y1="666" x2="763" y2="666" stroke="#858585" stroke-width="0.8"/>
+<text x="699" y="583" font-family="Arial,sans-serif" font-size="11" fill="#222222" font-weight="700" text-anchor="middle">LegacyVetTimeOff</text>
+<text x="645" y="605" font-family="Arial,sans-serif" font-size="10" fill="#222222" >+ timeOffId: int</text>
+<text x="645" y="618" font-family="Arial,sans-serif" font-size="10" fill="#222222" >+ veterinarianUserId: int</text>
+<text x="645" y="631" font-family="Arial,sans-serif" font-size="10" fill="#222222" >+ startsAt: datetime</text>
+<text x="645" y="644" font-family="Arial,sans-serif" font-size="10" fill="#222222" >+ endsAt: datetime</text>
+<text x="645" y="657" font-family="Arial,sans-serif" font-size="10" fill="#222222" >+ notes: string?</text>
+</g>
+<g data-class="veterinarian_branch_schedules"><title>LegacyVetClinicVisit</title>
+<rect x="76" y="948" width="146" height="213" fill="#ffffff" stroke="#858585" stroke-width="0.8"/>
+<line x1="76" y1="972" x2="222" y2="972" stroke="#858585" stroke-width="0.8"/>
+<line x1="76" y1="1138" x2="222" y2="1138" stroke="#858585" stroke-width="0.8"/>
+<text x="149" y="964" font-family="Arial,sans-serif" font-size="11" fill="#222222" font-weight="700" text-anchor="middle">LegacyVetClinicVisit</text>
+<text x="86" y="986" font-family="Arial,sans-serif" font-size="10" fill="#222222" >+ visitScheduleId: int</text>
+<text x="86" y="999" font-family="Arial,sans-serif" font-size="10" fill="#222222" >+ veterinarianUserId: int</text>
+<text x="86" y="1012" font-family="Arial,sans-serif" font-size="10" fill="#222222" >+ branchId: int</text>
+<text x="86" y="1025" font-family="Arial,sans-serif" font-size="10" fill="#222222" >+ startsAt: datetime</text>
+<text x="86" y="1038" font-family="Arial,sans-serif" font-size="10" fill="#222222" >+ endsAt: datetime</text>
+<text x="86" y="1051" font-family="Arial,sans-serif" font-size="10" fill="#222222" >+ serviceKeys: string?</text>
+<text x="86" y="1064" font-family="Arial,sans-serif" font-size="10" fill="#222222" >+ appointmentCapacity: int?</text>
+<text x="86" y="1077" font-family="Arial,sans-serif" font-size="10" fill="#222222" >+ notes: string?</text>
+<text x="86" y="1090" font-family="Arial,sans-serif" font-size="10" fill="#222222" >+ status: string</text>
+<text x="86" y="1103" font-family="Arial,sans-serif" font-size="10" fill="#222222" >+ createdByUserId: int</text>
+<text x="86" y="1116" font-family="Arial,sans-serif" font-size="10" fill="#222222" >+ createdAt: datetime</text>
+<text x="86" y="1129" font-family="Arial,sans-serif" font-size="10" fill="#222222" >+ updatedAt: datetime</text>
+<text x="86" y="1152" font-family="Arial,sans-serif" font-size="10" fill="#222222" >+ viewRecord()</text>
+</g>
+<g data-class="users"><title>User (reference to the same class on its detail sheet)</title>
+<rect x="899" y="130" width="82" height="70" fill="#ffffff" stroke="#858585" stroke-width="0.8"/>
+<line x1="899" y1="154" x2="981" y2="154" stroke="#858585" stroke-width="0.8"/>
+<line x1="899" y1="190" x2="981" y2="190" stroke="#858585" stroke-width="0.8"/>
+<text x="940" y="146" font-family="Arial,sans-serif" font-size="11" fill="#222222" font-weight="700" text-anchor="middle">User</text>
+<text x="909" y="168" font-family="Arial,sans-serif" font-size="10" fill="#222222" >+ userId: int</text>
+<text x="909" y="181" font-family="Arial,sans-serif" font-size="10" fill="#222222" >+ role: string?</text>
+</g>
+<text x="603.68" y="198.5" font-family="Arial,sans-serif" font-size="9" fill="#222222" style="font-family:Consolas,monospace">0..*</text>
+<text x="221" y="216" font-family="Arial,sans-serif" font-size="9" fill="#222222" style="font-family:Consolas,monospace">1</text>
+<text x="770" y="198.5" font-family="Arial,sans-serif" font-size="9" fill="#222222" style="font-family:Consolas,monospace">0..*</text>
+<text x="989" y="159" font-family="Arial,sans-serif" font-size="9" fill="#222222" style="font-family:Consolas,monospace">0..1</text>
+<text x="320.68" y="211.5" font-family="Arial,sans-serif" font-size="9" fill="#222222" style="font-family:Consolas,monospace">0..*</text>
+<text x="221" y="230" font-family="Arial,sans-serif" font-size="9" fill="#222222" style="font-family:Consolas,monospace">1</text>
+<text x="155" y="424" font-family="Arial,sans-serif" font-size="9" fill="#222222" style="font-family:Consolas,monospace">0..*</text>
+<text x="134.5" y="377" font-family="Arial,sans-serif" font-size="9" fill="#222222" style="font-family:Consolas,monospace">1</text>
+<text x="508" y="462" font-family="Arial,sans-serif" font-size="9" fill="#222222" style="font-family:Consolas,monospace">0..*</text>
+<text x="866.68" y="145" font-family="Arial,sans-serif" font-size="9" fill="#222222" style="font-family:Consolas,monospace">0..1</text>
+<text x="309.68" y="469" font-family="Arial,sans-serif" font-size="9" fill="#222222" style="font-family:Consolas,monospace">0..*</text>
+<text x="221" y="258" font-family="Arial,sans-serif" font-size="9" fill="#222222" style="font-family:Consolas,monospace">1</text>
+<text x="508" y="476" font-family="Arial,sans-serif" font-size="9" fill="#222222" style="font-family:Consolas,monospace">0..*</text>
+<text x="926" y="221" font-family="Arial,sans-serif" font-size="9" fill="#222222" style="font-family:Consolas,monospace">1</text>
+<text x="583.68" y="417" font-family="Arial,sans-serif" font-size="9" fill="#222222" style="font-family:Consolas,monospace">0..*</text>
+<text x="221" y="244" font-family="Arial,sans-serif" font-size="9" fill="#222222" style="font-family:Consolas,monospace">1</text>
+<text x="791" y="417" font-family="Arial,sans-serif" font-size="9" fill="#222222" style="font-family:Consolas,monospace">0..*</text>
+<text x="966" y="221" font-family="Arial,sans-serif" font-size="9" fill="#222222" style="font-family:Consolas,monospace">1</text>
+<text x="771" y="622.5" font-family="Arial,sans-serif" font-size="9" fill="#222222" style="font-family:Consolas,monospace">0..*</text>
+<text x="946" y="108" font-family="Arial,sans-serif" font-size="9" fill="#222222" style="font-family:Consolas,monospace">1</text>
+<text x="155" y="926" font-family="Arial,sans-serif" font-size="9" fill="#222222" style="font-family:Consolas,monospace">0..*</text>
+<text x="174.5" y="377" font-family="Arial,sans-serif" font-size="9" fill="#222222" style="font-family:Consolas,monospace">1</text>
+<text x="230" y="1048.5" font-family="Arial,sans-serif" font-size="9" fill="#222222" style="font-family:Consolas,monospace">0..*</text>
+<text x="883.42" y="173" font-family="Arial,sans-serif" font-size="9" fill="#222222" style="font-family:Consolas,monospace">1</text>
+<text x="230" y="1062.5" font-family="Arial,sans-serif" font-size="9" fill="#222222" style="font-family:Consolas,monospace">0..*</text>
+<text x="883.42" y="187" font-family="Arial,sans-serif" font-size="9" fill="#222222" style="font-family:Consolas,monospace">1</text>
+<text x="313.68" y="707" font-family="Arial,sans-serif" font-size="9" fill="#222222" style="font-family:Consolas,monospace">0..*</text>
+<text x="221" y="272" font-family="Arial,sans-serif" font-size="9" fill="#222222" style="font-family:Consolas,monospace">1</text>
+<text x="504" y="707" font-family="Arial,sans-serif" font-size="9" fill="#222222" style="font-family:Consolas,monospace">0..*</text>
+<text x="989" y="173" font-family="Arial,sans-serif" font-size="9" fill="#222222" style="font-family:Consolas,monospace">1</text>
+<text x="217" y="791.5" font-family="Arial,sans-serif" font-size="9" fill="#222222" style="font-family:Consolas,monospace">0..*</text>
+<text x="883.42" y="159" font-family="Arial,sans-serif" font-size="9" fill="#222222" style="font-family:Consolas,monospace">1</text>
+<text x="72" y="1239" font-family="Arial,sans-serif" font-size="9" fill="#222222" >Reference boxes repeat an existing class. Empty operation compartments indicate supporting state.</text>
+</svg>

@@ -1,0 +1,51 @@
+{
+  "source": "C:\\Users\\Admin\\WebstormProjects\\untitled1\\docs\\IPAWCUS-Role-Activity-Diagrams.drawio",
+  "source_sha256": "0e976e91dcc5157f9378ffa4b805b5f6173a8b4664c721ede2c448b2c45b96d7",
+  "source_preserved": true,
+  "sheets": 4,
+  "updated_system_title": "iPawcus: A Web-Based Veterinary Management System with Online Booking and Pet Record Management for Vetfocus Care Animal Clinic",
+  "entire_system_title_bold": true,
+  "logo_embedded": true,
+  "vertical_scale": 0.65,
+  "process_text_leading_px": 14,
+  "column_positions_and_gaps_unchanged": true,
+  "workflow_content_and_connections_preserved": true,
+  "figure_intersections": 0,
+  "connector_figure_intersections": 0,
+  "branch_label_intersections": 0,
+  "application_modified": false,
+  "database_modified": false,
+  "editable_artifact_checked": true,
+  "headings_unclipped": true,
+  "crossings_shown_as_bridges": true,
+  "pages": [
+    {
+      "role": "Pet Owner",
+      "height_before": 4660,
+      "height_after": 3168,
+      "activities": 40,
+      "connections": 48
+    },
+    {
+      "role": "Admin",
+      "height_before": 4860,
+      "height_after": 3279,
+      "activities": 40,
+      "connections": 47
+    },
+    {
+      "role": "Veterinarian",
+      "height_before": 4500,
+      "height_after": 3032,
+      "activities": 38,
+      "connections": 44
+    },
+    {
+      "role": "Super Admin",
+      "height_before": 4460,
+      "height_after": 2928,
+      "activities": 38,
+      "connections": 47
+    }
+  ]
+}

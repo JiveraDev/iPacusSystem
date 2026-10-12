@@ -1,0 +1,17 @@
+{
+  "passed": true,
+  "errors": [],
+  "roles": 4,
+  "lifelines": 6,
+  "messages": 43,
+  "fragments": 10,
+  "reference_blocks": 6,
+  "evidence_checks": 88,
+  "minimum_font_px": 18,
+  "bold": true,
+  "uppercase": true,
+  "width": 1960,
+  "height": 3126,
+  "original_diagrams_preserved": true,
+  "live_database_tested": false
+}

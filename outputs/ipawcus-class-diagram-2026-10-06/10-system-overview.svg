@@ -1,0 +1,508 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="2600" height="3534" viewBox="0 0 2600 3534" role="img" aria-labelledby="title desc">
+<title id="title">iPawcus / System + database reference overview</title>
+<desc id="desc">Application modules and verified database references. Original SQL entity definitions are on pages 01 to 09. Dashed dependencies are not foreign keys.</desc>
+<defs><marker id="arrow" markerWidth="9" markerHeight="9" refX="8" refY="4.5" orient="auto" markerUnits="userSpaceOnUse"><path d="M0 0 L8 4.5 L0 9" fill="none" stroke="#8793a3" stroke-width="1.2"/></marker><marker id="inheritance" markerWidth="11" markerHeight="11" refX="10" refY="5" orient="auto" markerUnits="userSpaceOnUse"><path d="M0 0 L10 5 L0 10 Z" fill="#ffffff" stroke="#8793a3" stroke-width="1.2"/></marker></defs>
+<rect width="100%" height="100%" fill="#ffffff"/>
+<text x="80" y="44" font-family="Arial,sans-serif" font-size="25" fill="#2d3748">iPawcus / System + database reference overview</text>
+<text x="80" y="73" font-family="Arial,sans-serif" font-size="14" fill="#596579">React / service / PHP / entity reference · arrows show source-code dependencies; no invented OO inheritance.</text>
+<text x="80" y="100" font-family="Arial,sans-serif" font-size="13" fill="#596579">Dashed: dependency. Solid: migration FK or real class inheritance. Full source evidence accompanies detailed links.</text>
+<text x="80" y="143" font-family="Arial,sans-serif" font-size="14" fill="#596579">UI and system views</text>
+<text x="740" y="143" font-family="Arial,sans-serif" font-size="14" fill="#596579">JavaScript services</text>
+<text x="1400" y="143" font-family="Arial,sans-serif" font-size="14" fill="#596579">PHP backend modules</text>
+<text x="2080" y="143" font-family="Arial,sans-serif" font-size="14" fill="#596579">Database references</text>
+<path d="M1160 210 L1400 210" fill="none" stroke="#8793a3" stroke-width="1.2" stroke-dasharray="5 4" marker-end="url(#arrow)"><title>family-0-services → family-0-backend / HTTP</title></path>
+<path d="M1840 210 L2080 210" fill="none" stroke="#8793a3" stroke-width="1.2" stroke-dasharray="5 4" marker-end="url(#arrow)"><title>family-0-backend → family-0-database / SQL</title></path>
+<path d="M1160 529 L1400 529" fill="none" stroke="#8793a3" stroke-width="1.2" stroke-dasharray="5 4" marker-end="url(#arrow)"><title>family-1-services → family-1-backend / HTTP</title></path>
+<path d="M1840 529 L2080 529" fill="none" stroke="#8793a3" stroke-width="1.2" stroke-dasharray="5 4" marker-end="url(#arrow)"><title>family-1-backend → family-1-database / SQL</title></path>
+<path d="M1160 866 L1400 866" fill="none" stroke="#8793a3" stroke-width="1.2" stroke-dasharray="5 4" marker-end="url(#arrow)"><title>family-2-services → family-2-backend / HTTP</title></path>
+<path d="M1840 866 L2080 866" fill="none" stroke="#8793a3" stroke-width="1.2" stroke-dasharray="5 4" marker-end="url(#arrow)"><title>family-2-backend → family-2-database / SQL</title></path>
+<path d="M1160 1203 L1400 1203" fill="none" stroke="#8793a3" stroke-width="1.2" stroke-dasharray="5 4" marker-end="url(#arrow)"><title>family-3-services → family-3-backend / HTTP</title></path>
+<path d="M1840 1203 L2080 1203" fill="none" stroke="#8793a3" stroke-width="1.2" stroke-dasharray="5 4" marker-end="url(#arrow)"><title>family-3-backend → family-3-database / SQL</title></path>
+<path d="M1160 1540 L1400 1540" fill="none" stroke="#8793a3" stroke-width="1.2" stroke-dasharray="5 4" marker-end="url(#arrow)"><title>family-4-services → family-4-backend / HTTP</title></path>
+<path d="M1840 1540 L2080 1540" fill="none" stroke="#8793a3" stroke-width="1.2" stroke-dasharray="5 4" marker-end="url(#arrow)"><title>family-4-backend → family-4-database / SQL</title></path>
+<path d="M1160 1877 L1400 1877" fill="none" stroke="#8793a3" stroke-width="1.2" stroke-dasharray="5 4" marker-end="url(#arrow)"><title>family-5-services → family-5-backend / HTTP</title></path>
+<path d="M1840 1877 L2080 1877" fill="none" stroke="#8793a3" stroke-width="1.2" stroke-dasharray="5 4" marker-end="url(#arrow)"><title>family-5-backend → family-5-database / SQL</title></path>
+<path d="M1160 2214 L1400 2214" fill="none" stroke="#8793a3" stroke-width="1.2" stroke-dasharray="5 4" marker-end="url(#arrow)"><title>family-6-services → family-6-backend / HTTP</title></path>
+<path d="M1840 2214 L2080 2214" fill="none" stroke="#8793a3" stroke-width="1.2" stroke-dasharray="5 4" marker-end="url(#arrow)"><title>family-6-backend → family-6-database / SQL</title></path>
+<path d="M1160 2551 L1400 2551" fill="none" stroke="#8793a3" stroke-width="1.2" stroke-dasharray="5 4" marker-end="url(#arrow)"><title>family-7-services → family-7-backend / HTTP</title></path>
+<path d="M1840 2551 L2080 2551" fill="none" stroke="#8793a3" stroke-width="1.2" stroke-dasharray="5 4" marker-end="url(#arrow)"><title>family-7-backend → family-7-database / SQL</title></path>
+<path d="M1160 2888 L1400 2888" fill="none" stroke="#8793a3" stroke-width="1.2" stroke-dasharray="5 4" marker-end="url(#arrow)"><title>family-8-services → family-8-backend / HTTP</title></path>
+<path d="M1840 2888 L2080 2888" fill="none" stroke="#8793a3" stroke-width="1.2" stroke-dasharray="5 4" marker-end="url(#arrow)"><title>family-8-backend → family-8-database / SQL</title></path>
+<path d="M1160 3225 L1400 3225" fill="none" stroke="#8793a3" stroke-width="1.2" stroke-dasharray="5 4" marker-end="url(#arrow)"><title>family-9-services → family-9-backend / HTTP</title></path>
+<path d="M1840 3225 L2080 3225" fill="none" stroke="#8793a3" stroke-width="1.2" stroke-dasharray="5 4" marker-end="url(#arrow)"><title>family-9-backend → family-9-database / SQL</title></path>
+<path d="M500 210 L740 210" fill="none" stroke="#8793a3" stroke-width="1.2" stroke-dasharray="5 4" marker-end="url(#arrow)"><title>PetOwnerWorkspace → family-0-services / uses</title></path>
+<path d="M500 232 L610 232 L610 529 L740 529" fill="none" stroke="#8793a3" stroke-width="1.2" stroke-dasharray="5 4" marker-end="url(#arrow)"><title>PetOwnerWorkspace → family-1-services / uses</title></path>
+<path d="M500 254 L630 254 L630 866 L740 866" fill="none" stroke="#8793a3" stroke-width="1.2" stroke-dasharray="5 4" marker-end="url(#arrow)"><title>PetOwnerWorkspace → family-2-services / uses</title></path>
+<path d="M500 276 L610 276 L610 279 L545 279 L545 1540 L740 1540" fill="none" stroke="#8793a3" stroke-width="1.2" stroke-dasharray="5 4" marker-end="url(#arrow)"><title>PetOwnerWorkspace → family-4-services / uses</title></path>
+<path d="M500 298 L718 298 L718 1876 L630 1876 L630 1877 L740 1877" fill="none" stroke="#8793a3" stroke-width="1.2" stroke-dasharray="5 4" marker-end="url(#arrow)"><title>PetOwnerWorkspace → family-5-services / uses</title></path>
+<path d="M500 320 L610 320 L610 2214 L740 2214" fill="none" stroke="#8793a3" stroke-width="1.2" stroke-dasharray="5 4" marker-end="url(#arrow)"><title>PetOwnerWorkspace → family-6-services / uses</title></path>
+<path d="M500 457 L630 457 L630 551 L740 551" fill="none" stroke="#8793a3" stroke-width="1.2" stroke-dasharray="5 4" marker-end="url(#arrow)"><title>AdminWorkspace → family-1-services / uses</title></path>
+<path d="M500 479 L610 479 L610 482 L545 482 L545 769 L522 769 L522 888 L740 888" fill="none" stroke="#8793a3" stroke-width="1.2" stroke-dasharray="5 4" marker-end="url(#arrow)"><title>AdminWorkspace → family-2-services / uses</title></path>
+<path d="M500 501 L610 501 L610 866 L630 866 L630 1203 L740 1203" fill="none" stroke="#8793a3" stroke-width="1.2" stroke-dasharray="5 4" marker-end="url(#arrow)"><title>AdminWorkspace → family-3-services / uses</title></path>
+<path d="M500 523 L630 523 L630 2236 L740 2236" fill="none" stroke="#8793a3" stroke-width="1.2" stroke-dasharray="5 4" marker-end="url(#arrow)"><title>AdminWorkspace → family-6-services / uses</title></path>
+<path d="M500 545 L610 545 L610 628 L58 628 L58 2551 L740 2551" fill="none" stroke="#8793a3" stroke-width="1.2" stroke-dasharray="5 4" marker-end="url(#arrow)"><title>AdminWorkspace → family-7-services / uses</title></path>
+<path d="M500 704 L718 704 L718 888 L630 888 L630 910 L740 910" fill="none" stroke="#8793a3" stroke-width="1.2" stroke-dasharray="5 4" marker-end="url(#arrow)"><title>VeterinarianWorkspace → family-2-services / uses</title></path>
+<path d="M500 726 L610 726 L610 769 L545 769 L545 998 L522 998 L522 1225 L740 1225" fill="none" stroke="#8793a3" stroke-width="1.2" stroke-dasharray="5 4" marker-end="url(#arrow)"><title>VeterinarianWorkspace → family-3-services / uses</title></path>
+<path d="M500 748 L610 748 L610 1086 L509 1086 L509 1562 L740 1562" fill="none" stroke="#8793a3" stroke-width="1.2" stroke-dasharray="5 4" marker-end="url(#arrow)"><title>VeterinarianWorkspace → family-4-services / uses</title></path>
+<path d="M500 770 L1205 770 L1205 1815 L630 1815 L630 1899 L740 1899" fill="none" stroke="#8793a3" stroke-width="1.2" stroke-dasharray="5 4" marker-end="url(#arrow)"><title>VeterinarianWorkspace → family-5-services / uses</title></path>
+<path d="M500 933 L610 933 L610 914 L522 914 L522 871 L30 871 L30 148 L630 148 L630 232 L740 232" fill="none" stroke="#8793a3" stroke-width="1.2" stroke-dasharray="5 4" marker-end="url(#arrow)"><title>SuperAdminWorkspace → family-0-services / uses</title></path>
+<path d="M500 955 L630 955 L630 932 L740 932" fill="none" stroke="#8793a3" stroke-width="1.2" stroke-dasharray="5 4" marker-end="url(#arrow)"><title>SuperAdminWorkspace → family-2-services / uses</title></path>
+<path d="M500 977 L610 977 L610 999 L522 999 L522 2573 L740 2573" fill="none" stroke="#8793a3" stroke-width="1.2" stroke-dasharray="5 4" marker-end="url(#arrow)"><title>SuperAdminWorkspace → family-7-services / uses</title></path>
+<path d="M500 999 L610 999 L610 1055 L545 1055 L545 2888 L740 2888" fill="none" stroke="#8793a3" stroke-width="1.2" stroke-dasharray="5 4" marker-end="url(#arrow)"><title>SuperAdminWorkspace → family-8-services / uses</title></path>
+<g data-node="PetOwnerWorkspace"><rect x="80" y="170" width="420" height="189" fill="#ffffff" stroke="#c4cbd4" stroke-width="1.2"/><line x1="80" y1="225" x2="500" y2="225" stroke="#c4cbd4"/>
+<text x="94" y="193" font-family="Arial,sans-serif" font-size="16" fill="#2d3748">PetOwnerWorkspace</text>
+<text x="94" y="212" font-family="Arial,sans-serif" font-size="11.5" fill="#596579">«role view» pet_owner</text>
+<text x="94" y="248" font-family="Consolas,monospace" font-size="12" fill="#2d3748">MyPets</text>
+<text x="94" y="266" font-family="Consolas,monospace" font-size="12" fill="#2d3748">ConsultBooking</text>
+<text x="94" y="284" font-family="Consolas,monospace" font-size="12" fill="#2d3748">MedicalRecords</text>
+<text x="94" y="302" font-family="Consolas,monospace" font-size="12" fill="#2d3748">Todos</text>
+<text x="94" y="320" font-family="Consolas,monospace" font-size="12" fill="#2d3748">PetOwnerProfile</text>
+<text x="94" y="347" font-family="Arial,sans-serif" font-size="11.5" fill="#596579">src/components/Dashboard.jsx</text>
+</g>
+<g data-node="AdminWorkspace"><rect x="80" y="417" width="420" height="189" fill="#ffffff" stroke="#c4cbd4" stroke-width="1.2"/><line x1="80" y1="472" x2="500" y2="472" stroke="#c4cbd4"/>
+<text x="94" y="440" font-family="Arial,sans-serif" font-size="16" fill="#2d3748">AdminWorkspace</text>
+<text x="94" y="459" font-family="Arial,sans-serif" font-size="11.5" fill="#596579">«role view» admin</text>
+<text x="94" y="495" font-family="Consolas,monospace" font-size="12" fill="#2d3748">BookingManagement</text>
+<text x="94" y="513" font-family="Consolas,monospace" font-size="12" fill="#2d3748">PatientIntake</text>
+<text x="94" y="531" font-family="Consolas,monospace" font-size="12" fill="#2d3748">QueueManagement</text>
+<text x="94" y="549" font-family="Consolas,monospace" font-size="12" fill="#2d3748">POSmanagement</text>
+<text x="94" y="567" font-family="Consolas,monospace" font-size="12" fill="#2d3748">GroomingManagement</text>
+<text x="94" y="594" font-family="Arial,sans-serif" font-size="11.5" fill="#596579">src/components/Dashboard.jsx</text>
+</g>
+<g data-node="VeterinarianWorkspace"><rect x="80" y="664" width="420" height="171" fill="#ffffff" stroke="#c4cbd4" stroke-width="1.2"/><line x1="80" y1="719" x2="500" y2="719" stroke="#c4cbd4"/>
+<text x="94" y="687" font-family="Arial,sans-serif" font-size="16" fill="#2d3748">VeterinarianWorkspace</text>
+<text x="94" y="706" font-family="Arial,sans-serif" font-size="11.5" fill="#596579">«role view» veterinarian</text>
+<text x="94" y="742" font-family="Consolas,monospace" font-size="12" fill="#2d3748">VetMylistinService</text>
+<text x="94" y="760" font-family="Consolas,monospace" font-size="12" fill="#2d3748">VetDiagnosis</text>
+<text x="94" y="778" font-family="Consolas,monospace" font-size="12" fill="#2d3748">VetOnlineConsultDiagnosis</text>
+<text x="94" y="796" font-family="Consolas,monospace" font-size="12" fill="#2d3748">VetProfile</text>
+<text x="94" y="823" font-family="Arial,sans-serif" font-size="11.5" fill="#596579">src/components/Dashboard.jsx</text>
+</g>
+<g data-node="SuperAdminWorkspace"><rect x="80" y="893" width="420" height="171" fill="#ffffff" stroke="#c4cbd4" stroke-width="1.2"/><line x1="80" y1="948" x2="500" y2="948" stroke="#c4cbd4"/>
+<text x="94" y="916" font-family="Arial,sans-serif" font-size="16" fill="#2d3748">SuperAdminWorkspace</text>
+<text x="94" y="935" font-family="Arial,sans-serif" font-size="11.5" fill="#596579">«role view» super_admin</text>
+<text x="94" y="971" font-family="Consolas,monospace" font-size="12" fill="#2d3748">AccountManagement</text>
+<text x="94" y="989" font-family="Consolas,monospace" font-size="12" fill="#2d3748">SuperAdminReportsDashboard</text>
+<text x="94" y="1007" font-family="Consolas,monospace" font-size="12" fill="#2d3748">SuperAdminReportCenter</text>
+<text x="94" y="1025" font-family="Consolas,monospace" font-size="12" fill="#2d3748">PaymentMethodsManagement</text>
+<text x="94" y="1052" font-family="Arial,sans-serif" font-size="11.5" fill="#596579">src/components/Dashboard.jsx</text>
+</g>
+<g data-node="family-0-services"><rect x="740" y="170" width="420" height="243" fill="#ffffff" stroke="#c4cbd4" stroke-width="1.2"/><line x1="740" y1="225" x2="1160" y2="225" stroke="#c4cbd4"/>
+<text x="754" y="193" font-family="Arial,sans-serif" font-size="16" fill="#2d3748">Identity</text>
+<text x="754" y="212" font-family="Arial,sans-serif" font-size="11.5" fill="#596579">«service package»</text>
+<text x="754" y="248" font-family="Consolas,monospace" font-size="12" fill="#2d3748">accountService</text>
+<text x="754" y="266" font-family="Consolas,monospace" font-size="12" fill="#2d3748">adminFeatureAccessService</text>
+<text x="754" y="284" font-family="Consolas,monospace" font-size="12" fill="#2d3748">authEmail</text>
+<text x="754" y="302" font-family="Consolas,monospace" font-size="12" fill="#2d3748">googleAuthService</text>
+<text x="754" y="320" font-family="Consolas,monospace" font-size="12" fill="#2d3748">profileService</text>
+<text x="754" y="338" font-family="Consolas,monospace" font-size="12" fill="#2d3748">registerUser</text>
+<text x="754" y="356" font-family="Consolas,monospace" font-size="12" fill="#2d3748">userLogin</text>
+<text x="754" y="374" font-family="Consolas,monospace" font-size="12" fill="#2d3748">userService</text>
+<text x="754" y="401" font-family="Arial,sans-serif" font-size="11.5" fill="#596579">System pages 13–16</text>
+</g>
+<g data-node="family-0-backend"><rect x="1400" y="170" width="440" height="261" fill="#ffffff" stroke="#c4cbd4" stroke-width="1.2"/><line x1="1400" y1="225" x2="1840" y2="225" stroke="#c4cbd4"/>
+<text x="1414" y="193" font-family="Arial,sans-serif" font-size="16" fill="#2d3748">Identity</text>
+<text x="1414" y="212" font-family="Arial,sans-serif" font-size="11.5" fill="#596579">«PHP package»</text>
+<text x="1414" y="248" font-family="Consolas,monospace" font-size="12" fill="#2d3748">account_google</text>
+<text x="1414" y="266" font-family="Consolas,monospace" font-size="12" fill="#2d3748">account_status_helpers</text>
+<text x="1414" y="284" font-family="Consolas,monospace" font-size="12" fill="#2d3748">admin_feature_access</text>
+<text x="1414" y="302" font-family="Consolas,monospace" font-size="12" fill="#2d3748">auth_access_helpers</text>
+<text x="1414" y="320" font-family="Consolas,monospace" font-size="12" fill="#2d3748">auth_forgot_password</text>
+<text x="1414" y="338" font-family="Consolas,monospace" font-size="12" fill="#2d3748">auth_google</text>
+<text x="1414" y="356" font-family="Consolas,monospace" font-size="12" fill="#2d3748">auth_google_complete</text>
+<text x="1414" y="374" font-family="Consolas,monospace" font-size="12" fill="#2d3748">auth_otp_helpers</text>
+<text x="1414" y="392" font-family="Consolas,monospace" font-size="12" fill="#2d3748">+ 19 modules on detail pages</text>
+<text x="1414" y="419" font-family="Arial,sans-serif" font-size="11.5" fill="#596579">System pages 13–16</text>
+</g>
+<g data-node="family-0-database"><rect x="2080" y="170" width="440" height="261" fill="#ffffff" stroke="#c4cbd4" stroke-width="1.2"/><line x1="2080" y1="225" x2="2520" y2="225" stroke="#c4cbd4"/>
+<text x="2094" y="193" font-family="Arial,sans-serif" font-size="16" fill="#2d3748">Identity</text>
+<text x="2094" y="212" font-family="Arial,sans-serif" font-size="11.5" fill="#596579">«database references»</text>
+<text x="2094" y="248" font-family="Consolas,monospace" font-size="12" fill="#2d3748">users</text>
+<text x="2094" y="266" font-family="Consolas,monospace" font-size="12" fill="#2d3748">admin_profiles</text>
+<text x="2094" y="284" font-family="Consolas,monospace" font-size="12" fill="#2d3748">veterinarian_profiles</text>
+<text x="2094" y="302" font-family="Consolas,monospace" font-size="12" fill="#2d3748">user_auth_identities</text>
+<text x="2094" y="320" font-family="Consolas,monospace" font-size="12" fill="#2d3748">admin_feature_permissions</text>
+<text x="2094" y="338" font-family="Consolas,monospace" font-size="12" fill="#2d3748">admin_feature_permission_audit</text>
+<text x="2094" y="356" font-family="Consolas,monospace" font-size="12" fill="#2d3748">api_access_tokens</text>
+<text x="2094" y="374" font-family="Consolas,monospace" font-size="12" fill="#2d3748">email_otp_tokens</text>
+<text x="2094" y="392" font-family="Consolas,monospace" font-size="12" fill="#2d3748">google_auth_onboarding_tokens</text>
+<text x="2094" y="419" font-family="Arial,sans-serif" font-size="11.5" fill="#596579">SQL export / DB pages 01–09</text>
+</g>
+<g data-node="family-1-services"><rect x="740" y="489" width="420" height="189" fill="#ffffff" stroke="#c4cbd4" stroke-width="1.2"/><line x1="740" y1="544" x2="1160" y2="544" stroke="#c4cbd4"/>
+<text x="754" y="512" font-family="Arial,sans-serif" font-size="16" fill="#2d3748">Pets and ownership</text>
+<text x="754" y="531" font-family="Arial,sans-serif" font-size="11.5" fill="#596579">«service package»</text>
+<text x="754" y="567" font-family="Consolas,monospace" font-size="12" fill="#2d3748">ConnectOwnership</text>
+<text x="754" y="585" font-family="Consolas,monospace" font-size="12" fill="#2d3748">addPet</text>
+<text x="754" y="603" font-family="Consolas,monospace" font-size="12" fill="#2d3748">findPet</text>
+<text x="754" y="621" font-family="Consolas,monospace" font-size="12" fill="#2d3748">petCatalogService</text>
+<text x="754" y="639" font-family="Consolas,monospace" font-size="12" fill="#2d3748">petService</text>
+<text x="754" y="666" font-family="Arial,sans-serif" font-size="11.5" fill="#596579">System pages 19–21</text>
+</g>
+<g data-node="family-1-backend"><rect x="1400" y="489" width="440" height="261" fill="#ffffff" stroke="#c4cbd4" stroke-width="1.2"/><line x1="1400" y1="544" x2="1840" y2="544" stroke="#c4cbd4"/>
+<text x="1414" y="512" font-family="Arial,sans-serif" font-size="16" fill="#2d3748">Pets and ownership</text>
+<text x="1414" y="531" font-family="Arial,sans-serif" font-size="11.5" fill="#596579">«PHP package»</text>
+<text x="1414" y="567" font-family="Consolas,monospace" font-size="12" fill="#2d3748">add_pet</text>
+<text x="1414" y="585" font-family="Consolas,monospace" font-size="12" fill="#2d3748">coparent_request_helpers</text>
+<text x="1414" y="603" font-family="Consolas,monospace" font-size="12" fill="#2d3748">coparent_requests</text>
+<text x="1414" y="621" font-family="Consolas,monospace" font-size="12" fill="#2d3748">get_pet</text>
+<text x="1414" y="639" font-family="Consolas,monospace" font-size="12" fill="#2d3748">get_pet_bookings</text>
+<text x="1414" y="657" font-family="Consolas,monospace" font-size="12" fill="#2d3748">get_pet_queues</text>
+<text x="1414" y="675" font-family="Consolas,monospace" font-size="12" fill="#2d3748">get_pets</text>
+<text x="1414" y="693" font-family="Consolas,monospace" font-size="12" fill="#2d3748">get_user_pets</text>
+<text x="1414" y="711" font-family="Consolas,monospace" font-size="12" fill="#2d3748">+ 8 modules on detail pages</text>
+<text x="1414" y="738" font-family="Arial,sans-serif" font-size="11.5" fill="#596579">System pages 19–21</text>
+</g>
+<g data-node="family-1-database"><rect x="2080" y="489" width="440" height="279" fill="#ffffff" stroke="#c4cbd4" stroke-width="1.2"/><line x1="2080" y1="544" x2="2520" y2="544" stroke="#c4cbd4"/>
+<text x="2094" y="512" font-family="Arial,sans-serif" font-size="16" fill="#2d3748">Pets and ownership</text>
+<text x="2094" y="531" font-family="Arial,sans-serif" font-size="11.5" fill="#596579">«database references»</text>
+<text x="2094" y="567" font-family="Consolas,monospace" font-size="12" fill="#2d3748">pets_information</text>
+<text x="2094" y="585" font-family="Consolas,monospace" font-size="12" fill="#2d3748">pet_ownership</text>
+<text x="2094" y="603" font-family="Consolas,monospace" font-size="12" fill="#2d3748">pet_coparent_requests</text>
+<text x="2094" y="621" font-family="Consolas,monospace" font-size="12" fill="#2d3748">pet_allergies</text>
+<text x="2094" y="639" font-family="Consolas,monospace" font-size="12" fill="#2d3748">pet_vaccinations</text>
+<text x="2094" y="657" font-family="Consolas,monospace" font-size="12" fill="#2d3748">history_before_registration</text>
+<text x="2094" y="675" font-family="Consolas,monospace" font-size="12" fill="#2d3748">pet_record_update_requests</text>
+<text x="2094" y="693" font-family="Consolas,monospace" font-size="12" fill="#2d3748">pet_record_update_request_events</text>
+<text x="2094" y="711" font-family="Consolas,monospace" font-size="12" fill="#2d3748">pet_medical_record_groups</text>
+<text x="2094" y="729" font-family="Consolas,monospace" font-size="12" fill="#2d3748">+ 3 entities on DB pages</text>
+<text x="2094" y="756" font-family="Arial,sans-serif" font-size="11.5" fill="#596579">SQL export / DB pages 01–09</text>
+</g>
+<g data-node="family-2-services"><rect x="740" y="826" width="420" height="207" fill="#ffffff" stroke="#c4cbd4" stroke-width="1.2"/><line x1="740" y1="881" x2="1160" y2="881" stroke="#c4cbd4"/>
+<text x="754" y="849" font-family="Arial,sans-serif" font-size="16" fill="#2d3748">Clinic booking</text>
+<text x="754" y="868" font-family="Arial,sans-serif" font-size="11.5" fill="#596579">«service package»</text>
+<text x="754" y="904" font-family="Consolas,monospace" font-size="12" fill="#2d3748">bookingAvailabilityService</text>
+<text x="754" y="922" font-family="Consolas,monospace" font-size="12" fill="#2d3748">bookingService</text>
+<text x="754" y="940" font-family="Consolas,monospace" font-size="12" fill="#2d3748">branchService</text>
+<text x="754" y="958" font-family="Consolas,monospace" font-size="12" fill="#2d3748">vetBookingScheduleService</text>
+<text x="754" y="976" font-family="Consolas,monospace" font-size="12" fill="#2d3748">vetPresenceService</text>
+<text x="754" y="994" font-family="Consolas,monospace" font-size="12" fill="#2d3748">vetScheduleService</text>
+<text x="754" y="1021" font-family="Arial,sans-serif" font-size="11.5" fill="#596579">System pages 17–24</text>
+</g>
+<g data-node="family-2-backend"><rect x="1400" y="826" width="440" height="261" fill="#ffffff" stroke="#c4cbd4" stroke-width="1.2"/><line x1="1400" y1="881" x2="1840" y2="881" stroke="#c4cbd4"/>
+<text x="1414" y="849" font-family="Arial,sans-serif" font-size="16" fill="#2d3748">Clinic booking</text>
+<text x="1414" y="868" font-family="Arial,sans-serif" font-size="11.5" fill="#596579">«PHP package»</text>
+<text x="1414" y="904" font-family="Consolas,monospace" font-size="12" fill="#2d3748">add_booking</text>
+<text x="1414" y="922" font-family="Consolas,monospace" font-size="12" fill="#2d3748">booking_availability</text>
+<text x="1414" y="940" font-family="Consolas,monospace" font-size="12" fill="#2d3748">booking_billing_context</text>
+<text x="1414" y="958" font-family="Consolas,monospace" font-size="12" fill="#2d3748">booking_daily_guard</text>
+<text x="1414" y="976" font-family="Consolas,monospace" font-size="12" fill="#2d3748">booking_maintenance</text>
+<text x="1414" y="994" font-family="Consolas,monospace" font-size="12" fill="#2d3748">booking_payment_helpers</text>
+<text x="1414" y="1012" font-family="Consolas,monospace" font-size="12" fill="#2d3748">booking_payment_refund</text>
+<text x="1414" y="1030" font-family="Consolas,monospace" font-size="12" fill="#2d3748">booking_payment_review</text>
+<text x="1414" y="1048" font-family="Consolas,monospace" font-size="12" fill="#2d3748">+ 15 modules on detail pages</text>
+<text x="1414" y="1075" font-family="Arial,sans-serif" font-size="11.5" fill="#596579">System pages 17–24</text>
+</g>
+<g data-node="family-2-database"><rect x="2080" y="826" width="440" height="279" fill="#ffffff" stroke="#c4cbd4" stroke-width="1.2"/><line x1="2080" y1="881" x2="2520" y2="881" stroke="#c4cbd4"/>
+<text x="2094" y="849" font-family="Arial,sans-serif" font-size="16" fill="#2d3748">Clinic booking</text>
+<text x="2094" y="868" font-family="Arial,sans-serif" font-size="11.5" fill="#596579">«database references»</text>
+<text x="2094" y="904" font-family="Consolas,monospace" font-size="12" fill="#2d3748">branches</text>
+<text x="2094" y="922" font-family="Consolas,monospace" font-size="12" fill="#2d3748">branch_operating_hours</text>
+<text x="2094" y="940" font-family="Consolas,monospace" font-size="12" fill="#2d3748">branch_closures</text>
+<text x="2094" y="958" font-family="Consolas,monospace" font-size="12" fill="#2d3748">branch_service_availability</text>
+<text x="2094" y="976" font-family="Consolas,monospace" font-size="12" fill="#2d3748">user_branch_assignments</text>
+<text x="2094" y="994" font-family="Consolas,monospace" font-size="12" fill="#2d3748">veterinarian_booking_clinics</text>
+<text x="2094" y="1012" font-family="Consolas,monospace" font-size="12" fill="#2d3748">vet_schedules</text>
+<text x="2094" y="1030" font-family="Consolas,monospace" font-size="12" fill="#2d3748">veterinarian_working_hours</text>
+<text x="2094" y="1048" font-family="Consolas,monospace" font-size="12" fill="#2d3748">veterinarian_booking_time_off</text>
+<text x="2094" y="1066" font-family="Consolas,monospace" font-size="12" fill="#2d3748">+ 9 entities on DB pages</text>
+<text x="2094" y="1093" font-family="Arial,sans-serif" font-size="11.5" fill="#596579">SQL export / DB pages 01–09</text>
+</g>
+<g data-node="family-3-services"><rect x="740" y="1163" width="420" height="261" fill="#ffffff" stroke="#c4cbd4" stroke-width="1.2"/><line x1="740" y1="1218" x2="1160" y2="1218" stroke="#c4cbd4"/>
+<text x="754" y="1186" font-family="Arial,sans-serif" font-size="16" fill="#2d3748">Examination and diagnosis</text>
+<text x="754" y="1205" font-family="Arial,sans-serif" font-size="11.5" fill="#596579">«service package»</text>
+<text x="754" y="1241" font-family="Consolas,monospace" font-size="12" fill="#2d3748">clinicalIntakeService</text>
+<text x="754" y="1259" font-family="Consolas,monospace" font-size="12" fill="#2d3748">consentDocumentPdf</text>
+<text x="754" y="1277" font-family="Consolas,monospace" font-size="12" fill="#2d3748">consentFileService</text>
+<text x="754" y="1295" font-family="Consolas,monospace" font-size="12" fill="#2d3748">consentRecordService</text>
+<text x="754" y="1313" font-family="Consolas,monospace" font-size="12" fill="#2d3748">petCertificateService</text>
+<text x="754" y="1331" font-family="Consolas,monospace" font-size="12" fill="#2d3748">queueService</text>
+<text x="754" y="1349" font-family="Consolas,monospace" font-size="12" fill="#2d3748">recordUpdateRequestService</text>
+<text x="754" y="1367" font-family="Consolas,monospace" font-size="12" fill="#2d3748">selfServiceService</text>
+<text x="754" y="1385" font-family="Consolas,monospace" font-size="12" fill="#2d3748">vetDiagnosisService</text>
+<text x="754" y="1412" font-family="Arial,sans-serif" font-size="11.5" fill="#596579">System pages 25–31</text>
+</g>
+<g data-node="family-3-backend"><rect x="1400" y="1163" width="440" height="261" fill="#ffffff" stroke="#c4cbd4" stroke-width="1.2"/><line x1="1400" y1="1218" x2="1840" y2="1218" stroke="#c4cbd4"/>
+<text x="1414" y="1186" font-family="Arial,sans-serif" font-size="16" fill="#2d3748">Examination and diagnosis</text>
+<text x="1414" y="1205" font-family="Arial,sans-serif" font-size="11.5" fill="#596579">«PHP package»</text>
+<text x="1414" y="1241" font-family="Consolas,monospace" font-size="12" fill="#2d3748">add_consent_file</text>
+<text x="1414" y="1259" font-family="Consolas,monospace" font-size="12" fill="#2d3748">add_to_queue</text>
+<text x="1414" y="1277" font-family="Consolas,monospace" font-size="12" fill="#2d3748">assign_queue_vet</text>
+<text x="1414" y="1295" font-family="Consolas,monospace" font-size="12" fill="#2d3748">booking_queue_helpers</text>
+<text x="1414" y="1313" font-family="Consolas,monospace" font-size="12" fill="#2d3748">check_self_service_access</text>
+<text x="1414" y="1331" font-family="Consolas,monospace" font-size="12" fill="#2d3748">clinical_confinement_helpers</text>
+<text x="1414" y="1349" font-family="Consolas,monospace" font-size="12" fill="#2d3748">clinical_intakes</text>
+<text x="1414" y="1367" font-family="Consolas,monospace" font-size="12" fill="#2d3748">clinical_record_helpers</text>
+<text x="1414" y="1385" font-family="Consolas,monospace" font-size="12" fill="#2d3748">+ 16 modules on detail pages</text>
+<text x="1414" y="1412" font-family="Arial,sans-serif" font-size="11.5" fill="#596579">System pages 25–31</text>
+</g>
+<g data-node="family-3-database"><rect x="2080" y="1163" width="440" height="279" fill="#ffffff" stroke="#c4cbd4" stroke-width="1.2"/><line x1="2080" y1="1218" x2="2520" y2="1218" stroke="#c4cbd4"/>
+<text x="2094" y="1186" font-family="Arial,sans-serif" font-size="16" fill="#2d3748">Examination and diagnosis</text>
+<text x="2094" y="1205" font-family="Arial,sans-serif" font-size="11.5" fill="#596579">«database references»</text>
+<text x="2094" y="1241" font-family="Consolas,monospace" font-size="12" fill="#2d3748">bookings</text>
+<text x="2094" y="1259" font-family="Consolas,monospace" font-size="12" fill="#2d3748">booking_pets</text>
+<text x="2094" y="1277" font-family="Consolas,monospace" font-size="12" fill="#2d3748">booking_branch_transfers</text>
+<text x="2094" y="1295" font-family="Consolas,monospace" font-size="12" fill="#2d3748">queues</text>
+<text x="2094" y="1313" font-family="Consolas,monospace" font-size="12" fill="#2d3748">vet_queue_assignments</text>
+<text x="2094" y="1331" font-family="Consolas,monospace" font-size="12" fill="#2d3748">vet_diagnoses</text>
+<text x="2094" y="1349" font-family="Consolas,monospace" font-size="12" fill="#2d3748">consent_files</text>
+<text x="2094" y="1367" font-family="Consolas,monospace" font-size="12" fill="#2d3748">consent_form_records</text>
+<text x="2094" y="1385" font-family="Consolas,monospace" font-size="12" fill="#2d3748">grooming_jobs</text>
+<text x="2094" y="1403" font-family="Consolas,monospace" font-size="12" fill="#2d3748">+ 11 entities on DB pages</text>
+<text x="2094" y="1430" font-family="Arial,sans-serif" font-size="11.5" fill="#596579">SQL export / DB pages 01–09</text>
+</g>
+<g data-node="family-4-services"><rect x="740" y="1500" width="420" height="117" fill="#ffffff" stroke="#c4cbd4" stroke-width="1.2"/><line x1="740" y1="1555" x2="1160" y2="1555" stroke="#c4cbd4"/>
+<text x="754" y="1523" font-family="Arial,sans-serif" font-size="16" fill="#2d3748">Online consultation</text>
+<text x="754" y="1542" font-family="Arial,sans-serif" font-size="11.5" fill="#596579">«service package»</text>
+<text x="754" y="1578" font-family="Consolas,monospace" font-size="12" fill="#2d3748">onlineConsultationService</text>
+<text x="754" y="1605" font-family="Arial,sans-serif" font-size="11.5" fill="#596579">System pages 28–28</text>
+</g>
+<g data-node="family-4-backend"><rect x="1400" y="1500" width="440" height="135" fill="#ffffff" stroke="#c4cbd4" stroke-width="1.2"/><line x1="1400" y1="1555" x2="1840" y2="1555" stroke="#c4cbd4"/>
+<text x="1414" y="1523" font-family="Arial,sans-serif" font-size="16" fill="#2d3748">Online consultation</text>
+<text x="1414" y="1542" font-family="Arial,sans-serif" font-size="11.5" fill="#596579">«PHP package»</text>
+<text x="1414" y="1578" font-family="Consolas,monospace" font-size="12" fill="#2d3748">online_consultation_helpers</text>
+<text x="1414" y="1596" font-family="Consolas,monospace" font-size="12" fill="#2d3748">online_consultations</text>
+<text x="1414" y="1623" font-family="Arial,sans-serif" font-size="11.5" fill="#596579">System pages 28–28</text>
+</g>
+<g data-node="family-4-database"><rect x="2080" y="1500" width="440" height="279" fill="#ffffff" stroke="#c4cbd4" stroke-width="1.2"/><line x1="2080" y1="1555" x2="2520" y2="1555" stroke="#c4cbd4"/>
+<text x="2094" y="1523" font-family="Arial,sans-serif" font-size="16" fill="#2d3748">Online consultation</text>
+<text x="2094" y="1542" font-family="Arial,sans-serif" font-size="11.5" fill="#596579">«database references»</text>
+<text x="2094" y="1578" font-family="Consolas,monospace" font-size="12" fill="#2d3748">bookings</text>
+<text x="2094" y="1596" font-family="Consolas,monospace" font-size="12" fill="#2d3748">booking_pets</text>
+<text x="2094" y="1614" font-family="Consolas,monospace" font-size="12" fill="#2d3748">booking_branch_transfers</text>
+<text x="2094" y="1632" font-family="Consolas,monospace" font-size="12" fill="#2d3748">queues</text>
+<text x="2094" y="1650" font-family="Consolas,monospace" font-size="12" fill="#2d3748">vet_queue_assignments</text>
+<text x="2094" y="1668" font-family="Consolas,monospace" font-size="12" fill="#2d3748">vet_diagnoses</text>
+<text x="2094" y="1686" font-family="Consolas,monospace" font-size="12" fill="#2d3748">consent_files</text>
+<text x="2094" y="1704" font-family="Consolas,monospace" font-size="12" fill="#2d3748">consent_form_records</text>
+<text x="2094" y="1722" font-family="Consolas,monospace" font-size="12" fill="#2d3748">grooming_jobs</text>
+<text x="2094" y="1740" font-family="Consolas,monospace" font-size="12" fill="#2d3748">+ 10 entities on DB pages</text>
+<text x="2094" y="1767" font-family="Arial,sans-serif" font-size="11.5" fill="#596579">SQL export / DB pages 01–09</text>
+</g>
+<g data-node="family-5-services"><rect x="740" y="1837" width="420" height="189" fill="#ffffff" stroke="#c4cbd4" stroke-width="1.2"/><line x1="740" y1="1892" x2="1160" y2="1892" stroke="#c4cbd4"/>
+<text x="754" y="1860" font-family="Arial,sans-serif" font-size="16" fill="#2d3748">Prescription and reminders</text>
+<text x="754" y="1879" font-family="Arial,sans-serif" font-size="11.5" fill="#596579">«service package»</text>
+<text x="754" y="1915" font-family="Consolas,monospace" font-size="12" fill="#2d3748">notificationService</text>
+<text x="754" y="1933" font-family="Consolas,monospace" font-size="12" fill="#2d3748">prescriptionDocumentPdf</text>
+<text x="754" y="1951" font-family="Consolas,monospace" font-size="12" fill="#2d3748">prescriptionService</text>
+<text x="754" y="1969" font-family="Consolas,monospace" font-size="12" fill="#2d3748">pushNotificationService</text>
+<text x="754" y="1987" font-family="Consolas,monospace" font-size="12" fill="#2d3748">todoService</text>
+<text x="754" y="2014" font-family="Arial,sans-serif" font-size="11.5" fill="#596579">System pages 29–38</text>
+</g>
+<g data-node="family-5-backend"><rect x="1400" y="1837" width="440" height="243" fill="#ffffff" stroke="#c4cbd4" stroke-width="1.2"/><line x1="1400" y1="1892" x2="1840" y2="1892" stroke="#c4cbd4"/>
+<text x="1414" y="1860" font-family="Arial,sans-serif" font-size="16" fill="#2d3748">Prescription and reminders</text>
+<text x="1414" y="1879" font-family="Arial,sans-serif" font-size="11.5" fill="#596579">«PHP package»</text>
+<text x="1414" y="1915" font-family="Consolas,monospace" font-size="12" fill="#2d3748">mail_helpers</text>
+<text x="1414" y="1933" font-family="Consolas,monospace" font-size="12" fill="#2d3748">mail_queue_worker</text>
+<text x="1414" y="1951" font-family="Consolas,monospace" font-size="12" fill="#2d3748">notification_helpers</text>
+<text x="1414" y="1969" font-family="Consolas,monospace" font-size="12" fill="#2d3748">notifications</text>
+<text x="1414" y="1987" font-family="Consolas,monospace" font-size="12" fill="#2d3748">pet_owner_todos</text>
+<text x="1414" y="2005" font-family="Consolas,monospace" font-size="12" fill="#2d3748">prescription_helpers</text>
+<text x="1414" y="2023" font-family="Consolas,monospace" font-size="12" fill="#2d3748">prescriptions</text>
+<text x="1414" y="2041" font-family="Consolas,monospace" font-size="12" fill="#2d3748">veterinarian_booking_todo_helpers</text>
+<text x="1414" y="2068" font-family="Arial,sans-serif" font-size="11.5" fill="#596579">System pages 29–38</text>
+</g>
+<g data-node="family-5-database"><rect x="2080" y="1837" width="440" height="279" fill="#ffffff" stroke="#c4cbd4" stroke-width="1.2"/><line x1="2080" y1="1892" x2="2520" y2="1892" stroke="#c4cbd4"/>
+<text x="2094" y="1860" font-family="Arial,sans-serif" font-size="16" fill="#2d3748">Prescription and reminders</text>
+<text x="2094" y="1879" font-family="Arial,sans-serif" font-size="11.5" fill="#596579">«database references»</text>
+<text x="2094" y="1915" font-family="Consolas,monospace" font-size="12" fill="#2d3748">online_consultations</text>
+<text x="2094" y="1933" font-family="Consolas,monospace" font-size="12" fill="#2d3748">online_consultation_diagnoses</text>
+<text x="2094" y="1951" font-family="Consolas,monospace" font-size="12" fill="#2d3748">online_consultation_reschedules</text>
+<text x="2094" y="1969" font-family="Consolas,monospace" font-size="12" fill="#2d3748">prescription_plans</text>
+<text x="2094" y="1987" font-family="Consolas,monospace" font-size="12" fill="#2d3748">prescription_items</text>
+<text x="2094" y="2005" font-family="Consolas,monospace" font-size="12" fill="#2d3748">prescription_occurrences</text>
+<text x="2094" y="2023" font-family="Consolas,monospace" font-size="12" fill="#2d3748">prescription_events</text>
+<text x="2094" y="2041" font-family="Consolas,monospace" font-size="12" fill="#2d3748">pet_owner_todos</text>
+<text x="2094" y="2059" font-family="Consolas,monospace" font-size="12" fill="#2d3748">mail_queue</text>
+<text x="2094" y="2077" font-family="Consolas,monospace" font-size="12" fill="#2d3748">+ 5 entities on DB pages</text>
+<text x="2094" y="2104" font-family="Arial,sans-serif" font-size="11.5" fill="#596579">SQL export / DB pages 01–09</text>
+</g>
+<g data-node="family-6-services"><rect x="740" y="2174" width="420" height="135" fill="#ffffff" stroke="#c4cbd4" stroke-width="1.2"/><line x1="740" y1="2229" x2="1160" y2="2229" stroke="#c4cbd4"/>
+<text x="754" y="2197" font-family="Arial,sans-serif" font-size="16" fill="#2d3748">Grooming and boarding</text>
+<text x="754" y="2216" font-family="Arial,sans-serif" font-size="11.5" fill="#596579">«service package»</text>
+<text x="754" y="2252" font-family="Consolas,monospace" font-size="12" fill="#2d3748">boardingService</text>
+<text x="754" y="2270" font-family="Consolas,monospace" font-size="12" fill="#2d3748">groomingService</text>
+<text x="754" y="2297" font-family="Arial,sans-serif" font-size="11.5" fill="#596579">System pages 32–33</text>
+</g>
+<g data-node="family-6-backend"><rect x="1400" y="2174" width="440" height="243" fill="#ffffff" stroke="#c4cbd4" stroke-width="1.2"/><line x1="1400" y1="2229" x2="1840" y2="2229" stroke="#c4cbd4"/>
+<text x="1414" y="2197" font-family="Arial,sans-serif" font-size="16" fill="#2d3748">Grooming and boarding</text>
+<text x="1414" y="2216" font-family="Arial,sans-serif" font-size="11.5" fill="#596579">«PHP package»</text>
+<text x="1414" y="2252" font-family="Consolas,monospace" font-size="12" fill="#2d3748">boarding_management</text>
+<text x="1414" y="2270" font-family="Consolas,monospace" font-size="12" fill="#2d3748">get_room_availability</text>
+<text x="1414" y="2288" font-family="Consolas,monospace" font-size="12" fill="#2d3748">grooming</text>
+<text x="1414" y="2306" font-family="Consolas,monospace" font-size="12" fill="#2d3748">grooming_helpers</text>
+<text x="1414" y="2324" font-family="Consolas,monospace" font-size="12" fill="#2d3748">grooming_media</text>
+<text x="1414" y="2342" font-family="Consolas,monospace" font-size="12" fill="#2d3748">grooming_notifications</text>
+<text x="1414" y="2360" font-family="Consolas,monospace" font-size="12" fill="#2d3748">grooming_rules</text>
+<text x="1414" y="2378" font-family="Consolas,monospace" font-size="12" fill="#2d3748">grooming_upload</text>
+<text x="1414" y="2405" font-family="Arial,sans-serif" font-size="11.5" fill="#596579">System pages 32–33</text>
+</g>
+<g data-node="family-6-database"><rect x="2080" y="2174" width="440" height="279" fill="#ffffff" stroke="#c4cbd4" stroke-width="1.2"/><line x1="2080" y1="2229" x2="2520" y2="2229" stroke="#c4cbd4"/>
+<text x="2094" y="2197" font-family="Arial,sans-serif" font-size="16" fill="#2d3748">Grooming and boarding</text>
+<text x="2094" y="2216" font-family="Arial,sans-serif" font-size="11.5" fill="#596579">«database references»</text>
+<text x="2094" y="2252" font-family="Consolas,monospace" font-size="12" fill="#2d3748">grooming_jobs</text>
+<text x="2094" y="2270" font-family="Consolas,monospace" font-size="12" fill="#2d3748">grooming_events</text>
+<text x="2094" y="2288" font-family="Consolas,monospace" font-size="12" fill="#2d3748">grooming_photos</text>
+<text x="2094" y="2306" font-family="Consolas,monospace" font-size="12" fill="#2d3748">grooming_reviews</text>
+<text x="2094" y="2324" font-family="Consolas,monospace" font-size="12" fill="#2d3748">boarding_assignments</text>
+<text x="2094" y="2342" font-family="Consolas,monospace" font-size="12" fill="#2d3748">boarding_documents</text>
+<text x="2094" y="2360" font-family="Consolas,monospace" font-size="12" fill="#2d3748">boarding_material_usages</text>
+<text x="2094" y="2378" font-family="Consolas,monospace" font-size="12" fill="#2d3748">boarding_observations</text>
+<text x="2094" y="2396" font-family="Consolas,monospace" font-size="12" fill="#2d3748">boarding_tasks</text>
+<text x="2094" y="2414" font-family="Consolas,monospace" font-size="12" fill="#2d3748">+ 2 entities on DB pages</text>
+<text x="2094" y="2441" font-family="Arial,sans-serif" font-size="11.5" fill="#596579">SQL export / DB pages 01–09</text>
+</g>
+<g data-node="family-7-services"><rect x="740" y="2511" width="420" height="189" fill="#ffffff" stroke="#c4cbd4" stroke-width="1.2"/><line x1="740" y1="2566" x2="1160" y2="2566" stroke="#c4cbd4"/>
+<text x="754" y="2534" font-family="Arial,sans-serif" font-size="16" fill="#2d3748">Clinic business</text>
+<text x="754" y="2553" font-family="Arial,sans-serif" font-size="11.5" fill="#596579">«service package»</text>
+<text x="754" y="2589" font-family="Consolas,monospace" font-size="12" fill="#2d3748">inventoryApi</text>
+<text x="754" y="2607" font-family="Consolas,monospace" font-size="12" fill="#2d3748">paymentMethodService</text>
+<text x="754" y="2625" font-family="Consolas,monospace" font-size="12" fill="#2d3748">serviceCatalogService</text>
+<text x="754" y="2643" font-family="Consolas,monospace" font-size="12" fill="#2d3748">specialServicesService</text>
+<text x="754" y="2661" font-family="Consolas,monospace" font-size="12" fill="#2d3748">visitBillingService</text>
+<text x="754" y="2688" font-family="Arial,sans-serif" font-size="11.5" fill="#596579">System pages 34–37</text>
+</g>
+<g data-node="family-7-backend"><rect x="1400" y="2511" width="440" height="243" fill="#ffffff" stroke="#c4cbd4" stroke-width="1.2"/><line x1="1400" y1="2566" x2="1840" y2="2566" stroke="#c4cbd4"/>
+<text x="1414" y="2534" font-family="Arial,sans-serif" font-size="16" fill="#2d3748">Clinic business</text>
+<text x="1414" y="2553" font-family="Arial,sans-serif" font-size="11.5" fill="#596579">«PHP package»</text>
+<text x="1414" y="2589" font-family="Consolas,monospace" font-size="12" fill="#2d3748">inventory</text>
+<text x="1414" y="2607" font-family="Consolas,monospace" font-size="12" fill="#2d3748">inventory_invoice_helpers</text>
+<text x="1414" y="2625" font-family="Consolas,monospace" font-size="12" fill="#2d3748">payment_methods</text>
+<text x="1414" y="2643" font-family="Consolas,monospace" font-size="12" fill="#2d3748">service_catalog</text>
+<text x="1414" y="2661" font-family="Consolas,monospace" font-size="12" fill="#2d3748">service_display_settings</text>
+<text x="1414" y="2679" font-family="Consolas,monospace" font-size="12" fill="#2d3748">special_services</text>
+<text x="1414" y="2697" font-family="Consolas,monospace" font-size="12" fill="#2d3748">upload</text>
+<text x="1414" y="2715" font-family="Consolas,monospace" font-size="12" fill="#2d3748">visit_billing</text>
+<text x="1414" y="2742" font-family="Arial,sans-serif" font-size="11.5" fill="#596579">System pages 34–37</text>
+</g>
+<g data-node="family-7-database"><rect x="2080" y="2511" width="440" height="279" fill="#ffffff" stroke="#c4cbd4" stroke-width="1.2"/><line x1="2080" y1="2566" x2="2520" y2="2566" stroke="#c4cbd4"/>
+<text x="2094" y="2534" font-family="Arial,sans-serif" font-size="16" fill="#2d3748">Clinic business</text>
+<text x="2094" y="2553" font-family="Arial,sans-serif" font-size="11.5" fill="#596579">«database references»</text>
+<text x="2094" y="2589" font-family="Consolas,monospace" font-size="12" fill="#2d3748">branches</text>
+<text x="2094" y="2607" font-family="Consolas,monospace" font-size="12" fill="#2d3748">branch_operating_hours</text>
+<text x="2094" y="2625" font-family="Consolas,monospace" font-size="12" fill="#2d3748">branch_closures</text>
+<text x="2094" y="2643" font-family="Consolas,monospace" font-size="12" fill="#2d3748">branch_service_availability</text>
+<text x="2094" y="2661" font-family="Consolas,monospace" font-size="12" fill="#2d3748">user_branch_assignments</text>
+<text x="2094" y="2679" font-family="Consolas,monospace" font-size="12" fill="#2d3748">veterinarian_booking_clinics</text>
+<text x="2094" y="2697" font-family="Consolas,monospace" font-size="12" fill="#2d3748">vet_schedules</text>
+<text x="2094" y="2715" font-family="Consolas,monospace" font-size="12" fill="#2d3748">veterinarian_working_hours</text>
+<text x="2094" y="2733" font-family="Consolas,monospace" font-size="12" fill="#2d3748">veterinarian_booking_time_off</text>
+<text x="2094" y="2751" font-family="Consolas,monospace" font-size="12" fill="#2d3748">+ 25 entities on DB pages</text>
+<text x="2094" y="2778" font-family="Arial,sans-serif" font-size="11.5" fill="#596579">SQL export / DB pages 01–09</text>
+</g>
+<g data-node="family-8-services"><rect x="740" y="2848" width="420" height="189" fill="#ffffff" stroke="#c4cbd4" stroke-width="1.2"/><line x1="740" y1="2903" x2="1160" y2="2903" stroke="#c4cbd4"/>
+<text x="754" y="2871" font-family="Arial,sans-serif" font-size="16" fill="#2d3748">Oversight and media</text>
+<text x="754" y="2890" font-family="Arial,sans-serif" font-size="11.5" fill="#596579">«service package»</text>
+<text x="754" y="2926" font-family="Consolas,monospace" font-size="12" fill="#2d3748">petMediaMonitoringService</text>
+<text x="754" y="2944" font-family="Consolas,monospace" font-size="12" fill="#2d3748">reportService</text>
+<text x="754" y="2962" font-family="Consolas,monospace" font-size="12" fill="#2d3748">staffActivityService</text>
+<text x="754" y="2980" font-family="Consolas,monospace" font-size="12" fill="#2d3748">systemBackupService</text>
+<text x="754" y="2998" font-family="Consolas,monospace" font-size="12" fill="#2d3748">uploadService</text>
+<text x="754" y="3025" font-family="Arial,sans-serif" font-size="11.5" fill="#596579">System pages 39–42</text>
+</g>
+<g data-node="family-8-backend"><rect x="1400" y="2848" width="440" height="261" fill="#ffffff" stroke="#c4cbd4" stroke-width="1.2"/><line x1="1400" y1="2903" x2="1840" y2="2903" stroke="#c4cbd4"/>
+<text x="1414" y="2871" font-family="Arial,sans-serif" font-size="16" fill="#2d3748">Oversight and media</text>
+<text x="1414" y="2890" font-family="Arial,sans-serif" font-size="11.5" fill="#596579">«PHP package»</text>
+<text x="1414" y="2926" font-family="Consolas,monospace" font-size="12" fill="#2d3748">delete_upload</text>
+<text x="1414" y="2944" font-family="Consolas,monospace" font-size="12" fill="#2d3748">pet_media_monitoring</text>
+<text x="1414" y="2962" font-family="Consolas,monospace" font-size="12" fill="#2d3748">reports_common</text>
+<text x="1414" y="2980" font-family="Consolas,monospace" font-size="12" fill="#2d3748">reports_dashboard</text>
+<text x="1414" y="2998" font-family="Consolas,monospace" font-size="12" fill="#2d3748">reports_generate</text>
+<text x="1414" y="3016" font-family="Consolas,monospace" font-size="12" fill="#2d3748">runtime_media</text>
+<text x="1414" y="3034" font-family="Consolas,monospace" font-size="12" fill="#2d3748">staff_activity</text>
+<text x="1414" y="3052" font-family="Consolas,monospace" font-size="12" fill="#2d3748">staff_activity_helpers</text>
+<text x="1414" y="3070" font-family="Consolas,monospace" font-size="12" fill="#2d3748">+ 6 modules on detail pages</text>
+<text x="1414" y="3097" font-family="Arial,sans-serif" font-size="11.5" fill="#596579">System pages 39–42</text>
+</g>
+<g data-node="family-8-database"><rect x="2080" y="2848" width="440" height="279" fill="#ffffff" stroke="#c4cbd4" stroke-width="1.2"/><line x1="2080" y1="2903" x2="2520" y2="2903" stroke="#c4cbd4"/>
+<text x="2094" y="2871" font-family="Arial,sans-serif" font-size="16" fill="#2d3748">Oversight and media</text>
+<text x="2094" y="2890" font-family="Arial,sans-serif" font-size="11.5" fill="#596579">«database references»</text>
+<text x="2094" y="2926" font-family="Consolas,monospace" font-size="12" fill="#2d3748">service_catalog</text>
+<text x="2094" y="2944" font-family="Consolas,monospace" font-size="12" fill="#2d3748">special_service_catalog</text>
+<text x="2094" y="2962" font-family="Consolas,monospace" font-size="12" fill="#2d3748">special_service_booking_items</text>
+<text x="2094" y="2980" font-family="Consolas,monospace" font-size="12" fill="#2d3748">visits</text>
+<text x="2094" y="2998" font-family="Consolas,monospace" font-size="12" fill="#2d3748">visit_charges</text>
+<text x="2094" y="3016" font-family="Consolas,monospace" font-size="12" fill="#2d3748">visit_payments</text>
+<text x="2094" y="3034" font-family="Consolas,monospace" font-size="12" fill="#2d3748">visit_invoice_documents</text>
+<text x="2094" y="3052" font-family="Consolas,monospace" font-size="12" fill="#2d3748">visit_payment_refunds</text>
+<text x="2094" y="3070" font-family="Consolas,monospace" font-size="12" fill="#2d3748">payment_methods</text>
+<text x="2094" y="3088" font-family="Consolas,monospace" font-size="12" fill="#2d3748">+ 9 entities on DB pages</text>
+<text x="2094" y="3115" font-family="Arial,sans-serif" font-size="11.5" fill="#596579">SQL export / DB pages 01–09</text>
+</g>
+<g data-node="family-9-services"><rect x="740" y="3185" width="420" height="171" fill="#ffffff" stroke="#c4cbd4" stroke-width="1.2"/><line x1="740" y1="3240" x2="1160" y2="3240" stroke="#c4cbd4"/>
+<text x="754" y="3208" font-family="Arial,sans-serif" font-size="16" fill="#2d3748">Infrastructure</text>
+<text x="754" y="3227" font-family="Arial,sans-serif" font-size="11.5" fill="#596579">«service package»</text>
+<text x="754" y="3263" font-family="Consolas,monospace" font-size="12" fill="#2d3748">addressAutocomplete</text>
+<text x="754" y="3281" font-family="Consolas,monospace" font-size="12" fill="#2d3748">apiClient</text>
+<text x="754" y="3299" font-family="Consolas,monospace" font-size="12" fill="#2d3748">problemReportService</text>
+<text x="754" y="3317" font-family="Consolas,monospace" font-size="12" fill="#2d3748">statusDisplayService</text>
+<text x="754" y="3344" font-family="Arial,sans-serif" font-size="11.5" fill="#596579">System pages 11–12</text>
+</g>
+<g data-node="family-9-backend"><rect x="1400" y="3185" width="440" height="261" fill="#ffffff" stroke="#c4cbd4" stroke-width="1.2"/><line x1="1400" y1="3240" x2="1840" y2="3240" stroke="#c4cbd4"/>
+<text x="1414" y="3208" font-family="Arial,sans-serif" font-size="16" fill="#2d3748">Infrastructure</text>
+<text x="1414" y="3227" font-family="Arial,sans-serif" font-size="11.5" fill="#596579">«PHP package»</text>
+<text x="1414" y="3263" font-family="Consolas,monospace" font-size="12" fill="#2d3748">api_error_response</text>
+<text x="1414" y="3281" font-family="Consolas,monospace" font-size="12" fill="#2d3748">db</text>
+<text x="1414" y="3299" font-family="Consolas,monospace" font-size="12" fill="#2d3748">get_user</text>
+<text x="1414" y="3317" font-family="Consolas,monospace" font-size="12" fill="#2d3748">index</text>
+<text x="1414" y="3335" font-family="Consolas,monospace" font-size="12" fill="#2d3748">lifecycle_recovery_report</text>
+<text x="1414" y="3353" font-family="Consolas,monospace" font-size="12" fill="#2d3748">payment_method_helpers</text>
+<text x="1414" y="3371" font-family="Consolas,monospace" font-size="12" fill="#2d3748">phone_number_helpers</text>
+<text x="1414" y="3389" font-family="Consolas,monospace" font-size="12" fill="#2d3748">reference_number_helpers</text>
+<text x="1414" y="3407" font-family="Consolas,monospace" font-size="12" fill="#2d3748">+ 4 modules on detail pages</text>
+<text x="1414" y="3434" font-family="Arial,sans-serif" font-size="11.5" fill="#596579">System pages 11–12</text>
+</g>
+<g data-node="family-9-database"><rect x="2080" y="3185" width="440" height="279" fill="#ffffff" stroke="#c4cbd4" stroke-width="1.2"/><line x1="2080" y1="3240" x2="2520" y2="3240" stroke="#c4cbd4"/>
+<text x="2094" y="3208" font-family="Arial,sans-serif" font-size="16" fill="#2d3748">Infrastructure</text>
+<text x="2094" y="3227" font-family="Arial,sans-serif" font-size="11.5" fill="#596579">«database references»</text>
+<text x="2094" y="3263" font-family="Consolas,monospace" font-size="12" fill="#2d3748">users</text>
+<text x="2094" y="3281" font-family="Consolas,monospace" font-size="12" fill="#2d3748">admin_profiles</text>
+<text x="2094" y="3299" font-family="Consolas,monospace" font-size="12" fill="#2d3748">veterinarian_profiles</text>
+<text x="2094" y="3317" font-family="Consolas,monospace" font-size="12" fill="#2d3748">user_auth_identities</text>
+<text x="2094" y="3335" font-family="Consolas,monospace" font-size="12" fill="#2d3748">admin_feature_permissions</text>
+<text x="2094" y="3353" font-family="Consolas,monospace" font-size="12" fill="#2d3748">admin_feature_permission_audit</text>
+<text x="2094" y="3371" font-family="Consolas,monospace" font-size="12" fill="#2d3748">api_access_tokens</text>
+<text x="2094" y="3389" font-family="Consolas,monospace" font-size="12" fill="#2d3748">email_otp_tokens</text>
+<text x="2094" y="3407" font-family="Consolas,monospace" font-size="12" fill="#2d3748">google_auth_onboarding_tokens</text>
+<text x="2094" y="3425" font-family="Consolas,monospace" font-size="12" fill="#2d3748">+ 6 entities on DB pages</text>
+<text x="2094" y="3452" font-family="Arial,sans-serif" font-size="11.5" fill="#596579">SQL export / DB pages 01–09</text>
+</g>
+<text x="1172" y="204" font-family="Consolas,monospace" font-size="11.5" fill="#596579">HTTP</text>
+<text x="1852" y="204" font-family="Consolas,monospace" font-size="11.5" fill="#596579">SQL</text>
+<text x="1172" y="523" font-family="Consolas,monospace" font-size="11.5" fill="#596579">HTTP</text>
+<text x="1852" y="523" font-family="Consolas,monospace" font-size="11.5" fill="#596579">SQL</text>
+<text x="1172" y="860" font-family="Consolas,monospace" font-size="11.5" fill="#596579">HTTP</text>
+<text x="1852" y="860" font-family="Consolas,monospace" font-size="11.5" fill="#596579">SQL</text>
+<text x="1172" y="1197" font-family="Consolas,monospace" font-size="11.5" fill="#596579">HTTP</text>
+<text x="1852" y="1197" font-family="Consolas,monospace" font-size="11.5" fill="#596579">SQL</text>
+<text x="1172" y="1534" font-family="Consolas,monospace" font-size="11.5" fill="#596579">HTTP</text>
+<text x="1852" y="1534" font-family="Consolas,monospace" font-size="11.5" fill="#596579">SQL</text>
+<text x="1172" y="1871" font-family="Consolas,monospace" font-size="11.5" fill="#596579">HTTP</text>
+<text x="1852" y="1871" font-family="Consolas,monospace" font-size="11.5" fill="#596579">SQL</text>
+<text x="1172" y="2208" font-family="Consolas,monospace" font-size="11.5" fill="#596579">HTTP</text>
+<text x="1852" y="2208" font-family="Consolas,monospace" font-size="11.5" fill="#596579">SQL</text>
+<text x="1172" y="2545" font-family="Consolas,monospace" font-size="11.5" fill="#596579">HTTP</text>
+<text x="1852" y="2545" font-family="Consolas,monospace" font-size="11.5" fill="#596579">SQL</text>
+<text x="1172" y="2882" font-family="Consolas,monospace" font-size="11.5" fill="#596579">HTTP</text>
+<text x="1852" y="2882" font-family="Consolas,monospace" font-size="11.5" fill="#596579">SQL</text>
+<text x="1172" y="3219" font-family="Consolas,monospace" font-size="11.5" fill="#596579">HTTP</text>
+<text x="1852" y="3219" font-family="Consolas,monospace" font-size="11.5" fill="#596579">SQL</text>
+<text x="512" y="204" font-family="Consolas,monospace" font-size="11.5" fill="#596579">uses</text>
+<text x="512" y="226" font-family="Consolas,monospace" font-size="11.5" fill="#596579">uses</text>
+<text x="512" y="248" font-family="Consolas,monospace" font-size="11.5" fill="#596579">uses</text>
+<text x="512" y="270" font-family="Consolas,monospace" font-size="11.5" fill="#596579">uses</text>
+<text x="512" y="292" font-family="Consolas,monospace" font-size="11.5" fill="#596579">uses</text>
+<text x="512" y="314" font-family="Consolas,monospace" font-size="11.5" fill="#596579">uses</text>
+<text x="512" y="451" font-family="Consolas,monospace" font-size="11.5" fill="#596579">uses</text>
+<text x="512" y="473" font-family="Consolas,monospace" font-size="11.5" fill="#596579">uses</text>
+<text x="512" y="495" font-family="Consolas,monospace" font-size="11.5" fill="#596579">uses</text>
+<text x="512" y="517" font-family="Consolas,monospace" font-size="11.5" fill="#596579">uses</text>
+<text x="512" y="539" font-family="Consolas,monospace" font-size="11.5" fill="#596579">uses</text>
+<text x="512" y="698" font-family="Consolas,monospace" font-size="11.5" fill="#596579">uses</text>
+<text x="512" y="720" font-family="Consolas,monospace" font-size="11.5" fill="#596579">uses</text>
+<text x="512" y="742" font-family="Consolas,monospace" font-size="11.5" fill="#596579">uses</text>
+<text x="512" y="764" font-family="Consolas,monospace" font-size="11.5" fill="#596579">uses</text>
+<text x="512" y="927" font-family="Consolas,monospace" font-size="11.5" fill="#596579">uses</text>
+<text x="512" y="949" font-family="Consolas,monospace" font-size="11.5" fill="#596579">uses</text>
+<text x="512" y="971" font-family="Consolas,monospace" font-size="11.5" fill="#596579">uses</text>
+<text x="512" y="993" font-family="Consolas,monospace" font-size="11.5" fill="#596579">uses</text>
+</svg>

@@ -1,0 +1,226 @@
+classDiagram
+direction LR
+%% Conceptual paper overview; not a database migration.
+class Clinic {
+    - clinicId: Integer
+    - name: String
+    - address: String
+    - operatingHours: Map
+    - closures: List
+    - status: String
+    + updateClinic()
+    + checkOnsiteAvailability()
+    + reserveAvailableVet()
+}
+class UserAccount {
+    - userId: Integer
+    - name: String
+    - email: String
+    - role: String
+    - roleProfile: Map
+    - clinicAcceptance: Map
+    - onlineAvailability: List
+    - status: String
+    + authenticate()
+    + updateProfile()
+    + assignClinics()
+    + setClinicAcceptance()
+    + setOnlineAvailability()
+    + viewTasks()
+}
+class Pet {
+    - petId: Integer
+    - name: String
+    - species: String
+    - breed: String
+    - birthDate: Date
+    - status: String
+    + register()
+    + updateDetails()
+    + linkOwner()
+    + viewHistory()
+}
+class Notification {
+    - notificationId: Integer
+    - recipient: UserAccount
+    - message: String
+    - redirectPath: String
+    - readAt: DateTime?
+    + notify()
+    + markRead()
+    + updatePreferences()
+}
+class BillingRecord {
+    - visitId: Integer
+    - patient: Pet
+    - charges: List
+    - payments: List
+    - refunds: List
+    - billingStatus: String
+    + saveCharges()
+    + reviewPayment()
+    + recordPayment()
+    + processRefund()
+    + calculateBalance()
+    + saveInvoice()
+}
+class Booking {
+    - bookingId: Integer
+    - owner: UserAccount
+    - clinic: Clinic
+    - serviceType: String
+    - scheduledAt: DateTime
+    - assignedVet: UserAccount?
+    - status: String
+    + create()
+    + reschedule()
+    + changeClinic()
+    + assignVeterinarian()
+    + cancel()
+}
+class MedicalRecord {
+    - recordId: Integer
+    - patient: Pet
+    - entries: List
+    - vaccinations: List
+    - allergies: List
+    - certificates: List
+    + viewHistory()
+    + updateEntry()
+    + recordVaccination()
+    + reviewUpdateRequest()
+}
+class SystemOperations {
+    - reportFilters: Map
+    - backupPolicy: Map
+    + buildDashboard()
+    + generateReport()
+    + viewStaffHistory()
+    + manageMedia()
+    + createBackup()
+    + downloadBackup()
+}
+class CareSession {
+    - sourceId: Integer
+    - booking: Booking
+    - careType: String
+    - room: Map?
+    - observations: List
+    - status: String
+    + updateGrooming()
+    + assignRoom()
+    + checkIn()
+    + recordObservation()
+    + completeTask()
+    + checkOut()
+}
+class PatientExamination {
+    - patient: Pet
+    - examinedBy: UserAccount
+    - assignedVet: UserAccount
+    - chiefComplaint: Text
+    - symptoms: Text
+    - urgentSymptoms: Text
+    - vitalSigns: Map
+    - physicalFindings: Text
+    - attachments: List
+    - status: String
+    + startExamination()
+    + saveFindings()
+    + attachEvidence()
+    + reassignVeterinarian()
+    + completeExamination()
+}
+class Diagnosis {
+    - sourceId: Integer
+    - sourceType: String
+    - patient: Pet
+    - veterinarian: UserAccount
+    - findings: Map
+    - finalizedAt: DateTime?
+    + recordDiagnosis()
+    + saveTreatment()
+    + addConsent()
+    + finalize()
+    + printPrescription()
+}
+class OnlineConsultation {
+    - consultationId: Integer
+    - booking: Booking
+    - veterinarian: UserAccount
+    - scheduledInterval: Map
+    - meetingUrl: String?
+    - status: String
+    + start()
+    + join()
+    + reschedule()
+    + end()
+    + submitDiagnosis()
+}
+class InventoryItem {
+    - itemId: Integer
+    - name: String
+    - sku: String
+    - branchStock: Map
+    - batches: List
+    - reorderLevel: Integer
+    + stockIn()
+    + stockOut()
+    + transferStock()
+    + checkReorderLevel()
+}
+class ConsentRecord {
+    - consentId: Integer
+    - patient: Pet?
+    - signerName: String?
+    - processedBy: UserAccount?
+    - documentPath: String?
+    - status: String
+    + captureSignature()
+    + saveDocument()
+    + validateScope()
+}
+class PrescriptionPlan {
+    - planId: Integer
+    - patient: Pet
+    - sourceRecord: Map
+    - version: Integer
+    - status: String
+    + syncFromDiagnosis()
+    + startSelectedItems()
+    + amend()
+    + notifyOwner()
+}
+class PrescriptionItem {
+    - itemId: Integer
+    - medicine: String
+    - dose: String
+    - route: String
+    - startDate: Date?
+    - frequency: Map
+    - duration: Map
+    - occurrences: List
+    - status: String
+    + startItem()
+    + updateItem()
+    + generateOccurrences()
+    + markOccurrence()
+}
+Clinic "0..*" -- "0..*" UserAccount
+UserAccount "0..*" -- "0..*" Pet
+UserAccount "1" -- "0..*" Booking
+Clinic "1" -- "0..*" Booking
+UserAccount "1" -- "0..*" Notification
+Pet "1" -- "0..*" MedicalRecord
+Booking "0..1" -- "0..*" BillingRecord
+Booking "1" -- "0..*" CareSession
+Booking "0..1" -- "0..*" PatientExamination
+Booking "1" -- "0..1" OnlineConsultation
+PatientExamination "0..1" -- "0..*" Diagnosis
+OnlineConsultation "0..1" -- "0..1" Diagnosis
+PatientExamination "0..1" -- "0..*" ConsentRecord
+Diagnosis "1" -- "0..*" PrescriptionPlan
+Pet "1" -- "0..*" PrescriptionPlan
+PrescriptionPlan "1" -- "0..*" PrescriptionItem
+CareSession "0..*" -- "0..*" InventoryItem
+UserAccount ..> SystemOperations : uses

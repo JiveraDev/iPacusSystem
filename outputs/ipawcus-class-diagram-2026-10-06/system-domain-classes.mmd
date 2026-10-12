@@ -1,0 +1,1635 @@
+classDiagram
+direction LR
+%% Conceptual domain classes; generated from verified SQL and system responsibilities.
+class AdminFeaturePermission {
+    +int permissionId
+    +int userId
+    +string featureKey
+    +bool isAllowed
+    +int updatedByUserId
+    +datetime createdAt
+    +datetime updatedAt
+    +savePermissions()
+}
+class AdminPermissionAudit {
+    +int auditId
+    +int targetUserId
+    +int changedByUserId
+    +json previousPermissions
+    +json newPermissions
+    +datetime createdAt
+}
+class AdminProfile {
+    +int profileId
+    +int userId
+    +string employeeId
+    +date hireDate
+    +string employmentStatus
+    +datetime createdAt
+    +string position
+    +bool isActive
+    +int yearsOfExperience
+    +updateProfile()
+}
+class ApiAccessToken {
+    +int tokenId
+    +int userId
+    +string tokenHash
+    +datetime createdAt
+    +datetime expiresAt
+    +datetime lastUsedAt
+    +datetime revokedAt
+    +viewRecord()
+}
+class BoardingAssignment {
+    +int assignmentId
+    +int bookingId
+    +int branchId
+    +string roomType
+    +int roomNumber
+    +string status
+    +datetime reservedAt
+    +datetime actualCheckInAt
+    +datetime actualCheckOutAt
+    +date desiredCheckOutDate
+    +string notes
+    +datetime createdAt
+    +datetime updatedAt
+    +assignRoom()
+    +checkIn()
+    +checkOut()
+    +updateCheckOut()
+}
+class BoardingDocument {
+    +int documentId
+    +int assignmentId
+    +int bookingId
+    +int petId
+    +string documentType
+    +string title
+    +string documentPath
+    +string fileName
+    +string mimeType
+    +string notes
+    +int uploadedByUserId
+    +string uploadedByName
+    +datetime createdAt
+    +addDocument()
+    +listDocuments()
+}
+class BoardingMaterialUsage {
+    +int usageId
+    +string clientReference
+    +int assignmentId
+    +int bookingId
+    +int petId
+    +int itemId
+    +string itemName
+    +string category
+    +string unit
+    +decimal quantity
+    +decimal unitPrice
+    +string notes
+    +string status
+    +int recordedByUserId
+    +string recordedByName
+    +int voidedByUserId
+    +string voidedByName
+    +datetime voidedAt
+    +datetime createdAt
+    +datetime updatedAt
+    +recordUsage()
+    +removeUsage()
+}
+class BoardingObservation {
+    +int observationId
+    +int assignmentId
+    +int bookingId
+    +int petId
+    +string roomType
+    +int roomNumber
+    +string observationType
+    +string notes
+    +string appetiteStatus
+    +string waterIntakeStatus
+    +string eliminationStatus
+    +string behaviorStatus
+    +decimal temperatureC
+    +decimal weightKg
+    +string conditionSeverity
+    +bool requiresVetReview
+    +datetime observedAt
+    +int createdByUserId
+    +datetime createdAt
+    +recordObservation()
+}
+class BoardingTask {
+    +int taskId
+    +int assignmentId
+    +int bookingId
+    +int petId
+    +string roomType
+    +int roomNumber
+    +string taskType
+    +datetime dueAt
+    +string status
+    +string assignedTo
+    +string notes
+    +datetime completedAt
+    +int createdByUserId
+    +datetime createdAt
+    +datetime updatedAt
+    +createTask()
+    +completeTask()
+}
+class Booking {
+    +int bookingId
+    +int userId
+    +int petId
+    +string bookingNumber
+    +int branchId
+    +int originalBranchId
+    +string serviceType
+    +date bookingDate
+    +time bookingTime
+    +string status
+    +decimal price
+    +decimal boardingOverstayDailyRate
+    +string notes
+    +bool isHomeService
+    +string address
+    +string paymentProofUrl
+    +string paymentMethod
+    +string paymentReference
+    +bool isOnlineConsultation
+    +string veterinarianId
+    +datetime createdAt
+    +string ImageBookingConcernPath
+    +string registeredStatus
+    +string petType
+    +string unregisteredPetName
+    +string unregisteredPetBreed
+    +string unregisteredPetAge
+    +string unregisteredPetWeight
+    +string unregisteredPetColorMarkings
+    +string signaturePath
+    +string consentForms
+    +string consentStatus
+    +decimal transportFee
+    +date checkInDate
+    +date checkOutDate
+    +string roomSize
+    +string addOns
+    +string emergencyContact
+    +string hotelBoardingType
+    +string admissionType
+    +int sourceVisitId
+    +int sourceDiagnosisId
+    +int sourceGroomingBookingId
+    +int referredByVetUserId
+    +string confinementReason
+    +string careInstructions
+    +string ownerApprovalStatus
+    +datetime ownerApprovedAt
+    +int billingChargeId
+    +createBooking()
+    +updateSchedule()
+    +updateStatus()
+    +receiveBooking()
+    +cancelBooking()
+}
+class BookingBranchTransfer {
+    +int transferId
+    +int bookingId
+    +int fromBranchId
+    +int toBranchId
+    +int transferredByUserId
+    +string reason
+    +bool paymentReviewRequired
+    +datetime transferredAt
+    +transferBooking()
+}
+class BookingPaymentRefund {
+    +int refundId
+    +int bookingPaymentSubmissionId
+    +int bookingId
+    +decimal amount
+    +string refundMethod
+    +string referenceNumber
+    +string reason
+    +string refundStatus
+    +datetime processedAt
+    +int processedByUserId
+    +string processedByName
+    +datetime createdAt
+    +processRefund()
+}
+class BookingPaymentSubmission {
+    +int submissionId
+    +int bookingId
+    +string purpose
+    +decimal amount
+    +string paymentMethod
+    +string referenceNumber
+    +string proofUrl
+    +string submissionStatus
+    +datetime submittedAt
+    +datetime reviewedAt
+    +int reviewedByUserId
+    +string reviewNotes
+    +int linkedVisitPaymentId
+    +datetime createdAt
+    +datetime updatedAt
+    +reviewPayment()
+}
+class BookingPet {
+    +int bookingPetId
+    +int bookingId
+    +int petId
+    +datetime createdAt
+    +attachPet()
+}
+class Branch {
+    +int branchId
+    +string branchCode
+    +string branchName
+    +string branchType
+    +string address
+    +string phoneNumber
+    +string mapUrl
+    +bool isMain
+    +string status
+    +datetime createdAt
+    +datetime updatedAt
+    +listBranches()
+    +checkAvailability()
+    +relocateBooking()
+}
+class BranchClosure {
+    +int closureId
+    +int branchId
+    +date closureDate
+    +string reason
+    +int createdByUserId
+    +datetime createdAt
+    +checkClosure()
+}
+class BranchOperatingHour {
+    +int operatingHourId
+    +int branchId
+    +int dayOfWeek
+    +time opensAt
+    +time closesAt
+    +bool isClosed
+    +datetime createdAt
+    +datetime updatedAt
+    +checkClinicHours()
+}
+class BranchServiceAvailability {
+    +int branchServiceId
+    +int branchId
+    +string serviceKey
+    +string serviceLabel
+    +string availabilityMode
+    +bool bookingEnabled
+    +bool queueEnabled
+    +bool isActive
+    +datetime createdAt
+    +datetime updatedAt
+    +checkServiceAvailability()
+}
+class ConsentTemplate {
+    +int templateId
+    +string fileName
+    +string fileType
+    +string fileSize
+    +string content
+    +string category
+    +string petOwnerContexts
+    +datetime uploadedAt
+    +createTemplate()
+    +updateTemplate()
+    +deleteTemplate()
+}
+class ConsentRecord {
+    +int consentId
+    +int templateId
+    +int bookingId
+    +int queueId
+    +int visitId
+    +int ownerUserId
+    +int petId
+    +string consentType
+    +string serviceName
+    +string status
+    +string source
+    +datetime requestedAt
+    +string signedDocumentPath
+    +datetime signedAt
+    +datetime releasedAt
+    +string signedFilePath
+    +string physicalFilePath
+    +string signerName
+    +int processedByUserId
+    +string processedByName
+    +string notes
+    +datetime createdAt
+    +datetime updatedAt
+    +saveSignedConsent()
+    +validateDocumentScope()
+}
+class EmailOtpToken {
+    +int otpId
+    +int userId
+    +string email
+    +string purpose
+    +string tokenHash
+    +datetime expiresAt
+    +datetime usedAt
+    +int attemptCount
+    +int maxAttempts
+    +datetime lastSentAt
+    +string requestIp
+    +string userAgent
+    +datetime createdAt
+    +datetime updatedAt
+    +sendVerification()
+    +verifyEmail()
+}
+class GoogleAuthOnboardingToken {
+    +int onboardingId
+    +string tokenHash
+    +string providerSubject
+    +string email
+    +string firstName
+    +string lastName
+    +string pictureUrl
+    +datetime expiresAt
+    +datetime consumedAt
+    +datetime createdAt
+    +completeRegistration()
+}
+class GroomingEvent {
+    +int eventId
+    +int bookingId
+    +int actorId
+    +string action
+    +string detailsJson
+    +datetime createdAt
+    +viewRecord()
+}
+class GroomingJob {
+    +int bookingId
+    +string status
+    +string performedBy
+    +string detailsJson
+    +int version
+    +datetime publishedAt
+    +int visitId
+    +datetime createdAt
+    +datetime updatedAt
+    +int updatedBy
+    +updateJob()
+    +viewJob()
+}
+class GroomingPhoto {
+    +int photoId
+    +int bookingId
+    +string category
+    +string caption
+    +string filePath
+    +bool shareWithOwner
+    +int uploadedBy
+    +datetime createdAt
+    +uploadPhoto()
+}
+class GroomingReview {
+    +int reviewId
+    +int bookingId
+    +int veterinarianId
+    +int requestedBy
+    +string reason
+    +string outcome
+    +string reviewNotes
+    +datetime createdAt
+    +datetime reviewedAt
+    +viewRecord()
+}
+class PetPriorHistory {
+    +string currentMedication
+    +string veterinarianNotes
+    +int petId
+    +date lastVisitDate
+    +viewRecord()
+}
+class InventoryAudit {
+    +int inventoryAuditId
+    +string actionType
+    +int itemId
+    +int batchId
+    +int locationId
+    +string reason
+    +string beforeStateJson
+    +string afterStateJson
+    +int performedByUserId
+    +string performedByName
+    +datetime responsibilityConfirmedAt
+    +datetime createdAt
+}
+class InventoryBatch {
+    +int batchId
+    +int itemId
+    +string batchNumber
+    +int quantity
+    +date manufacturingDate
+    +date expiryDate
+    +decimal unitCost
+    +datetime createdAt
+    +int locationId
+    +viewRecord()
+}
+class InventoryBranchItem {
+    +int branchId
+    +int itemId
+    +int primaryLocationId
+    +string status
+    +datetime removedAt
+    +int removedByUserId
+    +string removalReason
+    +datetime createdAt
+    +datetime updatedAt
+    +removeFromClinic()
+}
+class InventoryItem {
+    +int itemId
+    +string itemName
+    +string genericName
+    +string sku
+    +string barcode
+    +string description
+    +string category
+    +string brand
+    +string unit
+    +int reorderLevel
+    +decimal unitCost
+    +decimal sellingPrice
+    +int expiryWarningDays
+    +string profileImagePath
+    +string status
+    +int createdByUserId
+    +string createdByName
+    +datetime createdAt
+    +datetime updatedAt
+    +int locationId
+    +createItem()
+    +updateItem()
+    +stockOut()
+}
+class InventoryLocation {
+    +int locationId
+    +int branchId
+    +string locationName
+    +string locationType
+    +string address
+    +string status
+    +datetime createdAt
+    +string storageArea
+    +viewRecord()
+}
+class InventoryStockMovement {
+    +int movementId
+    +int itemId
+    +int batchId
+    +int locationId
+    +string movementType
+    +int quantityChange
+    +int quantityBefore
+    +int quantityAfter
+    +string referenceType
+    +int referenceId
+    +string remarks
+    +int performedByUserId
+    +string performedByName
+    +datetime createdAt
+    +viewRecord()
+}
+class InventoryStockReceipt {
+    +int receiptId
+    +int branchId
+    +date receivingDate
+    +string deliveryNoteNumber
+    +string proofImagePath
+    +string notes
+    +int receivedByUserId
+    +string receivedByName
+    +datetime createdAt
+    +receiveStock()
+}
+class InventoryStockReceiptItem {
+    +int receiptItemId
+    +int receiptId
+    +int itemId
+    +int supplierId
+    +int batchId
+    +string batchNumber
+    +int quantityReceived
+    +date expiryDate
+    +decimal unitCost
+    +int locationId
+    +recordReceivedItem()
+}
+class InventorySupplier {
+    +int supplierId
+    +string supplierName
+    +string contactNumber
+    +string email
+    +string address
+    +string status
+    +datetime createdAt
+    +viewRecord()
+}
+class InventoryTransfer {
+    +int inventoryTransferId
+    +string transferNumber
+    +int fromLocationId
+    +int toLocationId
+    +string status
+    +string notes
+    +int createdByUserId
+    +int receivedByUserId
+    +datetime createdAt
+    +datetime receivedAt
+    +transferStock()
+}
+class InventoryTransferItem {
+    +int inventoryTransferItemId
+    +int inventoryTransferId
+    +int itemId
+    +int sourceBatchId
+    +int quantity
+    +datetime createdAt
+    +recordTransferItem()
+}
+class OutgoingEmail {
+    +int queueId
+    +string toEmail
+    +string toName
+    +string subject
+    +string htmlBody
+    +string textBody
+    +string optionsJson
+    +int notificationId
+    +string status
+    +int priority
+    +int attempts
+    +int maxAttempts
+    +datetime availableAt
+    +datetime lockedAt
+    +string lockToken
+    +datetime sentAt
+    +string lastError
+    +datetime createdAt
+    +datetime updatedAt
+    +viewRecord()
+}
+class NotificationPreference {
+    +int userId
+    +bool emailEnabled
+    +bool inAppEnabled
+    +bool browserPushEnabled
+    +bool bookingUpdates
+    +bool scheduleReminders
+    +bool paymentUpdates
+    +bool diagnosisUpdates
+    +bool queueUpdates
+    +bool boardingUpdates
+    +bool ownershipUpdates
+    +bool reminder_24h
+    +bool reminder_2h
+    +bool reminderSameDay
+    +datetime createdAt
+    +datetime updatedAt
+    +loadPreferences()
+    +savePreferences()
+}
+class NotificationPushSubscription {
+    +int subscriptionId
+    +int userId
+    +string endpoint
+    +string endpointHash
+    +string p256dh
+    +string auth
+    +string contentEncoding
+    +string userAgent
+    +bool isActive
+    +datetime lastSentAt
+    +string lastError
+    +datetime createdAt
+    +datetime updatedAt
+    +subscribe()
+    +disable()
+}
+class OnlineConsultation {
+    +int consultationId
+    +int bookingId
+    +int ownerUserId
+    +int veterinarianUserId
+    +datetime scheduledStart
+    +datetime scheduledEnd
+    +string meetingProvider
+    +string meetingUrl
+    +string meetingCode
+    +string googleCalendarEventId
+    +string status
+    +datetime vetStartedAt
+    +datetime ownerJoinedAt
+    +datetime endedAt
+    +datetime createdAt
+    +datetime updatedAt
+    +start()
+    +join()
+    +end()
+    +submitDiagnosis()
+}
+class OnlineDiagnosis {
+    +int diagnosisId
+    +int consultationId
+    +int bookingId
+    +int veterinarianUserId
+    +string diagnosis
+    +string recommendations
+    +string treatment
+    +string medications
+    +string notes
+    +json vitalSigns
+    +json symptoms
+    +json labTests
+    +datetime finalizedAt
+    +datetime createdAt
+    +datetime updatedAt
+    +recordDiagnosis()
+    +issuePrescription()
+}
+class OnlineConsultationReschedule {
+    +int rescheduleId
+    +int onlineConsultationId
+    +datetime oldStart
+    +datetime oldEnd
+    +datetime newStart
+    +datetime newEnd
+    +string reason
+    +int changedByUserId
+    +datetime createdAt
+    +reschedule()
+}
+class PaymentMethod {
+    +string methodKey
+    +string label
+    +string accountName
+    +string accountNumber
+    +string instructions
+    +string qrImageUrl
+    +bool isActive
+    +bool requiresProof
+    +int sortOrder
+    +int updatedByUserId
+    +datetime updatedAt
+    +datetime createdAt
+    +string methodType
+    +string accountNumberEncrypted
+    +updateMethods()
+    +requestChangeOtp()
+}
+class Pet {
+    +int petId
+    +string petName
+    +string species
+    +string breed
+    +date birthDate
+    +string status
+    +string gender
+    +decimal weight
+    +int petMicrochip
+    +string petTempOwner
+    +string petAllergies
+    +string petColorMarking
+    +string sharableId
+    +string petAge
+    +string setpetImageUrl
+    +bool isArchived
+    +datetime archivedAt
+    +int archivedByUserId
+    +string archiveReason
+    +registerPet()
+    +updateDetails()
+    +updateStatus()
+    +viewMedicalHistory()
+}
+class PetAllergy {
+    +int allergyId
+    +int petId
+    +string allergen
+    +string severity
+    +string reaction
+    +string source
+    +string verificationStatus
+    +int createdByUserId
+    +int updatedByUserId
+    +int verifiedByUserId
+    +datetime verifiedAt
+    +datetime createdAt
+    +datetime updatedAt
+    +saveAllergy()
+    +viewAllergies()
+}
+class PetCatalogOption {
+    +int optionId
+    +string species
+    +string breed
+    +int approvedByUserId
+    +datetime createdAt
+    +datetime updatedAt
+    +listOptions()
+}
+class PetCoparentRequest {
+    +int requestId
+    +int petId
+    +int requesterUserId
+    +int primaryOwnerUserId
+    +string status
+    +string requestToken
+    +string requesterMessage
+    +string decisionNote
+    +datetime createdAt
+    +datetime updatedAt
+    +datetime decidedAt
+    +viewRequest()
+    +decideRequest()
+}
+class PetMedicalCertificate {
+    +int certificateId
+    +string certificateNumber
+    +int petId
+    +int requestId
+    +int veterinarianUserId
+    +int branchId
+    +date examinationDate
+    +date validUntil
+    +string clinicalFindings
+    +string certificationStatement
+    +string signaturePath
+    +string status
+    +datetime ownerViewedAt
+    +datetime createdAt
+    +datetime updatedAt
+    +issueCertificate()
+    +markViewed()
+}
+class MedicalRecordGroup {
+    +int groupId
+    +int petId
+    +string title
+    +string summary
+    +bool visibleToOwner
+    +int sortOrder
+    +int createdByUserId
+    +int updatedByUserId
+    +datetime createdAt
+    +datetime updatedAt
+    +createGroup()
+    +updateGroup()
+    +deleteGroup()
+}
+class MedicalRecordItem {
+    +int itemId
+    +int groupId
+    +string sourceType
+    +int sourceId
+    +string title
+    +string summary
+    +string revisionNotes
+    +datetime serviceDate
+    +int sortOrder
+    +string sourceSnapshot
+    +string revisionSnapshot
+    +int addedByUserId
+    +int updatedByUserId
+    +datetime createdAt
+    +datetime updatedAt
+    +addItem()
+    +updateItem()
+    +removeItem()
+}
+class PetOwnership {
+    +int linkId
+    +int userId
+    +int petId
+    +string relationship
+    +bool isPrimary
+    +datetime linkedAt
+    +linkPet()
+    +requestCoParent()
+    +removeOwnership()
+}
+class PetOwnerTodo {
+    +int todoId
+    +int userId
+    +string title
+    +string details
+    +string category
+    +datetime startAt
+    +datetime endAt
+    +string status
+    +datetime completedAt
+    +datetime createdAt
+    +datetime updatedAt
+    +createTodo()
+    +updateTodo()
+    +deleteTodo()
+}
+class PetRecordUpdateRequest {
+    +int requestId
+    +string requestNumber
+    +int branchId
+    +int petId
+    +int ownerUserId
+    +string requestedChanges
+    +string paymentMethod
+    +decimal paymentAmount
+    +string paymentStatus
+    +string paymentProofUrl
+    +string paymentReference
+    +string status
+    +string adminNotes
+    +string veterinarianNotes
+    +int assignedVeterinarianUserId
+    +int reviewedByUserId
+    +int completedByUserId
+    +datetime reviewedAt
+    +datetime completedAt
+    +string baselineSnapshotHash
+    +string completedSnapshotHash
+    +datetime createdAt
+    +datetime updatedAt
+    +createRequest()
+    +updateRequest()
+}
+class PetRecordUpdateRequestEvent {
+    +int eventId
+    +int requestId
+    +string eventType
+    +string fromStatus
+    +string toStatus
+    +string fromPaymentStatus
+    +string toPaymentStatus
+    +int actorUserId
+    +string note
+    +datetime createdAt
+}
+class PetVaccination {
+    +int vaccinationId
+    +int petId
+    +string vaccineName
+    +date vaccinationDate
+    +date nextDueDate
+    +string applicator
+    +string status
+    +datetime createdAt
+    +recordVaccination()
+    +viewHistory()
+}
+class PrescriptionEvent {
+    +int eventId
+    +int planId
+    +int itemId
+    +int actorUserId
+    +string eventType
+    +json eventData
+    +datetime createdAt
+    +recordEvent()
+}
+class PrescriptionItem {
+    +int itemId
+    +int planId
+    +string clientItemKey
+    +string medicine
+    +string dose
+    +string route
+    +int timesCount
+    +string frequency
+    +string scheduleType
+    +int intervalHours
+    +json timeSlots
+    +json daysOfWeek
+    +int durationNumber
+    +string durationUnit
+    +string instructions
+    +date recommendedStartDate
+    +datetime startAt
+    +datetime endAt
+    +string status
+    +int replacesItemId
+    +datetime createdAt
+    +datetime updatedAt
+    +startItem()
+    +updateItem()
+    +generateOccurrences()
+}
+class PrescriptionOccurrence {
+    +int occurrenceId
+    +int itemId
+    +datetime dueAt
+    +string status
+    +datetime completedAt
+    +int completedByUserId
+    +string completionNotes
+    +datetime createdAt
+    +datetime updatedAt
+    +markDone()
+    +skipOccurrence()
+}
+class PrescriptionPlan {
+    +int planId
+    +int petId
+    +int ownerUserId
+    +int veterinarianUserId
+    +string sourceType
+    +int sourceRecordId
+    +string sourceLabel
+    +int versionNumber
+    +string status
+    +string contentHash
+    +int supersedesPlanId
+    +datetime issuedAt
+    +datetime createdAt
+    +datetime updatedAt
+    +syncFromDiagnosis()
+    +startSelectedItems()
+    +amend()
+    +notifyOwner()
+}
+class QueueEntry {
+    +int queueId
+    +int petId
+    +int userId
+    +int bookingId
+    +int branchId
+    +string serviceName
+    +int queueNumber
+    +date queueDate
+    +string status
+    +string priority
+    +string complaint
+    +string imagePath
+    +string signitureSelfServicePath
+    +string queueSource
+    +bool verifiedByAdmin
+    +datetime timestamp
+    +enqueue()
+    +updateStatus()
+    +assignVeterinarian()
+    +reenterQueue()
+}
+class Room {
+    +int roomId
+    +int branchId
+    +string roomType
+    +int totalCapacity
+    +string description
+    +datetime createdAt
+    +createRooms()
+    +updateRoom()
+    +checkAvailability()
+}
+class RoomUnitStatus {
+    +int roomUnitStatusId
+    +int branchId
+    +string roomType
+    +int roomNumber
+    +string status
+    +string notes
+    +datetime updatedAt
+    +updateStatus()
+}
+class ServiceCatalog {
+    +int serviceId
+    +string serviceCode
+    +string serviceName
+    +string serviceType
+    +string description
+    +decimal basePrice
+    +bool isMajorService
+    +bool isActive
+    +int createdByUserId
+    +datetime createdAt
+    +datetime updatedAt
+    +saveService()
+    +updateMaterials()
+    +deactivate()
+}
+class ServiceDisplaySetting {
+    +string settingsKey
+    +string settingsJson
+    +int updatedByUserId
+    +datetime createdAt
+    +datetime updatedAt
+    +saveDisplaySettings()
+}
+class ServiceMaterial {
+    +int serviceMaterialId
+    +int serviceId
+    +int itemId
+    +string materialName
+    +decimal qtyUsed
+    +string billablePolicy
+    +datetime createdAt
+    +datetime updatedAt
+    +updateMaterials()
+}
+class SpecialServiceBookingItem {
+    +int bookingSpecialServiceId
+    +int bookingId
+    +int specialServiceId
+    +string customServiceTitle
+    +string customServiceDescription
+    +string customServiceDetails
+    +int sequenceNo
+    +datetime createdAt
+    +viewRecord()
+}
+class SpecialServiceCatalog {
+    +int specialServiceId
+    +string serviceCode
+    +string serviceTitle
+    +string serviceDescription
+    +string serviceDetails
+    +string priceLabel
+    +decimal basePrice
+    +string durationLabel
+    +int maxPets
+    +int sortOrder
+    +bool isActive
+    +string dateRestrictionType
+    +date dateStart
+    +date dateEnd
+    +int createdByUserId
+    +datetime createdAt
+    +createService()
+    +updateService()
+}
+class SystemBackup {
+    +int backupId
+    +string backupUuid
+    +string backupType
+    +string status
+    +int progressPercent
+    +string progressStage
+    +int parentBackupId
+    +int baseBackupId
+    +string archiveName
+    +string archivePath
+    +string statePath
+    +int archiveSize
+    +string checksumSha256
+    +int scannedRowCount
+    +int changedRowCount
+    +int includedFileCount
+    +int deletedFileCount
+    +int createdByUserId
+    +string createdByName
+    +datetime startedAt
+    +datetime completedAt
+    +string errorMessage
+    +datetime createdAt
+    +createBackup()
+    +listBackups()
+    +downloadBackup()
+}
+class SystemBackupSetting {
+    +int settingsId
+    +bool automaticEnabled
+    +time automaticTime
+    +string storageDirectory
+    +datetime lastAutomaticAttemptAt
+    +string lastAutomaticStatus
+    +int lastAutomaticBackupId
+    +int updatedByUserId
+    +string updatedByName
+    +datetime updatedAt
+}
+class User {
+    +int userId
+    +string firstName
+    +string lastName
+    +string email
+    +datetime emailVerifiedAt
+    +string address
+    +string passwordHash
+    +datetime passwordChangedAt
+    +string emergencyNumber
+    +string phoneNumber
+    +string role
+    +string accountStatus
+    +datetime deactivatedAt
+    +string deactivationReason
+    +datetime createdAt
+    +datetime lastSeenAt
+    +string profileImageUrl
+    +date birthdate
+    +int preferredBranchId
+    +string activityLogFile
+    +login()
+    +logout()
+    +updateProfile()
+    +updatePassword()
+}
+class UserAuthIdentity {
+    +int identityId
+    +int userId
+    +string provider
+    +string providerSubject
+    +string providerEmail
+    +datetime linkedAt
+    +datetime lastLoginAt
+    +connectGoogle()
+    +checkConnection()
+}
+class UserBranchAssignment {
+    +int userBranchAssignmentId
+    +int userId
+    +int branchId
+    +bool isPrimary
+    +bool isActive
+    +int assignedByUserId
+    +datetime assignedAt
+    +datetime endedAt
+    +assignClinic()
+    +setPrimaryClinic()
+}
+class Notification {
+    +int notificationId
+    +int userId
+    +int branchId
+    +string type
+    +string category
+    +string title
+    +string message
+    +string pushTitle
+    +string pushMessage
+    +string redirectPath
+    +bool inAppVisible
+    +string dedupeKey
+    +string emailSubject
+    +string emailStatus
+    +datetime emailSentAt
+    +string emailError
+    +string pushStatus
+    +datetime pushSentAt
+    +string pushError
+    +datetime readAt
+    +datetime createdAt
+    +datetime updatedAt
+    +notify()
+    +markRead()
+    +markAllRead()
+}
+class VetClinicBookingPreference {
+    +int veterinarianUserId
+    +int branchId
+    +bool acceptsBookings
+    +datetime updatedAt
+    +setAcceptsBookings()
+    +listAcceptedClinics()
+}
+class LegacyVetTimeOff {
+    +int timeOffId
+    +int veterinarianUserId
+    +datetime startsAt
+    +datetime endsAt
+    +string notes
+}
+class LegacyVetClinicVisit {
+    +int visitScheduleId
+    +int veterinarianUserId
+    +int branchId
+    +datetime startsAt
+    +datetime endsAt
+    +string serviceKeys
+    +int appointmentCapacity
+    +string notes
+    +string status
+    +int createdByUserId
+    +datetime createdAt
+    +datetime updatedAt
+    +viewRecord()
+}
+class VeterinarianProfile {
+    +int profileId
+    +int userId
+    +string veterinarianId
+    +string licenseNumber
+    +string specialization
+    +decimal consultationRate
+    +int yearsOfExperience
+    +date hireDate
+    +bool isAcceptingPatients
+    +bool isActive
+    +datetime createdAt
+    +string experienceHistory
+    +updateProfile()
+    +setAcceptingPatients()
+    +receivePatient()
+}
+class LegacyVetWorkingHours {
+    +int workingHoursId
+    +int veterinarianUserId
+    +int branchId
+    +int dayOfWeek
+    +time startsAt
+    +time endsAt
+}
+class Diagnosis {
+    +int diagnosisId
+    +int queueId
+    +int bookingId
+    +int assignmentId
+    +int petId
+    +int veterinarianUserId
+    +string veterinarianName
+    +string diagnosisType
+    +string serviceName
+    +string chiefComplaint
+    +string majorSymptoms
+    +string symptoms
+    +string physicalExam
+    +string diagnosis
+    +string treatment
+    +string labResults
+    +date followUpDate
+    +string notes
+    +json vitalSigns
+    +json prescriptions
+    +json customSections
+    +json attachments
+    +json sourceUploads
+    +datetime finalizedAt
+    +datetime createdAt
+    +datetime updatedAt
+    +recordDiagnosis()
+    +finalize()
+    +viewDiagnosis()
+    +addConsent()
+    +printPrescription()
+}
+class VetQueueAssignment {
+    +int assignmentId
+    +int queueId
+    +int veterinarianUserId
+    +string veterinarianName
+    +string status
+    +datetime receivedAt
+    +datetime returnedAt
+    +datetime completedAt
+    +string returnReason
+    +datetime createdAt
+    +datetime updatedAt
+    +receive()
+    +returnQueue()
+    +complete()
+}
+class OnlineVetSchedule {
+    +int scheduleId
+    +int userId
+    +string dayOfWeek
+    +string timeSlot
+    +bool isAvailable
+    +updateAvailability()
+    +listAvailableSlots()
+}
+class Visit {
+    +int visitId
+    +int branchId
+    +int petId
+    +int ownerUserId
+    +int veterinarianUserId
+    +int queueId
+    +int bookingId
+    +int diagnosisId
+    +string sourceType
+    +string visitStatus
+    +string billingStatus
+    +datetime createdAt
+    +datetime updatedAt
+    +createVisit()
+    +updateStatus()
+    +calculateBalance()
+}
+class VisitCharge {
+    +int chargeId
+    +int visitId
+    +string chargeType
+    +int serviceId
+    +int itemId
+    +int boardingMaterialUsageId
+    +string description
+    +decimal quantity
+    +decimal unitPrice
+    +decimal subtotal
+    +int createdByUserId
+    +datetime createdAt
+    +datetime updatedAt
+    +saveCharges()
+    +replaceCharges()
+}
+class VisitInvoiceDocument {
+    +int invoiceDocumentId
+    +string invoiceNumber
+    +int visitId
+    +int paymentId
+    +int petId
+    +string filePath
+    +string fileName
+    +string mimeType
+    +string paperWidth
+    +int createdByUserId
+    +string createdByName
+    +datetime createdAt
+    +saveInvoice()
+    +listInvoices()
+}
+class VisitPayment {
+    +int paymentId
+    +int visitId
+    +string paymentMethod
+    +string paymentStatus
+    +decimal amount
+    +string referenceNumber
+    +string proofUrl
+    +string notes
+    +datetime paidAt
+    +int receivedByUserId
+    +string receivedByName
+    +datetime createdAt
+    +datetime updatedAt
+    +recordPayment()
+    +requestRefund()
+}
+class VisitPaymentRefund {
+    +int refundId
+    +int visitPaymentId
+    +int visitId
+    +decimal amount
+    +string refundMethod
+    +string referenceNumber
+    +string reason
+    +string refundStatus
+    +datetime processedAt
+    +int processedByUserId
+    +string processedByName
+    +datetime createdAt
+    +processRefund()
+}
+class PhysicalExamination {
+    +int examinationId
+    +int queueId
+    +int bookingId
+    +int petId
+    +int assignedVeterinarianUserId
+    +int recordedByUserId
+    +string recordedByName
+    +string recordedByPosition
+    +string status
+    +string chiefComplaint
+    +string symptoms
+    +string majorSymptoms
+    +string physicalFindings
+    +json vitalSigns
+    +json attachments
+    +datetime startedAt
+    +datetime completedAt
+    +datetime createdAt
+    +datetime updatedAt
+    +startExamination()
+    +saveFindings()
+    +completeExamination()
+    +reassignVeterinarian()
+    +attachEvidence()
+    +captureConsent()
+}
+class BookingScheduler {
+    +findAvailableVets()
+    +checkCapacity()
+    +reserveVet()
+    +getOnlineSlots()
+}
+class ReportGenerator {
+    +generateReport()
+    +buildDashboard()
+}
+AdminProfile "0..*" -- "1" User : user_id
+BoardingAssignment "0..*" -- "1" Booking : booking_id
+BoardingAssignment "0..*" -- "1" Branch : branch_id
+BoardingDocument "0..*" -- "0..1" BoardingAssignment : assignment_id
+BoardingDocument "0..*" -- "1" Booking : booking_id
+BoardingDocument "0..*" -- "0..1" Pet : pet_id
+BoardingDocument "0..*" -- "0..1" User : uploaded_by_user_id
+BoardingMaterialUsage "0..*" -- "1" BoardingAssignment : assignment_id
+BoardingMaterialUsage "0..*" -- "1" Booking : booking_id
+BoardingMaterialUsage "0..*" -- "0..1" InventoryItem : item_id
+BoardingMaterialUsage "0..*" -- "0..1" Pet : pet_id
+BoardingMaterialUsage "0..*" -- "0..1" User : recorded_by_user_id
+BoardingMaterialUsage "0..*" -- "0..1" User : voided_by_user_id
+BoardingObservation "0..*" -- "0..1" BoardingAssignment : assignment_id
+BoardingObservation "0..*" -- "1" Booking : booking_id
+BoardingObservation "0..*" -- "0..1" Pet : pet_id
+BoardingObservation "0..*" -- "0..1" User : created_by_user_id
+BoardingTask "0..*" -- "0..1" BoardingAssignment : assignment_id
+BoardingTask "0..*" -- "1" Booking : booking_id
+BoardingTask "0..*" -- "0..1" Pet : pet_id
+BoardingTask "0..*" -- "0..1" User : created_by_user_id
+Booking "0..*" -- "1" Branch : branch_id
+Booking "0..*" -- "1" User : user_id
+Booking "0..*" -- "0..1" Pet : pet_id
+Booking "0..*" -- "0..1" Branch : original_branch_id
+BookingBranchTransfer "0..*" -- "1" User : transferred_by_user_id
+BookingBranchTransfer "0..*" -- "1" Booking : booking_id
+BookingBranchTransfer "0..*" -- "1" Branch : from_branch_id
+BookingBranchTransfer "0..*" -- "1" Branch : to_branch_id
+BookingPaymentRefund "0..*" -- "1" Booking : booking_id
+BookingPaymentRefund "0..*" -- "1" BookingPaymentSubmission : booking_payment_submission_id
+BookingPaymentRefund "0..*" -- "1" User : processed_by_user_id
+BookingPaymentSubmission "0..*" -- "1" Booking : booking_id
+BookingPaymentSubmission "0..*" -- "0..1" User : reviewed_by_user_id
+BookingPaymentSubmission "0..1" -- "0..1" VisitPayment : linked_visit_payment_id
+BookingPet "0..*" -- "1" Booking : booking_id
+BookingPet "0..*" -- "1" Pet : pet_id
+BranchClosure "0..*" -- "1" Branch : branch_id
+BranchClosure "0..*" -- "0..1" User : created_by_user_id
+BranchOperatingHour "0..*" -- "1" Branch : branch_id
+BranchServiceAvailability "0..*" -- "1" Branch : branch_id
+EmailOtpToken "0..*" -- "0..1" User : user_id
+GroomingEvent "0..*" -- "1" GroomingJob : booking_id
+GroomingJob "0..1" -- "1" Booking : booking_id
+GroomingPhoto "0..*" -- "1" GroomingJob : booking_id
+GroomingReview "0..*" -- "1" GroomingJob : booking_id
+GroomingReview "0..*" -- "1" User : veterinarian_id
+PetPriorHistory "0..*" -- "0..1" Pet : pet_id
+InventoryAudit "0..*" -- "0..1" InventoryBatch : batch_id
+InventoryAudit "0..*" -- "0..1" InventoryItem : item_id
+InventoryAudit "0..*" -- "0..1" InventoryLocation : location_id
+InventoryAudit "0..*" -- "1" User : performed_by_user_id
+InventoryBatch "0..*" -- "1" InventoryItem : item_id
+InventoryBatch "0..*" -- "1" InventoryLocation : location_id
+InventoryBranchItem "0..*" -- "1" Branch : branch_id
+InventoryBranchItem "0..*" -- "1" InventoryItem : item_id
+InventoryBranchItem "0..*" -- "1" InventoryLocation : primary_location_id
+InventoryBranchItem "0..*" -- "0..1" User : removed_by_user_id
+InventoryItem "0..*" -- "1" User : created_by_user_id
+InventoryItem "0..*" -- "1" InventoryLocation : location_id
+InventoryLocation "0..*" -- "1" Branch : branch_id
+InventoryStockMovement "0..*" -- "0..1" InventoryBatch : batch_id
+InventoryStockMovement "0..*" -- "1" InventoryItem : item_id
+InventoryStockMovement "0..*" -- "0..1" InventoryLocation : location_id
+InventoryStockMovement "0..*" -- "1" User : performed_by_user_id
+InventoryStockReceipt "0..*" -- "1" Branch : branch_id
+InventoryStockReceipt "0..*" -- "1" User : received_by_user_id
+InventoryStockReceiptItem "0..*" -- "0..1" InventoryBatch : batch_id
+InventoryStockReceiptItem "0..*" -- "1" InventoryItem : item_id
+InventoryStockReceiptItem "0..*" -- "1" InventoryLocation : location_id
+InventoryStockReceiptItem "0..*" -- "1" InventoryStockReceipt : receipt_id
+InventoryStockReceiptItem "0..*" -- "1" InventorySupplier : supplier_id
+InventoryTransfer "0..*" -- "1" User : created_by_user_id
+InventoryTransfer "0..*" -- "1" InventoryLocation : from_location_id
+InventoryTransfer "0..*" -- "0..1" User : received_by_user_id
+InventoryTransfer "0..*" -- "1" InventoryLocation : to_location_id
+InventoryTransferItem "0..*" -- "1" InventoryBatch : source_batch_id
+InventoryTransferItem "0..*" -- "1" InventoryItem : item_id
+InventoryTransferItem "0..*" -- "1" InventoryTransfer : inventory_transfer_id
+NotificationPreference "0..1" -- "1" User : user_id
+NotificationPushSubscription "0..*" -- "1" User : user_id
+OnlineConsultation "0..1" -- "1" Booking : booking_id
+OnlineConsultation "0..*" -- "1" User : owner_user_id
+OnlineConsultation "0..*" -- "1" User : veterinarian_user_id
+OnlineDiagnosis "0..1" -- "1" OnlineConsultation : online_consultation_id
+OnlineDiagnosis "0..*" -- "1" Booking : booking_id
+OnlineDiagnosis "0..*" -- "1" User : veterinarian_user_id
+OnlineConsultationReschedule "0..*" -- "1" OnlineConsultation : online_consultation_id
+OnlineConsultationReschedule "0..*" -- "0..1" User : changed_by_user_id
+PetAllergy "0..*" -- "0..1" User : created_by_user_id
+PetAllergy "0..*" -- "1" Pet : pet_id
+PetAllergy "0..*" -- "0..1" User : updated_by_user_id
+PetAllergy "0..*" -- "0..1" User : verified_by_user_id
+PetMedicalCertificate "0..*" -- "1" Pet : pet_id
+PetMedicalCertificate "0..*" -- "0..1" PetRecordUpdateRequest : request_id
+PetMedicalCertificate "0..*" -- "1" User : veterinarian_user_id
+MedicalRecordGroup "0..*" -- "1" Pet : pet_id
+MedicalRecordItem "0..*" -- "1" MedicalRecordGroup : group_id
+PetOwnership "0..*" -- "0..1" User : user_id
+PetOwnership "0..*" -- "0..1" Pet : pet_id
+PetOwnerTodo "0..*" -- "1" User : user_id
+PetRecordUpdateRequest "0..*" -- "1" Branch : branch_id
+PetRecordUpdateRequest "0..*" -- "0..1" User : assigned_veterinarian_user_id
+PetRecordUpdateRequest "0..*" -- "0..1" User : completed_by_user_id
+PetRecordUpdateRequest "0..*" -- "0..1" User : owner_user_id
+PetRecordUpdateRequest "0..*" -- "1" Pet : pet_id
+PetRecordUpdateRequest "0..*" -- "0..1" User : reviewed_by_user_id
+PetRecordUpdateRequestEvent "0..*" -- "0..1" User : actor_user_id
+PetRecordUpdateRequestEvent "0..*" -- "1" PetRecordUpdateRequest : request_id
+PetVaccination "0..*" -- "1" Pet : pet_id
+PrescriptionEvent "0..*" -- "0..1" User : actor_user_id
+PrescriptionEvent "0..*" -- "0..1" PrescriptionItem : item_id
+PrescriptionEvent "0..*" -- "1" PrescriptionPlan : plan_id
+PrescriptionItem "0..*" -- "1" PrescriptionPlan : plan_id
+PrescriptionItem "0..*" -- "0..1" PrescriptionItem : replaces_item_id
+PrescriptionOccurrence "0..*" -- "0..1" User : completed_by_user_id
+PrescriptionOccurrence "0..*" -- "1" PrescriptionItem : item_id
+PrescriptionPlan "0..*" -- "0..1" User : owner_user_id
+PrescriptionPlan "0..*" -- "1" Pet : pet_id
+PrescriptionPlan "0..*" -- "0..1" PrescriptionPlan : supersedes_plan_id
+PrescriptionPlan "0..*" -- "1" User : veterinarian_user_id
+QueueEntry "0..*" -- "0..1" Booking : booking_id
+QueueEntry "0..*" -- "1" Branch : branch_id
+QueueEntry "0..*" -- "1" Pet : pet_id
+QueueEntry "0..*" -- "1" User : user_id
+Room "0..*" -- "1" Branch : branch_id
+RoomUnitStatus "0..*" -- "1" Branch : branch_id
+ServiceCatalog "0..*" -- "0..1" User : created_by_user_id
+ServiceDisplaySetting "0..*" -- "0..1" User : updated_by_user_id
+ServiceMaterial "0..*" -- "1" ServiceCatalog : service_id
+ServiceMaterial "0..*" -- "0..1" InventoryItem : item_id
+SpecialServiceBookingItem "0..*" -- "1" Booking : booking_id
+SpecialServiceBookingItem "0..*" -- "0..1" SpecialServiceCatalog : special_service_id
+SpecialServiceCatalog "0..*" -- "0..1" User : created_by_user_id
+SystemBackup "0..*" -- "0..1" User : created_by_user_id
+SystemBackup "0..*" -- "0..1" SystemBackup : base_backup_id
+SystemBackup "0..*" -- "0..1" SystemBackup : parent_backup_id
+SystemBackupSetting "0..*" -- "0..1" User : updated_by_user_id
+SystemBackupSetting "0..*" -- "0..1" SystemBackup : last_automatic_backup_id
+User "0..*" -- "0..1" Branch : preferred_branch_id
+UserAuthIdentity "0..*" -- "1" User : user_id
+UserBranchAssignment "0..*" -- "0..1" User : assigned_by_user_id
+UserBranchAssignment "0..*" -- "1" Branch : branch_id
+UserBranchAssignment "0..*" -- "1" User : user_id
+Notification "0..*" -- "0..1" Branch : branch_id
+Notification "0..*" -- "1" User : user_id
+VetClinicBookingPreference "0..*" -- "1" Branch : branch_id
+VetClinicBookingPreference "0..*" -- "1" User : veterinarian_user_id
+LegacyVetTimeOff "0..*" -- "1" User : veterinarian_user_id
+LegacyVetClinicVisit "0..*" -- "1" Branch : branch_id
+LegacyVetClinicVisit "0..*" -- "1" User : created_by_user_id
+LegacyVetClinicVisit "0..*" -- "1" User : veterinarian_user_id
+VeterinarianProfile "0..*" -- "1" User : user_id
+LegacyVetWorkingHours "0..*" -- "1" Branch : branch_id
+LegacyVetWorkingHours "0..*" -- "1" User : veterinarian_user_id
+Diagnosis "0..*" -- "0..1" VetQueueAssignment : assignment_id
+Diagnosis "0..*" -- "0..1" Booking : booking_id
+Diagnosis "0..*" -- "1" Pet : pet_id
+Diagnosis "0..1" -- "0..1" QueueEntry : queue_id
+Diagnosis "0..*" -- "1" User : veterinarian_user_id
+VetQueueAssignment "0..*" -- "1" QueueEntry : queue_id
+VetQueueAssignment "0..*" -- "1" User : veterinarian_user_id
+OnlineVetSchedule "0..*" -- "1" User : user_id
+Visit "0..*" -- "1" Branch : branch_id
+Visit "0..1" -- "0..1" Diagnosis : diagnosis_id
+Visit "0..*" -- "1" Pet : pet_id
+Visit "0..*" -- "1" User : owner_user_id
+Visit "0..*" -- "0..1" User : veterinarian_user_id
+Visit "0..*" -- "0..1" QueueEntry : queue_id
+Visit "0..*" -- "0..1" Booking : booking_id
+VisitCharge "0..1" -- "0..1" BoardingMaterialUsage : boarding_material_usage_id
+VisitCharge "0..*" -- "0..1" User : created_by_user_id
+VisitCharge "0..*" -- "1" Visit : visit_id
+VisitCharge "0..*" -- "0..1" ServiceCatalog : service_id
+VisitCharge "0..*" -- "0..1" InventoryItem : item_id
+VisitInvoiceDocument "0..*" -- "0..1" User : created_by_user_id
+VisitInvoiceDocument "0..1" -- "1" VisitPayment : payment_id
+VisitInvoiceDocument "0..*" -- "1" Pet : pet_id
+VisitInvoiceDocument "0..*" -- "1" Visit : visit_id
+VisitPayment "0..*" -- "0..1" User : received_by_user_id
+VisitPayment "0..*" -- "1" Visit : visit_id
+VisitPaymentRefund "0..*" -- "1" VisitPayment : visit_payment_id
+VisitPaymentRefund "0..*" -- "1" User : processed_by_user_id
+VisitPaymentRefund "0..*" -- "1" Visit : visit_id
+PhysicalExamination "0..1" -- "1" QueueEntry : queue_id
+PhysicalExamination "0..*" -- "0..1" Booking : booking_id
+PhysicalExamination "0..*" -- "1" Pet : pet_id
+PhysicalExamination "0..*" -- "1" User : assigned_veterinarian_user_id
+PhysicalExamination "0..*" -- "1" User : recorded_by_user_id
+Booking "0..*" .. "0..1" User : veterinarian_id
+ConsentRecord "0..*" .. "0..1" ConsentTemplate : consent_file_id
+ConsentRecord "0..*" .. "0..1" User : owner_user_id
+ConsentRecord "0..*" .. "0..1" Pet : pet_id
+ConsentRecord "0..*" .. "0..1" Booking : booking_id
+ConsentRecord "0..*" .. "0..1" QueueEntry : queue_id
+ConsentRecord "0..*" .. "0..1" Visit : visit_id
+ConsentRecord "0..*" .. "0..1" User : processed_by_user_id
+PrescriptionPlan "0..*" .. "0..1" Diagnosis : source_record_id
+PrescriptionPlan "0..*" .. "0..1" OnlineDiagnosis : source_record_id
+BookingScheduler ..> Branch : uses
+BookingScheduler ..> BranchOperatingHour : uses
+BookingScheduler ..> VetClinicBookingPreference : uses
+BookingScheduler ..> OnlineVetSchedule : uses
+BookingScheduler ..> Booking : uses
+ReportGenerator ..> Booking : uses
+ReportGenerator ..> Visit : uses
+ReportGenerator ..> InventoryItem : uses

@@ -1,0 +1,47 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1070" height="521" viewBox="0 0 1070 521" role="img" aria-labelledby="title desc">
+<title id="title">iPawcus — Context Diagram</title><desc id="desc">Plain black-and-white logical data-flow diagram with roles, numbered processes, open-ended data stores and labeled data arrows.</desc>
+<defs><marker id="arrow" markerWidth="8" markerHeight="8" refX="7" refY="4" orient="auto" markerUnits="userSpaceOnUse"><path d="M0 0 L7 4 L0 8 Z" fill="#000000"/></marker></defs>
+<rect width="100%" height="100%" fill="#ffffff"/>
+<text x="60" y="34" font-family="Arial,sans-serif" font-size="22" fill="#000000">iPawcus — Context Diagram</text>
+<text x="60" y="64" font-family="Arial,sans-serif" font-size="12" fill="#000000">The system is one process. Each arrow carries data, not a step or a database relationship.</text>
+<path d="M230 158 L248 158 L248 153 L715 153" fill="none" stroke="#000000" stroke-width="1.2" marker-end="url(#arrow)"><title>Account, pet and care requests</title></path>
+<text x="483" y="145" font-family="Arial,sans-serif" font-size="12" fill="#000000">Account, pet and care requests</text>
+<path d="M715 181 L255 181 L255 176 L230 176" fill="none" stroke="#000000" stroke-width="1.2" marker-end="url(#arrow)"><title>Records, plans and schedules</title></path>
+<text x="497" y="173" font-family="Arial,sans-serif" font-size="12" fill="#000000">Records, plans and schedules</text>
+<path d="M230 246 L262 246 L262 209 L715 209" fill="none" stroke="#000000" stroke-width="1.2" marker-end="url(#arrow)"><title>Exam, consent and clinic entries</title></path>
+<text x="469" y="201" font-family="Arial,sans-serif" font-size="12" fill="#000000">Exam, consent and clinic entries</text>
+<path d="M715 237 L269 237 L269 264 L230 264" fill="none" stroke="#000000" stroke-width="1.2" marker-end="url(#arrow)"><title>Examination and clinic status</title></path>
+<text x="490" y="229" font-family="Arial,sans-serif" font-size="12" fill="#000000">Examination and clinic status</text>
+<path d="M230 334 L276 334 L276 265 L715 265" fill="none" stroke="#000000" stroke-width="1.2" marker-end="url(#arrow)"><title>Availability and clinical findings</title></path>
+<text x="455" y="257" font-family="Arial,sans-serif" font-size="12" fill="#000000">Availability and clinical findings</text>
+<path d="M715 293 L283 293 L283 352 L230 352" fill="none" stroke="#000000" stroke-width="1.2" marker-end="url(#arrow)"><title>Assigned patients and bookings</title></path>
+<text x="483" y="285" font-family="Arial,sans-serif" font-size="12" fill="#000000">Assigned patients and bookings</text>
+<path d="M230 422 L290 422 L290 321 L715 321" fill="none" stroke="#000000" stroke-width="1.2" marker-end="url(#arrow)"><title>Personnel, clinic and report inputs</title></path>
+<text x="448" y="313" font-family="Arial,sans-serif" font-size="12" fill="#000000">Personnel, clinic and report inputs</text>
+<path d="M715 349 L297 349 L297 440 L230 440" fill="none" stroke="#000000" stroke-width="1.2" marker-end="url(#arrow)"><title>Account status and reports</title></path>
+<text x="511" y="341" font-family="Arial,sans-serif" font-size="12" fill="#000000">Account status and reports</text>
+<g data-node="00-context-p-0"><title>0</title>
+<rect x="715" y="112" width="245" height="252" rx="11" fill="#ffffff" stroke="#000000" stroke-width="1.2"/>
+<line x1="715" y1="138" x2="960" y2="138" stroke="#000000" stroke-width="1.2"/>
+<text x="837.5" y="130" font-family="Arial,sans-serif" font-size="14" fill="#000000" text-anchor="middle" font-weight="600">0</text>
+<text x="837.5" y="239" font-family="Arial,sans-serif" font-size="14" fill="#000000" text-anchor="middle">iPawcus</text>
+<text x="837.5" y="256" font-family="Arial,sans-serif" font-size="14" fill="#000000" text-anchor="middle">Pet Care and Clinic</text>
+<text x="837.5" y="273" font-family="Arial,sans-serif" font-size="14" fill="#000000" text-anchor="middle">Management System</text>
+</g>
+<g data-node="00-context-ref-owner"><title>owner</title>
+<rect x="60" y="133" width="170" height="68" rx="0" fill="#ffffff" stroke="#000000" stroke-width="1.2"/>
+<text x="145" y="172" font-family="Arial,sans-serif" font-size="14" fill="#000000" text-anchor="middle" font-weight="600">Pet Owner</text>
+</g>
+<g data-node="00-context-ref-admin"><title>admin</title>
+<rect x="60" y="221" width="170" height="68" rx="0" fill="#ffffff" stroke="#000000" stroke-width="1.2"/>
+<text x="145" y="260" font-family="Arial,sans-serif" font-size="14" fill="#000000" text-anchor="middle" font-weight="600">Admin</text>
+</g>
+<g data-node="00-context-ref-vet"><title>vet</title>
+<rect x="60" y="309" width="170" height="68" rx="0" fill="#ffffff" stroke="#000000" stroke-width="1.2"/>
+<text x="145" y="348" font-family="Arial,sans-serif" font-size="14" fill="#000000" text-anchor="middle" font-weight="600">Veterinarian</text>
+</g>
+<g data-node="00-context-ref-super"><title>super</title>
+<rect x="60" y="397" width="170" height="68" rx="0" fill="#ffffff" stroke="#000000" stroke-width="1.2"/>
+<text x="145" y="436" font-family="Arial,sans-serif" font-size="14" fill="#000000" text-anchor="middle" font-weight="600">Super Admin</text>
+</g>
+</svg>

@@ -1,0 +1,361 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="2600" height="2691" viewBox="0 0 2600 2691" role="img" aria-labelledby="title desc">
+<title id="title">iPawcus / Clinic assignments and vet availability / 1 of 2</title>
+<desc id="desc">Application modules and verified database references. Original SQL entity definitions are on pages 01 to 09. Dashed dependencies are not foreign keys.</desc>
+<defs><marker id="arrow" markerWidth="9" markerHeight="9" refX="8" refY="4.5" orient="auto" markerUnits="userSpaceOnUse"><path d="M0 0 L8 4.5 L0 9" fill="none" stroke="#8793a3" stroke-width="1.2"/></marker><marker id="inheritance" markerWidth="11" markerHeight="11" refX="10" refY="5" orient="auto" markerUnits="userSpaceOnUse"><path d="M0 0 L10 5 L0 10 Z" fill="#ffffff" stroke="#8793a3" stroke-width="1.2"/></marker></defs>
+<rect width="100%" height="100%" fill="#ffffff"/>
+<text x="80" y="44" font-family="Arial,sans-serif" font-size="25" fill="#2d3748">iPawcus / Clinic assignments and vet availability / 1 of 2</text>
+<text x="80" y="73" font-family="Arial,sans-serif" font-size="14" fill="#596579">React / service / PHP / entity reference · arrows show source-code dependencies; no invented OO inheritance.</text>
+<text x="80" y="100" font-family="Arial,sans-serif" font-size="13" fill="#596579">Dashed: dependency. Solid: migration FK or real class inheritance. Full source evidence accompanies detailed links.</text>
+<text x="80" y="143" font-family="Arial,sans-serif" font-size="14" fill="#596579">UI and system views</text>
+<text x="740" y="143" font-family="Arial,sans-serif" font-size="14" fill="#596579">JavaScript services</text>
+<text x="1400" y="143" font-family="Arial,sans-serif" font-size="14" fill="#596579">PHP backend modules</text>
+<text x="2080" y="143" font-family="Arial,sans-serif" font-size="14" fill="#596579">Database references</text>
+<path d="M500 210 L740 210" fill="none" stroke="#8793a3" stroke-width="1.2" stroke-dasharray="5 4" marker-end="url(#arrow)"><title>src/components/AdminDashboardsComponent/AdminAssignedLocationPanel.jsx → src/services/branchService.js / uses</title></path>
+<path d="M500 455 L610 455 L610 232 L740 232" fill="none" stroke="#8793a3" stroke-width="1.2" stroke-dasharray="5 4" marker-end="url(#arrow)"><title>src/components/StatusDisplay/TVStatusDisplay.jsx → src/services/branchService.js / uses</title></path>
+<path d="M500 477 L610 477 L610 1108 L740 1108" fill="none" stroke="#8793a3" stroke-width="1.2" stroke-dasharray="5 4" marker-end="url(#arrow)"><title>src/components/StatusDisplay/TVStatusDisplay.jsx → src/services/statusDisplayService.js / uses</title></path>
+<path d="M500 684 L630 684 L630 254 L740 254" fill="none" stroke="#8793a3" stroke-width="1.2" stroke-dasharray="5 4" marker-end="url(#arrow)"><title>src/components/VetrinarianComponents/VetActiveLocationPanel.jsx → src/services/branchService.js / uses</title></path>
+<path d="M500 706 L630 706 L630 1283 L740 1283" fill="none" stroke="#8793a3" stroke-width="1.2" stroke-dasharray="5 4" marker-end="url(#arrow)"><title>src/components/VetrinarianComponents/VetActiveLocationPanel.jsx → src/services/profileService.js / uses</title></path>
+<path d="M500 965 L610 965 L610 973 L545 973 L545 1458 L740 1458" fill="none" stroke="#8793a3" stroke-width="1.2" stroke-dasharray="5 4" marker-end="url(#arrow)"><title>src/components/shared/ClinicAvailabilityCalendar.jsx → src/services/bookingAvailabilityService.js / uses</title></path>
+<path d="M500 1421 L718 1421 L718 727 L630 727 L630 722 L740 722" fill="none" stroke="#8793a3" stroke-width="1.2" stroke-dasharray="5 4" marker-end="url(#arrow)"><title>src/components/shared/VetPresenceSign.jsx → src/services/vetPresenceService.js / uses</title></path>
+<path d="M1160 210 L1270 210 L1270 558 L1400 558" fill="none" stroke="#8793a3" stroke-width="1.2" stroke-dasharray="5 4" marker-end="url(#arrow)"><title>src/services/branchService.js → php/branches.php / HTTP</title></path>
+<path d="M1160 232 L1290 232 L1290 1734 L1400 1734" fill="none" stroke="#8793a3" stroke-width="1.2" stroke-dasharray="5 4" marker-end="url(#arrow)"><title>src/services/branchService.js → php/veterinarian_branch_schedules.php / HTTP</title></path>
+<path d="M1160 254 L1270 254 L1270 257 L1205 257 L1205 908 L1400 908" fill="none" stroke="#8793a3" stroke-width="1.2" stroke-dasharray="5 4" marker-end="url(#arrow)"><title>src/services/branchService.js → php/update_booking_branch.php / HTTP</title></path>
+<path d="M1160 529 L1270 529 L1270 1909 L1400 1909" fill="none" stroke="#8793a3" stroke-width="1.2" stroke-dasharray="5 4" marker-end="url(#arrow)"><title>src/services/vetBookingScheduleService.js → php/veterinarian_booking_schedule.php / HTTP</title></path>
+<path d="M1160 722 L1378 722 L1378 1383 L1290 1383 L1290 1384 L1400 1384" fill="none" stroke="#8793a3" stroke-width="1.2" stroke-dasharray="5 4" marker-end="url(#arrow)"><title>src/services/vetPresenceService.js → php/vet_presence.php / HTTP</title></path>
+<path d="M1160 915 L1270 915 L1270 918 L1205 918 L1205 1168 L1400 1168" fill="none" stroke="#8793a3" stroke-width="1.2" stroke-dasharray="5 4" marker-end="url(#arrow)"><title>src/services/vetScheduleService.js → php/update_vet_schedule.php / HTTP</title></path>
+<path d="M1160 937 L1290 937 L1290 733 L1400 733" fill="none" stroke="#8793a3" stroke-width="1.2" stroke-dasharray="5 4" marker-end="url(#arrow)"><title>src/services/vetScheduleService.js → php/get_vet_schedules.php / HTTP</title></path>
+<path d="M1840 210 L2080 210" fill="none" stroke="#8793a3" stroke-width="1.2" stroke-dasharray="5 4" marker-end="url(#arrow)"><title>php/branch_helpers.php → db:branches / SQL</title></path>
+<path d="M1840 232 L1950 232 L1950 403 L2080 403" fill="none" stroke="#8793a3" stroke-width="1.2" stroke-dasharray="5 4" marker-end="url(#arrow)"><title>php/branch_helpers.php → db:user_branch_assignments / SQL</title></path>
+<path d="M1840 254 L1970 254 L1970 596 L2080 596" fill="none" stroke="#8793a3" stroke-width="1.2" stroke-dasharray="5 4" marker-end="url(#arrow)"><title>php/branch_helpers.php → db:users / SQL</title></path>
+<path d="M1840 276 L1950 276 L1950 279 L1913 279 L1913 789 L2080 789" fill="none" stroke="#8793a3" stroke-width="1.2" stroke-dasharray="5 4" marker-end="url(#arrow)"><title>php/branch_helpers.php → db:veterinarian_profiles / SQL</title></path>
+<path d="M1840 298 L2058 298 L2058 977 L1970 977 L1970 982 L2080 982" fill="none" stroke="#8793a3" stroke-width="1.2" stroke-dasharray="5 4" marker-end="url(#arrow)"><title>php/branch_helpers.php → db:branch_closures / SQL</title></path>
+<path d="M1840 320 L1950 320 L1950 1175 L2080 1175" fill="none" stroke="#8793a3" stroke-width="1.2" stroke-dasharray="5 4" marker-end="url(#arrow)"><title>php/branch_helpers.php → db:branch_operating_hours / SQL</title></path>
+<path d="M1840 342 L1950 342 L1950 345 L1878 345 L1878 539 L1970 539 L1970 1368 L2080 1368" fill="none" stroke="#8793a3" stroke-width="1.2" stroke-dasharray="5 4" marker-end="url(#arrow)"><title>php/branch_helpers.php → db:veterinarian_branch_schedules / SQL</title></path>
+<path d="M1840 364 L1950 364 L1950 379 L1862 379 L1862 539 L1913 539 L1913 557 L1878 557 L1878 889 L1913 889 L1913 1561 L2080 1561" fill="none" stroke="#8793a3" stroke-width="1.2" stroke-dasharray="5 4" marker-end="url(#arrow)"><title>php/branch_helpers.php → db:branch_service_availability / SQL</title></path>
+<path d="M1840 558 L1950 558 L1950 386 L1840 386" fill="none" stroke="#8793a3" stroke-width="1.2" stroke-dasharray="5 4" marker-end="url(#arrow)"><title>php/branches.php → php/branch_helpers.php / includes</title></path>
+<path d="M1840 733 L1950 733 L1950 832 L1913 832 L1913 951 L1878 951 L1878 1149 L1950 1149 L1950 1754 L2080 1754" fill="none" stroke="#8793a3" stroke-width="1.2" stroke-dasharray="5 4" marker-end="url(#arrow)"><title>php/get_vet_schedules.php → db:vet_schedules / SQL</title></path>
+<path d="M1840 908 L1950 908 L1950 714 L1862 714 L1862 557 L1970 557 L1970 408 L1840 408" fill="none" stroke="#8793a3" stroke-width="1.2" stroke-dasharray="5 4" marker-end="url(#arrow)"><title>php/update_booking_branch.php → php/branch_helpers.php / includes</title></path>
+<path d="M1840 930 L2058 930 L2058 2084 L1840 2084" fill="none" stroke="#8793a3" stroke-width="1.2" stroke-dasharray="5 4" marker-end="url(#arrow)"><title>php/update_booking_branch.php → php/notification_helpers.php / includes</title></path>
+<path d="M1840 952 L1950 952 L1950 1017 L1862 1017 L1862 1149 L1913 1149 L1913 1189 L1878 1189 L1878 1365 L1970 1365 L1970 2259 L1840 2259" fill="none" stroke="#8793a3" stroke-width="1.2" stroke-dasharray="5 4" marker-end="url(#arrow)"><title>php/update_booking_branch.php → php/booking_slot_helpers.php / includes</title></path>
+<path d="M1840 974 L1970 974 L1970 1383 L1878 1383 L1878 1947 L2080 1947" fill="none" stroke="#8793a3" stroke-width="1.2" stroke-dasharray="5 4" marker-end="url(#arrow)"><title>php/update_booking_branch.php → db:bookings / SQL</title></path>
+<path d="M1840 996 L1950 996 L1950 1405 L1862 1405 L1862 2140 L2080 2140" fill="none" stroke="#8793a3" stroke-width="1.2" stroke-dasharray="5 4" marker-end="url(#arrow)"><title>php/update_booking_branch.php → db:queues / SQL</title></path>
+<path d="M1840 1018 L2058 1018 L2058 1099 L2542 1099 L2542 2271 L1970 2271 L1970 2333 L2080 2333" fill="none" stroke="#8793a3" stroke-width="1.2" stroke-dasharray="5 4" marker-end="url(#arrow)"><title>php/update_booking_branch.php → db:booking_branch_transfers / SQL</title></path>
+<path d="M1840 1168 L2058 1168 L2058 1113 L2570 1113 L2570 520 L2058 520 L2058 430 L1840 430" fill="none" stroke="#8793a3" stroke-width="1.2" stroke-dasharray="5 4" marker-end="url(#arrow)"><title>php/update_vet_schedule.php → php/branch_helpers.php / includes</title></path>
+<path d="M1840 1190 L1950 1190 L1950 1193 L1913 1193 L1913 2271 L1950 2271 L1950 2281 L1840 2281" fill="none" stroke="#8793a3" stroke-width="1.2" stroke-dasharray="5 4" marker-end="url(#arrow)"><title>php/update_vet_schedule.php → php/booking_slot_helpers.php / includes</title></path>
+<path d="M1840 1212 L2058 1212 L2058 1106 L2542 1106 L2542 713 L1970 713 L1970 618 L2080 618" fill="none" stroke="#8793a3" stroke-width="1.2" stroke-dasharray="5 4" marker-end="url(#arrow)"><title>php/update_vet_schedule.php → db:users / SQL</title></path>
+<path d="M1840 1234 L2058 1234 L2058 1754 L1970 1754 L1970 1776 L2080 1776" fill="none" stroke="#8793a3" stroke-width="1.2" stroke-dasharray="5 4" marker-end="url(#arrow)"><title>php/update_vet_schedule.php → db:vet_schedules / SQL</title></path>
+<path d="M1840 1384 L1950 1384 L1950 1559 L1840 1559" fill="none" stroke="#8793a3" stroke-width="1.2" stroke-dasharray="5 4" marker-end="url(#arrow)"><title>php/vet_presence.php → php/vet_presence_helpers.php / includes</title></path>
+<path d="M1840 1406 L1970 1406 L1970 1734 L1950 1734 L1950 2526 L2080 2526" fill="none" stroke="#8793a3" stroke-width="1.2" stroke-dasharray="5 4" marker-end="url(#arrow)"><title>php/vet_presence.php → db:service_display_settings / SQL</title></path>
+<g data-node="src/components/AdminDashboardsComponent/AdminAssignedLocationPanel.jsx"><rect x="80" y="170" width="420" height="187" fill="#ffffff" stroke="#c4cbd4" stroke-width="1.2"/><line x1="80" y1="225" x2="500" y2="225" stroke="#c4cbd4"/>
+<text x="94" y="193" font-family="Arial,sans-serif" font-size="16" fill="#2d3748">AdminAssignedLocationPanel</text>
+<text x="94" y="212" font-family="Arial,sans-serif" font-size="11.5" fill="#596579">«React component»</text>
+<text x="94" y="248" font-family="Consolas,monospace" font-size="12" fill="#2d3748">- branches: state</text>
+<text x="94" y="266" font-family="Consolas,monospace" font-size="12" fill="#2d3748">- isLoading: state</text>
+<text x="94" y="284" font-family="Consolas,monospace" font-size="12" fill="#2d3748">- error: state</text>
+<text x="94" y="302" font-family="Consolas,monospace" font-size="12" fill="#2d3748">+ AdminAssignedLocationPanel()</text>
+<text x="94" y="329" font-family="Arial,sans-serif" font-size="11.5" fill="#596579">src/components/AdminDashboardsComponent/AdminAssigne</text>
+<text x="94" y="345" font-family="Arial,sans-serif" font-size="11.5" fill="#596579">  dLocationPanel.jsx:7</text>
+</g>
+<g data-node="src/components/StatusDisplay/TVStatusDisplay.jsx"><rect x="80" y="415" width="420" height="171" fill="#ffffff" stroke="#c4cbd4" stroke-width="1.2"/><line x1="80" y1="470" x2="500" y2="470" stroke="#c4cbd4"/>
+<text x="94" y="438" font-family="Arial,sans-serif" font-size="16" fill="#2d3748">TVStatusDisplay</text>
+<text x="94" y="457" font-family="Arial,sans-serif" font-size="11.5" fill="#596579">«React component»</text>
+<text x="94" y="493" font-family="Consolas,monospace" font-size="12" fill="#2d3748">- branchCode: state</text>
+<text x="94" y="511" font-family="Consolas,monospace" font-size="12" fill="#2d3748">- branches: state</text>
+<text x="94" y="529" font-family="Consolas,monospace" font-size="12" fill="#2d3748">- statusData: state</text>
+<text x="94" y="547" font-family="Consolas,monospace" font-size="12" fill="#2d3748">+ TVStatusDisplay()</text>
+<text x="94" y="574" font-family="Arial,sans-serif" font-size="11.5" fill="#596579">src/components/StatusDisplay/TVStatusDisplay.jsx:269</text>
+</g>
+<g data-node="src/components/VetrinarianComponents/VetActiveLocationPanel.jsx"><rect x="80" y="644" width="420" height="223" fill="#ffffff" stroke="#c4cbd4" stroke-width="1.2"/><line x1="80" y1="699" x2="500" y2="699" stroke="#c4cbd4"/>
+<text x="94" y="667" font-family="Arial,sans-serif" font-size="16" fill="#2d3748">VetActiveLocationPanel</text>
+<text x="94" y="686" font-family="Arial,sans-serif" font-size="11.5" fill="#596579">«React component»</text>
+<text x="94" y="722" font-family="Consolas,monospace" font-size="12" fill="#2d3748">- branches: state</text>
+<text x="94" y="740" font-family="Consolas,monospace" font-size="12" fill="#2d3748">- selectedBranchId: state</text>
+<text x="94" y="758" font-family="Consolas,monospace" font-size="12" fill="#2d3748">- savedBranchId: state</text>
+<text x="94" y="776" font-family="Consolas,monospace" font-size="12" fill="#2d3748">+ VetActiveLocationPanel()</text>
+<text x="94" y="794" font-family="Consolas,monospace" font-size="12" fill="#2d3748">+ loadLocation()</text>
+<text x="94" y="812" font-family="Consolas,monospace" font-size="12" fill="#2d3748">+ saveLocation()</text>
+<text x="94" y="839" font-family="Arial,sans-serif" font-size="11.5" fill="#596579">src/components/VetrinarianComponents/VetActiveLocati</text>
+<text x="94" y="855" font-family="Arial,sans-serif" font-size="11.5" fill="#596579">  onPanel.jsx:15</text>
+</g>
+<g data-node="src/components/shared/ClinicAvailabilityCalendar.jsx"><rect x="80" y="925" width="420" height="223" fill="#ffffff" stroke="#c4cbd4" stroke-width="1.2"/><line x1="80" y1="980" x2="500" y2="980" stroke="#c4cbd4"/>
+<text x="94" y="948" font-family="Arial,sans-serif" font-size="16" fill="#2d3748">ClinicAvailabilityCalendar</text>
+<text x="94" y="967" font-family="Arial,sans-serif" font-size="11.5" fill="#596579">«React component»</text>
+<text x="94" y="1003" font-family="Consolas,monospace" font-size="12" fill="#2d3748">- service: state</text>
+<text x="94" y="1021" font-family="Consolas,monospace" font-size="12" fill="#2d3748">- month: state</text>
+<text x="94" y="1039" font-family="Consolas,monospace" font-size="12" fill="#2d3748">- selectedDate: state</text>
+<text x="94" y="1057" font-family="Consolas,monospace" font-size="12" fill="#2d3748">+ ClinicAvailabilityCalendar()</text>
+<text x="94" y="1075" font-family="Consolas,monospace" font-size="12" fill="#2d3748">+ handleMonthChange()</text>
+<text x="94" y="1093" font-family="Consolas,monospace" font-size="12" fill="#2d3748">+ handleBranchChange()</text>
+<text x="94" y="1120" font-family="Arial,sans-serif" font-size="11.5" fill="#596579">src/components/shared/ClinicAvailabilityCalendar.jsx</text>
+<text x="94" y="1136" font-family="Arial,sans-serif" font-size="11.5" fill="#596579">  :109</text>
+</g>
+<g data-node="src/components/shared/VetPresenceDisplay.jsx"><rect x="80" y="1206" width="420" height="117" fill="#ffffff" stroke="#c4cbd4" stroke-width="1.2"/><line x1="80" y1="1261" x2="500" y2="1261" stroke="#c4cbd4"/>
+<text x="94" y="1229" font-family="Arial,sans-serif" font-size="16" fill="#2d3748">VetPresenceDisplay</text>
+<text x="94" y="1248" font-family="Arial,sans-serif" font-size="11.5" fill="#596579">«React component»</text>
+<text x="94" y="1284" font-family="Consolas,monospace" font-size="12" fill="#2d3748">+ VetPresenceDisplay()</text>
+<text x="94" y="1311" font-family="Arial,sans-serif" font-size="11.5" fill="#596579">src/components/shared/VetPresenceDisplay.jsx:4</text>
+</g>
+<g data-node="src/components/shared/VetPresenceSign.jsx"><rect x="80" y="1381" width="420" height="171" fill="#ffffff" stroke="#c4cbd4" stroke-width="1.2"/><line x1="80" y1="1436" x2="500" y2="1436" stroke="#c4cbd4"/>
+<text x="94" y="1404" font-family="Arial,sans-serif" font-size="16" fill="#2d3748">VetPresenceSign</text>
+<text x="94" y="1423" font-family="Arial,sans-serif" font-size="11.5" fill="#596579">«React component»</text>
+<text x="94" y="1459" font-family="Consolas,monospace" font-size="12" fill="#2d3748">- presence: state</text>
+<text x="94" y="1477" font-family="Consolas,monospace" font-size="12" fill="#2d3748">- error: state</text>
+<text x="94" y="1495" font-family="Consolas,monospace" font-size="12" fill="#2d3748">- saving: state</text>
+<text x="94" y="1513" font-family="Consolas,monospace" font-size="12" fill="#2d3748">+ VetPresenceSign()</text>
+<text x="94" y="1540" font-family="Arial,sans-serif" font-size="11.5" fill="#596579">src/components/shared/VetPresenceSign.jsx:9</text>
+</g>
+<g data-node="src/services/branchService.js"><rect x="740" y="170" width="420" height="261" fill="#ffffff" stroke="#c4cbd4" stroke-width="1.2"/><line x1="740" y1="225" x2="1160" y2="225" stroke="#c4cbd4"/>
+<text x="754" y="193" font-family="Arial,sans-serif" font-size="16" fill="#2d3748">branchService</text>
+<text x="754" y="212" font-family="Arial,sans-serif" font-size="11.5" fill="#596579">«JS service module»</text>
+<text x="754" y="248" font-family="Consolas,monospace" font-size="12" fill="#2d3748">+ getVisibleBranchCode()</text>
+<text x="754" y="266" font-family="Consolas,monospace" font-size="12" fill="#2d3748">+ isVisibleBranch()</text>
+<text x="754" y="284" font-family="Consolas,monospace" font-size="12" fill="#2d3748">+ filterVisibleBranches()</text>
+<text x="754" y="302" font-family="Consolas,monospace" font-size="12" fill="#2d3748">+ normalizeVisibleBranchCode()</text>
+<text x="754" y="320" font-family="Consolas,monospace" font-size="12" fill="#2d3748">+ getBranchDisplayName()</text>
+<text x="754" y="338" font-family="Consolas,monospace" font-size="12" fill="#2d3748">+ fetchBranches()</text>
+<text x="754" y="356" font-family="Consolas,monospace" font-size="12" fill="#2d3748">+ fetchVeterinarianBranchSchedules()</text>
+<text x="754" y="374" font-family="Consolas,monospace" font-size="12" fill="#2d3748">+ saveVeterinarianBranchSchedule()</text>
+<text x="754" y="392" font-family="Consolas,monospace" font-size="12" fill="#2d3748">+ 1 more operations [source index]</text>
+<text x="754" y="419" font-family="Arial,sans-serif" font-size="11.5" fill="#596579">src/services/branchService.js:13</text>
+</g>
+<g data-node="src/services/vetBookingScheduleService.js"><rect x="740" y="489" width="420" height="135" fill="#ffffff" stroke="#c4cbd4" stroke-width="1.2"/><line x1="740" y1="544" x2="1160" y2="544" stroke="#c4cbd4"/>
+<text x="754" y="512" font-family="Arial,sans-serif" font-size="16" fill="#2d3748">vetBookingScheduleService</text>
+<text x="754" y="531" font-family="Arial,sans-serif" font-size="11.5" fill="#596579">«JS service module»</text>
+<text x="754" y="567" font-family="Consolas,monospace" font-size="12" fill="#2d3748">+ fetchVetBookingSchedule()</text>
+<text x="754" y="585" font-family="Consolas,monospace" font-size="12" fill="#2d3748">+ saveVetBookingSchedule()</text>
+<text x="754" y="612" font-family="Arial,sans-serif" font-size="11.5" fill="#596579">src/services/vetBookingScheduleService.js:3</text>
+</g>
+<g data-node="src/services/vetPresenceService.js"><rect x="740" y="682" width="420" height="135" fill="#ffffff" stroke="#c4cbd4" stroke-width="1.2"/><line x1="740" y1="737" x2="1160" y2="737" stroke="#c4cbd4"/>
+<text x="754" y="705" font-family="Arial,sans-serif" font-size="16" fill="#2d3748">vetPresenceService</text>
+<text x="754" y="724" font-family="Arial,sans-serif" font-size="11.5" fill="#596579">«JS service module»</text>
+<text x="754" y="760" font-family="Consolas,monospace" font-size="12" fill="#2d3748">+ fetchVetPresence()</text>
+<text x="754" y="778" font-family="Consolas,monospace" font-size="12" fill="#2d3748">+ updateVetPresence()</text>
+<text x="754" y="805" font-family="Arial,sans-serif" font-size="11.5" fill="#596579">src/services/vetPresenceService.js:3</text>
+</g>
+<g data-node="src/services/vetScheduleService.js"><rect x="740" y="875" width="420" height="135" fill="#ffffff" stroke="#c4cbd4" stroke-width="1.2"/><line x1="740" y1="930" x2="1160" y2="930" stroke="#c4cbd4"/>
+<text x="754" y="898" font-family="Arial,sans-serif" font-size="16" fill="#2d3748">vetScheduleService</text>
+<text x="754" y="917" font-family="Arial,sans-serif" font-size="11.5" fill="#596579">«JS service module»</text>
+<text x="754" y="953" font-family="Consolas,monospace" font-size="12" fill="#2d3748">+ fetchVetSchedules()</text>
+<text x="754" y="971" font-family="Consolas,monospace" font-size="12" fill="#2d3748">+ updateVetSchedules()</text>
+<text x="754" y="998" font-family="Arial,sans-serif" font-size="11.5" fill="#596579">src/services/vetScheduleService.js:3</text>
+</g>
+<g data-node="php/branch_helpers.php"><rect x="1400" y="170" width="440" height="290" fill="#ffffff" stroke="#c4cbd4" stroke-width="1.2"/><line x1="1400" y1="225" x2="1840" y2="225" stroke="#c4cbd4"/>
+<text x="1414" y="193" font-family="Arial,sans-serif" font-size="16" fill="#2d3748">BranchHelpers</text>
+<text x="1414" y="212" font-family="Arial,sans-serif" font-size="11.5" fill="#596579">«PHP module»</text>
+<text x="1414" y="248" font-family="Consolas,monospace" font-size="12" fill="#2d3748">+ branch_table_exists()</text>
+<text x="1414" y="266" font-family="Consolas,monospace" font-size="12" fill="#2d3748">+ branch_column_exists()</text>
+<text x="1414" y="284" font-family="Consolas,monospace" font-size="12" fill="#2d3748">+ branch_schema_ready()</text>
+<text x="1414" y="302" font-family="Consolas,monospace" font-size="12" fill="#2d3748">+ branch_visible_codes()</text>
+<text x="1414" y="320" font-family="Consolas,monospace" font-size="12" fill="#2d3748">+ branch_is_visible()</text>
+<text x="1414" y="338" font-family="Consolas,monospace" font-size="12" fill="#2d3748">+ branch_require_schema()</text>
+<text x="1414" y="356" font-family="Consolas,monospace" font-size="12" fill="#2d3748">+ branch_normalize_role()</text>
+<text x="1414" y="374" font-family="Consolas,monospace" font-size="12" fill="#2d3748">+ branch_main_id()</text>
+<text x="1414" y="392" font-family="Consolas,monospace" font-size="12" fill="#2d3748">+ 11 more operations [source index]</text>
+<text x="1414" y="448" font-family="Arial,sans-serif" font-size="11.5" fill="#596579">php/branch_helpers.php:3</text>
+</g>
+<g data-node="php/branches.php"><rect x="1400" y="518" width="440" height="117" fill="#ffffff" stroke="#c4cbd4" stroke-width="1.2"/><line x1="1400" y1="573" x2="1840" y2="573" stroke="#c4cbd4"/>
+<text x="1414" y="541" font-family="Arial,sans-serif" font-size="16" fill="#2d3748">Branches</text>
+<text x="1414" y="560" font-family="Arial,sans-serif" font-size="11.5" fill="#596579">«PHP module»</text>
+<text x="1414" y="596" font-family="Consolas,monospace" font-size="12" fill="#2d3748">HTTP script / module exports</text>
+<text x="1414" y="623" font-family="Arial,sans-serif" font-size="11.5" fill="#596579">php/branches.php:1</text>
+</g>
+<g data-node="php/get_vet_schedules.php"><rect x="1400" y="693" width="440" height="117" fill="#ffffff" stroke="#c4cbd4" stroke-width="1.2"/><line x1="1400" y1="748" x2="1840" y2="748" stroke="#c4cbd4"/>
+<text x="1414" y="716" font-family="Arial,sans-serif" font-size="16" fill="#2d3748">GetVetSchedules</text>
+<text x="1414" y="735" font-family="Arial,sans-serif" font-size="11.5" fill="#596579">«PHP module»</text>
+<text x="1414" y="771" font-family="Consolas,monospace" font-size="12" fill="#2d3748">HTTP script / module exports</text>
+<text x="1414" y="798" font-family="Arial,sans-serif" font-size="11.5" fill="#596579">php/get_vet_schedules.php:1</text>
+</g>
+<g data-node="php/update_booking_branch.php"><rect x="1400" y="868" width="440" height="202" fill="#ffffff" stroke="#c4cbd4" stroke-width="1.2"/><line x1="1400" y1="923" x2="1840" y2="923" stroke="#c4cbd4"/>
+<text x="1414" y="891" font-family="Arial,sans-serif" font-size="16" fill="#2d3748">UpdateBookingBranch</text>
+<text x="1414" y="910" font-family="Arial,sans-serif" font-size="11.5" fill="#596579">«PHP module»</text>
+<text x="1414" y="946" font-family="Consolas,monospace" font-size="12" fill="#2d3748">HTTP script / module exports</text>
+<text x="1414" y="1058" font-family="Arial,sans-serif" font-size="11.5" fill="#596579">php/update_booking_branch.php:1</text>
+</g>
+<g data-node="php/update_vet_schedule.php"><rect x="1400" y="1128" width="440" height="158" fill="#ffffff" stroke="#c4cbd4" stroke-width="1.2"/><line x1="1400" y1="1183" x2="1840" y2="1183" stroke="#c4cbd4"/>
+<text x="1414" y="1151" font-family="Arial,sans-serif" font-size="16" fill="#2d3748">UpdateVetSchedule</text>
+<text x="1414" y="1170" font-family="Arial,sans-serif" font-size="11.5" fill="#596579">«PHP module»</text>
+<text x="1414" y="1206" font-family="Consolas,monospace" font-size="12" fill="#2d3748">HTTP script / module exports</text>
+<text x="1414" y="1274" font-family="Arial,sans-serif" font-size="11.5" fill="#596579">php/update_vet_schedule.php:1</text>
+</g>
+<g data-node="php/vet_presence.php"><rect x="1400" y="1344" width="440" height="117" fill="#ffffff" stroke="#c4cbd4" stroke-width="1.2"/><line x1="1400" y1="1399" x2="1840" y2="1399" stroke="#c4cbd4"/>
+<text x="1414" y="1367" font-family="Arial,sans-serif" font-size="16" fill="#2d3748">VetPresence</text>
+<text x="1414" y="1386" font-family="Arial,sans-serif" font-size="11.5" fill="#596579">«PHP module»</text>
+<text x="1414" y="1422" font-family="Consolas,monospace" font-size="12" fill="#2d3748">HTTP script / module exports</text>
+<text x="1414" y="1449" font-family="Arial,sans-serif" font-size="11.5" fill="#596579">php/vet_presence.php:1</text>
+</g>
+<g data-node="php/vet_presence_helpers.php"><rect x="1400" y="1519" width="440" height="117" fill="#ffffff" stroke="#c4cbd4" stroke-width="1.2"/><line x1="1400" y1="1574" x2="1840" y2="1574" stroke="#c4cbd4"/>
+<text x="1414" y="1542" font-family="Arial,sans-serif" font-size="16" fill="#2d3748">VetPresenceHelpers</text>
+<text x="1414" y="1561" font-family="Arial,sans-serif" font-size="11.5" fill="#596579">«PHP module»</text>
+<text x="1414" y="1597" font-family="Consolas,monospace" font-size="12" fill="#2d3748">+ vet_presence_state()</text>
+<text x="1414" y="1624" font-family="Arial,sans-serif" font-size="11.5" fill="#596579">php/vet_presence_helpers.php:3</text>
+</g>
+<g data-node="src/services/statusDisplayService.js"><rect x="740" y="1068" width="420" height="117" fill="#f8fafc" stroke="#c4cbd4" stroke-width="1.2" stroke-dasharray="5 4"/><line x1="740" y1="1123" x2="1160" y2="1123" stroke="#c4cbd4"/>
+<text x="754" y="1091" font-family="Arial,sans-serif" font-size="16" fill="#2d3748">statusDisplayService</text>
+<text x="754" y="1110" font-family="Arial,sans-serif" font-size="11.5" fill="#596579">«JS service module» / page 11</text>
+<text x="754" y="1146" font-family="Consolas,monospace" font-size="12" fill="#2d3748">Definition / page 11</text>
+<text x="754" y="1173" font-family="Arial,sans-serif" font-size="11.5" fill="#596579">src/services/statusDisplayService.js:8</text>
+</g>
+<g data-node="src/services/profileService.js"><rect x="740" y="1243" width="420" height="117" fill="#f8fafc" stroke="#c4cbd4" stroke-width="1.2" stroke-dasharray="5 4"/><line x1="740" y1="1298" x2="1160" y2="1298" stroke="#c4cbd4"/>
+<text x="754" y="1266" font-family="Arial,sans-serif" font-size="16" fill="#2d3748">profileService</text>
+<text x="754" y="1285" font-family="Arial,sans-serif" font-size="11.5" fill="#596579">«JS service module» / page 15</text>
+<text x="754" y="1321" font-family="Consolas,monospace" font-size="12" fill="#2d3748">Definition / page 15</text>
+<text x="754" y="1348" font-family="Arial,sans-serif" font-size="11.5" fill="#596579">src/services/profileService.js:3</text>
+</g>
+<g data-node="src/services/bookingAvailabilityService.js"><rect x="740" y="1418" width="420" height="117" fill="#f8fafc" stroke="#c4cbd4" stroke-width="1.2" stroke-dasharray="5 4"/><line x1="740" y1="1473" x2="1160" y2="1473" stroke="#c4cbd4"/>
+<text x="754" y="1441" font-family="Arial,sans-serif" font-size="16" fill="#2d3748">bookingAvailabilityService</text>
+<text x="754" y="1460" font-family="Arial,sans-serif" font-size="11.5" fill="#596579">«JS service module» / page 22</text>
+<text x="754" y="1496" font-family="Consolas,monospace" font-size="12" fill="#2d3748">Definition / page 22</text>
+<text x="754" y="1523" font-family="Arial,sans-serif" font-size="11.5" fill="#596579">src/services/bookingAvailabilityService.js:3</text>
+</g>
+<g data-node="php/veterinarian_branch_schedules.php"><rect x="1400" y="1694" width="440" height="117" fill="#f8fafc" stroke="#c4cbd4" stroke-width="1.2" stroke-dasharray="5 4"/><line x1="1400" y1="1749" x2="1840" y2="1749" stroke="#c4cbd4"/>
+<text x="1414" y="1717" font-family="Arial,sans-serif" font-size="16" fill="#2d3748">VeterinarianBranchSchedules</text>
+<text x="1414" y="1736" font-family="Arial,sans-serif" font-size="11.5" fill="#596579">«PHP module» / page 18</text>
+<text x="1414" y="1772" font-family="Consolas,monospace" font-size="12" fill="#2d3748">Definition / page 18</text>
+<text x="1414" y="1799" font-family="Arial,sans-serif" font-size="11.5" fill="#596579">php/veterinarian_branch_schedules.php:9</text>
+</g>
+<g data-node="php/veterinarian_booking_schedule.php"><rect x="1400" y="1869" width="440" height="117" fill="#f8fafc" stroke="#c4cbd4" stroke-width="1.2" stroke-dasharray="5 4"/><line x1="1400" y1="1924" x2="1840" y2="1924" stroke="#c4cbd4"/>
+<text x="1414" y="1892" font-family="Arial,sans-serif" font-size="16" fill="#2d3748">VeterinarianBookingSchedule</text>
+<text x="1414" y="1911" font-family="Arial,sans-serif" font-size="11.5" fill="#596579">«PHP module» / page 18</text>
+<text x="1414" y="1947" font-family="Consolas,monospace" font-size="12" fill="#2d3748">Definition / page 18</text>
+<text x="1414" y="1974" font-family="Arial,sans-serif" font-size="11.5" fill="#596579">php/veterinarian_booking_schedule.php:11</text>
+</g>
+<g data-node="db:branches"><rect x="2080" y="170" width="440" height="135" fill="#f8fafc" stroke="#c4cbd4" stroke-width="1.2" stroke-dasharray="5 4"/><line x1="2080" y1="225" x2="2520" y2="225" stroke="#c4cbd4"/>
+<text x="2094" y="193" font-family="Arial,sans-serif" font-size="16" fill="#2d3748">Branch</text>
+<text x="2094" y="212" font-family="Arial,sans-serif" font-size="11.5" fill="#596579">«entity» branches</text>
+<text x="2094" y="248" font-family="Consolas,monospace" font-size="12" fill="#2d3748">+ branch_id: int [PK]</text>
+<text x="2094" y="266" font-family="Consolas,monospace" font-size="12" fill="#2d3748">Full SQL attributes / DB page 02</text>
+<text x="2094" y="293" font-family="Arial,sans-serif" font-size="11.5" fill="#596579">iPawcus_ERD_Schema.sql</text>
+</g>
+<g data-node="db:user_branch_assignments"><rect x="2080" y="363" width="440" height="135" fill="#f8fafc" stroke="#c4cbd4" stroke-width="1.2" stroke-dasharray="5 4"/><line x1="2080" y1="418" x2="2520" y2="418" stroke="#c4cbd4"/>
+<text x="2094" y="386" font-family="Arial,sans-serif" font-size="16" fill="#2d3748">UserBranchAssignment</text>
+<text x="2094" y="405" font-family="Arial,sans-serif" font-size="11.5" fill="#596579">«entity» user_branch_assignments</text>
+<text x="2094" y="441" font-family="Consolas,monospace" font-size="12" fill="#2d3748">+ user_branch_assignment_id: int [PK]</text>
+<text x="2094" y="459" font-family="Consolas,monospace" font-size="12" fill="#2d3748">Full SQL attributes / DB page 02</text>
+<text x="2094" y="486" font-family="Arial,sans-serif" font-size="11.5" fill="#596579">iPawcus_ERD_Schema.sql</text>
+</g>
+<g data-node="db:users"><rect x="2080" y="556" width="440" height="135" fill="#f8fafc" stroke="#c4cbd4" stroke-width="1.2" stroke-dasharray="5 4"/><line x1="2080" y1="611" x2="2520" y2="611" stroke="#c4cbd4"/>
+<text x="2094" y="579" font-family="Arial,sans-serif" font-size="16" fill="#2d3748">User</text>
+<text x="2094" y="598" font-family="Arial,sans-serif" font-size="11.5" fill="#596579">«entity» users</text>
+<text x="2094" y="634" font-family="Consolas,monospace" font-size="12" fill="#2d3748">+ user_id: int [PK]</text>
+<text x="2094" y="652" font-family="Consolas,monospace" font-size="12" fill="#2d3748">Full SQL attributes / DB page 01</text>
+<text x="2094" y="679" font-family="Arial,sans-serif" font-size="11.5" fill="#596579">iPawcus_ERD_Schema.sql</text>
+</g>
+<g data-node="db:veterinarian_profiles"><rect x="2080" y="749" width="440" height="135" fill="#f8fafc" stroke="#c4cbd4" stroke-width="1.2" stroke-dasharray="5 4"/><line x1="2080" y1="804" x2="2520" y2="804" stroke="#c4cbd4"/>
+<text x="2094" y="772" font-family="Arial,sans-serif" font-size="16" fill="#2d3748">VeterinarianProfile</text>
+<text x="2094" y="791" font-family="Arial,sans-serif" font-size="11.5" fill="#596579">«entity» veterinarian_profiles</text>
+<text x="2094" y="827" font-family="Consolas,monospace" font-size="12" fill="#2d3748">+ id: int [PK]</text>
+<text x="2094" y="845" font-family="Consolas,monospace" font-size="12" fill="#2d3748">Full SQL attributes / DB page 01</text>
+<text x="2094" y="872" font-family="Arial,sans-serif" font-size="11.5" fill="#596579">iPawcus_ERD_Schema.sql</text>
+</g>
+<g data-node="db:branch_closures"><rect x="2080" y="942" width="440" height="135" fill="#f8fafc" stroke="#c4cbd4" stroke-width="1.2" stroke-dasharray="5 4"/><line x1="2080" y1="997" x2="2520" y2="997" stroke="#c4cbd4"/>
+<text x="2094" y="965" font-family="Arial,sans-serif" font-size="16" fill="#2d3748">BranchClosure</text>
+<text x="2094" y="984" font-family="Arial,sans-serif" font-size="11.5" fill="#596579">«entity» branch_closures</text>
+<text x="2094" y="1020" font-family="Consolas,monospace" font-size="12" fill="#2d3748">+ closure_id: int [PK]</text>
+<text x="2094" y="1038" font-family="Consolas,monospace" font-size="12" fill="#2d3748">Full SQL attributes / DB page 02</text>
+<text x="2094" y="1065" font-family="Arial,sans-serif" font-size="11.5" fill="#596579">iPawcus_ERD_Schema.sql</text>
+</g>
+<g data-node="db:branch_operating_hours"><rect x="2080" y="1135" width="440" height="135" fill="#f8fafc" stroke="#c4cbd4" stroke-width="1.2" stroke-dasharray="5 4"/><line x1="2080" y1="1190" x2="2520" y2="1190" stroke="#c4cbd4"/>
+<text x="2094" y="1158" font-family="Arial,sans-serif" font-size="16" fill="#2d3748">BranchOperatingHour</text>
+<text x="2094" y="1177" font-family="Arial,sans-serif" font-size="11.5" fill="#596579">«entity» branch_operating_hours</text>
+<text x="2094" y="1213" font-family="Consolas,monospace" font-size="12" fill="#2d3748">+ operating_hour_id: int [PK]</text>
+<text x="2094" y="1231" font-family="Consolas,monospace" font-size="12" fill="#2d3748">Full SQL attributes / DB page 02</text>
+<text x="2094" y="1258" font-family="Arial,sans-serif" font-size="11.5" fill="#596579">iPawcus_ERD_Schema.sql</text>
+</g>
+<g data-node="db:veterinarian_branch_schedules"><rect x="2080" y="1328" width="440" height="135" fill="#f8fafc" stroke="#c4cbd4" stroke-width="1.2" stroke-dasharray="5 4"/><line x1="2080" y1="1383" x2="2520" y2="1383" stroke="#c4cbd4"/>
+<text x="2094" y="1351" font-family="Arial,sans-serif" font-size="16" fill="#2d3748">LegacyVetClinicVisit</text>
+<text x="2094" y="1370" font-family="Arial,sans-serif" font-size="11.5" fill="#596579">«entity» veterinarian_branch_schedules</text>
+<text x="2094" y="1406" font-family="Consolas,monospace" font-size="12" fill="#2d3748">+ visit_schedule_id: int [PK]</text>
+<text x="2094" y="1424" font-family="Consolas,monospace" font-size="12" fill="#2d3748">Full SQL attributes / DB page 02</text>
+<text x="2094" y="1451" font-family="Arial,sans-serif" font-size="11.5" fill="#596579">iPawcus_ERD_Schema.sql</text>
+</g>
+<g data-node="db:branch_service_availability"><rect x="2080" y="1521" width="440" height="135" fill="#f8fafc" stroke="#c4cbd4" stroke-width="1.2" stroke-dasharray="5 4"/><line x1="2080" y1="1576" x2="2520" y2="1576" stroke="#c4cbd4"/>
+<text x="2094" y="1544" font-family="Arial,sans-serif" font-size="16" fill="#2d3748">BranchServiceAvailability</text>
+<text x="2094" y="1563" font-family="Arial,sans-serif" font-size="11.5" fill="#596579">«entity» branch_service_availability</text>
+<text x="2094" y="1599" font-family="Consolas,monospace" font-size="12" fill="#2d3748">+ branch_service_id: int [PK]</text>
+<text x="2094" y="1617" font-family="Consolas,monospace" font-size="12" fill="#2d3748">Full SQL attributes / DB page 02</text>
+<text x="2094" y="1644" font-family="Arial,sans-serif" font-size="11.5" fill="#596579">iPawcus_ERD_Schema.sql</text>
+</g>
+<g data-node="db:vet_schedules"><rect x="2080" y="1714" width="440" height="135" fill="#f8fafc" stroke="#c4cbd4" stroke-width="1.2" stroke-dasharray="5 4"/><line x1="2080" y1="1769" x2="2520" y2="1769" stroke="#c4cbd4"/>
+<text x="2094" y="1737" font-family="Arial,sans-serif" font-size="16" fill="#2d3748">OnlineVetSchedule</text>
+<text x="2094" y="1756" font-family="Arial,sans-serif" font-size="11.5" fill="#596579">«entity» vet_schedules</text>
+<text x="2094" y="1792" font-family="Consolas,monospace" font-size="12" fill="#2d3748">+ schedule_id: int [PK]</text>
+<text x="2094" y="1810" font-family="Consolas,monospace" font-size="12" fill="#2d3748">Full SQL attributes / DB page 02</text>
+<text x="2094" y="1837" font-family="Arial,sans-serif" font-size="11.5" fill="#596579">iPawcus_ERD_Schema.sql</text>
+</g>
+<g data-node="php/notification_helpers.php"><rect x="1400" y="2044" width="440" height="117" fill="#f8fafc" stroke="#c4cbd4" stroke-width="1.2" stroke-dasharray="5 4"/><line x1="1400" y1="2099" x2="1840" y2="2099" stroke="#c4cbd4"/>
+<text x="1414" y="2067" font-family="Arial,sans-serif" font-size="16" fill="#2d3748">NotificationHelpers</text>
+<text x="1414" y="2086" font-family="Arial,sans-serif" font-size="11.5" fill="#596579">«PHP module» / page 38</text>
+<text x="1414" y="2122" font-family="Consolas,monospace" font-size="12" fill="#2d3748">Definition / page 38</text>
+<text x="1414" y="2149" font-family="Arial,sans-serif" font-size="11.5" fill="#596579">php/notification_helpers.php:10</text>
+</g>
+<g data-node="php/booking_slot_helpers.php"><rect x="1400" y="2219" width="440" height="117" fill="#f8fafc" stroke="#c4cbd4" stroke-width="1.2" stroke-dasharray="5 4"/><line x1="1400" y1="2274" x2="1840" y2="2274" stroke="#c4cbd4"/>
+<text x="1414" y="2242" font-family="Arial,sans-serif" font-size="16" fill="#2d3748">BookingSlotHelpers</text>
+<text x="1414" y="2261" font-family="Arial,sans-serif" font-size="11.5" fill="#596579">«PHP module» / page 23</text>
+<text x="1414" y="2297" font-family="Consolas,monospace" font-size="12" fill="#2d3748">Definition / page 23</text>
+<text x="1414" y="2324" font-family="Arial,sans-serif" font-size="11.5" fill="#596579">php/booking_slot_helpers.php:13</text>
+</g>
+<g data-node="db:bookings"><rect x="2080" y="1907" width="440" height="135" fill="#f8fafc" stroke="#c4cbd4" stroke-width="1.2" stroke-dasharray="5 4"/><line x1="2080" y1="1962" x2="2520" y2="1962" stroke="#c4cbd4"/>
+<text x="2094" y="1930" font-family="Arial,sans-serif" font-size="16" fill="#2d3748">Booking</text>
+<text x="2094" y="1949" font-family="Arial,sans-serif" font-size="11.5" fill="#596579">«entity» bookings</text>
+<text x="2094" y="1985" font-family="Consolas,monospace" font-size="12" fill="#2d3748">+ booking_id: int [PK]</text>
+<text x="2094" y="2003" font-family="Consolas,monospace" font-size="12" fill="#2d3748">Full SQL attributes / DB page 04</text>
+<text x="2094" y="2030" font-family="Arial,sans-serif" font-size="11.5" fill="#596579">iPawcus_ERD_Schema.sql</text>
+</g>
+<g data-node="db:queues"><rect x="2080" y="2100" width="440" height="135" fill="#f8fafc" stroke="#c4cbd4" stroke-width="1.2" stroke-dasharray="5 4"/><line x1="2080" y1="2155" x2="2520" y2="2155" stroke="#c4cbd4"/>
+<text x="2094" y="2123" font-family="Arial,sans-serif" font-size="16" fill="#2d3748">Queue</text>
+<text x="2094" y="2142" font-family="Arial,sans-serif" font-size="11.5" fill="#596579">«entity» queues</text>
+<text x="2094" y="2178" font-family="Consolas,monospace" font-size="12" fill="#2d3748">+ queue_id: int [PK]</text>
+<text x="2094" y="2196" font-family="Consolas,monospace" font-size="12" fill="#2d3748">Full SQL attributes / DB page 04</text>
+<text x="2094" y="2223" font-family="Arial,sans-serif" font-size="11.5" fill="#596579">iPawcus_ERD_Schema.sql</text>
+</g>
+<g data-node="db:booking_branch_transfers"><rect x="2080" y="2293" width="440" height="135" fill="#f8fafc" stroke="#c4cbd4" stroke-width="1.2" stroke-dasharray="5 4"/><line x1="2080" y1="2348" x2="2520" y2="2348" stroke="#c4cbd4"/>
+<text x="2094" y="2316" font-family="Arial,sans-serif" font-size="16" fill="#2d3748">BookingBranchTransfer</text>
+<text x="2094" y="2335" font-family="Arial,sans-serif" font-size="11.5" fill="#596579">«entity» booking_branch_transfers</text>
+<text x="2094" y="2371" font-family="Consolas,monospace" font-size="12" fill="#2d3748">+ transfer_id: int [PK]</text>
+<text x="2094" y="2389" font-family="Consolas,monospace" font-size="12" fill="#2d3748">Full SQL attributes / DB page 04</text>
+<text x="2094" y="2416" font-family="Arial,sans-serif" font-size="11.5" fill="#596579">iPawcus_ERD_Schema.sql</text>
+</g>
+<g data-node="db:service_display_settings"><rect x="2080" y="2486" width="440" height="135" fill="#f8fafc" stroke="#c4cbd4" stroke-width="1.2" stroke-dasharray="5 4"/><line x1="2080" y1="2541" x2="2520" y2="2541" stroke="#c4cbd4"/>
+<text x="2094" y="2509" font-family="Arial,sans-serif" font-size="16" fill="#2d3748">ServiceDisplaySetting</text>
+<text x="2094" y="2528" font-family="Arial,sans-serif" font-size="11.5" fill="#596579">«entity» service_display_settings</text>
+<text x="2094" y="2564" font-family="Consolas,monospace" font-size="12" fill="#2d3748">+ settings_key: varchar [PK]</text>
+<text x="2094" y="2582" font-family="Consolas,monospace" font-size="12" fill="#2d3748">Full SQL attributes / DB page 08</text>
+<text x="2094" y="2609" font-family="Arial,sans-serif" font-size="11.5" fill="#596579">iPawcus_ERD_Schema.sql</text>
+</g>
+<text x="512" y="204" font-family="Consolas,monospace" font-size="11.5" fill="#596579">uses</text>
+<text x="512" y="449" font-family="Consolas,monospace" font-size="11.5" fill="#596579">uses</text>
+<text x="512" y="471" font-family="Consolas,monospace" font-size="11.5" fill="#596579">uses</text>
+<text x="512" y="678" font-family="Consolas,monospace" font-size="11.5" fill="#596579">uses</text>
+<text x="512" y="700" font-family="Consolas,monospace" font-size="11.5" fill="#596579">uses</text>
+<text x="512" y="959" font-family="Consolas,monospace" font-size="11.5" fill="#596579">uses</text>
+<text x="512" y="1415" font-family="Consolas,monospace" font-size="11.5" fill="#596579">uses</text>
+<text x="1172" y="204" font-family="Consolas,monospace" font-size="11.5" fill="#596579">HTTP</text>
+<text x="1172" y="226" font-family="Consolas,monospace" font-size="11.5" fill="#596579">HTTP</text>
+<text x="1172" y="248" font-family="Consolas,monospace" font-size="11.5" fill="#596579">HTTP</text>
+<text x="1172" y="523" font-family="Consolas,monospace" font-size="11.5" fill="#596579">HTTP</text>
+<text x="1172" y="716" font-family="Consolas,monospace" font-size="11.5" fill="#596579">HTTP</text>
+<text x="1172" y="909" font-family="Consolas,monospace" font-size="11.5" fill="#596579">HTTP</text>
+<text x="1172" y="931" font-family="Consolas,monospace" font-size="11.5" fill="#596579">HTTP</text>
+<text x="1852" y="204" font-family="Consolas,monospace" font-size="11.5" fill="#596579">SQL</text>
+<text x="1852" y="226" font-family="Consolas,monospace" font-size="11.5" fill="#596579">SQL</text>
+<text x="1852" y="248" font-family="Consolas,monospace" font-size="11.5" fill="#596579">SQL</text>
+<text x="1852" y="270" font-family="Consolas,monospace" font-size="11.5" fill="#596579">SQL</text>
+<text x="1852" y="292" font-family="Consolas,monospace" font-size="11.5" fill="#596579">SQL</text>
+<text x="1852" y="314" font-family="Consolas,monospace" font-size="11.5" fill="#596579">SQL</text>
+<text x="1852" y="336" font-family="Consolas,monospace" font-size="11.5" fill="#596579">SQL</text>
+<text x="1852" y="358" font-family="Consolas,monospace" font-size="11.5" fill="#596579">SQL</text>
+<text x="1852" y="552" font-family="Consolas,monospace" font-size="11.5" fill="#596579">includes</text>
+<text x="1852" y="727" font-family="Consolas,monospace" font-size="11.5" fill="#596579">SQL</text>
+<text x="1852" y="902" font-family="Consolas,monospace" font-size="11.5" fill="#596579">includes</text>
+<text x="1852" y="924" font-family="Consolas,monospace" font-size="11.5" fill="#596579">includes</text>
+<text x="1852" y="946" font-family="Consolas,monospace" font-size="11.5" fill="#596579">includes</text>
+<text x="1852" y="968" font-family="Consolas,monospace" font-size="11.5" fill="#596579">SQL</text>
+<text x="1852" y="990" font-family="Consolas,monospace" font-size="11.5" fill="#596579">SQL</text>
+<text x="1852" y="1012" font-family="Consolas,monospace" font-size="11.5" fill="#596579">SQL</text>
+<text x="1852" y="1162" font-family="Consolas,monospace" font-size="11.5" fill="#596579">includes</text>
+<text x="1852" y="1184" font-family="Consolas,monospace" font-size="11.5" fill="#596579">includes</text>
+<text x="1852" y="1206" font-family="Consolas,monospace" font-size="11.5" fill="#596579">SQL</text>
+<text x="1852" y="1228" font-family="Consolas,monospace" font-size="11.5" fill="#596579">SQL</text>
+<text x="1852" y="1378" font-family="Consolas,monospace" font-size="11.5" fill="#596579">includes</text>
+<text x="1852" y="1400" font-family="Consolas,monospace" font-size="11.5" fill="#596579">SQL</text>
+</svg>

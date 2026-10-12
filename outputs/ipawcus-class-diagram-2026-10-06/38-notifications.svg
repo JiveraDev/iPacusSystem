@@ -1,0 +1,511 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="2600" height="4621" viewBox="0 0 2600 4621" role="img" aria-labelledby="title desc">
+<title id="title">iPawcus / Notifications, push, TODOs and reminders</title>
+<desc id="desc">Application modules and verified database references. Original SQL entity definitions are on pages 01 to 09. Dashed dependencies are not foreign keys.</desc>
+<defs><marker id="arrow" markerWidth="9" markerHeight="9" refX="8" refY="4.5" orient="auto" markerUnits="userSpaceOnUse"><path d="M0 0 L8 4.5 L0 9" fill="none" stroke="#8793a3" stroke-width="1.2"/></marker><marker id="inheritance" markerWidth="11" markerHeight="11" refX="10" refY="5" orient="auto" markerUnits="userSpaceOnUse"><path d="M0 0 L10 5 L0 10 Z" fill="#ffffff" stroke="#8793a3" stroke-width="1.2"/></marker></defs>
+<rect width="100%" height="100%" fill="#ffffff"/>
+<text x="80" y="44" font-family="Arial,sans-serif" font-size="25" fill="#2d3748">iPawcus / Notifications, push, TODOs and reminders</text>
+<text x="80" y="73" font-family="Arial,sans-serif" font-size="14" fill="#596579">React / service / PHP / entity reference · arrows show source-code dependencies; no invented OO inheritance.</text>
+<text x="80" y="100" font-family="Arial,sans-serif" font-size="13" fill="#596579">Dashed: dependency. Solid: migration FK or real class inheritance. Full source evidence accompanies detailed links.</text>
+<text x="80" y="143" font-family="Arial,sans-serif" font-size="14" fill="#596579">UI and system views</text>
+<text x="740" y="143" font-family="Arial,sans-serif" font-size="14" fill="#596579">JavaScript services</text>
+<text x="1400" y="143" font-family="Arial,sans-serif" font-size="14" fill="#596579">PHP backend modules</text>
+<text x="2080" y="143" font-family="Arial,sans-serif" font-size="14" fill="#596579">Database references</text>
+<path d="M500 210 L610 210 L610 794 L740 794" fill="none" stroke="#8793a3" stroke-width="1.2" stroke-dasharray="5 4" marker-end="url(#arrow)"><title>src/components/PetOwnerDashboard/Todos.jsx → src/services/todoService.js / uses</title></path>
+<path d="M500 232 L630 232 L630 1023 L740 1023" fill="none" stroke="#8793a3" stroke-width="1.2" stroke-dasharray="5 4" marker-end="url(#arrow)"><title>src/components/PetOwnerDashboard/Todos.jsx → src/services/prescriptionService.js / uses</title></path>
+<path d="M500 583 L610 583 L610 582 L545 582 L545 210 L740 210" fill="none" stroke="#8793a3" stroke-width="1.2" stroke-dasharray="5 4" marker-end="url(#arrow)"><title>src/components/shared/BrowserNotificationButton.jsx → src/services/notificationService.js / uses</title></path>
+<path d="M500 605 L630 605 L630 529 L740 529" fill="none" stroke="#8793a3" stroke-width="1.2" stroke-dasharray="5 4" marker-end="url(#arrow)"><title>src/components/shared/BrowserNotificationButton.jsx → src/services/pushNotificationService.js / uses</title></path>
+<path d="M500 1250 L718 1250 L718 231 L630 231 L630 232 L740 232" fill="none" stroke="#8793a3" stroke-width="1.2" stroke-dasharray="5 4" marker-end="url(#arrow)"><title>src/components/shared/NotificationPreferencesCard.jsx → src/services/notificationService.js / uses</title></path>
+<path d="M500 1272 L610 1272 L610 794 L545 794 L545 551 L740 551" fill="none" stroke="#8793a3" stroke-width="1.2" stroke-dasharray="5 4" marker-end="url(#arrow)"><title>src/components/shared/NotificationPreferencesCard.jsx → src/services/pushNotificationService.js / uses</title></path>
+<path d="M1160 210 L1270 210 L1270 1462 L1400 1462" fill="none" stroke="#8793a3" stroke-width="1.2" stroke-dasharray="5 4" marker-end="url(#arrow)"><title>src/services/notificationService.js → php/notifications.php / HTTP</title></path>
+<path d="M1160 529 L1290 529 L1290 232 L1160 232" fill="none" stroke="#8793a3" stroke-width="1.2" stroke-dasharray="5 4" marker-end="url(#arrow)"><title>src/services/pushNotificationService.js → src/services/notificationService.js / uses</title></path>
+<path d="M1160 794 L1290 794 L1290 1763 L1400 1763" fill="none" stroke="#8793a3" stroke-width="1.2" stroke-dasharray="5 4" marker-end="url(#arrow)"><title>src/services/todoService.js → php/pet_owner_todos.php / HTTP</title></path>
+<path d="M1840 210 L2080 210" fill="none" stroke="#8793a3" stroke-width="1.2" stroke-dasharray="5 4" marker-end="url(#arrow)"><title>php/mail_helpers.php → db:mail_queue / SQL</title></path>
+<path d="M1840 232 L1950 232 L1950 403 L2080 403" fill="none" stroke="#8793a3" stroke-width="1.2" stroke-dasharray="5 4" marker-end="url(#arrow)"><title>php/mail_helpers.php → db:user_notifications / SQL</title></path>
+<path d="M1840 529 L1950 529 L1950 254 L1840 254" fill="none" stroke="#8793a3" stroke-width="1.2" stroke-dasharray="5 4" marker-end="url(#arrow)"><title>php/mail_queue_worker.php → php/mail_helpers.php / includes</title></path>
+<path d="M1840 551 L1950 551 L1950 740 L1840 740" fill="none" stroke="#8793a3" stroke-width="1.2" stroke-dasharray="5 4" marker-end="url(#arrow)"><title>php/mail_queue_worker.php → php/notification_helpers.php / includes</title></path>
+<path d="M1840 762 L1970 762 L1970 276 L1840 276" fill="none" stroke="#8793a3" stroke-width="1.2" stroke-dasharray="5 4" marker-end="url(#arrow)"><title>php/notification_helpers.php → php/mail_helpers.php / includes</title></path>
+<path d="M1840 784 L1950 784 L1950 2484 L1840 2484" fill="none" stroke="#8793a3" stroke-width="1.2" stroke-dasharray="5 4" marker-end="url(#arrow)"><title>php/notification_helpers.php → php/reference_number_helpers.php / includes</title></path>
+<path d="M1840 806 L1970 806 L1970 2659 L1840 2659" fill="none" stroke="#8793a3" stroke-width="1.2" stroke-dasharray="5 4" marker-end="url(#arrow)"><title>php/notification_helpers.php → php/branch_helpers.php / includes</title></path>
+<path d="M1840 828 L1950 828 L1950 831 L1913 831 L1913 2772 L1950 2772 L1950 2834 L1840 2834" fill="none" stroke="#8793a3" stroke-width="1.2" stroke-dasharray="5 4" marker-end="url(#arrow)"><title>php/notification_helpers.php → php/runtime_media.php / includes</title></path>
+<path d="M1840 850 L1950 850 L1950 849 L1913 849 L1913 596 L2080 596" fill="none" stroke="#8793a3" stroke-width="1.2" stroke-dasharray="5 4" marker-end="url(#arrow)"><title>php/notification_helpers.php → db:notification_preferences / SQL</title></path>
+<path d="M1840 872 L1970 872 L1970 789 L2080 789" fill="none" stroke="#8793a3" stroke-width="1.2" stroke-dasharray="5 4" marker-end="url(#arrow)"><title>php/notification_helpers.php → db:users / SQL</title></path>
+<path d="M1840 894 L2058 894 L2058 447 L1970 447 L1970 425 L2080 425" fill="none" stroke="#8793a3" stroke-width="1.2" stroke-dasharray="5 4" marker-end="url(#arrow)"><title>php/notification_helpers.php → db:user_notifications / SQL</title></path>
+<path d="M1840 916 L1950 916 L1950 919 L1878 919 L1878 982 L2080 982" fill="none" stroke="#8793a3" stroke-width="1.2" stroke-dasharray="5 4" marker-end="url(#arrow)"><title>php/notification_helpers.php → db:notification_push_subscriptions / SQL</title></path>
+<path d="M1840 938 L2058 938 L2058 1174 L1970 1174 L1970 1175 L2080 1175" fill="none" stroke="#8793a3" stroke-width="1.2" stroke-dasharray="5 4" marker-end="url(#arrow)"><title>php/notification_helpers.php → db:bookings / SQL</title></path>
+<path d="M1840 960 L1950 960 L1950 981 L1878 981 L1878 1368 L2080 1368" fill="none" stroke="#8793a3" stroke-width="1.2" stroke-dasharray="5 4" marker-end="url(#arrow)"><title>php/notification_helpers.php → db:pets_information / SQL</title></path>
+<path d="M1840 982 L2058 982 L2058 1553 L1970 1553 L1970 1561 L2080 1561" fill="none" stroke="#8793a3" stroke-width="1.2" stroke-dasharray="5 4" marker-end="url(#arrow)"><title>php/notification_helpers.php → db:visit_payment_refunds / SQL</title></path>
+<path d="M1840 1004 L1950 1004 L1950 1099 L2542 1099 L2542 1692 L1970 1692 L1970 1754 L2080 1754" fill="none" stroke="#8793a3" stroke-width="1.2" stroke-dasharray="5 4" marker-end="url(#arrow)"><title>php/notification_helpers.php → db:visits / SQL</title></path>
+<path d="M1840 1026 L1970 1026 L1970 1113 L2570 1113 L2570 1885 L2058 1885 L2058 1942 L1970 1942 L1970 1947 L2080 1947" fill="none" stroke="#8793a3" stroke-width="1.2" stroke-dasharray="5 4" marker-end="url(#arrow)"><title>php/notification_helpers.php → db:visit_charges / SQL</title></path>
+<path d="M1840 1048 L1950 1048 L1950 1051 L1913 1051 L1913 1461 L1878 1461 L1878 1744 L1913 1744 L1913 1784 L1878 1784 L1878 2140 L2080 2140" fill="none" stroke="#8793a3" stroke-width="1.2" stroke-dasharray="5 4" marker-end="url(#arrow)"><title>php/notification_helpers.php → db:visit_payments / SQL</title></path>
+<path d="M1840 1070 L1950 1070 L1950 1550 L2058 1550 L2058 2331 L1970 2331 L1970 2333 L2080 2333" fill="none" stroke="#8793a3" stroke-width="1.2" stroke-dasharray="5 4" marker-end="url(#arrow)"><title>php/notification_helpers.php → db:pet_owner_todos / SQL</title></path>
+<path d="M1840 1092 L1950 1092 L1950 1095 L1878 1095 L1878 1400 L1378 1400 L1378 2422 L1878 2422 L1878 2526 L2080 2526" fill="none" stroke="#8793a3" stroke-width="1.2" stroke-dasharray="5 4" marker-end="url(#arrow)"><title>php/notification_helpers.php → db:prescription_occurrences / SQL</title></path>
+<path d="M1840 1114 L1970 1114 L1970 1311 L1862 1311 L1862 1390 L1270 1390 L1270 2597 L1950 2597 L1950 2719 L2080 2719" fill="none" stroke="#8793a3" stroke-width="1.2" stroke-dasharray="5 4" marker-end="url(#arrow)"><title>php/notification_helpers.php → db:prescription_items / SQL</title></path>
+<path d="M1840 1136 L2058 1136 L2058 1386 L1205 1386 L1205 2758 L1970 2758 L1970 2912 L2080 2912" fill="none" stroke="#8793a3" stroke-width="1.2" stroke-dasharray="5 4" marker-end="url(#arrow)"><title>php/notification_helpers.php → db:prescription_plans / SQL</title></path>
+<path d="M1840 1158 L1950 1158 L1950 1312 L1862 1312 L1862 1400 L1182 1400 L1182 2947 L1970 2947 L1970 3105 L2080 3105" fill="none" stroke="#8793a3" stroke-width="1.2" stroke-dasharray="5 4" marker-end="url(#arrow)"><title>php/notification_helpers.php → db:vet_diagnoses / SQL</title></path>
+<path d="M1840 1180 L1970 1180 L1970 1390 L1169 1390 L1169 3298 L2080 3298" fill="none" stroke="#8793a3" stroke-width="1.2" stroke-dasharray="5 4" marker-end="url(#arrow)"><title>php/notification_helpers.php → db:queues / SQL</title></path>
+<path d="M1840 1202 L2058 1202 L2058 1292 L2542 1292 L2542 3429 L1970 3429 L1970 3491 L2080 3491" fill="none" stroke="#8793a3" stroke-width="1.2" stroke-dasharray="5 4" marker-end="url(#arrow)"><title>php/notification_helpers.php → db:pet_ownership / SQL</title></path>
+<path d="M1840 1224 L1950 1224 L1950 1227 L1913 1227 L1913 1593 L1862 1593 L1862 1701 L1290 1701 L1290 3684 L2080 3684" fill="none" stroke="#8793a3" stroke-width="1.2" stroke-dasharray="5 4" marker-end="url(#arrow)"><title>php/notification_helpers.php → db:online_consultations / SQL</title></path>
+<path d="M1840 1246 L1950 1246 L1950 1249 L1878 1249 L1878 1289 L1862 1289 L1862 1293 L2570 1293 L2570 3815 L1970 3815 L1970 3877 L2080 3877" fill="none" stroke="#8793a3" stroke-width="1.2" stroke-dasharray="5 4" marker-end="url(#arrow)"><title>php/notification_helpers.php → db:boarding_tasks / SQL</title></path>
+<path d="M1840 1268 L1950 1268 L1950 1289 L1878 1289 L1878 1386 L718 1386 L718 4070 L2080 4070" fill="none" stroke="#8793a3" stroke-width="1.2" stroke-dasharray="5 4" marker-end="url(#arrow)"><title>php/notification_helpers.php → db:branches / SQL</title></path>
+<path d="M1840 1290 L1950 1290 L1950 1334 L1862 1334 L1862 1386 L1378 1386 L1378 1443 L630 1443 L630 4263 L2080 4263" fill="none" stroke="#8793a3" stroke-width="1.2" stroke-dasharray="5 4" marker-end="url(#arrow)"><title>php/notification_helpers.php → db:pet_record_update_requests / SQL</title></path>
+<path d="M1840 1312 L1970 1312 L1970 1553 L1950 1553 L1950 2137 L1878 2137 L1878 2312 L1913 2312 L1913 2330 L1862 2330 L1862 4456 L2080 4456" fill="none" stroke="#8793a3" stroke-width="1.2" stroke-dasharray="5 4" marker-end="url(#arrow)"><title>php/notification_helpers.php → db:visit_invoice_documents / SQL</title></path>
+<path d="M1840 1462 L1950 1462 L1950 1334 L1840 1334" fill="none" stroke="#8793a3" stroke-width="1.2" stroke-dasharray="5 4" marker-end="url(#arrow)"><title>php/notifications.php → php/notification_helpers.php / includes</title></path>
+<path d="M1840 1484 L2058 1484 L2058 1271 L1862 1271 L1862 1267 L1878 1267 L1878 1197 L2080 1197" fill="none" stroke="#8793a3" stroke-width="1.2" stroke-dasharray="5 4" marker-end="url(#arrow)"><title>php/notifications.php → db:bookings / SQL</title></path>
+<path d="M1840 1506 L2058 1506 L2058 3298 L1970 3298 L1970 3320 L2080 3320" fill="none" stroke="#8793a3" stroke-width="1.2" stroke-dasharray="5 4" marker-end="url(#arrow)"><title>php/notifications.php → db:queues / SQL</title></path>
+<path d="M1840 1528 L1970 1528 L1970 2331 L1878 2331 L1878 3127 L2080 3127" fill="none" stroke="#8793a3" stroke-width="1.2" stroke-dasharray="5 4" marker-end="url(#arrow)"><title>php/notifications.php → db:vet_diagnoses / SQL</title></path>
+<path d="M1840 1550 L1950 1550 L1950 1593 L1913 1593 L1913 1776 L2080 1776" fill="none" stroke="#8793a3" stroke-width="1.2" stroke-dasharray="5 4" marker-end="url(#arrow)"><title>php/notifications.php → db:visits / SQL</title></path>
+<path d="M1840 1572 L1950 1572 L1950 1784 L1913 1784 L1913 2162 L2080 2162" fill="none" stroke="#8793a3" stroke-width="1.2" stroke-dasharray="5 4" marker-end="url(#arrow)"><title>php/notifications.php → db:visit_payments / SQL</title></path>
+<path d="M1840 1594 L1950 1594 L1950 1687 L1378 1687 L1378 453 L1970 453 L1970 447 L2080 447" fill="none" stroke="#8793a3" stroke-width="1.2" stroke-dasharray="5 4" marker-end="url(#arrow)"><title>php/notifications.php → db:user_notifications / SQL</title></path>
+<path d="M1840 1763 L1950 1763 L1950 1785 L1878 1785 L1878 2158 L1862 2158 L1862 2312 L1950 2312 L1950 3009 L1840 3009" fill="none" stroke="#8793a3" stroke-width="1.2" stroke-dasharray="5 4" marker-end="url(#arrow)"><title>php/pet_owner_todos.php → php/booking_maintenance.php / includes</title></path>
+<path d="M1840 1785 L1950 1785 L1950 2309 L1840 2309" fill="none" stroke="#8793a3" stroke-width="1.2" stroke-dasharray="5 4" marker-end="url(#arrow)"><title>php/pet_owner_todos.php → php/veterinarian_booking_todo_helpers.php / includes</title></path>
+<path d="M1840 1807 L1970 1807 L1970 1744 L1862 1744 L1862 1692 L1205 1692 L1205 678 L1878 678 L1878 743 L1970 743 L1970 811 L2080 811" fill="none" stroke="#8793a3" stroke-width="1.2" stroke-dasharray="5 4" marker-end="url(#arrow)"><title>php/pet_owner_todos.php → db:users / SQL</title></path>
+<path d="M1840 1829 L1950 1829 L1950 1828 L1913 1828 L1913 1720 L1878 1720 L1878 1461 L1970 1461 L1970 1219 L2080 1219" fill="none" stroke="#8793a3" stroke-width="1.2" stroke-dasharray="5 4" marker-end="url(#arrow)"><title>php/pet_owner_todos.php → db:bookings / SQL</title></path>
+<path d="M1840 1851 L2058 1851 L2058 1400 L1970 1400 L1970 1390 L2080 1390" fill="none" stroke="#8793a3" stroke-width="1.2" stroke-dasharray="5 4" marker-end="url(#arrow)"><title>php/pet_owner_todos.php → db:pets_information / SQL</title></path>
+<path d="M1840 1873 L1950 1873 L1950 1876 L1913 1876 L1913 2355 L2080 2355" fill="none" stroke="#8793a3" stroke-width="1.2" stroke-dasharray="5 4" marker-end="url(#arrow)"><title>php/pet_owner_todos.php → db:pet_owner_todos / SQL</title></path>
+<path d="M1840 1895 L1970 1895 L1970 3149 L2080 3149" fill="none" stroke="#8793a3" stroke-width="1.2" stroke-dasharray="5 4" marker-end="url(#arrow)"><title>php/pet_owner_todos.php → db:vet_diagnoses / SQL</title></path>
+<path d="M1840 1917 L1950 1917 L1950 1920 L1878 1920 L1878 2309 L1913 2309 L1913 3342 L2080 3342" fill="none" stroke="#8793a3" stroke-width="1.2" stroke-dasharray="5 4" marker-end="url(#arrow)"><title>php/pet_owner_todos.php → db:queues / SQL</title></path>
+<path d="M1840 1939 L2058 1939 L2058 3009 L1950 3009 L1950 3513 L2080 3513" fill="none" stroke="#8793a3" stroke-width="1.2" stroke-dasharray="5 4" marker-end="url(#arrow)"><title>php/pet_owner_todos.php → db:pet_ownership / SQL</title></path>
+<path d="M1840 1961 L1950 1961 L1950 2548 L2080 2548" fill="none" stroke="#8793a3" stroke-width="1.2" stroke-dasharray="5 4" marker-end="url(#arrow)"><title>php/pet_owner_todos.php → db:prescription_occurrences / SQL</title></path>
+<path d="M1840 1983 L2058 1983 L2058 2064 L2542 2064 L2542 2657 L1970 2657 L1970 2741 L2080 2741" fill="none" stroke="#8793a3" stroke-width="1.2" stroke-dasharray="5 4" marker-end="url(#arrow)"><title>php/pet_owner_todos.php → db:prescription_items / SQL</title></path>
+<path d="M1840 2005 L1970 2005 L1970 2064 L2570 2064 L2570 2850 L1970 2850 L1970 2934 L2080 2934" fill="none" stroke="#8793a3" stroke-width="1.2" stroke-dasharray="5 4" marker-end="url(#arrow)"><title>php/pet_owner_todos.php → db:prescription_plans / SQL</title></path>
+<path d="M1840 2027 L1950 2027 L1950 2064 L2542 2064 L2542 1678 L1970 1678 L1970 1583 L2080 1583" fill="none" stroke="#8793a3" stroke-width="1.2" stroke-dasharray="5 4" marker-end="url(#arrow)"><title>php/pet_owner_todos.php → db:visit_payment_refunds / SQL</title></path>
+<path d="M1840 2049 L1950 2049 L1950 2048 L1878 2048 L1878 1798 L2080 1798" fill="none" stroke="#8793a3" stroke-width="1.2" stroke-dasharray="5 4" marker-end="url(#arrow)"><title>php/pet_owner_todos.php → db:visits / SQL</title></path>
+<path d="M1840 2071 L1950 2071 L1950 2070 L1913 2070 L1913 1969 L2080 1969" fill="none" stroke="#8793a3" stroke-width="1.2" stroke-dasharray="5 4" marker-end="url(#arrow)"><title>php/pet_owner_todos.php → db:visit_charges / SQL</title></path>
+<path d="M1840 2093 L1970 2093 L1970 2184 L2080 2184" fill="none" stroke="#8793a3" stroke-width="1.2" stroke-dasharray="5 4" marker-end="url(#arrow)"><title>php/pet_owner_todos.php → db:visit_payments / SQL</title></path>
+<path d="M1840 2115 L1950 2115 L1950 2158 L1862 2158 L1862 2247 L1378 2247 L1378 3899 L2080 3899" fill="none" stroke="#8793a3" stroke-width="1.2" stroke-dasharray="5 4" marker-end="url(#arrow)"><title>php/pet_owner_todos.php → db:boarding_tasks / SQL</title></path>
+<path d="M1840 2137 L1950 2137 L1950 2159 L1913 2159 L1913 2330 L1878 2330 L1878 3706 L2080 3706" fill="none" stroke="#8793a3" stroke-width="1.2" stroke-dasharray="5 4" marker-end="url(#arrow)"><title>php/pet_owner_todos.php → db:online_consultations / SQL</title></path>
+<path d="M1840 2159 L1950 2159 L1950 2330 L1862 2330 L1862 3149 L1970 3149 L1970 4092 L2080 4092" fill="none" stroke="#8793a3" stroke-width="1.2" stroke-dasharray="5 4" marker-end="url(#arrow)"><title>php/pet_owner_todos.php → db:branches / SQL</title></path>
+<path d="M1840 2331 L1950 2331 L1950 3184 L1840 3184" fill="none" stroke="#8793a3" stroke-width="1.2" stroke-dasharray="5 4" marker-end="url(#arrow)"><title>php/veterinarian_booking_todo_helpers.php → php/booking_slot_helpers.php / includes</title></path>
+<g data-node="src/components/PetOwnerDashboard/Todos.jsx"><rect x="80" y="170" width="420" height="315" fill="#ffffff" stroke="#c4cbd4" stroke-width="1.2"/><line x1="80" y1="225" x2="500" y2="225" stroke="#c4cbd4"/>
+<text x="94" y="193" font-family="Arial,sans-serif" font-size="16" fill="#2d3748">Todos</text>
+<text x="94" y="212" font-family="Arial,sans-serif" font-size="11.5" fill="#596579">«React component»</text>
+<text x="94" y="248" font-family="Consolas,monospace" font-size="12" fill="#2d3748">- calendarDate: state</text>
+<text x="94" y="266" font-family="Consolas,monospace" font-size="12" fill="#2d3748">- calendarView: state</text>
+<text x="94" y="284" font-family="Consolas,monospace" font-size="12" fill="#2d3748">- selectedDate: state</text>
+<text x="94" y="302" font-family="Consolas,monospace" font-size="12" fill="#2d3748">+ Todos()</text>
+<text x="94" y="320" font-family="Consolas,monospace" font-size="12" fill="#2d3748">+ startOfMonth()</text>
+<text x="94" y="338" font-family="Consolas,monospace" font-size="12" fill="#2d3748">+ startOfDay()</text>
+<text x="94" y="356" font-family="Consolas,monospace" font-size="12" fill="#2d3748">+ startOfWeek()</text>
+<text x="94" y="374" font-family="Consolas,monospace" font-size="12" fill="#2d3748">+ loadTasks()</text>
+<text x="94" y="392" font-family="Consolas,monospace" font-size="12" fill="#2d3748">+ saveTask()</text>
+<text x="94" y="410" font-family="Consolas,monospace" font-size="12" fill="#2d3748">+ handleSelectEvent()</text>
+<text x="94" y="428" font-family="Consolas,monospace" font-size="12" fill="#2d3748">+ handleSelectSlot()</text>
+<text x="94" y="446" font-family="Consolas,monospace" font-size="12" fill="#2d3748">+ 3 more operations [source index]</text>
+<text x="94" y="473" font-family="Arial,sans-serif" font-size="11.5" fill="#596579">src/components/PetOwnerDashboard/Todos.jsx:312</text>
+</g>
+<g data-node="src/components/shared/BrowserNotificationButton.jsx"><rect x="80" y="543" width="420" height="223" fill="#ffffff" stroke="#c4cbd4" stroke-width="1.2"/><line x1="80" y1="598" x2="500" y2="598" stroke="#c4cbd4"/>
+<text x="94" y="566" font-family="Arial,sans-serif" font-size="16" fill="#2d3748">BrowserNotificationButton</text>
+<text x="94" y="585" font-family="Arial,sans-serif" font-size="11.5" fill="#596579">«React component»</text>
+<text x="94" y="621" font-family="Consolas,monospace" font-size="12" fill="#2d3748">- preferences: state</text>
+<text x="94" y="639" font-family="Consolas,monospace" font-size="12" fill="#2d3748">- browserState: state</text>
+<text x="94" y="657" font-family="Consolas,monospace" font-size="12" fill="#2d3748">- isUpdating: state</text>
+<text x="94" y="675" font-family="Consolas,monospace" font-size="12" fill="#2d3748">+ BrowserNotificationButton()</text>
+<text x="94" y="693" font-family="Consolas,monospace" font-size="12" fill="#2d3748">+ handleSettingChange()</text>
+<text x="94" y="711" font-family="Consolas,monospace" font-size="12" fill="#2d3748">+ handleToggle()</text>
+<text x="94" y="738" font-family="Arial,sans-serif" font-size="11.5" fill="#596579">src/components/shared/BrowserNotificationButton.jsx:</text>
+<text x="94" y="754" font-family="Arial,sans-serif" font-size="11.5" fill="#596579">  17</text>
+</g>
+<g data-node="src/components/shared/NotificationBell.jsx"><rect x="80" y="824" width="420" height="153" fill="#ffffff" stroke="#c4cbd4" stroke-width="1.2"/><line x1="80" y1="879" x2="500" y2="879" stroke="#c4cbd4"/>
+<text x="94" y="847" font-family="Arial,sans-serif" font-size="16" fill="#2d3748">NotificationBell</text>
+<text x="94" y="866" font-family="Arial,sans-serif" font-size="11.5" fill="#596579">«React component»</text>
+<text x="94" y="902" font-family="Consolas,monospace" font-size="12" fill="#2d3748">- isOpen: state</text>
+<text x="94" y="920" font-family="Consolas,monospace" font-size="12" fill="#2d3748">+ NotificationBell()</text>
+<text x="94" y="938" font-family="Consolas,monospace" font-size="12" fill="#2d3748">+ handleNotificationClick()</text>
+<text x="94" y="965" font-family="Arial,sans-serif" font-size="11.5" fill="#596579">src/components/shared/NotificationBell.jsx:18</text>
+</g>
+<g data-node="src/components/shared/NotificationFeed.jsx"><rect x="80" y="1035" width="420" height="117" fill="#ffffff" stroke="#c4cbd4" stroke-width="1.2"/><line x1="80" y1="1090" x2="500" y2="1090" stroke="#c4cbd4"/>
+<text x="94" y="1058" font-family="Arial,sans-serif" font-size="16" fill="#2d3748">NotificationFeed</text>
+<text x="94" y="1077" font-family="Arial,sans-serif" font-size="11.5" fill="#596579">«React component»</text>
+<text x="94" y="1113" font-family="Consolas,monospace" font-size="12" fill="#2d3748">+ NotificationFeed()</text>
+<text x="94" y="1140" font-family="Arial,sans-serif" font-size="11.5" fill="#596579">src/components/shared/NotificationFeed.jsx:33</text>
+</g>
+<g data-node="src/components/shared/NotificationPreferencesCard.jsx"><rect x="80" y="1210" width="420" height="277" fill="#ffffff" stroke="#c4cbd4" stroke-width="1.2"/><line x1="80" y1="1265" x2="500" y2="1265" stroke="#c4cbd4"/>
+<text x="94" y="1233" font-family="Arial,sans-serif" font-size="16" fill="#2d3748">NotificationPreferencesCard</text>
+<text x="94" y="1252" font-family="Arial,sans-serif" font-size="11.5" fill="#596579">«React component»</text>
+<text x="94" y="1288" font-family="Consolas,monospace" font-size="12" fill="#2d3748">- preferences: state</text>
+<text x="94" y="1306" font-family="Consolas,monospace" font-size="12" fill="#2d3748">- isLoading: state</text>
+<text x="94" y="1324" font-family="Consolas,monospace" font-size="12" fill="#2d3748">- isSaving: state</text>
+<text x="94" y="1342" font-family="Consolas,monospace" font-size="12" fill="#2d3748">+ NotificationPreferencesCard()</text>
+<text x="94" y="1360" font-family="Consolas,monospace" font-size="12" fill="#2d3748">+ loadPreferences()</text>
+<text x="94" y="1378" font-family="Consolas,monospace" font-size="12" fill="#2d3748">+ loadBrowserPushState()</text>
+<text x="94" y="1396" font-family="Consolas,monospace" font-size="12" fill="#2d3748">+ handlePushSettingChange()</text>
+<text x="94" y="1414" font-family="Consolas,monospace" font-size="12" fill="#2d3748">+ handleEnableBrowserPush()</text>
+<text x="94" y="1432" font-family="Consolas,monospace" font-size="12" fill="#2d3748">+ handleDisableBrowserPush()</text>
+<text x="94" y="1459" font-family="Arial,sans-serif" font-size="11.5" fill="#596579">src/components/shared/NotificationPreferencesCard.js</text>
+<text x="94" y="1475" font-family="Arial,sans-serif" font-size="11.5" fill="#596579">  x:149</text>
+</g>
+<g data-node="src/components/shared/NotificationsPage.jsx"><rect x="80" y="1545" width="420" height="153" fill="#ffffff" stroke="#c4cbd4" stroke-width="1.2"/><line x1="80" y1="1600" x2="500" y2="1600" stroke="#c4cbd4"/>
+<text x="94" y="1568" font-family="Arial,sans-serif" font-size="16" fill="#2d3748">NotificationsPage</text>
+<text x="94" y="1587" font-family="Arial,sans-serif" font-size="11.5" fill="#596579">«React component»</text>
+<text x="94" y="1623" font-family="Consolas,monospace" font-size="12" fill="#2d3748">+ NotificationsPage()</text>
+<text x="94" y="1641" font-family="Consolas,monospace" font-size="12" fill="#2d3748">+ handleNotificationClick()</text>
+<text x="94" y="1659" font-family="Consolas,monospace" font-size="12" fill="#2d3748">+ handleBack()</text>
+<text x="94" y="1686" font-family="Arial,sans-serif" font-size="11.5" fill="#596579">src/components/shared/NotificationsPage.jsx:12</text>
+</g>
+<g data-node="src/services/notificationService.js"><rect x="740" y="170" width="420" height="261" fill="#ffffff" stroke="#c4cbd4" stroke-width="1.2"/><line x1="740" y1="225" x2="1160" y2="225" stroke="#c4cbd4"/>
+<text x="754" y="193" font-family="Arial,sans-serif" font-size="16" fill="#2d3748">notificationService</text>
+<text x="754" y="212" font-family="Arial,sans-serif" font-size="11.5" fill="#596579">«JS service module»</text>
+<text x="754" y="248" font-family="Consolas,monospace" font-size="12" fill="#2d3748">+ fetchNotifications()</text>
+<text x="754" y="266" font-family="Consolas,monospace" font-size="12" fill="#2d3748">+ markNotificationRead()</text>
+<text x="754" y="284" font-family="Consolas,monospace" font-size="12" fill="#2d3748">+ markAllNotificationsRead()</text>
+<text x="754" y="302" font-family="Consolas,monospace" font-size="12" fill="#2d3748">+ fetchNotificationPreferences()</text>
+<text x="754" y="320" font-family="Consolas,monospace" font-size="12" fill="#2d3748">+ saveNotificationPreferences()</text>
+<text x="754" y="338" font-family="Consolas,monospace" font-size="12" fill="#2d3748">+ fetchNotificationPushPublicKey()</text>
+<text x="754" y="356" font-family="Consolas,monospace" font-size="12" fill="#2d3748">+ fetchNotificationPushStatus()</text>
+<text x="754" y="374" font-family="Consolas,monospace" font-size="12" fill="#2d3748">+ saveNotificationPushSubscription()</text>
+<text x="754" y="392" font-family="Consolas,monospace" font-size="12" fill="#2d3748">+ 2 more operations [source index]</text>
+<text x="754" y="419" font-family="Arial,sans-serif" font-size="11.5" fill="#596579">src/services/notificationService.js:7</text>
+</g>
+<g data-node="src/services/pushNotificationService.js"><rect x="740" y="489" width="420" height="207" fill="#ffffff" stroke="#c4cbd4" stroke-width="1.2"/><line x1="740" y1="544" x2="1160" y2="544" stroke="#c4cbd4"/>
+<text x="754" y="512" font-family="Arial,sans-serif" font-size="16" fill="#2d3748">pushNotificationService</text>
+<text x="754" y="531" font-family="Arial,sans-serif" font-size="11.5" fill="#596579">«JS service module»</text>
+<text x="754" y="567" font-family="Consolas,monospace" font-size="12" fill="#2d3748">+ syncPushContext()</text>
+<text x="754" y="585" font-family="Consolas,monospace" font-size="12" fill="#2d3748">+ clearPushContext()</text>
+<text x="754" y="603" font-family="Consolas,monospace" font-size="12" fill="#2d3748">+ getBrowserPushState()</text>
+<text x="754" y="621" font-family="Consolas,monospace" font-size="12" fill="#2d3748">+ enableBrowserPush()</text>
+<text x="754" y="639" font-family="Consolas,monospace" font-size="12" fill="#2d3748">+ disableBrowserPush()</text>
+<text x="754" y="657" font-family="Consolas,monospace" font-size="12" fill="#2d3748">+ setBrowserPushEnabledForAccount()</text>
+<text x="754" y="684" font-family="Arial,sans-serif" font-size="11.5" fill="#596579">src/services/pushNotificationService.js:133</text>
+</g>
+<g data-node="src/services/todoService.js"><rect x="740" y="754" width="420" height="171" fill="#ffffff" stroke="#c4cbd4" stroke-width="1.2"/><line x1="740" y1="809" x2="1160" y2="809" stroke="#c4cbd4"/>
+<text x="754" y="777" font-family="Arial,sans-serif" font-size="16" fill="#2d3748">todoService</text>
+<text x="754" y="796" font-family="Arial,sans-serif" font-size="11.5" fill="#596579">«JS service module»</text>
+<text x="754" y="832" font-family="Consolas,monospace" font-size="12" fill="#2d3748">+ fetchPetOwnerTodos()</text>
+<text x="754" y="850" font-family="Consolas,monospace" font-size="12" fill="#2d3748">+ createPetOwnerTodo()</text>
+<text x="754" y="868" font-family="Consolas,monospace" font-size="12" fill="#2d3748">+ updatePetOwnerTodo()</text>
+<text x="754" y="886" font-family="Consolas,monospace" font-size="12" fill="#2d3748">+ deletePetOwnerTodo()</text>
+<text x="754" y="913" font-family="Arial,sans-serif" font-size="11.5" fill="#596579">src/services/todoService.js:15</text>
+</g>
+<g data-node="php/mail_helpers.php"><rect x="1400" y="170" width="440" height="261" fill="#ffffff" stroke="#c4cbd4" stroke-width="1.2"/><line x1="1400" y1="225" x2="1840" y2="225" stroke="#c4cbd4"/>
+<text x="1414" y="193" font-family="Arial,sans-serif" font-size="16" fill="#2d3748">MailHelpers</text>
+<text x="1414" y="212" font-family="Arial,sans-serif" font-size="11.5" fill="#596579">«PHP module»</text>
+<text x="1414" y="248" font-family="Consolas,monospace" font-size="12" fill="#2d3748">+ mail_env_value()</text>
+<text x="1414" y="266" font-family="Consolas,monospace" font-size="12" fill="#2d3748">+ mail_env_bool()</text>
+<text x="1414" y="284" font-family="Consolas,monospace" font-size="12" fill="#2d3748">+ mail_smtp_config()</text>
+<text x="1414" y="302" font-family="Consolas,monospace" font-size="12" fill="#2d3748">+ mail_smtp_is_configured()</text>
+<text x="1414" y="320" font-family="Consolas,monospace" font-size="12" fill="#2d3748">+ mail_clean_header()</text>
+<text x="1414" y="338" font-family="Consolas,monospace" font-size="12" fill="#2d3748">+ mail_encode_header()</text>
+<text x="1414" y="356" font-family="Consolas,monospace" font-size="12" fill="#2d3748">+ mail_format_address()</text>
+<text x="1414" y="374" font-family="Consolas,monospace" font-size="12" fill="#2d3748">+ mail_domain_from_address()</text>
+<text x="1414" y="392" font-family="Consolas,monospace" font-size="12" fill="#2d3748">+ 22 more operations [source index]</text>
+<text x="1414" y="419" font-family="Arial,sans-serif" font-size="11.5" fill="#596579">php/mail_helpers.php:4</text>
+</g>
+<g data-node="php/mail_queue_worker.php"><rect x="1400" y="489" width="440" height="153" fill="#ffffff" stroke="#c4cbd4" stroke-width="1.2"/><line x1="1400" y1="544" x2="1840" y2="544" stroke="#c4cbd4"/>
+<text x="1414" y="512" font-family="Arial,sans-serif" font-size="16" fill="#2d3748">MailQueueWorker</text>
+<text x="1414" y="531" font-family="Arial,sans-serif" font-size="11.5" fill="#596579">«PHP module»</text>
+<text x="1414" y="567" font-family="Consolas,monospace" font-size="12" fill="#2d3748">+ mail_queue_worker_limit()</text>
+<text x="1414" y="585" font-family="Consolas,monospace" font-size="12" fill="#2d3748">+ mail_queue_worker_is_quiet()</text>
+<text x="1414" y="603" font-family="Consolas,monospace" font-size="12" fill="#2d3748">+ mail_queue_worker_web_authorized()</text>
+<text x="1414" y="630" font-family="Arial,sans-serif" font-size="11.5" fill="#596579">php/mail_queue_worker.php:6</text>
+</g>
+<g data-node="php/notification_helpers.php"><rect x="1400" y="700" width="440" height="664" fill="#ffffff" stroke="#c4cbd4" stroke-width="1.2"/><line x1="1400" y1="755" x2="1840" y2="755" stroke="#c4cbd4"/>
+<text x="1414" y="723" font-family="Arial,sans-serif" font-size="16" fill="#2d3748">NotificationHelpers</text>
+<text x="1414" y="742" font-family="Arial,sans-serif" font-size="11.5" fill="#596579">«PHP module»</text>
+<text x="1414" y="778" font-family="Consolas,monospace" font-size="12" fill="#2d3748">+ notification_clinic_timezone()</text>
+<text x="1414" y="796" font-family="Consolas,monospace" font-size="12" fill="#2d3748">+ notification_now()</text>
+<text x="1414" y="814" font-family="Consolas,monospace" font-size="12" fill="#2d3748">+ notification_use_clinic_timezone()</text>
+<text x="1414" y="832" font-family="Consolas,monospace" font-size="12" fill="#2d3748">+ notification_column_exists()</text>
+<text x="1414" y="850" font-family="Consolas,monospace" font-size="12" fill="#2d3748">+ notification_column_type()</text>
+<text x="1414" y="868" font-family="Consolas,monospace" font-size="12" fill="#2d3748">+ notification_table_exists()</text>
+<text x="1414" y="886" font-family="Consolas,monospace" font-size="12" fill="#2d3748">+ notification_ensure_schema()</text>
+<text x="1414" y="904" font-family="Consolas,monospace" font-size="12" fill="#2d3748">+ notification_bool()</text>
+<text x="1414" y="922" font-family="Consolas,monospace" font-size="12" fill="#2d3748">+ 82 more operations [source index]</text>
+<text x="1414" y="1352" font-family="Arial,sans-serif" font-size="11.5" fill="#596579">php/notification_helpers.php:10</text>
+</g>
+<g data-node="php/notifications.php"><rect x="1400" y="1422" width="440" height="243" fill="#ffffff" stroke="#c4cbd4" stroke-width="1.2"/><line x1="1400" y1="1477" x2="1840" y2="1477" stroke="#c4cbd4"/>
+<text x="1414" y="1445" font-family="Arial,sans-serif" font-size="16" fill="#2d3748">Notifications</text>
+<text x="1414" y="1464" font-family="Arial,sans-serif" font-size="11.5" fill="#596579">«PHP module»</text>
+<text x="1414" y="1500" font-family="Consolas,monospace" font-size="12" fill="#2d3748">+ notifications_input()</text>
+<text x="1414" y="1518" font-family="Consolas,monospace" font-size="12" fill="#2d3748">+ notifications_user_id()</text>
+<text x="1414" y="1536" font-family="Consolas,monospace" font-size="12" fill="#2d3748">+ notifications_effective_user_id()</text>
+<text x="1414" y="1554" font-family="Consolas,monospace" font-size="12" fill="#2d3748">+ notifications_error()</text>
+<text x="1414" y="1572" font-family="Consolas,monospace" font-size="12" fill="#2d3748">+ notifications_reminder_authorized()</text>
+<text x="1414" y="1590" font-family="Consolas,monospace" font-size="12" fill="#2d3748">+ notifications_pet_redirect()</text>
+<text x="1414" y="1608" font-family="Consolas,monospace" font-size="12" fill="#2d3748">+ notifications_lookup_pet_id()</text>
+<text x="1414" y="1626" font-family="Consolas,monospace" font-size="12" fill="#2d3748">+ notifications_resolve_pet_redirect()</text>
+<text x="1414" y="1653" font-family="Arial,sans-serif" font-size="11.5" fill="#596579">php/notifications.php:8</text>
+</g>
+<g data-node="php/pet_owner_todos.php"><rect x="1400" y="1723" width="440" height="488" fill="#ffffff" stroke="#c4cbd4" stroke-width="1.2"/><line x1="1400" y1="1778" x2="1840" y2="1778" stroke="#c4cbd4"/>
+<text x="1414" y="1746" font-family="Arial,sans-serif" font-size="16" fill="#2d3748">PetOwnerTodos</text>
+<text x="1414" y="1765" font-family="Arial,sans-serif" font-size="11.5" fill="#596579">«PHP module»</text>
+<text x="1414" y="1801" font-family="Consolas,monospace" font-size="12" fill="#2d3748">+ pet_owner_todos_input()</text>
+<text x="1414" y="1819" font-family="Consolas,monospace" font-size="12" fill="#2d3748">+ pet_owner_todos_error()</text>
+<text x="1414" y="1837" font-family="Consolas,monospace" font-size="12" fill="#2d3748">+ pet_owner_todos_table_exists()</text>
+<text x="1414" y="1855" font-family="Consolas,monospace" font-size="12" fill="#2d3748">+ pet_owner_todos_ensure_schema()</text>
+<text x="1414" y="1873" font-family="Consolas,monospace" font-size="12" fill="#2d3748">+ pet_owner_todos_user_id()</text>
+<text x="1414" y="1891" font-family="Consolas,monospace" font-size="12" fill="#2d3748">+ pet_owner_todos_current_user()</text>
+<text x="1414" y="1909" font-family="Consolas,monospace" font-size="12" fill="#2d3748">+ pet_owner_todos_effective_user_id()</text>
+<text x="1414" y="1927" font-family="Consolas,monospace" font-size="12" fill="#2d3748">+ pet_owner_todos_normalize_role()</text>
+<text x="1414" y="1945" font-family="Consolas,monospace" font-size="12" fill="#2d3748">+ 19 more operations [source index]</text>
+<text x="1414" y="2199" font-family="Arial,sans-serif" font-size="11.5" fill="#596579">php/pet_owner_todos.php:10</text>
+</g>
+<g data-node="php/veterinarian_booking_todo_helpers.php"><rect x="1400" y="2269" width="440" height="117" fill="#ffffff" stroke="#c4cbd4" stroke-width="1.2"/><line x1="1400" y1="2324" x2="1840" y2="2324" stroke="#c4cbd4"/>
+<text x="1414" y="2292" font-family="Arial,sans-serif" font-size="16" fill="#2d3748">VeterinarianBookingTodoHelpers</text>
+<text x="1414" y="2311" font-family="Arial,sans-serif" font-size="11.5" fill="#596579">«PHP module»</text>
+<text x="1414" y="2347" font-family="Consolas,monospace" font-size="12" fill="#2d3748">+ veterinarian_booking_todo()</text>
+<text x="1414" y="2374" font-family="Arial,sans-serif" font-size="11.5" fill="#596579">php/veterinarian_booking_todo_helpers.php:5</text>
+</g>
+<g data-node="src/services/prescriptionService.js"><rect x="740" y="983" width="420" height="117" fill="#f8fafc" stroke="#c4cbd4" stroke-width="1.2" stroke-dasharray="5 4"/><line x1="740" y1="1038" x2="1160" y2="1038" stroke="#c4cbd4"/>
+<text x="754" y="1006" font-family="Arial,sans-serif" font-size="16" fill="#2d3748">prescriptionService</text>
+<text x="754" y="1025" font-family="Arial,sans-serif" font-size="11.5" fill="#596579">«JS service module» / page 29</text>
+<text x="754" y="1061" font-family="Consolas,monospace" font-size="12" fill="#2d3748">Definition / page 29</text>
+<text x="754" y="1088" font-family="Arial,sans-serif" font-size="11.5" fill="#596579">src/services/prescriptionService.js:3</text>
+</g>
+<g data-node="db:mail_queue"><rect x="2080" y="170" width="440" height="135" fill="#f8fafc" stroke="#c4cbd4" stroke-width="1.2" stroke-dasharray="5 4"/><line x1="2080" y1="225" x2="2520" y2="225" stroke="#c4cbd4"/>
+<text x="2094" y="193" font-family="Arial,sans-serif" font-size="16" fill="#2d3748">MailQueue</text>
+<text x="2094" y="212" font-family="Arial,sans-serif" font-size="11.5" fill="#596579">«entity» mail_queue</text>
+<text x="2094" y="248" font-family="Consolas,monospace" font-size="12" fill="#2d3748">+ queue_id: int [PK]</text>
+<text x="2094" y="266" font-family="Consolas,monospace" font-size="12" fill="#2d3748">Full SQL attributes / DB page 09</text>
+<text x="2094" y="293" font-family="Arial,sans-serif" font-size="11.5" fill="#596579">iPawcus_ERD_Schema.sql</text>
+</g>
+<g data-node="db:user_notifications"><rect x="2080" y="363" width="440" height="135" fill="#f8fafc" stroke="#c4cbd4" stroke-width="1.2" stroke-dasharray="5 4"/><line x1="2080" y1="418" x2="2520" y2="418" stroke="#c4cbd4"/>
+<text x="2094" y="386" font-family="Arial,sans-serif" font-size="16" fill="#2d3748">UserNotification</text>
+<text x="2094" y="405" font-family="Arial,sans-serif" font-size="11.5" fill="#596579">«entity» user_notifications</text>
+<text x="2094" y="441" font-family="Consolas,monospace" font-size="12" fill="#2d3748">+ notification_id: int [PK]</text>
+<text x="2094" y="459" font-family="Consolas,monospace" font-size="12" fill="#2d3748">Full SQL attributes / DB page 09</text>
+<text x="2094" y="486" font-family="Arial,sans-serif" font-size="11.5" fill="#596579">iPawcus_ERD_Schema.sql</text>
+</g>
+<g data-node="php/reference_number_helpers.php"><rect x="1400" y="2444" width="440" height="117" fill="#f8fafc" stroke="#c4cbd4" stroke-width="1.2" stroke-dasharray="5 4"/><line x1="1400" y1="2499" x2="1840" y2="2499" stroke="#c4cbd4"/>
+<text x="1414" y="2467" font-family="Arial,sans-serif" font-size="16" fill="#2d3748">ReferenceNumberHelpers</text>
+<text x="1414" y="2486" font-family="Arial,sans-serif" font-size="11.5" fill="#596579">«PHP module» / page 12</text>
+<text x="1414" y="2522" font-family="Consolas,monospace" font-size="12" fill="#2d3748">Definition / page 12</text>
+<text x="1414" y="2549" font-family="Arial,sans-serif" font-size="11.5" fill="#596579">php/reference_number_helpers.php:3</text>
+</g>
+<g data-node="php/branch_helpers.php"><rect x="1400" y="2619" width="440" height="117" fill="#f8fafc" stroke="#c4cbd4" stroke-width="1.2" stroke-dasharray="5 4"/><line x1="1400" y1="2674" x2="1840" y2="2674" stroke="#c4cbd4"/>
+<text x="1414" y="2642" font-family="Arial,sans-serif" font-size="16" fill="#2d3748">BranchHelpers</text>
+<text x="1414" y="2661" font-family="Arial,sans-serif" font-size="11.5" fill="#596579">«PHP module» / page 17</text>
+<text x="1414" y="2697" font-family="Consolas,monospace" font-size="12" fill="#2d3748">Definition / page 17</text>
+<text x="1414" y="2724" font-family="Arial,sans-serif" font-size="11.5" fill="#596579">php/branch_helpers.php:3</text>
+</g>
+<g data-node="php/runtime_media.php"><rect x="1400" y="2794" width="440" height="117" fill="#f8fafc" stroke="#c4cbd4" stroke-width="1.2" stroke-dasharray="5 4"/><line x1="1400" y1="2849" x2="1840" y2="2849" stroke="#c4cbd4"/>
+<text x="1414" y="2817" font-family="Arial,sans-serif" font-size="16" fill="#2d3748">RuntimeMedia</text>
+<text x="1414" y="2836" font-family="Arial,sans-serif" font-size="11.5" fill="#596579">«PHP module» / page 41</text>
+<text x="1414" y="2872" font-family="Consolas,monospace" font-size="12" fill="#2d3748">Definition / page 41</text>
+<text x="1414" y="2899" font-family="Arial,sans-serif" font-size="11.5" fill="#596579">php/runtime_media.php:18</text>
+</g>
+<g data-node="db:notification_preferences"><rect x="2080" y="556" width="440" height="135" fill="#f8fafc" stroke="#c4cbd4" stroke-width="1.2" stroke-dasharray="5 4"/><line x1="2080" y1="611" x2="2520" y2="611" stroke="#c4cbd4"/>
+<text x="2094" y="579" font-family="Arial,sans-serif" font-size="16" fill="#2d3748">NotificationPreference</text>
+<text x="2094" y="598" font-family="Arial,sans-serif" font-size="11.5" fill="#596579">«entity» notification_preferences</text>
+<text x="2094" y="634" font-family="Consolas,monospace" font-size="12" fill="#2d3748">+ user_id: int [PK]</text>
+<text x="2094" y="652" font-family="Consolas,monospace" font-size="12" fill="#2d3748">Full SQL attributes / DB page 09</text>
+<text x="2094" y="679" font-family="Arial,sans-serif" font-size="11.5" fill="#596579">iPawcus_ERD_Schema.sql</text>
+</g>
+<g data-node="db:users"><rect x="2080" y="749" width="440" height="135" fill="#f8fafc" stroke="#c4cbd4" stroke-width="1.2" stroke-dasharray="5 4"/><line x1="2080" y1="804" x2="2520" y2="804" stroke="#c4cbd4"/>
+<text x="2094" y="772" font-family="Arial,sans-serif" font-size="16" fill="#2d3748">User</text>
+<text x="2094" y="791" font-family="Arial,sans-serif" font-size="11.5" fill="#596579">«entity» users</text>
+<text x="2094" y="827" font-family="Consolas,monospace" font-size="12" fill="#2d3748">+ user_id: int [PK]</text>
+<text x="2094" y="845" font-family="Consolas,monospace" font-size="12" fill="#2d3748">Full SQL attributes / DB page 01</text>
+<text x="2094" y="872" font-family="Arial,sans-serif" font-size="11.5" fill="#596579">iPawcus_ERD_Schema.sql</text>
+</g>
+<g data-node="db:notification_push_subscriptions"><rect x="2080" y="942" width="440" height="135" fill="#f8fafc" stroke="#c4cbd4" stroke-width="1.2" stroke-dasharray="5 4"/><line x1="2080" y1="997" x2="2520" y2="997" stroke="#c4cbd4"/>
+<text x="2094" y="965" font-family="Arial,sans-serif" font-size="16" fill="#2d3748">NotificationPushSubscription</text>
+<text x="2094" y="984" font-family="Arial,sans-serif" font-size="11.5" fill="#596579">«entity» notification_push_subscriptions</text>
+<text x="2094" y="1020" font-family="Consolas,monospace" font-size="12" fill="#2d3748">+ subscription_id: int [PK]</text>
+<text x="2094" y="1038" font-family="Consolas,monospace" font-size="12" fill="#2d3748">Full SQL attributes / DB page 09</text>
+<text x="2094" y="1065" font-family="Arial,sans-serif" font-size="11.5" fill="#596579">iPawcus_ERD_Schema.sql</text>
+</g>
+<g data-node="db:bookings"><rect x="2080" y="1135" width="440" height="135" fill="#f8fafc" stroke="#c4cbd4" stroke-width="1.2" stroke-dasharray="5 4"/><line x1="2080" y1="1190" x2="2520" y2="1190" stroke="#c4cbd4"/>
+<text x="2094" y="1158" font-family="Arial,sans-serif" font-size="16" fill="#2d3748">Booking</text>
+<text x="2094" y="1177" font-family="Arial,sans-serif" font-size="11.5" fill="#596579">«entity» bookings</text>
+<text x="2094" y="1213" font-family="Consolas,monospace" font-size="12" fill="#2d3748">+ booking_id: int [PK]</text>
+<text x="2094" y="1231" font-family="Consolas,monospace" font-size="12" fill="#2d3748">Full SQL attributes / DB page 04</text>
+<text x="2094" y="1258" font-family="Arial,sans-serif" font-size="11.5" fill="#596579">iPawcus_ERD_Schema.sql</text>
+</g>
+<g data-node="db:pets_information"><rect x="2080" y="1328" width="440" height="135" fill="#f8fafc" stroke="#c4cbd4" stroke-width="1.2" stroke-dasharray="5 4"/><line x1="2080" y1="1383" x2="2520" y2="1383" stroke="#c4cbd4"/>
+<text x="2094" y="1351" font-family="Arial,sans-serif" font-size="16" fill="#2d3748">Pet</text>
+<text x="2094" y="1370" font-family="Arial,sans-serif" font-size="11.5" fill="#596579">«entity» pets_information</text>
+<text x="2094" y="1406" font-family="Consolas,monospace" font-size="12" fill="#2d3748">+ pet_id: int [PK]</text>
+<text x="2094" y="1424" font-family="Consolas,monospace" font-size="12" fill="#2d3748">Full SQL attributes / DB page 03</text>
+<text x="2094" y="1451" font-family="Arial,sans-serif" font-size="11.5" fill="#596579">iPawcus_ERD_Schema.sql</text>
+</g>
+<g data-node="db:visit_payment_refunds"><rect x="2080" y="1521" width="440" height="135" fill="#f8fafc" stroke="#c4cbd4" stroke-width="1.2" stroke-dasharray="5 4"/><line x1="2080" y1="1576" x2="2520" y2="1576" stroke="#c4cbd4"/>
+<text x="2094" y="1544" font-family="Arial,sans-serif" font-size="16" fill="#2d3748">VisitPaymentRefund</text>
+<text x="2094" y="1563" font-family="Arial,sans-serif" font-size="11.5" fill="#596579">«entity» visit_payment_refunds</text>
+<text x="2094" y="1599" font-family="Consolas,monospace" font-size="12" fill="#2d3748">+ refund_id: int [PK]</text>
+<text x="2094" y="1617" font-family="Consolas,monospace" font-size="12" fill="#2d3748">Full SQL attributes / DB page 08</text>
+<text x="2094" y="1644" font-family="Arial,sans-serif" font-size="11.5" fill="#596579">iPawcus_ERD_Schema.sql</text>
+</g>
+<g data-node="db:visits"><rect x="2080" y="1714" width="440" height="135" fill="#f8fafc" stroke="#c4cbd4" stroke-width="1.2" stroke-dasharray="5 4"/><line x1="2080" y1="1769" x2="2520" y2="1769" stroke="#c4cbd4"/>
+<text x="2094" y="1737" font-family="Arial,sans-serif" font-size="16" fill="#2d3748">Visit</text>
+<text x="2094" y="1756" font-family="Arial,sans-serif" font-size="11.5" fill="#596579">«entity» visits</text>
+<text x="2094" y="1792" font-family="Consolas,monospace" font-size="12" fill="#2d3748">+ visit_id: int [PK]</text>
+<text x="2094" y="1810" font-family="Consolas,monospace" font-size="12" fill="#2d3748">Full SQL attributes / DB page 08</text>
+<text x="2094" y="1837" font-family="Arial,sans-serif" font-size="11.5" fill="#596579">iPawcus_ERD_Schema.sql</text>
+</g>
+<g data-node="db:visit_charges"><rect x="2080" y="1907" width="440" height="135" fill="#f8fafc" stroke="#c4cbd4" stroke-width="1.2" stroke-dasharray="5 4"/><line x1="2080" y1="1962" x2="2520" y2="1962" stroke="#c4cbd4"/>
+<text x="2094" y="1930" font-family="Arial,sans-serif" font-size="16" fill="#2d3748">VisitCharge</text>
+<text x="2094" y="1949" font-family="Arial,sans-serif" font-size="11.5" fill="#596579">«entity» visit_charges</text>
+<text x="2094" y="1985" font-family="Consolas,monospace" font-size="12" fill="#2d3748">+ charge_id: int [PK]</text>
+<text x="2094" y="2003" font-family="Consolas,monospace" font-size="12" fill="#2d3748">Full SQL attributes / DB page 08</text>
+<text x="2094" y="2030" font-family="Arial,sans-serif" font-size="11.5" fill="#596579">iPawcus_ERD_Schema.sql</text>
+</g>
+<g data-node="db:visit_payments"><rect x="2080" y="2100" width="440" height="135" fill="#f8fafc" stroke="#c4cbd4" stroke-width="1.2" stroke-dasharray="5 4"/><line x1="2080" y1="2155" x2="2520" y2="2155" stroke="#c4cbd4"/>
+<text x="2094" y="2123" font-family="Arial,sans-serif" font-size="16" fill="#2d3748">VisitPayment</text>
+<text x="2094" y="2142" font-family="Arial,sans-serif" font-size="11.5" fill="#596579">«entity» visit_payments</text>
+<text x="2094" y="2178" font-family="Consolas,monospace" font-size="12" fill="#2d3748">+ payment_id: int [PK]</text>
+<text x="2094" y="2196" font-family="Consolas,monospace" font-size="12" fill="#2d3748">Full SQL attributes / DB page 08</text>
+<text x="2094" y="2223" font-family="Arial,sans-serif" font-size="11.5" fill="#596579">iPawcus_ERD_Schema.sql</text>
+</g>
+<g data-node="db:pet_owner_todos"><rect x="2080" y="2293" width="440" height="135" fill="#f8fafc" stroke="#c4cbd4" stroke-width="1.2" stroke-dasharray="5 4"/><line x1="2080" y1="2348" x2="2520" y2="2348" stroke="#c4cbd4"/>
+<text x="2094" y="2316" font-family="Arial,sans-serif" font-size="16" fill="#2d3748">PetOwnerTodo</text>
+<text x="2094" y="2335" font-family="Arial,sans-serif" font-size="11.5" fill="#596579">«entity» pet_owner_todos</text>
+<text x="2094" y="2371" font-family="Consolas,monospace" font-size="12" fill="#2d3748">+ todo_id: int [PK]</text>
+<text x="2094" y="2389" font-family="Consolas,monospace" font-size="12" fill="#2d3748">Full SQL attributes / DB page 05</text>
+<text x="2094" y="2416" font-family="Arial,sans-serif" font-size="11.5" fill="#596579">iPawcus_ERD_Schema.sql</text>
+</g>
+<g data-node="db:prescription_occurrences"><rect x="2080" y="2486" width="440" height="135" fill="#f8fafc" stroke="#c4cbd4" stroke-width="1.2" stroke-dasharray="5 4"/><line x1="2080" y1="2541" x2="2520" y2="2541" stroke="#c4cbd4"/>
+<text x="2094" y="2509" font-family="Arial,sans-serif" font-size="16" fill="#2d3748">PrescriptionOccurrence</text>
+<text x="2094" y="2528" font-family="Arial,sans-serif" font-size="11.5" fill="#596579">«entity» prescription_occurrences</text>
+<text x="2094" y="2564" font-family="Consolas,monospace" font-size="12" fill="#2d3748">+ occurrence_id: bigint [PK]</text>
+<text x="2094" y="2582" font-family="Consolas,monospace" font-size="12" fill="#2d3748">Full SQL attributes / DB page 05</text>
+<text x="2094" y="2609" font-family="Arial,sans-serif" font-size="11.5" fill="#596579">iPawcus_ERD_Schema.sql</text>
+</g>
+<g data-node="db:prescription_items"><rect x="2080" y="2679" width="440" height="135" fill="#f8fafc" stroke="#c4cbd4" stroke-width="1.2" stroke-dasharray="5 4"/><line x1="2080" y1="2734" x2="2520" y2="2734" stroke="#c4cbd4"/>
+<text x="2094" y="2702" font-family="Arial,sans-serif" font-size="16" fill="#2d3748">PrescriptionItem</text>
+<text x="2094" y="2721" font-family="Arial,sans-serif" font-size="11.5" fill="#596579">«entity» prescription_items</text>
+<text x="2094" y="2757" font-family="Consolas,monospace" font-size="12" fill="#2d3748">+ item_id: int [PK]</text>
+<text x="2094" y="2775" font-family="Consolas,monospace" font-size="12" fill="#2d3748">Full SQL attributes / DB page 05</text>
+<text x="2094" y="2802" font-family="Arial,sans-serif" font-size="11.5" fill="#596579">iPawcus_ERD_Schema.sql</text>
+</g>
+<g data-node="db:prescription_plans"><rect x="2080" y="2872" width="440" height="135" fill="#f8fafc" stroke="#c4cbd4" stroke-width="1.2" stroke-dasharray="5 4"/><line x1="2080" y1="2927" x2="2520" y2="2927" stroke="#c4cbd4"/>
+<text x="2094" y="2895" font-family="Arial,sans-serif" font-size="16" fill="#2d3748">PrescriptionPlan</text>
+<text x="2094" y="2914" font-family="Arial,sans-serif" font-size="11.5" fill="#596579">«entity» prescription_plans</text>
+<text x="2094" y="2950" font-family="Consolas,monospace" font-size="12" fill="#2d3748">+ plan_id: int [PK]</text>
+<text x="2094" y="2968" font-family="Consolas,monospace" font-size="12" fill="#2d3748">Full SQL attributes / DB page 05</text>
+<text x="2094" y="2995" font-family="Arial,sans-serif" font-size="11.5" fill="#596579">iPawcus_ERD_Schema.sql</text>
+</g>
+<g data-node="db:vet_diagnoses"><rect x="2080" y="3065" width="440" height="135" fill="#f8fafc" stroke="#c4cbd4" stroke-width="1.2" stroke-dasharray="5 4"/><line x1="2080" y1="3120" x2="2520" y2="3120" stroke="#c4cbd4"/>
+<text x="2094" y="3088" font-family="Arial,sans-serif" font-size="16" fill="#2d3748">VetDiagnosis</text>
+<text x="2094" y="3107" font-family="Arial,sans-serif" font-size="11.5" fill="#596579">«entity» vet_diagnoses</text>
+<text x="2094" y="3143" font-family="Consolas,monospace" font-size="12" fill="#2d3748">+ diagnosis_id: int [PK]</text>
+<text x="2094" y="3161" font-family="Consolas,monospace" font-size="12" fill="#2d3748">Full SQL attributes / DB page 04</text>
+<text x="2094" y="3188" font-family="Arial,sans-serif" font-size="11.5" fill="#596579">iPawcus_ERD_Schema.sql</text>
+</g>
+<g data-node="db:queues"><rect x="2080" y="3258" width="440" height="135" fill="#f8fafc" stroke="#c4cbd4" stroke-width="1.2" stroke-dasharray="5 4"/><line x1="2080" y1="3313" x2="2520" y2="3313" stroke="#c4cbd4"/>
+<text x="2094" y="3281" font-family="Arial,sans-serif" font-size="16" fill="#2d3748">Queue</text>
+<text x="2094" y="3300" font-family="Arial,sans-serif" font-size="11.5" fill="#596579">«entity» queues</text>
+<text x="2094" y="3336" font-family="Consolas,monospace" font-size="12" fill="#2d3748">+ queue_id: int [PK]</text>
+<text x="2094" y="3354" font-family="Consolas,monospace" font-size="12" fill="#2d3748">Full SQL attributes / DB page 04</text>
+<text x="2094" y="3381" font-family="Arial,sans-serif" font-size="11.5" fill="#596579">iPawcus_ERD_Schema.sql</text>
+</g>
+<g data-node="db:pet_ownership"><rect x="2080" y="3451" width="440" height="135" fill="#f8fafc" stroke="#c4cbd4" stroke-width="1.2" stroke-dasharray="5 4"/><line x1="2080" y1="3506" x2="2520" y2="3506" stroke="#c4cbd4"/>
+<text x="2094" y="3474" font-family="Arial,sans-serif" font-size="16" fill="#2d3748">PetOwnership</text>
+<text x="2094" y="3493" font-family="Arial,sans-serif" font-size="11.5" fill="#596579">«entity» pet_ownership</text>
+<text x="2094" y="3529" font-family="Consolas,monospace" font-size="12" fill="#2d3748">+ link_id: int [PK]</text>
+<text x="2094" y="3547" font-family="Consolas,monospace" font-size="12" fill="#2d3748">Full SQL attributes / DB page 03</text>
+<text x="2094" y="3574" font-family="Arial,sans-serif" font-size="11.5" fill="#596579">iPawcus_ERD_Schema.sql</text>
+</g>
+<g data-node="db:online_consultations"><rect x="2080" y="3644" width="440" height="135" fill="#f8fafc" stroke="#c4cbd4" stroke-width="1.2" stroke-dasharray="5 4"/><line x1="2080" y1="3699" x2="2520" y2="3699" stroke="#c4cbd4"/>
+<text x="2094" y="3667" font-family="Arial,sans-serif" font-size="16" fill="#2d3748">OnlineConsultation</text>
+<text x="2094" y="3686" font-family="Arial,sans-serif" font-size="11.5" fill="#596579">«entity» online_consultations</text>
+<text x="2094" y="3722" font-family="Consolas,monospace" font-size="12" fill="#2d3748">+ online_consultation_id: int [PK]</text>
+<text x="2094" y="3740" font-family="Consolas,monospace" font-size="12" fill="#2d3748">Full SQL attributes / DB page 05</text>
+<text x="2094" y="3767" font-family="Arial,sans-serif" font-size="11.5" fill="#596579">iPawcus_ERD_Schema.sql</text>
+</g>
+<g data-node="db:boarding_tasks"><rect x="2080" y="3837" width="440" height="135" fill="#f8fafc" stroke="#c4cbd4" stroke-width="1.2" stroke-dasharray="5 4"/><line x1="2080" y1="3892" x2="2520" y2="3892" stroke="#c4cbd4"/>
+<text x="2094" y="3860" font-family="Arial,sans-serif" font-size="16" fill="#2d3748">BoardingTask</text>
+<text x="2094" y="3879" font-family="Arial,sans-serif" font-size="11.5" fill="#596579">«entity» boarding_tasks</text>
+<text x="2094" y="3915" font-family="Consolas,monospace" font-size="12" fill="#2d3748">+ task_id: int [PK]</text>
+<text x="2094" y="3933" font-family="Consolas,monospace" font-size="12" fill="#2d3748">Full SQL attributes / DB page 06</text>
+<text x="2094" y="3960" font-family="Arial,sans-serif" font-size="11.5" fill="#596579">iPawcus_ERD_Schema.sql</text>
+</g>
+<g data-node="db:branches"><rect x="2080" y="4030" width="440" height="135" fill="#f8fafc" stroke="#c4cbd4" stroke-width="1.2" stroke-dasharray="5 4"/><line x1="2080" y1="4085" x2="2520" y2="4085" stroke="#c4cbd4"/>
+<text x="2094" y="4053" font-family="Arial,sans-serif" font-size="16" fill="#2d3748">Branch</text>
+<text x="2094" y="4072" font-family="Arial,sans-serif" font-size="11.5" fill="#596579">«entity» branches</text>
+<text x="2094" y="4108" font-family="Consolas,monospace" font-size="12" fill="#2d3748">+ branch_id: int [PK]</text>
+<text x="2094" y="4126" font-family="Consolas,monospace" font-size="12" fill="#2d3748">Full SQL attributes / DB page 02</text>
+<text x="2094" y="4153" font-family="Arial,sans-serif" font-size="11.5" fill="#596579">iPawcus_ERD_Schema.sql</text>
+</g>
+<g data-node="db:pet_record_update_requests"><rect x="2080" y="4223" width="440" height="135" fill="#f8fafc" stroke="#c4cbd4" stroke-width="1.2" stroke-dasharray="5 4"/><line x1="2080" y1="4278" x2="2520" y2="4278" stroke="#c4cbd4"/>
+<text x="2094" y="4246" font-family="Arial,sans-serif" font-size="16" fill="#2d3748">PetRecordUpdateRequest</text>
+<text x="2094" y="4265" font-family="Arial,sans-serif" font-size="11.5" fill="#596579">«entity» pet_record_update_requests</text>
+<text x="2094" y="4301" font-family="Consolas,monospace" font-size="12" fill="#2d3748">+ request_id: int [PK]</text>
+<text x="2094" y="4319" font-family="Consolas,monospace" font-size="12" fill="#2d3748">Full SQL attributes / DB page 03</text>
+<text x="2094" y="4346" font-family="Arial,sans-serif" font-size="11.5" fill="#596579">iPawcus_ERD_Schema.sql</text>
+</g>
+<g data-node="db:visit_invoice_documents"><rect x="2080" y="4416" width="440" height="135" fill="#f8fafc" stroke="#c4cbd4" stroke-width="1.2" stroke-dasharray="5 4"/><line x1="2080" y1="4471" x2="2520" y2="4471" stroke="#c4cbd4"/>
+<text x="2094" y="4439" font-family="Arial,sans-serif" font-size="16" fill="#2d3748">VisitInvoiceDocument</text>
+<text x="2094" y="4458" font-family="Arial,sans-serif" font-size="11.5" fill="#596579">«entity» visit_invoice_documents</text>
+<text x="2094" y="4494" font-family="Consolas,monospace" font-size="12" fill="#2d3748">+ invoice_document_id: int [PK]</text>
+<text x="2094" y="4512" font-family="Consolas,monospace" font-size="12" fill="#2d3748">Full SQL attributes / DB page 08</text>
+<text x="2094" y="4539" font-family="Arial,sans-serif" font-size="11.5" fill="#596579">iPawcus_ERD_Schema.sql</text>
+</g>
+<g data-node="php/booking_maintenance.php"><rect x="1400" y="2969" width="440" height="117" fill="#f8fafc" stroke="#c4cbd4" stroke-width="1.2" stroke-dasharray="5 4"/><line x1="1400" y1="3024" x2="1840" y2="3024" stroke="#c4cbd4"/>
+<text x="1414" y="2992" font-family="Arial,sans-serif" font-size="16" fill="#2d3748">BookingMaintenance</text>
+<text x="1414" y="3011" font-family="Arial,sans-serif" font-size="11.5" fill="#596579">«PHP module» / page 22</text>
+<text x="1414" y="3047" font-family="Consolas,monospace" font-size="12" fill="#2d3748">Definition / page 22</text>
+<text x="1414" y="3074" font-family="Arial,sans-serif" font-size="11.5" fill="#596579">php/booking_maintenance.php:12</text>
+</g>
+<g data-node="php/booking_slot_helpers.php"><rect x="1400" y="3144" width="440" height="117" fill="#f8fafc" stroke="#c4cbd4" stroke-width="1.2" stroke-dasharray="5 4"/><line x1="1400" y1="3199" x2="1840" y2="3199" stroke="#c4cbd4"/>
+<text x="1414" y="3167" font-family="Arial,sans-serif" font-size="16" fill="#2d3748">BookingSlotHelpers</text>
+<text x="1414" y="3186" font-family="Arial,sans-serif" font-size="11.5" fill="#596579">«PHP module» / page 23</text>
+<text x="1414" y="3222" font-family="Consolas,monospace" font-size="12" fill="#2d3748">Definition / page 23</text>
+<text x="1414" y="3249" font-family="Arial,sans-serif" font-size="11.5" fill="#596579">php/booking_slot_helpers.php:13</text>
+</g>
+<text x="512" y="204" font-family="Consolas,monospace" font-size="11.5" fill="#596579">uses</text>
+<text x="512" y="226" font-family="Consolas,monospace" font-size="11.5" fill="#596579">uses</text>
+<text x="512" y="577" font-family="Consolas,monospace" font-size="11.5" fill="#596579">uses</text>
+<text x="512" y="599" font-family="Consolas,monospace" font-size="11.5" fill="#596579">uses</text>
+<text x="512" y="1244" font-family="Consolas,monospace" font-size="11.5" fill="#596579">uses</text>
+<text x="512" y="1266" font-family="Consolas,monospace" font-size="11.5" fill="#596579">uses</text>
+<text x="1172" y="204" font-family="Consolas,monospace" font-size="11.5" fill="#596579">HTTP</text>
+<text x="1172" y="523" font-family="Consolas,monospace" font-size="11.5" fill="#596579">uses</text>
+<text x="1172" y="788" font-family="Consolas,monospace" font-size="11.5" fill="#596579">HTTP</text>
+<text x="1852" y="204" font-family="Consolas,monospace" font-size="11.5" fill="#596579">SQL</text>
+<text x="1852" y="226" font-family="Consolas,monospace" font-size="11.5" fill="#596579">SQL</text>
+<text x="1852" y="523" font-family="Consolas,monospace" font-size="11.5" fill="#596579">includes</text>
+<text x="1852" y="545" font-family="Consolas,monospace" font-size="11.5" fill="#596579">includes</text>
+<text x="1852" y="756" font-family="Consolas,monospace" font-size="11.5" fill="#596579">includes</text>
+<text x="1852" y="778" font-family="Consolas,monospace" font-size="11.5" fill="#596579">includes</text>
+<text x="1852" y="800" font-family="Consolas,monospace" font-size="11.5" fill="#596579">includes</text>
+<text x="1852" y="822" font-family="Consolas,monospace" font-size="11.5" fill="#596579">includes</text>
+<text x="1852" y="844" font-family="Consolas,monospace" font-size="11.5" fill="#596579">SQL</text>
+<text x="1852" y="866" font-family="Consolas,monospace" font-size="11.5" fill="#596579">SQL</text>
+<text x="1852" y="888" font-family="Consolas,monospace" font-size="11.5" fill="#596579">SQL</text>
+<text x="1852" y="910" font-family="Consolas,monospace" font-size="11.5" fill="#596579">SQL</text>
+<text x="1852" y="932" font-family="Consolas,monospace" font-size="11.5" fill="#596579">SQL</text>
+<text x="1852" y="954" font-family="Consolas,monospace" font-size="11.5" fill="#596579">SQL</text>
+<text x="1852" y="976" font-family="Consolas,monospace" font-size="11.5" fill="#596579">SQL</text>
+<text x="1852" y="998" font-family="Consolas,monospace" font-size="11.5" fill="#596579">SQL</text>
+<text x="1852" y="1020" font-family="Consolas,monospace" font-size="11.5" fill="#596579">SQL</text>
+<text x="1852" y="1042" font-family="Consolas,monospace" font-size="11.5" fill="#596579">SQL</text>
+<text x="1852" y="1064" font-family="Consolas,monospace" font-size="11.5" fill="#596579">SQL</text>
+<text x="1852" y="1086" font-family="Consolas,monospace" font-size="11.5" fill="#596579">SQL</text>
+<text x="1852" y="1108" font-family="Consolas,monospace" font-size="11.5" fill="#596579">SQL</text>
+<text x="1852" y="1130" font-family="Consolas,monospace" font-size="11.5" fill="#596579">SQL</text>
+<text x="1852" y="1152" font-family="Consolas,monospace" font-size="11.5" fill="#596579">SQL</text>
+<text x="1852" y="1174" font-family="Consolas,monospace" font-size="11.5" fill="#596579">SQL</text>
+<text x="1852" y="1196" font-family="Consolas,monospace" font-size="11.5" fill="#596579">SQL</text>
+<text x="1852" y="1218" font-family="Consolas,monospace" font-size="11.5" fill="#596579">SQL</text>
+<text x="1852" y="1240" font-family="Consolas,monospace" font-size="11.5" fill="#596579">SQL</text>
+<text x="1852" y="1262" font-family="Consolas,monospace" font-size="11.5" fill="#596579">SQL</text>
+<text x="1852" y="1284" font-family="Consolas,monospace" font-size="11.5" fill="#596579">SQL</text>
+<text x="1852" y="1306" font-family="Consolas,monospace" font-size="11.5" fill="#596579">SQL</text>
+<text x="1852" y="1456" font-family="Consolas,monospace" font-size="11.5" fill="#596579">includes</text>
+<text x="1852" y="1478" font-family="Consolas,monospace" font-size="11.5" fill="#596579">SQL</text>
+<text x="1852" y="1500" font-family="Consolas,monospace" font-size="11.5" fill="#596579">SQL</text>
+<text x="1852" y="1522" font-family="Consolas,monospace" font-size="11.5" fill="#596579">SQL</text>
+<text x="1852" y="1544" font-family="Consolas,monospace" font-size="11.5" fill="#596579">SQL</text>
+<text x="1852" y="1566" font-family="Consolas,monospace" font-size="11.5" fill="#596579">SQL</text>
+<text x="1852" y="1588" font-family="Consolas,monospace" font-size="11.5" fill="#596579">SQL</text>
+<text x="1852" y="1757" font-family="Consolas,monospace" font-size="11.5" fill="#596579">includes</text>
+<text x="1852" y="1779" font-family="Consolas,monospace" font-size="11.5" fill="#596579">includes</text>
+<text x="1852" y="1801" font-family="Consolas,monospace" font-size="11.5" fill="#596579">SQL</text>
+<text x="1852" y="1823" font-family="Consolas,monospace" font-size="11.5" fill="#596579">SQL</text>
+<text x="1852" y="1845" font-family="Consolas,monospace" font-size="11.5" fill="#596579">SQL</text>
+<text x="1852" y="1867" font-family="Consolas,monospace" font-size="11.5" fill="#596579">SQL</text>
+<text x="1852" y="1889" font-family="Consolas,monospace" font-size="11.5" fill="#596579">SQL</text>
+<text x="1852" y="1911" font-family="Consolas,monospace" font-size="11.5" fill="#596579">SQL</text>
+<text x="1852" y="1933" font-family="Consolas,monospace" font-size="11.5" fill="#596579">SQL</text>
+<text x="1852" y="1955" font-family="Consolas,monospace" font-size="11.5" fill="#596579">SQL</text>
+<text x="1852" y="1977" font-family="Consolas,monospace" font-size="11.5" fill="#596579">SQL</text>
+<text x="1852" y="1999" font-family="Consolas,monospace" font-size="11.5" fill="#596579">SQL</text>
+<text x="1852" y="2021" font-family="Consolas,monospace" font-size="11.5" fill="#596579">SQL</text>
+<text x="1852" y="2043" font-family="Consolas,monospace" font-size="11.5" fill="#596579">SQL</text>
+<text x="1852" y="2065" font-family="Consolas,monospace" font-size="11.5" fill="#596579">SQL</text>
+<text x="1852" y="2087" font-family="Consolas,monospace" font-size="11.5" fill="#596579">SQL</text>
+<text x="1852" y="2109" font-family="Consolas,monospace" font-size="11.5" fill="#596579">SQL</text>
+<text x="1852" y="2131" font-family="Consolas,monospace" font-size="11.5" fill="#596579">SQL</text>
+<text x="1852" y="2153" font-family="Consolas,monospace" font-size="11.5" fill="#596579">SQL</text>
+<text x="1852" y="2325" font-family="Consolas,monospace" font-size="11.5" fill="#596579">includes</text>
+</svg>

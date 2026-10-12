@@ -1,0 +1,18 @@
+{
+  "source": "iPawcus_ERD_Schema.sql",
+  "tables": 88,
+  "attributes": 1050,
+  "declared_foreign_keys": 184,
+  "pages": 10,
+  "relationship_segments_checked": 1162,
+  "class_box_intersections": 0,
+  "relationship_labels_checked": 444,
+  "label_box_intersections": 0,
+  "label_line_intersections": 0,
+  "label_label_intersections": 0,
+  "labels_above_own_line": 444,
+  "text_overflows": 0,
+  "compact_core_layout": { "width": 1940, "height": 1438 },
+  "original_sql_modified": false,
+  "application_modified": false
+}

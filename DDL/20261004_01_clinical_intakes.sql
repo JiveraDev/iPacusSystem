@@ -1,0 +1,35 @@
+-- Assistant Vet physical-examination intake and veterinarian handoff.
+-- Apply this migration before enabling the Patient Intake dashboard screen.
+
+CREATE TABLE IF NOT EXISTS `clinical_intakes` (
+  `intake_id` int(11) NOT NULL AUTO_INCREMENT,
+  `queue_id` int(11) NOT NULL,
+  `booking_id` int(11) DEFAULT NULL,
+  `pet_id` int(11) NOT NULL,
+  `assigned_veterinarian_user_id` int(11) NOT NULL,
+  `recorded_by_user_id` int(11) NOT NULL,
+  `recorded_by_name` varchar(220) NOT NULL,
+  `recorded_by_position` varchar(120) DEFAULT NULL,
+  `status` enum('in_progress','completed') NOT NULL DEFAULT 'in_progress',
+  `chief_complaint` text DEFAULT NULL,
+  `symptoms` text DEFAULT NULL,
+  `major_symptoms` text DEFAULT NULL,
+  `physical_exam` text DEFAULT NULL,
+  `vital_signs` longtext CHARACTER SET utf8mb4 COLLATE utf8mb4_bin DEFAULT NULL CHECK (json_valid(`vital_signs`)),
+  `attachments` longtext CHARACTER SET utf8mb4 COLLATE utf8mb4_bin DEFAULT NULL CHECK (json_valid(`attachments`)),
+  `started_at` datetime NOT NULL DEFAULT current_timestamp(),
+  `completed_at` datetime DEFAULT NULL,
+  `created_at` timestamp NOT NULL DEFAULT current_timestamp(),
+  `updated_at` timestamp NOT NULL DEFAULT current_timestamp() ON UPDATE current_timestamp(),
+  PRIMARY KEY (`intake_id`),
+  UNIQUE KEY `clinical_intakes_queue_unique` (`queue_id`),
+  KEY `clinical_intakes_booking_idx` (`booking_id`),
+  KEY `clinical_intakes_pet_idx` (`pet_id`),
+  KEY `clinical_intakes_assigned_vet_idx` (`assigned_veterinarian_user_id`,`status`),
+  KEY `clinical_intakes_recorded_by_idx` (`recorded_by_user_id`),
+  CONSTRAINT `clinical_intakes_queue_fk` FOREIGN KEY (`queue_id`) REFERENCES `queues` (`queue_id`) ON DELETE CASCADE,
+  CONSTRAINT `clinical_intakes_booking_fk` FOREIGN KEY (`booking_id`) REFERENCES `bookings` (`booking_id`) ON DELETE SET NULL,
+  CONSTRAINT `clinical_intakes_pet_fk` FOREIGN KEY (`pet_id`) REFERENCES `pets_information` (`pet_id`),
+  CONSTRAINT `clinical_intakes_assigned_vet_fk` FOREIGN KEY (`assigned_veterinarian_user_id`) REFERENCES `users` (`user_id`),
+  CONSTRAINT `clinical_intakes_recorded_by_fk` FOREIGN KEY (`recorded_by_user_id`) REFERENCES `users` (`user_id`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;

@@ -1,0 +1,485 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="2600" height="3477" viewBox="0 0 2600 3477" role="img" aria-labelledby="title desc">
+<title id="title">iPawcus / Accounts, profiles and access control / 1 of 2</title>
+<desc id="desc">Application modules and verified database references. Original SQL entity definitions are on pages 01 to 09. Dashed dependencies are not foreign keys.</desc>
+<defs><marker id="arrow" markerWidth="9" markerHeight="9" refX="8" refY="4.5" orient="auto" markerUnits="userSpaceOnUse"><path d="M0 0 L8 4.5 L0 9" fill="none" stroke="#8793a3" stroke-width="1.2"/></marker><marker id="inheritance" markerWidth="11" markerHeight="11" refX="10" refY="5" orient="auto" markerUnits="userSpaceOnUse"><path d="M0 0 L10 5 L0 10 Z" fill="#ffffff" stroke="#8793a3" stroke-width="1.2"/></marker></defs>
+<rect width="100%" height="100%" fill="#ffffff"/>
+<text x="80" y="44" font-family="Arial,sans-serif" font-size="25" fill="#2d3748">iPawcus / Accounts, profiles and access control / 1 of 2</text>
+<text x="80" y="73" font-family="Arial,sans-serif" font-size="14" fill="#596579">React / service / PHP / entity reference · arrows show source-code dependencies; no invented OO inheritance.</text>
+<text x="80" y="100" font-family="Arial,sans-serif" font-size="13" fill="#596579">Dashed: dependency. Solid: migration FK or real class inheritance. Full source evidence accompanies detailed links.</text>
+<text x="80" y="143" font-family="Arial,sans-serif" font-size="14" fill="#596579">UI and system views</text>
+<text x="740" y="143" font-family="Arial,sans-serif" font-size="14" fill="#596579">JavaScript services</text>
+<text x="1400" y="143" font-family="Arial,sans-serif" font-size="14" fill="#596579">PHP backend modules</text>
+<text x="2080" y="143" font-family="Arial,sans-serif" font-size="14" fill="#596579">Database references</text>
+<path d="M500 210 L610 210 L610 1126 L740 1126" fill="none" stroke="#8793a3" stroke-width="1.2" stroke-dasharray="5 4" marker-end="url(#arrow)"><title>src/components/AdminDashboardsComponent/PetProfileEdit.jsx → src/services/findPet.js / uses</title></path>
+<path d="M500 232 L630 232 L630 1301 L740 1301" fill="none" stroke="#8793a3" stroke-width="1.2" stroke-dasharray="5 4" marker-end="url(#arrow)"><title>src/components/AdminDashboardsComponent/PetProfileEdit.jsx → src/services/petService.js / uses</title></path>
+<path d="M500 254 L610 254 L610 257 L545 257 L545 1476 L740 1476" fill="none" stroke="#8793a3" stroke-width="1.2" stroke-dasharray="5 4" marker-end="url(#arrow)"><title>src/components/AdminDashboardsComponent/PetProfileEdit.jsx → src/services/uploadService.js / uses</title></path>
+<path d="M500 599 L718 599 L718 721 L630 721 L630 722 L740 722" fill="none" stroke="#8793a3" stroke-width="1.2" stroke-dasharray="5 4" marker-end="url(#arrow)"><title>src/components/AdminDashboardsComponent/adminprofile.jsx → src/services/profileService.js / uses</title></path>
+<path d="M500 621 L610 621 L610 636 L522 636 L522 951 L718 951 L718 1497 L630 1497 L630 1498 L740 1498" fill="none" stroke="#8793a3" stroke-width="1.2" stroke-dasharray="5 4" marker-end="url(#arrow)"><title>src/components/AdminDashboardsComponent/adminprofile.jsx → src/services/uploadService.js / uses</title></path>
+<path d="M500 970 L718 970 L718 537 L630 537 L630 529 L740 529" fill="none" stroke="#8793a3" stroke-width="1.2" stroke-dasharray="5 4" marker-end="url(#arrow)"><title>src/components/Dashboard.jsx → src/services/adminFeatureAccessService.js / uses</title></path>
+<path d="M500 1235 L610 1235 L610 1520 L740 1520" fill="none" stroke="#8793a3" stroke-width="1.2" stroke-dasharray="5 4" marker-end="url(#arrow)"><title>src/components/PetOwnerDashboard/PetOwnerProfile.jsx → src/services/uploadService.js / uses</title></path>
+<path d="M500 1257 L610 1257 L610 915 L740 915" fill="none" stroke="#8793a3" stroke-width="1.2" stroke-dasharray="5 4" marker-end="url(#arrow)"><title>src/components/PetOwnerDashboard/PetOwnerProfile.jsx → src/services/userService.js / uses</title></path>
+<path d="M500 1588 L630 1588 L630 1148 L740 1148" fill="none" stroke="#8793a3" stroke-width="1.2" stroke-dasharray="5 4" marker-end="url(#arrow)"><title>src/components/PetOwnerDashboard/PetProfile.jsx → src/services/findPet.js / uses</title></path>
+<path d="M500 1610 L610 1610 L610 1670 L740 1670" fill="none" stroke="#8793a3" stroke-width="1.2" stroke-dasharray="5 4" marker-end="url(#arrow)"><title>src/components/PetOwnerDashboard/PetProfile.jsx → src/services/bookingService.js / uses</title></path>
+<path d="M500 1632 L610 1632 L610 1520 L522 1520 L522 1323 L740 1323" fill="none" stroke="#8793a3" stroke-width="1.2" stroke-dasharray="5 4" marker-end="url(#arrow)"><title>src/components/PetOwnerDashboard/PetProfile.jsx → src/services/petService.js / uses</title></path>
+<path d="M500 1654 L630 1654 L630 1542 L740 1542" fill="none" stroke="#8793a3" stroke-width="1.2" stroke-dasharray="5 4" marker-end="url(#arrow)"><title>src/components/PetOwnerDashboard/PetProfile.jsx → src/services/uploadService.js / uses</title></path>
+<path d="M500 1676 L610 1676 L610 1845 L740 1845" fill="none" stroke="#8793a3" stroke-width="1.2" stroke-dasharray="5 4" marker-end="url(#arrow)"><title>src/components/PetOwnerDashboard/PetProfile.jsx → src/services/recordUpdateRequestService.js / uses</title></path>
+<path d="M500 1698 L630 1698 L630 2020 L740 2020" fill="none" stroke="#8793a3" stroke-width="1.2" stroke-dasharray="5 4" marker-end="url(#arrow)"><title>src/components/PetOwnerDashboard/PetProfile.jsx → src/services/petCertificateService.js / uses</title></path>
+<path d="M500 1961 L610 1961 L610 1885 L58 1885 L58 148 L630 148 L630 210 L740 210" fill="none" stroke="#8793a3" stroke-width="1.2" stroke-dasharray="5 4" marker-end="url(#arrow)"><title>src/components/SuperAdminDashboardComponent/AccountManagement.jsx → src/services/accountService.js / uses</title></path>
+<path d="M500 1983 L610 1983 L610 2195 L740 2195" fill="none" stroke="#8793a3" stroke-width="1.2" stroke-dasharray="5 4" marker-end="url(#arrow)"><title>src/components/SuperAdminDashboardComponent/AccountManagement.jsx → src/services/branchService.js / uses</title></path>
+<path d="M500 2005 L610 2005 L610 2004 L545 2004 L545 1512 L30 1512 L30 537 L630 537 L630 551 L740 551" fill="none" stroke="#8793a3" stroke-width="1.2" stroke-dasharray="5 4" marker-end="url(#arrow)"><title>src/components/SuperAdminDashboardComponent/AccountManagement.jsx → src/services/adminFeatureAccessService.js / uses</title></path>
+<path d="M500 2350 L1205 2350 L1205 453 L718 453 L718 231 L630 231 L630 232 L740 232" fill="none" stroke="#8793a3" stroke-width="1.2" stroke-dasharray="5 4" marker-end="url(#arrow)"><title>src/components/SuperAdminDashboardComponent/PetOwnerAccountsManagement.jsx → src/services/accountService.js / uses</title></path>
+<path d="M500 2372 L718 2372 L718 1347 L630 1347 L630 1345 L740 1345" fill="none" stroke="#8793a3" stroke-width="1.2" stroke-dasharray="5 4" marker-end="url(#arrow)"><title>src/components/SuperAdminDashboardComponent/PetOwnerAccountsManagement.jsx → src/services/petService.js / uses</title></path>
+<path d="M1160 210 L1270 210 L1270 1260 L1400 1260" fill="none" stroke="#8793a3" stroke-width="1.2" stroke-dasharray="5 4" marker-end="url(#arrow)"><title>src/services/accountService.js → php/get_accounts.php / HTTP</title></path>
+<path d="M1160 232 L1290 232 L1290 1736 L1400 1736" fill="none" stroke="#8793a3" stroke-width="1.2" stroke-dasharray="5 4" marker-end="url(#arrow)"><title>src/services/accountService.js → php/get_veterinarians.php / HTTP</title></path>
+<path d="M1160 254 L1378 254 L1378 654 L1290 654 L1290 655 L1400 655" fill="none" stroke="#8793a3" stroke-width="1.2" stroke-dasharray="5 4" marker-end="url(#arrow)"><title>src/services/accountService.js → php/create_account.php / HTTP</title></path>
+<path d="M1160 276 L1270 276 L1270 279 L1205 279 L1205 528 L1182 528 L1182 703 L1378 703 L1378 1899 L1290 1899 L1290 1930 L1400 1930" fill="none" stroke="#8793a3" stroke-width="1.2" stroke-dasharray="5 4" marker-end="url(#arrow)"><title>src/services/accountService.js → php/update_account_status.php / HTTP</title></path>
+<path d="M1160 298 L1270 298 L1270 350 L1913 350 L1913 2043 L1290 2043 L1290 2105 L1400 2105" fill="none" stroke="#8793a3" stroke-width="1.2" stroke-dasharray="5 4" marker-end="url(#arrow)"><title>src/services/accountService.js → php/update_account_profile.php / HTTP</title></path>
+<path d="M1160 320 L1270 320 L1270 341 L1182 341 L1182 510 L1205 510 L1205 743 L1182 743 L1182 896 L1290 896 L1290 959 L1400 959" fill="none" stroke="#8793a3" stroke-width="1.2" stroke-dasharray="5 4" marker-end="url(#arrow)"><title>src/services/accountService.js → php/delete_account.php / HTTP</title></path>
+<path d="M1160 342 L1270 342 L1270 364 L1950 364 L1950 2218 L1290 2218 L1290 2280 L1400 2280" fill="none" stroke="#8793a3" stroke-width="1.2" stroke-dasharray="5 4" marker-end="url(#arrow)"><title>src/services/accountService.js → php/pet_owner_accounts.php / HTTP</title></path>
+<path d="M1160 529 L1270 529 L1270 426 L1400 426" fill="none" stroke="#8793a3" stroke-width="1.2" stroke-dasharray="5 4" marker-end="url(#arrow)"><title>src/services/adminFeatureAccessService.js → php/admin_feature_access.php / HTTP</title></path>
+<path d="M1160 722 L1270 722 L1270 936 L1182 936 L1182 2455 L1400 2455" fill="none" stroke="#8793a3" stroke-width="1.2" stroke-dasharray="5 4" marker-end="url(#arrow)"><title>src/services/profileService.js → php/update_user_profile.php / HTTP</title></path>
+<path d="M1160 744 L1290 744 L1290 936 L1270 936 L1270 1498 L1400 1498" fill="none" stroke="#8793a3" stroke-width="1.2" stroke-dasharray="5 4" marker-end="url(#arrow)"><title>src/services/profileService.js → php/get_user_profile.php / HTTP</title></path>
+<path d="M1160 915 L1378 915 L1378 897 L1970 897 L1970 2568 L1290 2568 L1290 2630 L1400 2630" fill="none" stroke="#8793a3" stroke-width="1.2" stroke-dasharray="5 4" marker-end="url(#arrow)"><title>src/services/userService.js → php/update_user.php / HTTP</title></path>
+<path d="M1160 937 L1290 937 L1290 1497 L1270 1497 L1270 2805 L1400 2805" fill="none" stroke="#8793a3" stroke-width="1.2" stroke-dasharray="5 4" marker-end="url(#arrow)"><title>src/services/userService.js → php/update_password.php / HTTP</title></path>
+<path d="M1840 210 L2080 210" fill="none" stroke="#8793a3" stroke-width="1.2" stroke-dasharray="5 4" marker-end="url(#arrow)"><title>php/account_status_helpers.php → db:api_access_tokens / SQL</title></path>
+<path d="M1840 426 L1970 426 L1970 403 L2080 403" fill="none" stroke="#8793a3" stroke-width="1.2" stroke-dasharray="5 4" marker-end="url(#arrow)"><title>php/admin_feature_access.php → db:users / SQL</title></path>
+<path d="M1840 448 L1970 448 L1970 641 L2080 641" fill="none" stroke="#8793a3" stroke-width="1.2" stroke-dasharray="5 4" marker-end="url(#arrow)"><title>php/admin_feature_access.php → db:admin_feature_permissions / SQL</title></path>
+<path d="M1840 470 L2058 470 L2058 809 L1970 809 L1970 834 L2080 834" fill="none" stroke="#8793a3" stroke-width="1.2" stroke-dasharray="5 4" marker-end="url(#arrow)"><title>php/admin_feature_access.php → db:admin_feature_permission_audit / SQL</title></path>
+<path d="M1840 655 L1950 655 L1950 636 L1878 636 L1878 235 L1950 235 L1950 232 L1840 232" fill="none" stroke="#8793a3" stroke-width="1.2" stroke-dasharray="5 4" marker-end="url(#arrow)"><title>php/create_account.php → php/account_status_helpers.php / includes</title></path>
+<path d="M1840 677 L1970 677 L1970 897 L2058 897 L2058 2980 L1840 2980" fill="none" stroke="#8793a3" stroke-width="1.2" stroke-dasharray="5 4" marker-end="url(#arrow)"><title>php/create_account.php → php/branch_helpers.php / includes</title></path>
+<path d="M1840 699 L1950 699 L1950 758 L2542 758 L2542 3155 L1840 3155" fill="none" stroke="#8793a3" stroke-width="1.2" stroke-dasharray="5 4" marker-end="url(#arrow)"><title>php/create_account.php → php/notification_helpers.php / includes</title></path>
+<path d="M1840 721 L2058 721 L2058 764 L2570 764 L2570 3330 L1840 3330" fill="none" stroke="#8793a3" stroke-width="1.2" stroke-dasharray="5 4" marker-end="url(#arrow)"><title>php/create_account.php → php/password_policy_helpers.php / includes</title></path>
+<path d="M1840 743 L1950 743 L1950 744 L1878 744 L1878 940 L1970 940 L1970 1027 L2080 1027" fill="none" stroke="#8793a3" stroke-width="1.2" stroke-dasharray="5 4" marker-end="url(#arrow)"><title>php/create_account.php → db:user_branch_assignments / SQL</title></path>
+<path d="M1840 765 L1970 765 L1970 621 L1862 621 L1862 469 L1970 469 L1970 425 L2080 425" fill="none" stroke="#8793a3" stroke-width="1.2" stroke-dasharray="5 4" marker-end="url(#arrow)"><title>php/create_account.php → db:users / SQL</title></path>
+<path d="M1840 787 L1950 787 L1950 808 L1862 808 L1862 940 L1913 940 L1913 980 L1878 980 L1878 1220 L2080 1220" fill="none" stroke="#8793a3" stroke-width="1.2" stroke-dasharray="5 4" marker-end="url(#arrow)"><title>php/create_account.php → db:veterinarian_profiles / SQL</title></path>
+<path d="M1840 809 L1950 809 L1950 1002 L1862 1002 L1862 1241 L1913 1241 L1913 1259 L1878 1259 L1878 1414 L2080 1414" fill="none" stroke="#8793a3" stroke-width="1.2" stroke-dasharray="5 4" marker-end="url(#arrow)"><title>php/create_account.php → db:admin_profiles / SQL</title></path>
+<path d="M1840 959 L2058 959 L2058 765 L2542 765 L2542 327 L1950 327 L1950 254 L1840 254" fill="none" stroke="#8793a3" stroke-width="1.2" stroke-dasharray="5 4" marker-end="url(#arrow)"><title>php/delete_account.php → php/account_status_helpers.php / includes</title></path>
+<path d="M1840 981 L1950 981 L1950 1497 L1878 1497 L1878 1717 L1913 1717 L1913 1735 L1878 1735 L1878 3155 L1950 3155 L1950 3177 L1840 3177" fill="none" stroke="#8793a3" stroke-width="1.2" stroke-dasharray="5 4" marker-end="url(#arrow)"><title>php/delete_account.php → php/notification_helpers.php / includes</title></path>
+<path d="M1840 1003 L1950 1003 L1950 1002 L1913 1002 L1913 447 L2080 447" fill="none" stroke="#8793a3" stroke-width="1.2" stroke-dasharray="5 4" marker-end="url(#arrow)"><title>php/delete_account.php → db:users / SQL</title></path>
+<path d="M1840 1260 L2058 1260 L2058 959 L2570 959 L2570 341 L1970 341 L1970 276 L1840 276" fill="none" stroke="#8793a3" stroke-width="1.2" stroke-dasharray="5 4" marker-end="url(#arrow)"><title>php/get_accounts.php → php/account_status_helpers.php / includes</title></path>
+<path d="M1840 1282 L1970 1282 L1970 834 L1878 834 L1878 720 L1970 720 L1970 469 L2080 469" fill="none" stroke="#8793a3" stroke-width="1.2" stroke-dasharray="5 4" marker-end="url(#arrow)"><title>php/get_accounts.php → db:users / SQL</title></path>
+<path d="M1840 1304 L1970 1304 L1970 1242 L2080 1242" fill="none" stroke="#8793a3" stroke-width="1.2" stroke-dasharray="5 4" marker-end="url(#arrow)"><title>php/get_accounts.php → db:veterinarian_profiles / SQL</title></path>
+<path d="M1840 1326 L1970 1326 L1970 1607 L2080 1607" fill="none" stroke="#8793a3" stroke-width="1.2" stroke-dasharray="5 4" marker-end="url(#arrow)"><title>php/get_accounts.php → db:branches / SQL</title></path>
+<path d="M1840 1348 L1970 1348 L1970 1436 L2080 1436" fill="none" stroke="#8793a3" stroke-width="1.2" stroke-dasharray="5 4" marker-end="url(#arrow)"><title>php/get_accounts.php → db:admin_profiles / SQL</title></path>
+<path d="M1840 1498 L1950 1498 L1950 1585 L1862 1585 L1862 1717 L1913 1717 L1913 1779 L1862 1779 L1862 2980 L1950 2980 L1950 3002 L1840 3002" fill="none" stroke="#8793a3" stroke-width="1.2" stroke-dasharray="5 4" marker-end="url(#arrow)"><title>php/get_user_profile.php → php/branch_helpers.php / includes</title></path>
+<path d="M1840 1520 L1950 1520 L1950 1519 L1913 1519 L1913 1479 L1862 1479 L1862 1422 L1378 1422 L1378 579 L1950 579 L1950 491 L2080 491" fill="none" stroke="#8793a3" stroke-width="1.2" stroke-dasharray="5 4" marker-end="url(#arrow)"><title>php/get_user_profile.php → db:users / SQL</title></path>
+<path d="M1840 1542 L1950 1542 L1950 1541 L1913 1541 L1913 1264 L2080 1264" fill="none" stroke="#8793a3" stroke-width="1.2" stroke-dasharray="5 4" marker-end="url(#arrow)"><title>php/get_user_profile.php → db:veterinarian_profiles / SQL</title></path>
+<path d="M1840 1564 L1950 1564 L1950 1629 L2080 1629" fill="none" stroke="#8793a3" stroke-width="1.2" stroke-dasharray="5 4" marker-end="url(#arrow)"><title>php/get_user_profile.php → db:branches / SQL</title></path>
+<path d="M1840 1586 L2058 1586 L2058 1476 L1970 1476 L1970 1458 L2080 1458" fill="none" stroke="#8793a3" stroke-width="1.2" stroke-dasharray="5 4" marker-end="url(#arrow)"><title>php/get_user_profile.php → db:admin_profiles / SQL</title></path>
+<path d="M1840 1736 L2542 1736 L2542 565 L2058 565 L2058 298 L1840 298" fill="none" stroke="#8793a3" stroke-width="1.2" stroke-dasharray="5 4" marker-end="url(#arrow)"><title>php/get_veterinarians.php → php/account_status_helpers.php / includes</title></path>
+<path d="M1840 1758 L1950 1758 L1950 1660 L1205 1660 L1205 743 L1290 743 L1290 580 L1878 580 L1878 513 L2080 513" fill="none" stroke="#8793a3" stroke-width="1.2" stroke-dasharray="5 4" marker-end="url(#arrow)"><title>php/get_veterinarians.php → db:users / SQL</title></path>
+<path d="M1840 1780 L1970 1780 L1970 1607 L1878 1607 L1878 1497 L1913 1497 L1913 1479 L1878 1479 L1878 1286 L2080 1286" fill="none" stroke="#8793a3" stroke-width="1.2" stroke-dasharray="5 4" marker-end="url(#arrow)"><title>php/get_veterinarians.php → db:veterinarian_profiles / SQL</title></path>
+<g data-node="src/components/AdminDashboardsComponent/PetProfileEdit.jsx"><rect x="80" y="170" width="420" height="331" fill="#ffffff" stroke="#c4cbd4" stroke-width="1.2"/><line x1="80" y1="225" x2="500" y2="225" stroke="#c4cbd4"/>
+<text x="94" y="193" font-family="Arial,sans-serif" font-size="16" fill="#2d3748">PetProfileEdit</text>
+<text x="94" y="212" font-family="Arial,sans-serif" font-size="11.5" fill="#596579">«React component»</text>
+<text x="94" y="248" font-family="Consolas,monospace" font-size="12" fill="#2d3748">- pet: state</text>
+<text x="94" y="266" font-family="Consolas,monospace" font-size="12" fill="#2d3748">- isLoading: state</text>
+<text x="94" y="284" font-family="Consolas,monospace" font-size="12" fill="#2d3748">- isSaving: state</text>
+<text x="94" y="302" font-family="Consolas,monospace" font-size="12" fill="#2d3748">+ PetProfileEdit()</text>
+<text x="94" y="320" font-family="Consolas,monospace" font-size="12" fill="#2d3748">+ fetchPet()</text>
+<text x="94" y="338" font-family="Consolas,monospace" font-size="12" fill="#2d3748">+ fetchMedical()</text>
+<text x="94" y="356" font-family="Consolas,monospace" font-size="12" fill="#2d3748">+ handleInputChange()</text>
+<text x="94" y="374" font-family="Consolas,monospace" font-size="12" fill="#2d3748">+ handleSelectChange()</text>
+<text x="94" y="392" font-family="Consolas,monospace" font-size="12" fill="#2d3748">+ handleSaveProfile()</text>
+<text x="94" y="410" font-family="Consolas,monospace" font-size="12" fill="#2d3748">+ handleAddVaccination()</text>
+<text x="94" y="428" font-family="Consolas,monospace" font-size="12" fill="#2d3748">+ handleDeleteVaccination()</text>
+<text x="94" y="446" font-family="Consolas,monospace" font-size="12" fill="#2d3748">+ 2 more operations [source index]</text>
+<text x="94" y="473" font-family="Arial,sans-serif" font-size="11.5" fill="#596579">src/components/AdminDashboardsComponent/PetProfileEd</text>
+<text x="94" y="489" font-family="Arial,sans-serif" font-size="11.5" fill="#596579">  it.jsx:32</text>
+</g>
+<g data-node="src/components/AdminDashboardsComponent/adminprofile.jsx"><rect x="80" y="559" width="420" height="313" fill="#ffffff" stroke="#c4cbd4" stroke-width="1.2"/><line x1="80" y1="614" x2="500" y2="614" stroke="#c4cbd4"/>
+<text x="94" y="582" font-family="Arial,sans-serif" font-size="16" fill="#2d3748">adminprofile</text>
+<text x="94" y="601" font-family="Arial,sans-serif" font-size="11.5" fill="#596579">«React component»</text>
+<text x="94" y="637" font-family="Consolas,monospace" font-size="12" fill="#2d3748">- isLoading: state</text>
+<text x="94" y="655" font-family="Consolas,monospace" font-size="12" fill="#2d3748">- isEditing: state</text>
+<text x="94" y="673" font-family="Consolas,monospace" font-size="12" fill="#2d3748">- isSaving: state</text>
+<text x="94" y="691" font-family="Consolas,monospace" font-size="12" fill="#2d3748">+ ProfileManagement()</text>
+<text x="94" y="709" font-family="Consolas,monospace" font-size="12" fill="#2d3748">+ loadProfile()</text>
+<text x="94" y="727" font-family="Consolas,monospace" font-size="12" fill="#2d3748">+ handleImageChange()</text>
+<text x="94" y="745" font-family="Consolas,monospace" font-size="12" fill="#2d3748">+ handleSave()</text>
+<text x="94" y="763" font-family="Consolas,monospace" font-size="12" fill="#2d3748">+ handleCancel()</text>
+<text x="94" y="781" font-family="Consolas,monospace" font-size="12" fill="#2d3748">+ handleProfileTabChange()</text>
+<text x="94" y="799" font-family="Consolas,monospace" font-size="12" fill="#2d3748">+ handleStayOnProfile()</text>
+<text x="94" y="817" font-family="Consolas,monospace" font-size="12" fill="#2d3748">+ handleSaveAndLeaveProfile()</text>
+<text x="94" y="844" font-family="Arial,sans-serif" font-size="11.5" fill="#596579">src/components/AdminDashboardsComponent/adminprofile</text>
+<text x="94" y="860" font-family="Arial,sans-serif" font-size="11.5" fill="#596579">  .jsx:50</text>
+</g>
+<g data-node="src/components/Dashboard.jsx"><rect x="80" y="930" width="420" height="207" fill="#ffffff" stroke="#c4cbd4" stroke-width="1.2"/><line x1="80" y1="985" x2="500" y2="985" stroke="#c4cbd4"/>
+<text x="94" y="953" font-family="Arial,sans-serif" font-size="16" fill="#2d3748">Dashboard</text>
+<text x="94" y="972" font-family="Arial,sans-serif" font-size="11.5" fill="#596579">«React component»</text>
+<text x="94" y="1008" font-family="Consolas,monospace" font-size="12" fill="#2d3748">- historyStack: state</text>
+<text x="94" y="1026" font-family="Consolas,monospace" font-size="12" fill="#2d3748">- isMobileNavOpen: state</text>
+<text x="94" y="1044" font-family="Consolas,monospace" font-size="12" fill="#2d3748">- isCompactLayout: state</text>
+<text x="94" y="1062" font-family="Consolas,monospace" font-size="12" fill="#2d3748">+ Dashboard()</text>
+<text x="94" y="1080" font-family="Consolas,monospace" font-size="12" fill="#2d3748">+ handlePopState()</text>
+<text x="94" y="1098" font-family="Consolas,monospace" font-size="12" fill="#2d3748">+ handleResize()</text>
+<text x="94" y="1125" font-family="Arial,sans-serif" font-size="11.5" fill="#596579">src/components/Dashboard.jsx:596</text>
+</g>
+<g data-node="src/components/PetOwnerDashboard/PetOwnerProfile.jsx"><rect x="80" y="1195" width="420" height="295" fill="#ffffff" stroke="#c4cbd4" stroke-width="1.2"/><line x1="80" y1="1250" x2="500" y2="1250" stroke="#c4cbd4"/>
+<text x="94" y="1218" font-family="Arial,sans-serif" font-size="16" fill="#2d3748">PetOwnerProfile</text>
+<text x="94" y="1237" font-family="Arial,sans-serif" font-size="11.5" fill="#596579">«React component»</text>
+<text x="94" y="1273" font-family="Consolas,monospace" font-size="12" fill="#2d3748">- isEditingProfile: state</text>
+<text x="94" y="1291" font-family="Consolas,monospace" font-size="12" fill="#2d3748">- isSaving: state</text>
+<text x="94" y="1309" font-family="Consolas,monospace" font-size="12" fill="#2d3748">- imageError: state</text>
+<text x="94" y="1327" font-family="Consolas,monospace" font-size="12" fill="#2d3748">+ PetOwnerProfile()</text>
+<text x="94" y="1345" font-family="Consolas,monospace" font-size="12" fill="#2d3748">+ fetchUserData()</text>
+<text x="94" y="1363" font-family="Consolas,monospace" font-size="12" fill="#2d3748">+ handleImageChange()</text>
+<text x="94" y="1381" font-family="Consolas,monospace" font-size="12" fill="#2d3748">+ handleSaveProfile()</text>
+<text x="94" y="1399" font-family="Consolas,monospace" font-size="12" fill="#2d3748">+ handleProfileTabChange()</text>
+<text x="94" y="1417" font-family="Consolas,monospace" font-size="12" fill="#2d3748">+ handleStayOnProfile()</text>
+<text x="94" y="1435" font-family="Consolas,monospace" font-size="12" fill="#2d3748">+ handleSaveAndLeaveProfile()</text>
+<text x="94" y="1462" font-family="Arial,sans-serif" font-size="11.5" fill="#596579">src/components/PetOwnerDashboard/PetOwnerProfile.jsx</text>
+<text x="94" y="1478" font-family="Arial,sans-serif" font-size="11.5" fill="#596579">  :52</text>
+</g>
+<g data-node="src/components/PetOwnerDashboard/PetProfile.jsx"><rect x="80" y="1548" width="420" height="315" fill="#ffffff" stroke="#c4cbd4" stroke-width="1.2"/><line x1="80" y1="1603" x2="500" y2="1603" stroke="#c4cbd4"/>
+<text x="94" y="1571" font-family="Arial,sans-serif" font-size="16" fill="#2d3748">PetProfile</text>
+<text x="94" y="1590" font-family="Arial,sans-serif" font-size="11.5" fill="#596579">«React component»</text>
+<text x="94" y="1626" font-family="Consolas,monospace" font-size="12" fill="#2d3748">- pet: state</text>
+<text x="94" y="1644" font-family="Consolas,monospace" font-size="12" fill="#2d3748">- isLoading: state</text>
+<text x="94" y="1662" font-family="Consolas,monospace" font-size="12" fill="#2d3748">- isActivityLoading: state</text>
+<text x="94" y="1680" font-family="Consolas,monospace" font-size="12" fill="#2d3748">+ PetProfile()</text>
+<text x="94" y="1698" font-family="Consolas,monospace" font-size="12" fill="#2d3748">+ fetchPet()</text>
+<text x="94" y="1716" font-family="Consolas,monospace" font-size="12" fill="#2d3748">+ fetchPetActivity()</text>
+<text x="94" y="1734" font-family="Consolas,monospace" font-size="12" fill="#2d3748">+ handlePrint()</text>
+<text x="94" y="1752" font-family="Consolas,monospace" font-size="12" fill="#2d3748">+ handleSaveTemporaryOwner()</text>
+<text x="94" y="1770" font-family="Consolas,monospace" font-size="12" fill="#2d3748">+ handlePetPhotoUpload()</text>
+<text x="94" y="1788" font-family="Consolas,monospace" font-size="12" fill="#2d3748">+ handleConfirmCancel()</text>
+<text x="94" y="1806" font-family="Consolas,monospace" font-size="12" fill="#2d3748">+ handleView()</text>
+<text x="94" y="1824" font-family="Consolas,monospace" font-size="12" fill="#2d3748">+ 1 more operations [source index]</text>
+<text x="94" y="1851" font-family="Arial,sans-serif" font-size="11.5" fill="#596579">src/components/PetOwnerDashboard/PetProfile.jsx:76</text>
+</g>
+<g data-node="src/components/SuperAdminDashboardComponent/AccountManagement.jsx"><rect x="80" y="1921" width="420" height="331" fill="#ffffff" stroke="#c4cbd4" stroke-width="1.2"/><line x1="80" y1="1976" x2="500" y2="1976" stroke="#c4cbd4"/>
+<text x="94" y="1944" font-family="Arial,sans-serif" font-size="16" fill="#2d3748">AccountManagement</text>
+<text x="94" y="1963" font-family="Arial,sans-serif" font-size="11.5" fill="#596579">«React component»</text>
+<text x="94" y="1999" font-family="Consolas,monospace" font-size="12" fill="#2d3748">- selectedUser: state</text>
+<text x="94" y="2017" font-family="Consolas,monospace" font-size="12" fill="#2d3748">- showDetails: state</text>
+<text x="94" y="2035" font-family="Consolas,monospace" font-size="12" fill="#2d3748">- showCreateAccount: state</text>
+<text x="94" y="2053" font-family="Consolas,monospace" font-size="12" fill="#2d3748">+ AccountManagement()</text>
+<text x="94" y="2071" font-family="Consolas,monospace" font-size="12" fill="#2d3748">+ fetchAccounts()</text>
+<text x="94" y="2089" font-family="Consolas,monospace" font-size="12" fill="#2d3748">+ handleSaveAccess()</text>
+<text x="94" y="2107" font-family="Consolas,monospace" font-size="12" fill="#2d3748">+ handleCreateRoleChange()</text>
+<text x="94" y="2125" font-family="Consolas,monospace" font-size="12" fill="#2d3748">+ handleCreateAccount()</text>
+<text x="94" y="2143" font-family="Consolas,monospace" font-size="12" fill="#2d3748">+ handleToggleStatus()</text>
+<text x="94" y="2161" font-family="Consolas,monospace" font-size="12" fill="#2d3748">+ handleDeleteAccount()</text>
+<text x="94" y="2179" font-family="Consolas,monospace" font-size="12" fill="#2d3748">+ handleStartPersonnelEdit()</text>
+<text x="94" y="2197" font-family="Consolas,monospace" font-size="12" fill="#2d3748">+ 3 more operations [source index]</text>
+<text x="94" y="2224" font-family="Arial,sans-serif" font-size="11.5" fill="#596579">src/components/SuperAdminDashboardComponent/AccountM</text>
+<text x="94" y="2240" font-family="Arial,sans-serif" font-size="11.5" fill="#596579">  anagement.jsx:177</text>
+</g>
+<g data-node="src/components/SuperAdminDashboardComponent/PetOwnerAccountsManagement.jsx"><rect x="80" y="2310" width="420" height="259" fill="#ffffff" stroke="#c4cbd4" stroke-width="1.2"/><line x1="80" y1="2365" x2="500" y2="2365" stroke="#c4cbd4"/>
+<text x="94" y="2333" font-family="Arial,sans-serif" font-size="16" fill="#2d3748">PetOwnerAccountsManagement</text>
+<text x="94" y="2352" font-family="Arial,sans-serif" font-size="11.5" fill="#596579">«React component»</text>
+<text x="94" y="2388" font-family="Consolas,monospace" font-size="12" fill="#2d3748">- failed: state</text>
+<text x="94" y="2406" font-family="Consolas,monospace" font-size="12" fill="#2d3748">- failed: state</text>
+<text x="94" y="2424" font-family="Consolas,monospace" font-size="12" fill="#2d3748">- owners: state</text>
+<text x="94" y="2442" font-family="Consolas,monospace" font-size="12" fill="#2d3748">+ PetOwnerAccountsManagement()</text>
+<text x="94" y="2460" font-family="Consolas,monospace" font-size="12" fill="#2d3748">+ loadOwners()</text>
+<text x="94" y="2478" font-family="Consolas,monospace" font-size="12" fill="#2d3748">+ handleToggleStatus()</text>
+<text x="94" y="2496" font-family="Consolas,monospace" font-size="12" fill="#2d3748">+ handlePetArchive()</text>
+<text x="94" y="2514" font-family="Consolas,monospace" font-size="12" fill="#2d3748">+ handleSelectableOwnerKey()</text>
+<text x="94" y="2541" font-family="Arial,sans-serif" font-size="11.5" fill="#596579">src/components/SuperAdminDashboardComponent/PetOwner</text>
+<text x="94" y="2557" font-family="Arial,sans-serif" font-size="11.5" fill="#596579">  AccountsManagement.jsx:171</text>
+</g>
+<g data-node="src/services/accountService.js"><rect x="740" y="170" width="420" height="261" fill="#ffffff" stroke="#c4cbd4" stroke-width="1.2"/><line x1="740" y1="225" x2="1160" y2="225" stroke="#c4cbd4"/>
+<text x="754" y="193" font-family="Arial,sans-serif" font-size="16" fill="#2d3748">accountService</text>
+<text x="754" y="212" font-family="Arial,sans-serif" font-size="11.5" fill="#596579">«JS service module»</text>
+<text x="754" y="248" font-family="Consolas,monospace" font-size="12" fill="#2d3748">+ fetchAccounts()</text>
+<text x="754" y="266" font-family="Consolas,monospace" font-size="12" fill="#2d3748">+ fetchVeterinarians()</text>
+<text x="754" y="284" font-family="Consolas,monospace" font-size="12" fill="#2d3748">+ createAccount()</text>
+<text x="754" y="302" font-family="Consolas,monospace" font-size="12" fill="#2d3748">+ updateAccountStatus()</text>
+<text x="754" y="320" font-family="Consolas,monospace" font-size="12" fill="#2d3748">+ updatePersonnelAccountDetails()</text>
+<text x="754" y="338" font-family="Consolas,monospace" font-size="12" fill="#2d3748">+ deleteAccount()</text>
+<text x="754" y="356" font-family="Consolas,monospace" font-size="12" fill="#2d3748">+ fetchPetOwnerAccounts()</text>
+<text x="754" y="374" font-family="Consolas,monospace" font-size="12" fill="#2d3748">+ updatePetOwnerStatus()</text>
+<text x="754" y="392" font-family="Consolas,monospace" font-size="12" fill="#2d3748">+ 1 more operations [source index]</text>
+<text x="754" y="419" font-family="Arial,sans-serif" font-size="11.5" fill="#596579">src/services/accountService.js:4</text>
+</g>
+<g data-node="src/services/adminFeatureAccessService.js"><rect x="740" y="489" width="420" height="135" fill="#ffffff" stroke="#c4cbd4" stroke-width="1.2"/><line x1="740" y1="544" x2="1160" y2="544" stroke="#c4cbd4"/>
+<text x="754" y="512" font-family="Arial,sans-serif" font-size="16" fill="#2d3748">adminFeatureAccessService</text>
+<text x="754" y="531" font-family="Arial,sans-serif" font-size="11.5" fill="#596579">«JS service module»</text>
+<text x="754" y="567" font-family="Consolas,monospace" font-size="12" fill="#2d3748">+ fetchAdminFeatureAccess()</text>
+<text x="754" y="585" font-family="Consolas,monospace" font-size="12" fill="#2d3748">+ saveAdminFeatureAccess()</text>
+<text x="754" y="612" font-family="Arial,sans-serif" font-size="11.5" fill="#596579">src/services/adminFeatureAccessService.js:3</text>
+</g>
+<g data-node="src/services/profileService.js"><rect x="740" y="682" width="420" height="135" fill="#ffffff" stroke="#c4cbd4" stroke-width="1.2"/><line x1="740" y1="737" x2="1160" y2="737" stroke="#c4cbd4"/>
+<text x="754" y="705" font-family="Arial,sans-serif" font-size="16" fill="#2d3748">profileService</text>
+<text x="754" y="724" font-family="Arial,sans-serif" font-size="11.5" fill="#596579">«JS service module»</text>
+<text x="754" y="760" font-family="Consolas,monospace" font-size="12" fill="#2d3748">+ fetchProfile()</text>
+<text x="754" y="778" font-family="Consolas,monospace" font-size="12" fill="#2d3748">+ updateProfile()</text>
+<text x="754" y="805" font-family="Arial,sans-serif" font-size="11.5" fill="#596579">src/services/profileService.js:3</text>
+</g>
+<g data-node="src/services/userService.js"><rect x="740" y="875" width="420" height="153" fill="#ffffff" stroke="#c4cbd4" stroke-width="1.2"/><line x1="740" y1="930" x2="1160" y2="930" stroke="#c4cbd4"/>
+<text x="754" y="898" font-family="Arial,sans-serif" font-size="16" fill="#2d3748">userService</text>
+<text x="754" y="917" font-family="Arial,sans-serif" font-size="11.5" fill="#596579">«JS service module»</text>
+<text x="754" y="953" font-family="Consolas,monospace" font-size="12" fill="#2d3748">+ fetchUser()</text>
+<text x="754" y="971" font-family="Consolas,monospace" font-size="12" fill="#2d3748">+ updateUser()</text>
+<text x="754" y="989" font-family="Consolas,monospace" font-size="12" fill="#2d3748">+ updateUserPassword()</text>
+<text x="754" y="1016" font-family="Arial,sans-serif" font-size="11.5" fill="#596579">src/services/userService.js:3</text>
+</g>
+<g data-node="php/account_status_helpers.php"><rect x="1400" y="170" width="440" height="158" fill="#ffffff" stroke="#c4cbd4" stroke-width="1.2"/><line x1="1400" y1="225" x2="1840" y2="225" stroke="#c4cbd4"/>
+<text x="1414" y="193" font-family="Arial,sans-serif" font-size="16" fill="#2d3748">AccountStatusHelpers</text>
+<text x="1414" y="212" font-family="Arial,sans-serif" font-size="11.5" fill="#596579">«PHP module»</text>
+<text x="1414" y="248" font-family="Consolas,monospace" font-size="12" fill="#2d3748">+ accountColumnExists()</text>
+<text x="1414" y="266" font-family="Consolas,monospace" font-size="12" fill="#2d3748">+ ensureAdminAccountStatusColumn()</text>
+<text x="1414" y="284" font-family="Consolas,monospace" font-size="12" fill="#2d3748">+ accountRevokeAccessTokens()</text>
+<text x="1414" y="316" font-family="Arial,sans-serif" font-size="11.5" fill="#596579">php/account_status_helpers.php:3</text>
+</g>
+<g data-node="php/admin_feature_access.php"><rect x="1400" y="386" width="440" height="171" fill="#ffffff" stroke="#c4cbd4" stroke-width="1.2"/><line x1="1400" y1="441" x2="1840" y2="441" stroke="#c4cbd4"/>
+<text x="1414" y="409" font-family="Arial,sans-serif" font-size="16" fill="#2d3748">AdminFeatureAccess</text>
+<text x="1414" y="428" font-family="Arial,sans-serif" font-size="11.5" fill="#596579">«PHP module»</text>
+<text x="1414" y="464" font-family="Consolas,monospace" font-size="12" fill="#2d3748">+ admin_feature_access_error()</text>
+<text x="1414" y="482" font-family="Consolas,monospace" font-size="12" fill="#2d3748">+ admin_feature_access_require_schema()</text>
+<text x="1414" y="500" font-family="Consolas,monospace" font-size="12" fill="#2d3748">+ admin_feature_access_target()</text>
+<text x="1414" y="518" font-family="Consolas,monospace" font-size="12" fill="#2d3748">+ admin_feature_access_response()</text>
+<text x="1414" y="545" font-family="Arial,sans-serif" font-size="11.5" fill="#596579">php/admin_feature_access.php:8</text>
+</g>
+<g data-node="php/create_account.php"><rect x="1400" y="615" width="440" height="246" fill="#ffffff" stroke="#c4cbd4" stroke-width="1.2"/><line x1="1400" y1="670" x2="1840" y2="670" stroke="#c4cbd4"/>
+<text x="1414" y="638" font-family="Arial,sans-serif" font-size="16" fill="#2d3748">CreateAccount</text>
+<text x="1414" y="657" font-family="Arial,sans-serif" font-size="11.5" fill="#596579">«PHP module»</text>
+<text x="1414" y="693" font-family="Consolas,monospace" font-size="12" fill="#2d3748">+ createAccountUserColumnExists()</text>
+<text x="1414" y="711" font-family="Consolas,monospace" font-size="12" fill="#2d3748">+ createAccountNormalizeRole()</text>
+<text x="1414" y="849" font-family="Arial,sans-serif" font-size="11.5" fill="#596579">php/create_account.php:9</text>
+</g>
+<g data-node="php/delete_account.php"><rect x="1400" y="919" width="440" height="243" fill="#ffffff" stroke="#c4cbd4" stroke-width="1.2"/><line x1="1400" y1="974" x2="1840" y2="974" stroke="#c4cbd4"/>
+<text x="1414" y="942" font-family="Arial,sans-serif" font-size="16" fill="#2d3748">DeleteAccount</text>
+<text x="1414" y="961" font-family="Arial,sans-serif" font-size="11.5" fill="#596579">«PHP module»</text>
+<text x="1414" y="997" font-family="Consolas,monospace" font-size="12" fill="#2d3748">+ delete_account_json()</text>
+<text x="1414" y="1015" font-family="Consolas,monospace" font-size="12" fill="#2d3748">+ delete_account_column_exists()</text>
+<text x="1414" y="1033" font-family="Consolas,monospace" font-size="12" fill="#2d3748">+ delete_account_required_sql()</text>
+<text x="1414" y="1051" font-family="Consolas,monospace" font-size="12" fill="#2d3748">+ delete_account_normalize_role()</text>
+<text x="1414" y="1069" font-family="Consolas,monospace" font-size="12" fill="#2d3748">+ delete_account_name()</text>
+<text x="1414" y="1087" font-family="Consolas,monospace" font-size="12" fill="#2d3748">+ delete_account_email_text()</text>
+<text x="1414" y="1105" font-family="Consolas,monospace" font-size="12" fill="#2d3748">+ delete_account_notify_removed_user()</text>
+<text x="1414" y="1123" font-family="Consolas,monospace" font-size="12" fill="#2d3748">+ delete_account_notify_super_admins()</text>
+<text x="1414" y="1150" font-family="Arial,sans-serif" font-size="11.5" fill="#596579">php/delete_account.php:8</text>
+</g>
+<g data-node="php/get_accounts.php"><rect x="1400" y="1220" width="440" height="180" fill="#ffffff" stroke="#c4cbd4" stroke-width="1.2"/><line x1="1400" y1="1275" x2="1840" y2="1275" stroke="#c4cbd4"/>
+<text x="1414" y="1243" font-family="Arial,sans-serif" font-size="16" fill="#2d3748">GetAccounts</text>
+<text x="1414" y="1262" font-family="Arial,sans-serif" font-size="11.5" fill="#596579">«PHP module»</text>
+<text x="1414" y="1298" font-family="Consolas,monospace" font-size="12" fill="#2d3748">HTTP script / module exports</text>
+<text x="1414" y="1388" font-family="Arial,sans-serif" font-size="11.5" fill="#596579">php/get_accounts.php:1</text>
+</g>
+<g data-node="php/get_user_profile.php"><rect x="1400" y="1458" width="440" height="180" fill="#ffffff" stroke="#c4cbd4" stroke-width="1.2"/><line x1="1400" y1="1513" x2="1840" y2="1513" stroke="#c4cbd4"/>
+<text x="1414" y="1481" font-family="Arial,sans-serif" font-size="16" fill="#2d3748">GetUserProfile</text>
+<text x="1414" y="1500" font-family="Arial,sans-serif" font-size="11.5" fill="#596579">«PHP module»</text>
+<text x="1414" y="1536" font-family="Consolas,monospace" font-size="12" fill="#2d3748">HTTP script / module exports</text>
+<text x="1414" y="1626" font-family="Arial,sans-serif" font-size="11.5" fill="#596579">php/get_user_profile.php:1</text>
+</g>
+<g data-node="php/get_veterinarians.php"><rect x="1400" y="1696" width="440" height="136" fill="#ffffff" stroke="#c4cbd4" stroke-width="1.2"/><line x1="1400" y1="1751" x2="1840" y2="1751" stroke="#c4cbd4"/>
+<text x="1414" y="1719" font-family="Arial,sans-serif" font-size="16" fill="#2d3748">GetVeterinarians</text>
+<text x="1414" y="1738" font-family="Arial,sans-serif" font-size="11.5" fill="#596579">«PHP module»</text>
+<text x="1414" y="1774" font-family="Consolas,monospace" font-size="12" fill="#2d3748">HTTP script / module exports</text>
+<text x="1414" y="1820" font-family="Arial,sans-serif" font-size="11.5" fill="#596579">php/get_veterinarians.php:1</text>
+</g>
+<g data-node="src/services/findPet.js"><rect x="740" y="1086" width="420" height="117" fill="#f8fafc" stroke="#c4cbd4" stroke-width="1.2" stroke-dasharray="5 4"/><line x1="740" y1="1141" x2="1160" y2="1141" stroke="#c4cbd4"/>
+<text x="754" y="1109" font-family="Arial,sans-serif" font-size="16" fill="#2d3748">findPet</text>
+<text x="754" y="1128" font-family="Arial,sans-serif" font-size="11.5" fill="#596579">«JS service module» / page 19</text>
+<text x="754" y="1164" font-family="Consolas,monospace" font-size="12" fill="#2d3748">Definition / page 19</text>
+<text x="754" y="1191" font-family="Arial,sans-serif" font-size="11.5" fill="#596579">src/services/findPet.js:8</text>
+</g>
+<g data-node="src/services/petService.js"><rect x="740" y="1261" width="420" height="117" fill="#f8fafc" stroke="#c4cbd4" stroke-width="1.2" stroke-dasharray="5 4"/><line x1="740" y1="1316" x2="1160" y2="1316" stroke="#c4cbd4"/>
+<text x="754" y="1284" font-family="Arial,sans-serif" font-size="16" fill="#2d3748">petService</text>
+<text x="754" y="1303" font-family="Arial,sans-serif" font-size="11.5" fill="#596579">«JS service module» / page 20</text>
+<text x="754" y="1339" font-family="Consolas,monospace" font-size="12" fill="#2d3748">Definition / page 20</text>
+<text x="754" y="1366" font-family="Arial,sans-serif" font-size="11.5" fill="#596579">src/services/petService.js:3</text>
+</g>
+<g data-node="src/services/uploadService.js"><rect x="740" y="1436" width="420" height="136" fill="#f8fafc" stroke="#c4cbd4" stroke-width="1.2" stroke-dasharray="5 4"/><line x1="740" y1="1491" x2="1160" y2="1491" stroke="#c4cbd4"/>
+<text x="754" y="1459" font-family="Arial,sans-serif" font-size="16" fill="#2d3748">uploadService</text>
+<text x="754" y="1478" font-family="Arial,sans-serif" font-size="11.5" fill="#596579">«JS service module» / page 41</text>
+<text x="754" y="1514" font-family="Consolas,monospace" font-size="12" fill="#2d3748">Definition / page 41</text>
+<text x="754" y="1560" font-family="Arial,sans-serif" font-size="11.5" fill="#596579">src/services/uploadService.js:3</text>
+</g>
+<g data-node="src/services/bookingService.js"><rect x="740" y="1630" width="420" height="117" fill="#f8fafc" stroke="#c4cbd4" stroke-width="1.2" stroke-dasharray="5 4"/><line x1="740" y1="1685" x2="1160" y2="1685" stroke="#c4cbd4"/>
+<text x="754" y="1653" font-family="Arial,sans-serif" font-size="16" fill="#2d3748">bookingService</text>
+<text x="754" y="1672" font-family="Arial,sans-serif" font-size="11.5" fill="#596579">«JS service module» / page 22</text>
+<text x="754" y="1708" font-family="Consolas,monospace" font-size="12" fill="#2d3748">Definition / page 22</text>
+<text x="754" y="1735" font-family="Arial,sans-serif" font-size="11.5" fill="#596579">src/services/bookingService.js:14</text>
+</g>
+<g data-node="src/services/recordUpdateRequestService.js"><rect x="740" y="1805" width="420" height="117" fill="#f8fafc" stroke="#c4cbd4" stroke-width="1.2" stroke-dasharray="5 4"/><line x1="740" y1="1860" x2="1160" y2="1860" stroke="#c4cbd4"/>
+<text x="754" y="1828" font-family="Arial,sans-serif" font-size="16" fill="#2d3748">recordUpdateRequestService</text>
+<text x="754" y="1847" font-family="Arial,sans-serif" font-size="11.5" fill="#596579">«JS service module» / page 30</text>
+<text x="754" y="1883" font-family="Consolas,monospace" font-size="12" fill="#2d3748">Definition / page 30</text>
+<text x="754" y="1910" font-family="Arial,sans-serif" font-size="11.5" fill="#596579">src/services/recordUpdateRequestService.js:16</text>
+</g>
+<g data-node="src/services/petCertificateService.js"><rect x="740" y="1980" width="420" height="117" fill="#f8fafc" stroke="#c4cbd4" stroke-width="1.2" stroke-dasharray="5 4"/><line x1="740" y1="2035" x2="1160" y2="2035" stroke="#c4cbd4"/>
+<text x="754" y="2003" font-family="Arial,sans-serif" font-size="16" fill="#2d3748">petCertificateService</text>
+<text x="754" y="2022" font-family="Arial,sans-serif" font-size="11.5" fill="#596579">«JS service module» / page 30</text>
+<text x="754" y="2058" font-family="Consolas,monospace" font-size="12" fill="#2d3748">Definition / page 30</text>
+<text x="754" y="2085" font-family="Arial,sans-serif" font-size="11.5" fill="#596579">src/services/petCertificateService.js:3</text>
+</g>
+<g data-node="src/services/branchService.js"><rect x="740" y="2155" width="420" height="117" fill="#f8fafc" stroke="#c4cbd4" stroke-width="1.2" stroke-dasharray="5 4"/><line x1="740" y1="2210" x2="1160" y2="2210" stroke="#c4cbd4"/>
+<text x="754" y="2178" font-family="Arial,sans-serif" font-size="16" fill="#2d3748">branchService</text>
+<text x="754" y="2197" font-family="Arial,sans-serif" font-size="11.5" fill="#596579">«JS service module» / page 17</text>
+<text x="754" y="2233" font-family="Consolas,monospace" font-size="12" fill="#2d3748">Definition / page 17</text>
+<text x="754" y="2260" font-family="Arial,sans-serif" font-size="11.5" fill="#596579">src/services/branchService.js:13</text>
+</g>
+<g data-node="php/update_account_status.php"><rect x="1400" y="1890" width="440" height="117" fill="#f8fafc" stroke="#c4cbd4" stroke-width="1.2" stroke-dasharray="5 4"/><line x1="1400" y1="1945" x2="1840" y2="1945" stroke="#c4cbd4"/>
+<text x="1414" y="1913" font-family="Arial,sans-serif" font-size="16" fill="#2d3748">UpdateAccountStatus</text>
+<text x="1414" y="1932" font-family="Arial,sans-serif" font-size="11.5" fill="#596579">«PHP module» / page 16</text>
+<text x="1414" y="1968" font-family="Consolas,monospace" font-size="12" fill="#2d3748">Definition / page 16</text>
+<text x="1414" y="1995" font-family="Arial,sans-serif" font-size="11.5" fill="#596579">php/update_account_status.php:1</text>
+</g>
+<g data-node="php/update_account_profile.php"><rect x="1400" y="2065" width="440" height="117" fill="#f8fafc" stroke="#c4cbd4" stroke-width="1.2" stroke-dasharray="5 4"/><line x1="1400" y1="2120" x2="1840" y2="2120" stroke="#c4cbd4"/>
+<text x="1414" y="2088" font-family="Arial,sans-serif" font-size="16" fill="#2d3748">UpdateAccountProfile</text>
+<text x="1414" y="2107" font-family="Arial,sans-serif" font-size="11.5" fill="#596579">«PHP module» / page 16</text>
+<text x="1414" y="2143" font-family="Consolas,monospace" font-size="12" fill="#2d3748">Definition / page 16</text>
+<text x="1414" y="2170" font-family="Arial,sans-serif" font-size="11.5" fill="#596579">php/update_account_profile.php:11</text>
+</g>
+<g data-node="php/pet_owner_accounts.php"><rect x="1400" y="2240" width="440" height="117" fill="#f8fafc" stroke="#c4cbd4" stroke-width="1.2" stroke-dasharray="5 4"/><line x1="1400" y1="2295" x2="1840" y2="2295" stroke="#c4cbd4"/>
+<text x="1414" y="2263" font-family="Arial,sans-serif" font-size="16" fill="#2d3748">PetOwnerAccounts</text>
+<text x="1414" y="2282" font-family="Arial,sans-serif" font-size="11.5" fill="#596579">«PHP module» / page 16</text>
+<text x="1414" y="2318" font-family="Consolas,monospace" font-size="12" fill="#2d3748">Definition / page 16</text>
+<text x="1414" y="2345" font-family="Arial,sans-serif" font-size="11.5" fill="#596579">php/pet_owner_accounts.php:9</text>
+</g>
+<g data-node="php/update_user_profile.php"><rect x="1400" y="2415" width="440" height="117" fill="#f8fafc" stroke="#c4cbd4" stroke-width="1.2" stroke-dasharray="5 4"/><line x1="1400" y1="2470" x2="1840" y2="2470" stroke="#c4cbd4"/>
+<text x="1414" y="2438" font-family="Arial,sans-serif" font-size="16" fill="#2d3748">UpdateUserProfile</text>
+<text x="1414" y="2457" font-family="Arial,sans-serif" font-size="11.5" fill="#596579">«PHP module» / page 16</text>
+<text x="1414" y="2493" font-family="Consolas,monospace" font-size="12" fill="#2d3748">Definition / page 16</text>
+<text x="1414" y="2520" font-family="Arial,sans-serif" font-size="11.5" fill="#596579">php/update_user_profile.php:24</text>
+</g>
+<g data-node="php/update_user.php"><rect x="1400" y="2590" width="440" height="117" fill="#f8fafc" stroke="#c4cbd4" stroke-width="1.2" stroke-dasharray="5 4"/><line x1="1400" y1="2645" x2="1840" y2="2645" stroke="#c4cbd4"/>
+<text x="1414" y="2613" font-family="Arial,sans-serif" font-size="16" fill="#2d3748">UpdateUser</text>
+<text x="1414" y="2632" font-family="Arial,sans-serif" font-size="11.5" fill="#596579">«PHP module» / page 16</text>
+<text x="1414" y="2668" font-family="Consolas,monospace" font-size="12" fill="#2d3748">Definition / page 16</text>
+<text x="1414" y="2695" font-family="Arial,sans-serif" font-size="11.5" fill="#596579">php/update_user.php:1</text>
+</g>
+<g data-node="php/update_password.php"><rect x="1400" y="2765" width="440" height="117" fill="#f8fafc" stroke="#c4cbd4" stroke-width="1.2" stroke-dasharray="5 4"/><line x1="1400" y1="2820" x2="1840" y2="2820" stroke="#c4cbd4"/>
+<text x="1414" y="2788" font-family="Arial,sans-serif" font-size="16" fill="#2d3748">UpdatePassword</text>
+<text x="1414" y="2807" font-family="Arial,sans-serif" font-size="11.5" fill="#596579">«PHP module» / page 16</text>
+<text x="1414" y="2843" font-family="Consolas,monospace" font-size="12" fill="#2d3748">Definition / page 16</text>
+<text x="1414" y="2870" font-family="Arial,sans-serif" font-size="11.5" fill="#596579">php/update_password.php:1</text>
+</g>
+<g data-node="db:api_access_tokens"><rect x="2080" y="170" width="440" height="135" fill="#f8fafc" stroke="#c4cbd4" stroke-width="1.2" stroke-dasharray="5 4"/><line x1="2080" y1="225" x2="2520" y2="225" stroke="#c4cbd4"/>
+<text x="2094" y="193" font-family="Arial,sans-serif" font-size="16" fill="#2d3748">ApiAccessToken</text>
+<text x="2094" y="212" font-family="Arial,sans-serif" font-size="11.5" fill="#596579">«entity» api_access_tokens</text>
+<text x="2094" y="248" font-family="Consolas,monospace" font-size="12" fill="#2d3748">+ token_id: int [PK]</text>
+<text x="2094" y="266" font-family="Consolas,monospace" font-size="12" fill="#2d3748">Full SQL attributes / DB page 01</text>
+<text x="2094" y="293" font-family="Arial,sans-serif" font-size="11.5" fill="#596579">iPawcus_ERD_Schema.sql</text>
+</g>
+<g data-node="db:users"><rect x="2080" y="363" width="440" height="180" fill="#f8fafc" stroke="#c4cbd4" stroke-width="1.2" stroke-dasharray="5 4"/><line x1="2080" y1="418" x2="2520" y2="418" stroke="#c4cbd4"/>
+<text x="2094" y="386" font-family="Arial,sans-serif" font-size="16" fill="#2d3748">User</text>
+<text x="2094" y="405" font-family="Arial,sans-serif" font-size="11.5" fill="#596579">«entity» users</text>
+<text x="2094" y="441" font-family="Consolas,monospace" font-size="12" fill="#2d3748">+ user_id: int [PK]</text>
+<text x="2094" y="459" font-family="Consolas,monospace" font-size="12" fill="#2d3748">Full SQL attributes / DB page 01</text>
+<text x="2094" y="531" font-family="Arial,sans-serif" font-size="11.5" fill="#596579">iPawcus_ERD_Schema.sql</text>
+</g>
+<g data-node="db:admin_feature_permissions"><rect x="2080" y="601" width="440" height="135" fill="#f8fafc" stroke="#c4cbd4" stroke-width="1.2" stroke-dasharray="5 4"/><line x1="2080" y1="656" x2="2520" y2="656" stroke="#c4cbd4"/>
+<text x="2094" y="624" font-family="Arial,sans-serif" font-size="16" fill="#2d3748">AdminFeaturePermission</text>
+<text x="2094" y="643" font-family="Arial,sans-serif" font-size="11.5" fill="#596579">«entity» admin_feature_permissions</text>
+<text x="2094" y="679" font-family="Consolas,monospace" font-size="12" fill="#2d3748">+ permission_id: bigint [PK]</text>
+<text x="2094" y="697" font-family="Consolas,monospace" font-size="12" fill="#2d3748">Full SQL attributes / DB page 01</text>
+<text x="2094" y="724" font-family="Arial,sans-serif" font-size="11.5" fill="#596579">iPawcus_ERD_Schema.sql</text>
+</g>
+<g data-node="db:admin_feature_permission_audit"><rect x="2080" y="794" width="440" height="135" fill="#f8fafc" stroke="#c4cbd4" stroke-width="1.2" stroke-dasharray="5 4"/><line x1="2080" y1="849" x2="2520" y2="849" stroke="#c4cbd4"/>
+<text x="2094" y="817" font-family="Arial,sans-serif" font-size="16" fill="#2d3748">AdminFeaturePermissionAudit</text>
+<text x="2094" y="836" font-family="Arial,sans-serif" font-size="11.5" fill="#596579">«entity» admin_feature_permission_audit</text>
+<text x="2094" y="872" font-family="Consolas,monospace" font-size="12" fill="#2d3748">+ audit_id: bigint [PK]</text>
+<text x="2094" y="890" font-family="Consolas,monospace" font-size="12" fill="#2d3748">Full SQL attributes / DB page 01</text>
+<text x="2094" y="917" font-family="Arial,sans-serif" font-size="11.5" fill="#596579">iPawcus_ERD_Schema.sql</text>
+</g>
+<g data-node="php/branch_helpers.php"><rect x="1400" y="2940" width="440" height="117" fill="#f8fafc" stroke="#c4cbd4" stroke-width="1.2" stroke-dasharray="5 4"/><line x1="1400" y1="2995" x2="1840" y2="2995" stroke="#c4cbd4"/>
+<text x="1414" y="2963" font-family="Arial,sans-serif" font-size="16" fill="#2d3748">BranchHelpers</text>
+<text x="1414" y="2982" font-family="Arial,sans-serif" font-size="11.5" fill="#596579">«PHP module» / page 17</text>
+<text x="1414" y="3018" font-family="Consolas,monospace" font-size="12" fill="#2d3748">Definition / page 17</text>
+<text x="1414" y="3045" font-family="Arial,sans-serif" font-size="11.5" fill="#596579">php/branch_helpers.php:3</text>
+</g>
+<g data-node="php/notification_helpers.php"><rect x="1400" y="3115" width="440" height="117" fill="#f8fafc" stroke="#c4cbd4" stroke-width="1.2" stroke-dasharray="5 4"/><line x1="1400" y1="3170" x2="1840" y2="3170" stroke="#c4cbd4"/>
+<text x="1414" y="3138" font-family="Arial,sans-serif" font-size="16" fill="#2d3748">NotificationHelpers</text>
+<text x="1414" y="3157" font-family="Arial,sans-serif" font-size="11.5" fill="#596579">«PHP module» / page 38</text>
+<text x="1414" y="3193" font-family="Consolas,monospace" font-size="12" fill="#2d3748">Definition / page 38</text>
+<text x="1414" y="3220" font-family="Arial,sans-serif" font-size="11.5" fill="#596579">php/notification_helpers.php:10</text>
+</g>
+<g data-node="php/password_policy_helpers.php"><rect x="1400" y="3290" width="440" height="117" fill="#f8fafc" stroke="#c4cbd4" stroke-width="1.2" stroke-dasharray="5 4"/><line x1="1400" y1="3345" x2="1840" y2="3345" stroke="#c4cbd4"/>
+<text x="1414" y="3313" font-family="Arial,sans-serif" font-size="16" fill="#2d3748">PasswordPolicyHelpers</text>
+<text x="1414" y="3332" font-family="Arial,sans-serif" font-size="11.5" fill="#596579">«PHP module» / page 14</text>
+<text x="1414" y="3368" font-family="Consolas,monospace" font-size="12" fill="#2d3748">Definition / page 14</text>
+<text x="1414" y="3395" font-family="Arial,sans-serif" font-size="11.5" fill="#596579">php/password_policy_helpers.php:5</text>
+</g>
+<g data-node="db:user_branch_assignments"><rect x="2080" y="987" width="440" height="135" fill="#f8fafc" stroke="#c4cbd4" stroke-width="1.2" stroke-dasharray="5 4"/><line x1="2080" y1="1042" x2="2520" y2="1042" stroke="#c4cbd4"/>
+<text x="2094" y="1010" font-family="Arial,sans-serif" font-size="16" fill="#2d3748">UserBranchAssignment</text>
+<text x="2094" y="1029" font-family="Arial,sans-serif" font-size="11.5" fill="#596579">«entity» user_branch_assignments</text>
+<text x="2094" y="1065" font-family="Consolas,monospace" font-size="12" fill="#2d3748">+ user_branch_assignment_id: int [PK]</text>
+<text x="2094" y="1083" font-family="Consolas,monospace" font-size="12" fill="#2d3748">Full SQL attributes / DB page 02</text>
+<text x="2094" y="1110" font-family="Arial,sans-serif" font-size="11.5" fill="#596579">iPawcus_ERD_Schema.sql</text>
+</g>
+<g data-node="db:veterinarian_profiles"><rect x="2080" y="1180" width="440" height="136" fill="#f8fafc" stroke="#c4cbd4" stroke-width="1.2" stroke-dasharray="5 4"/><line x1="2080" y1="1235" x2="2520" y2="1235" stroke="#c4cbd4"/>
+<text x="2094" y="1203" font-family="Arial,sans-serif" font-size="16" fill="#2d3748">VeterinarianProfile</text>
+<text x="2094" y="1222" font-family="Arial,sans-serif" font-size="11.5" fill="#596579">«entity» veterinarian_profiles</text>
+<text x="2094" y="1258" font-family="Consolas,monospace" font-size="12" fill="#2d3748">+ id: int [PK]</text>
+<text x="2094" y="1276" font-family="Consolas,monospace" font-size="12" fill="#2d3748">Full SQL attributes / DB page 01</text>
+<text x="2094" y="1304" font-family="Arial,sans-serif" font-size="11.5" fill="#596579">iPawcus_ERD_Schema.sql</text>
+</g>
+<g data-node="db:admin_profiles"><rect x="2080" y="1374" width="440" height="135" fill="#f8fafc" stroke="#c4cbd4" stroke-width="1.2" stroke-dasharray="5 4"/><line x1="2080" y1="1429" x2="2520" y2="1429" stroke="#c4cbd4"/>
+<text x="2094" y="1397" font-family="Arial,sans-serif" font-size="16" fill="#2d3748">AdminProfile</text>
+<text x="2094" y="1416" font-family="Arial,sans-serif" font-size="11.5" fill="#596579">«entity» admin_profiles</text>
+<text x="2094" y="1452" font-family="Consolas,monospace" font-size="12" fill="#2d3748">+ id: int [PK]</text>
+<text x="2094" y="1470" font-family="Consolas,monospace" font-size="12" fill="#2d3748">Full SQL attributes / DB page 01</text>
+<text x="2094" y="1497" font-family="Arial,sans-serif" font-size="11.5" fill="#596579">iPawcus_ERD_Schema.sql</text>
+</g>
+<g data-node="db:branches"><rect x="2080" y="1567" width="440" height="135" fill="#f8fafc" stroke="#c4cbd4" stroke-width="1.2" stroke-dasharray="5 4"/><line x1="2080" y1="1622" x2="2520" y2="1622" stroke="#c4cbd4"/>
+<text x="2094" y="1590" font-family="Arial,sans-serif" font-size="16" fill="#2d3748">Branch</text>
+<text x="2094" y="1609" font-family="Arial,sans-serif" font-size="11.5" fill="#596579">«entity» branches</text>
+<text x="2094" y="1645" font-family="Consolas,monospace" font-size="12" fill="#2d3748">+ branch_id: int [PK]</text>
+<text x="2094" y="1663" font-family="Consolas,monospace" font-size="12" fill="#2d3748">Full SQL attributes / DB page 02</text>
+<text x="2094" y="1690" font-family="Arial,sans-serif" font-size="11.5" fill="#596579">iPawcus_ERD_Schema.sql</text>
+</g>
+<text x="512" y="204" font-family="Consolas,monospace" font-size="11.5" fill="#596579">uses</text>
+<text x="512" y="226" font-family="Consolas,monospace" font-size="11.5" fill="#596579">uses</text>
+<text x="512" y="248" font-family="Consolas,monospace" font-size="11.5" fill="#596579">uses</text>
+<text x="512" y="593" font-family="Consolas,monospace" font-size="11.5" fill="#596579">uses</text>
+<text x="512" y="615" font-family="Consolas,monospace" font-size="11.5" fill="#596579">uses</text>
+<text x="512" y="964" font-family="Consolas,monospace" font-size="11.5" fill="#596579">uses</text>
+<text x="512" y="1229" font-family="Consolas,monospace" font-size="11.5" fill="#596579">uses</text>
+<text x="512" y="1251" font-family="Consolas,monospace" font-size="11.5" fill="#596579">uses</text>
+<text x="512" y="1582" font-family="Consolas,monospace" font-size="11.5" fill="#596579">uses</text>
+<text x="512" y="1604" font-family="Consolas,monospace" font-size="11.5" fill="#596579">uses</text>
+<text x="512" y="1626" font-family="Consolas,monospace" font-size="11.5" fill="#596579">uses</text>
+<text x="512" y="1648" font-family="Consolas,monospace" font-size="11.5" fill="#596579">uses</text>
+<text x="512" y="1670" font-family="Consolas,monospace" font-size="11.5" fill="#596579">uses</text>
+<text x="512" y="1692" font-family="Consolas,monospace" font-size="11.5" fill="#596579">uses</text>
+<text x="512" y="1955" font-family="Consolas,monospace" font-size="11.5" fill="#596579">uses</text>
+<text x="512" y="1977" font-family="Consolas,monospace" font-size="11.5" fill="#596579">uses</text>
+<text x="512" y="1999" font-family="Consolas,monospace" font-size="11.5" fill="#596579">uses</text>
+<text x="512" y="2344" font-family="Consolas,monospace" font-size="11.5" fill="#596579">uses</text>
+<text x="512" y="2366" font-family="Consolas,monospace" font-size="11.5" fill="#596579">uses</text>
+<text x="1172" y="204" font-family="Consolas,monospace" font-size="11.5" fill="#596579">HTTP</text>
+<text x="1172" y="226" font-family="Consolas,monospace" font-size="11.5" fill="#596579">HTTP</text>
+<text x="1172" y="248" font-family="Consolas,monospace" font-size="11.5" fill="#596579">HTTP</text>
+<text x="1172" y="270" font-family="Consolas,monospace" font-size="11.5" fill="#596579">HTTP</text>
+<text x="1172" y="292" font-family="Consolas,monospace" font-size="11.5" fill="#596579">HTTP</text>
+<text x="1172" y="314" font-family="Consolas,monospace" font-size="11.5" fill="#596579">HTTP</text>
+<text x="1172" y="336" font-family="Consolas,monospace" font-size="11.5" fill="#596579">HTTP</text>
+<text x="1172" y="523" font-family="Consolas,monospace" font-size="11.5" fill="#596579">HTTP</text>
+<text x="1172" y="716" font-family="Consolas,monospace" font-size="11.5" fill="#596579">HTTP</text>
+<text x="1172" y="738" font-family="Consolas,monospace" font-size="11.5" fill="#596579">HTTP</text>
+<text x="1172" y="909" font-family="Consolas,monospace" font-size="11.5" fill="#596579">HTTP</text>
+<text x="1172" y="931" font-family="Consolas,monospace" font-size="11.5" fill="#596579">HTTP</text>
+<text x="1852" y="204" font-family="Consolas,monospace" font-size="11.5" fill="#596579">SQL</text>
+<text x="1852" y="420" font-family="Consolas,monospace" font-size="11.5" fill="#596579">SQL</text>
+<text x="1852" y="442" font-family="Consolas,monospace" font-size="11.5" fill="#596579">SQL</text>
+<text x="1852" y="464" font-family="Consolas,monospace" font-size="11.5" fill="#596579">SQL</text>
+<text x="1852" y="649" font-family="Consolas,monospace" font-size="11.5" fill="#596579">includes</text>
+<text x="1852" y="671" font-family="Consolas,monospace" font-size="11.5" fill="#596579">includes</text>
+<text x="1852" y="693" font-family="Consolas,monospace" font-size="11.5" fill="#596579">includes</text>
+<text x="1852" y="715" font-family="Consolas,monospace" font-size="11.5" fill="#596579">includes</text>
+<text x="1852" y="737" font-family="Consolas,monospace" font-size="11.5" fill="#596579">SQL</text>
+<text x="1852" y="759" font-family="Consolas,monospace" font-size="11.5" fill="#596579">SQL</text>
+<text x="1852" y="781" font-family="Consolas,monospace" font-size="11.5" fill="#596579">SQL</text>
+<text x="1852" y="803" font-family="Consolas,monospace" font-size="11.5" fill="#596579">SQL</text>
+<text x="1852" y="953" font-family="Consolas,monospace" font-size="11.5" fill="#596579">includes</text>
+<text x="1852" y="975" font-family="Consolas,monospace" font-size="11.5" fill="#596579">includes</text>
+<text x="1852" y="997" font-family="Consolas,monospace" font-size="11.5" fill="#596579">SQL</text>
+<text x="1852" y="1254" font-family="Consolas,monospace" font-size="11.5" fill="#596579">includes</text>
+<text x="1852" y="1276" font-family="Consolas,monospace" font-size="11.5" fill="#596579">SQL</text>
+<text x="1852" y="1298" font-family="Consolas,monospace" font-size="11.5" fill="#596579">SQL</text>
+<text x="1852" y="1320" font-family="Consolas,monospace" font-size="11.5" fill="#596579">SQL</text>
+<text x="1852" y="1342" font-family="Consolas,monospace" font-size="11.5" fill="#596579">SQL</text>
+<text x="1852" y="1492" font-family="Consolas,monospace" font-size="11.5" fill="#596579">includes</text>
+<text x="1852" y="1514" font-family="Consolas,monospace" font-size="11.5" fill="#596579">SQL</text>
+<text x="1852" y="1536" font-family="Consolas,monospace" font-size="11.5" fill="#596579">SQL</text>
+<text x="1852" y="1558" font-family="Consolas,monospace" font-size="11.5" fill="#596579">SQL</text>
+<text x="1852" y="1580" font-family="Consolas,monospace" font-size="11.5" fill="#596579">SQL</text>
+<text x="1852" y="1730" font-family="Consolas,monospace" font-size="11.5" fill="#596579">includes</text>
+<text x="1852" y="1752" font-family="Consolas,monospace" font-size="11.5" fill="#596579">SQL</text>
+<text x="1852" y="1774" font-family="Consolas,monospace" font-size="11.5" fill="#596579">SQL</text>
+</svg>

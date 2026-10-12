@@ -1,0 +1,23 @@
+{
+  "domainClasses": 91,
+  "persistentClasses": 89,
+  "statelessDomainServices": 2,
+  "attributes": 1069,
+  "operations": 174,
+  "declaredAssociations": 189,
+  "logicalAssociations": 10,
+  "dependencies": 8,
+  "pages": 11,
+  "checked_operations": 174,
+  "rendered_relations_checked": 495,
+  "segments_checked": 4131,
+  "labels_above_own_line": 974,
+  "class_box_intersections": 0,
+  "label_line_intersections": 0,
+  "label_label_intersections": 0,
+  "text_overflows": 0,
+  "all_persistent_attributes_in_complete_model": true,
+  "three_compartment_classes": true,
+  "app_changed": false,
+  "database_changed": false
+}

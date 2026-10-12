@@ -1,0 +1,91 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1860" height="900" viewBox="0 0 1860 900" role="img" aria-labelledby="title desc">
+<title id="title">iPawcus — Revised Context Diagram</title><desc id="desc">Plain black-and-white logical data-flow diagram with roles, numbered processes, open-ended data stores and labeled data arrows.</desc>
+<defs><marker id="arrow" markerWidth="8" markerHeight="8" refX="7" refY="4" orient="auto" markerUnits="userSpaceOnUse"><path d="M0 0 L7 4 L0 8 Z" fill="#000000"/></marker></defs>
+<rect width="100%" height="100%" fill="#ffffff"/>
+<text x="60" y="34" font-family="Arial,sans-serif" font-size="24" fill="#000000">iPawcus — Revised Context Diagram</text>
+<text x="60" y="64" font-family="Arial,sans-serif" font-size="14" fill="#000000">IN: User → System. OUT: System → User. Each role appears once; internal data stores are not shown.</text>
+<path d="M260 177 L780 177" fill="none" stroke="#000000" stroke-width="1.2" marker-end="url(#arrow)"><title>Account, role and clinic assignments</title></path>
+<text x="526" y="169" font-family="Arial,sans-serif" font-size="14" fill="#000000">Account, role and clinic assignments</text>
+<path d="M260 213 L780 213" fill="none" stroke="#000000" stroke-width="1.2" marker-end="url(#arrow)"><title>Clinic, access and payment settings</title></path>
+<text x="530" y="205" font-family="Arial,sans-serif" font-size="14" fill="#000000">Clinic, access and payment settings</text>
+<path d="M260 249 L780 249" fill="none" stroke="#000000" stroke-width="1.2" marker-end="url(#arrow)"><title>Report, media and backup requests</title></path>
+<text x="530" y="241" font-family="Arial,sans-serif" font-size="14" fill="#000000">Report, media and backup requests</text>
+<path d="M780 285 L260 285" fill="none" stroke="#000000" stroke-width="1.2" marker-end="url(#arrow)"><title>Account and configuration status</title></path>
+<text x="549" y="277" font-family="Arial,sans-serif" font-size="14" fill="#000000">Account and configuration status</text>
+<path d="M780 321 L260 321" fill="none" stroke="#000000" stroke-width="1.2" marker-end="url(#arrow)"><title>Reports, media and staff history</title></path>
+<text x="555" y="313" font-family="Arial,sans-serif" font-size="14" fill="#000000">Reports, media and staff history</text>
+<path d="M780 357 L260 357" fill="none" stroke="#000000" stroke-width="1.2" marker-end="url(#arrow)"><title>Backup files and download status</title></path>
+<text x="544" y="349" font-family="Arial,sans-serif" font-size="14" fill="#000000">Backup files and download status</text>
+<path d="M260 505 L780 505" fill="none" stroke="#000000" stroke-width="1.2" marker-end="url(#arrow)"><title>Pet, booking and queue details</title></path>
+<text x="559" y="497" font-family="Arial,sans-serif" font-size="14" fill="#000000">Pet, booking and queue details</text>
+<path d="M260 541 L780 541" fill="none" stroke="#000000" stroke-width="1.2" marker-end="url(#arrow)"><title>Exam findings, images and vet assignment</title></path>
+<text x="486" y="533" font-family="Arial,sans-serif" font-size="14" fill="#000000">Exam findings, images and vet assignment</text>
+<path d="M260 577 L780 577" fill="none" stroke="#000000" stroke-width="1.2" marker-end="url(#arrow)"><title>Signed consent records</title></path>
+<text x="606" y="569" font-family="Arial,sans-serif" font-size="14" fill="#000000">Signed consent records</text>
+<path d="M260 613 L780 613" fill="none" stroke="#000000" stroke-width="1.2" marker-end="url(#arrow)"><title>Care, stock, billing and refund entries</title></path>
+<text x="521" y="605" font-family="Arial,sans-serif" font-size="14" fill="#000000">Care, stock, billing and refund entries</text>
+<path d="M780 649 L260 649" fill="none" stroke="#000000" stroke-width="1.2" marker-end="url(#arrow)"><title>Booking, queue and examination status</title></path>
+<text x="506" y="641" font-family="Arial,sans-serif" font-size="14" fill="#000000">Booking, queue and examination status</text>
+<path d="M780 685 L260 685" fill="none" stroke="#000000" stroke-width="1.2" marker-end="url(#arrow)"><title>Patient records and signed documents</title></path>
+<text x="513" y="677" font-family="Arial,sans-serif" font-size="14" fill="#000000">Patient records and signed documents</text>
+<path d="M780 721 L260 721" fill="none" stroke="#000000" stroke-width="1.2" marker-end="url(#arrow)"><title>Care, stock, invoices and payment status</title></path>
+<text x="497" y="713" font-family="Arial,sans-serif" font-size="14" fill="#000000">Care, stock, invoices and payment status</text>
+<path d="M1610 177 L1090 177" fill="none" stroke="#000000" stroke-width="1.2" marker-end="url(#arrow)"><title>Clinic acceptance and online availability</title></path>
+<text x="1110" y="169" font-family="Arial,sans-serif" font-size="14" fill="#000000">Clinic acceptance and online availability</text>
+<path d="M1610 213 L1090 213" fill="none" stroke="#000000" stroke-width="1.2" marker-end="url(#arrow)"><title>Diagnosis, lab and consultation records</title></path>
+<text x="1110" y="205" font-family="Arial,sans-serif" font-size="14" fill="#000000">Diagnosis, lab and consultation records</text>
+<path d="M1610 249 L1090 249" fill="none" stroke="#000000" stroke-width="1.2" marker-end="url(#arrow)"><title>Prescription changes and additional consent</title></path>
+<text x="1110" y="241" font-family="Arial,sans-serif" font-size="14" fill="#000000">Prescription changes and additional consent</text>
+<path d="M1610 285 L1090 285" fill="none" stroke="#000000" stroke-width="1.2" marker-end="url(#arrow)"><title>Task updates and presence status</title></path>
+<text x="1110" y="277" font-family="Arial,sans-serif" font-size="14" fill="#000000">Task updates and presence status</text>
+<path d="M1090 321 L1610 321" fill="none" stroke="#000000" stroke-width="1.2" marker-end="url(#arrow)"><title>Assigned patients, exam and medical records</title></path>
+<text x="1110" y="313" font-family="Arial,sans-serif" font-size="14" fill="#000000">Assigned patients, exam and medical records</text>
+<path d="M1090 357 L1610 357" fill="none" stroke="#000000" stroke-width="1.2" marker-end="url(#arrow)"><title>Bookings and online consultation details</title></path>
+<text x="1110" y="349" font-family="Arial,sans-serif" font-size="14" fill="#000000">Bookings and online consultation details</text>
+<path d="M1090 393 L1610 393" fill="none" stroke="#000000" stroke-width="1.2" marker-end="url(#arrow)"><title>Task calendar and treatment reminders</title></path>
+<text x="1110" y="385" font-family="Arial,sans-serif" font-size="14" fill="#000000">Task calendar and treatment reminders</text>
+<path d="M1610 515 L1090 515" fill="none" stroke="#000000" stroke-width="1.2" marker-end="url(#arrow)"><title>Account, pet and ownership details</title></path>
+<text x="1110" y="507" font-family="Arial,sans-serif" font-size="14" fill="#000000">Account, pet and ownership details</text>
+<path d="M1610 551 L1090 551" fill="none" stroke="#000000" stroke-width="1.2" marker-end="url(#arrow)"><title>Booking, queue and change requests</title></path>
+<text x="1110" y="543" font-family="Arial,sans-serif" font-size="14" fill="#000000">Booking, queue and change requests</text>
+<path d="M1610 587 L1090 587" fill="none" stroke="#000000" stroke-width="1.2" marker-end="url(#arrow)"><title>Payment proof and consent signatures</title></path>
+<text x="1110" y="579" font-family="Arial,sans-serif" font-size="14" fill="#000000">Payment proof and consent signatures</text>
+<path d="M1610 623 L1090 623" fill="none" stroke="#000000" stroke-width="1.2" marker-end="url(#arrow)"><title>Item start dates and completion updates</title></path>
+<text x="1110" y="615" font-family="Arial,sans-serif" font-size="14" fill="#000000">Item start dates and completion updates</text>
+<path d="M1090 659 L1610 659" fill="none" stroke="#000000" stroke-width="1.2" marker-end="url(#arrow)"><title>Account, pet and booking status</title></path>
+<text x="1110" y="651" font-family="Arial,sans-serif" font-size="14" fill="#000000">Account, pet and booking status</text>
+<path d="M1090 695 L1610 695" fill="none" stroke="#000000" stroke-width="1.2" marker-end="url(#arrow)"><title>Medical records and current prescriptions</title></path>
+<text x="1110" y="687" font-family="Arial,sans-serif" font-size="14" fill="#000000">Medical records and current prescriptions</text>
+<path d="M1090 731 L1610 731" fill="none" stroke="#000000" stroke-width="1.2" marker-end="url(#arrow)"><title>Invoices, payment and consent documents</title></path>
+<text x="1110" y="723" font-family="Arial,sans-serif" font-size="14" fill="#000000">Invoices, payment and consent documents</text>
+<path d="M1090 767 L1610 767" fill="none" stroke="#000000" stroke-width="1.2" marker-end="url(#arrow)"><title>Dated checklists, calendars and reminders</title></path>
+<text x="1110" y="759" font-family="Arial,sans-serif" font-size="14" fill="#000000">Dated checklists, calendars and reminders</text>
+<g data-node="00-context-p-0"><title>0</title>
+<rect x="780" y="136" width="310" height="688" rx="11" fill="#ffffff" stroke="#000000" stroke-width="1.2"/>
+<line x1="780" y1="164" x2="1090" y2="164" stroke="#000000" stroke-width="1.2"/>
+<text x="935" y="156" font-family="Arial,sans-serif" font-size="16" fill="#000000" text-anchor="middle" font-weight="600">0</text>
+<text x="935" y="462" font-family="Arial,sans-serif" font-size="16" fill="#000000" text-anchor="middle">iPawcus</text>
+<text x="935" y="481" font-family="Arial,sans-serif" font-size="16" fill="#000000" text-anchor="middle">Web-Based Veterinary</text>
+<text x="935" y="500" font-family="Arial,sans-serif" font-size="16" fill="#000000" text-anchor="middle">Management System</text>
+<text x="935" y="519" font-family="Arial,sans-serif" font-size="16" fill="#000000" text-anchor="middle">with Online Booking</text>
+<text x="935" y="538" font-family="Arial,sans-serif" font-size="16" fill="#000000" text-anchor="middle">and Pet Record Management</text>
+</g>
+<g data-node="00-context-ref-super"><title>super</title>
+<rect x="60" y="146" width="200" height="250" rx="0" fill="#ffffff" stroke="#000000" stroke-width="1.2"/>
+<text x="160" y="267.5" font-family="Arial,sans-serif" font-size="16" fill="#000000" text-anchor="middle" font-weight="600">Super Admin</text>
+<text x="160" y="286.5" font-family="Arial,sans-serif" font-size="16" fill="#000000" text-anchor="middle" font-weight="600">(Clinic Owner)</text>
+</g>
+<g data-node="00-context-ref-admin"><title>admin</title>
+<rect x="60" y="470" width="200" height="278" rx="0" fill="#ffffff" stroke="#000000" stroke-width="1.2"/>
+<text x="160" y="605.5" font-family="Arial,sans-serif" font-size="16" fill="#000000" text-anchor="middle" font-weight="600">Admin</text>
+<text x="160" y="624.5" font-family="Arial,sans-serif" font-size="16" fill="#000000" text-anchor="middle" font-weight="600">(Nurse / Staff)</text>
+</g>
+<g data-node="00-context-ref-vet"><title>vet</title>
+<rect x="1610" y="146" width="190" height="278" rx="0" fill="#ffffff" stroke="#000000" stroke-width="1.2"/>
+<text x="1705" y="291" font-family="Arial,sans-serif" font-size="16" fill="#000000" text-anchor="middle" font-weight="600">Veterinarian</text>
+</g>
+<g data-node="00-context-ref-owner"><title>owner</title>
+<rect x="1610" y="480" width="190" height="320" rx="0" fill="#ffffff" stroke="#000000" stroke-width="1.2"/>
+<text x="1705" y="646" font-family="Arial,sans-serif" font-size="16" fill="#000000" text-anchor="middle" font-weight="600">Pet Owner</text>
+</g>
+</svg>

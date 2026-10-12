@@ -1,0 +1,18 @@
+{
+  "combined_pages": 44,
+  "source_modules_checked": 334,
+  "sql_export_entities": 88,
+  "migration_only_entities": 1,
+  "dispatcher_patterns": 140,
+  "system_relationships_checked": 1211,
+  "system_segments_checked": 6999,
+  "labels_above_own_line": 1216,
+  "class_box_intersections": 0,
+  "label_line_intersections": 0,
+  "label_label_intersections": 0,
+  "text_overflows": 0,
+  "original_compact_db_pages_preserved": true,
+  "application_modified": false,
+  "database_modified": false,
+  "sql_export_modified": false
+}

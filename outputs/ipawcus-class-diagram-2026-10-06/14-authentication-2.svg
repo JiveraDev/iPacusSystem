@@ -1,0 +1,260 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="2600" height="2361" viewBox="0 0 2600 2361" role="img" aria-labelledby="title desc">
+<title id="title">iPawcus / Authentication and registration / 2 of 2</title>
+<desc id="desc">Application modules and verified database references. Original SQL entity definitions are on pages 01 to 09. Dashed dependencies are not foreign keys.</desc>
+<defs><marker id="arrow" markerWidth="9" markerHeight="9" refX="8" refY="4.5" orient="auto" markerUnits="userSpaceOnUse"><path d="M0 0 L8 4.5 L0 9" fill="none" stroke="#8793a3" stroke-width="1.2"/></marker><marker id="inheritance" markerWidth="11" markerHeight="11" refX="10" refY="5" orient="auto" markerUnits="userSpaceOnUse"><path d="M0 0 L10 5 L0 10 Z" fill="#ffffff" stroke="#8793a3" stroke-width="1.2"/></marker></defs>
+<rect width="100%" height="100%" fill="#ffffff"/>
+<text x="80" y="44" font-family="Arial,sans-serif" font-size="25" fill="#2d3748">iPawcus / Authentication and registration / 2 of 2</text>
+<text x="80" y="73" font-family="Arial,sans-serif" font-size="14" fill="#596579">React / service / PHP / entity reference · arrows show source-code dependencies; no invented OO inheritance.</text>
+<text x="80" y="100" font-family="Arial,sans-serif" font-size="13" fill="#596579">Dashed: dependency. Solid: migration FK or real class inheritance. Full source evidence accompanies detailed links.</text>
+<text x="80" y="143" font-family="Arial,sans-serif" font-size="14" fill="#596579">UI and system views</text>
+<text x="740" y="143" font-family="Arial,sans-serif" font-size="14" fill="#596579">JavaScript services</text>
+<text x="1400" y="143" font-family="Arial,sans-serif" font-size="14" fill="#596579">PHP backend modules</text>
+<text x="2080" y="143" font-family="Arial,sans-serif" font-size="14" fill="#596579">Database references</text>
+<path d="M500 210 L740 210" fill="none" stroke="#8793a3" stroke-width="1.2" stroke-dasharray="5 4" marker-end="url(#arrow)"><title>src/components/shared/GoogleContinueButton.jsx → src/services/googleAuthService.js / uses</title></path>
+<path d="M500 511 L610 511 L610 385 L740 385" fill="none" stroke="#8793a3" stroke-width="1.2" stroke-dasharray="5 4" marker-end="url(#arrow)"><title>src/components/shared/PasswordChangeCard.jsx → src/services/userService.js / uses</title></path>
+<path d="M500 533 L610 533 L610 560 L740 560" fill="none" stroke="#8793a3" stroke-width="1.2" stroke-dasharray="5 4" marker-end="url(#arrow)"><title>src/components/shared/PasswordChangeCard.jsx → src/services/apiClient.js / uses</title></path>
+<path d="M500 555 L630 555 L630 232 L740 232" fill="none" stroke="#8793a3" stroke-width="1.2" stroke-dasharray="5 4" marker-end="url(#arrow)"><title>src/components/shared/PasswordChangeCard.jsx → src/services/googleAuthService.js / uses</title></path>
+<path d="M500 1335 L610 1335 L610 735 L740 735" fill="none" stroke="#8793a3" stroke-width="1.2" stroke-dasharray="5 4" marker-end="url(#arrow)"><title>src/App.jsx → src/services/registerUser.js / uses</title></path>
+<path d="M500 1357 L630 1357 L630 582 L740 582" fill="none" stroke="#8793a3" stroke-width="1.2" stroke-dasharray="5 4" marker-end="url(#arrow)"><title>src/App.jsx → src/services/apiClient.js / uses</title></path>
+<path d="M500 1379 L610 1379 L610 1335 L545 1335 L545 254 L740 254" fill="none" stroke="#8793a3" stroke-width="1.2" stroke-dasharray="5 4" marker-end="url(#arrow)"><title>src/App.jsx → src/services/googleAuthService.js / uses</title></path>
+<path d="M500 1401 L718 1401 L718 929 L630 929 L630 910 L740 910" fill="none" stroke="#8793a3" stroke-width="1.2" stroke-dasharray="5 4" marker-end="url(#arrow)"><title>src/App.jsx → src/services/pushNotificationService.js / uses</title></path>
+<path d="M1840 210 L1950 210 L1950 1670 L1840 1670" fill="none" stroke="#8793a3" stroke-width="1.2" stroke-dasharray="5 4" marker-end="url(#arrow)"><title>php/auth_reset_password.php → php/auth_otp_helpers.php / includes</title></path>
+<path d="M1840 232 L1970 232 L1970 1283 L1840 1283" fill="none" stroke="#8793a3" stroke-width="1.2" stroke-dasharray="5 4" marker-end="url(#arrow)"><title>php/auth_reset_password.php → php/password_policy_helpers.php / includes</title></path>
+<path d="M1840 254 L1970 254 L1970 210 L2080 210" fill="none" stroke="#8793a3" stroke-width="1.2" stroke-dasharray="5 4" marker-end="url(#arrow)"><title>php/auth_reset_password.php → db:users / SQL</title></path>
+<path d="M1840 385 L1950 385 L1950 388 L1913 388 L1913 1670 L1950 1670 L1950 1692 L1840 1692" fill="none" stroke="#8793a3" stroke-width="1.2" stroke-dasharray="5 4" marker-end="url(#arrow)"><title>php/auth_verify_email.php → php/auth_otp_helpers.php / includes</title></path>
+<path d="M1840 407 L1950 407 L1950 406 L1913 406 L1913 232 L2080 232" fill="none" stroke="#8793a3" stroke-width="1.2" stroke-dasharray="5 4" marker-end="url(#arrow)"><title>php/auth_verify_email.php → db:users / SQL</title></path>
+<path d="M1840 560 L2058 560 L2058 1714 L1840 1714" fill="none" stroke="#8793a3" stroke-width="1.2" stroke-dasharray="5 4" marker-end="url(#arrow)"><title>php/auth_verify_reset_code.php → php/auth_otp_helpers.php / includes</title></path>
+<path d="M1840 735 L1950 735 L1950 736 L1878 736 L1878 1035 L1913 1035 L1913 1075 L1878 1075 L1878 1457 L1970 1457 L1970 1864 L1840 1864" fill="none" stroke="#8793a3" stroke-width="1.2" stroke-dasharray="5 4" marker-end="url(#arrow)"><title>php/google_auth_helpers.php → php/auth_access_helpers.php / includes</title></path>
+<path d="M1840 757 L2058 757 L2058 276 L1970 276 L1970 254 L2080 254" fill="none" stroke="#8793a3" stroke-width="1.2" stroke-dasharray="5 4" marker-end="url(#arrow)"><title>php/google_auth_helpers.php → db:users / SQL</title></path>
+<path d="M1840 779 L1950 779 L1950 541 L1878 541 L1878 426 L2080 426" fill="none" stroke="#8793a3" stroke-width="1.2" stroke-dasharray="5 4" marker-end="url(#arrow)"><title>php/google_auth_helpers.php → db:google_auth_onboarding_tokens / SQL</title></path>
+<path d="M1840 1054 L1970 1054 L1970 1692 L1950 1692 L1950 2039 L1840 2039" fill="none" stroke="#8793a3" stroke-width="1.2" stroke-dasharray="5 4" marker-end="url(#arrow)"><title>php/login.php → php/account_status_helpers.php / includes</title></path>
+<path d="M1840 1076 L1950 1076 L1950 1141 L1862 1141 L1862 1457 L1913 1457 L1913 1519 L1878 1519 L1878 1864 L1950 1864 L1950 1886 L1840 1886" fill="none" stroke="#8793a3" stroke-width="1.2" stroke-dasharray="5 4" marker-end="url(#arrow)"><title>php/login.php → php/auth_access_helpers.php / includes</title></path>
+<path d="M1840 1098 L2542 1098 L2542 350 L1970 350 L1970 276 L2080 276" fill="none" stroke="#8793a3" stroke-width="1.2" stroke-dasharray="5 4" marker-end="url(#arrow)"><title>php/login.php → db:users / SQL</title></path>
+<path d="M1840 1120 L1950 1120 L1950 1009 L1862 1009 L1862 778 L1970 778 L1970 619 L2080 619" fill="none" stroke="#8793a3" stroke-width="1.2" stroke-dasharray="5 4" marker-end="url(#arrow)"><title>php/login.php → db:veterinarian_profiles / SQL</title></path>
+<path d="M1840 1142 L2058 1142 L2058 834 L1970 834 L1970 812 L2080 812" fill="none" stroke="#8793a3" stroke-width="1.2" stroke-dasharray="5 4" marker-end="url(#arrow)"><title>php/login.php → db:admin_profiles / SQL</title></path>
+<path d="M1840 1476 L1950 1476 L1950 1736 L1840 1736" fill="none" stroke="#8793a3" stroke-width="1.2" stroke-dasharray="5 4" marker-end="url(#arrow)"><title>php/register.php → php/auth_otp_helpers.php / includes</title></path>
+<path d="M1840 1498 L1950 1498 L1950 1519 L1913 1519 L1913 2152 L1950 2152 L1950 2214 L1840 2214" fill="none" stroke="#8793a3" stroke-width="1.2" stroke-dasharray="5 4" marker-end="url(#arrow)"><title>php/register.php → php/phone_number_helpers.php / includes</title></path>
+<path d="M1840 1520 L1950 1520 L1950 1305 L1840 1305" fill="none" stroke="#8793a3" stroke-width="1.2" stroke-dasharray="5 4" marker-end="url(#arrow)"><title>php/register.php → php/password_policy_helpers.php / includes</title></path>
+<path d="M1840 1542 L2570 1542 L2570 364 L1970 364 L1970 298 L2080 298" fill="none" stroke="#8793a3" stroke-width="1.2" stroke-dasharray="5 4" marker-end="url(#arrow)"><title>php/register.php → db:users / SQL</title></path>
+<g data-node="src/components/shared/GoogleContinueButton.jsx"><rect x="80" y="170" width="420" height="243" fill="#ffffff" stroke="#c4cbd4" stroke-width="1.2"/><line x1="80" y1="225" x2="500" y2="225" stroke="#c4cbd4"/>
+<text x="94" y="193" font-family="Arial,sans-serif" font-size="16" fill="#2d3748">GoogleContinueButton</text>
+<text x="94" y="212" font-family="Arial,sans-serif" font-size="11.5" fill="#596579">«React component»</text>
+<text x="94" y="248" font-family="Consolas,monospace" font-size="12" fill="#2d3748">- isLoading: state</text>
+<text x="94" y="266" font-family="Consolas,monospace" font-size="12" fill="#2d3748">- isSubmitting: state</text>
+<text x="94" y="284" font-family="Consolas,monospace" font-size="12" fill="#2d3748">- errorMessage: state</text>
+<text x="94" y="302" font-family="Consolas,monospace" font-size="12" fill="#2d3748">+ GoogleContinueButton()</text>
+<text x="94" y="320" font-family="Consolas,monospace" font-size="12" fill="#2d3748">+ loadGoogleIdentityScript()</text>
+<text x="94" y="338" font-family="Consolas,monospace" font-size="12" fill="#2d3748">+ handleLoad()</text>
+<text x="94" y="356" font-family="Consolas,monospace" font-size="12" fill="#2d3748">+ handleError()</text>
+<text x="94" y="374" font-family="Consolas,monospace" font-size="12" fill="#2d3748">+ handleCredential()</text>
+<text x="94" y="401" font-family="Arial,sans-serif" font-size="11.5" fill="#596579">src/components/shared/GoogleContinueButton.jsx:97</text>
+</g>
+<g data-node="src/components/shared/PasswordChangeCard.jsx"><rect x="80" y="471" width="420" height="207" fill="#ffffff" stroke="#c4cbd4" stroke-width="1.2"/><line x1="80" y1="526" x2="500" y2="526" stroke="#c4cbd4"/>
+<text x="94" y="494" font-family="Arial,sans-serif" font-size="16" fill="#2d3748">PasswordChangeCard</text>
+<text x="94" y="513" font-family="Arial,sans-serif" font-size="11.5" fill="#596579">«React component»</text>
+<text x="94" y="549" font-family="Consolas,monospace" font-size="12" fill="#2d3748">- form: state</text>
+<text x="94" y="567" font-family="Consolas,monospace" font-size="12" fill="#2d3748">- isSaving: state</text>
+<text x="94" y="585" font-family="Consolas,monospace" font-size="12" fill="#2d3748">- isForgotPasswordDialogOpen: state</text>
+<text x="94" y="603" font-family="Consolas,monospace" font-size="12" fill="#2d3748">+ PasswordChangeCard()</text>
+<text x="94" y="621" font-family="Consolas,monospace" font-size="12" fill="#2d3748">+ handleSubmit()</text>
+<text x="94" y="639" font-family="Consolas,monospace" font-size="12" fill="#2d3748">+ handleForgotPassword()</text>
+<text x="94" y="666" font-family="Arial,sans-serif" font-size="11.5" fill="#596579">src/components/shared/PasswordChangeCard.jsx:22</text>
+</g>
+<g data-node="src/components/shared/PasswordInput.jsx"><rect x="80" y="736" width="420" height="135" fill="#ffffff" stroke="#c4cbd4" stroke-width="1.2"/><line x1="80" y1="791" x2="500" y2="791" stroke="#c4cbd4"/>
+<text x="94" y="759" font-family="Arial,sans-serif" font-size="16" fill="#2d3748">PasswordInput</text>
+<text x="94" y="778" font-family="Arial,sans-serif" font-size="11.5" fill="#596579">«React component»</text>
+<text x="94" y="814" font-family="Consolas,monospace" font-size="12" fill="#2d3748">- showPassword: state</text>
+<text x="94" y="832" font-family="Consolas,monospace" font-size="12" fill="#2d3748">+ PasswordInput()</text>
+<text x="94" y="859" font-family="Arial,sans-serif" font-size="11.5" fill="#596579">src/components/shared/PasswordInput.jsx:6</text>
+</g>
+<g data-node="src/components/shared/PasswordRequirements.jsx"><rect x="80" y="929" width="420" height="117" fill="#ffffff" stroke="#c4cbd4" stroke-width="1.2"/><line x1="80" y1="984" x2="500" y2="984" stroke="#c4cbd4"/>
+<text x="94" y="952" font-family="Arial,sans-serif" font-size="16" fill="#2d3748">PasswordRequirements</text>
+<text x="94" y="971" font-family="Arial,sans-serif" font-size="11.5" fill="#596579">«React component»</text>
+<text x="94" y="1007" font-family="Consolas,monospace" font-size="12" fill="#2d3748">+ PasswordRequirements()</text>
+<text x="94" y="1034" font-family="Arial,sans-serif" font-size="11.5" fill="#596579">src/components/shared/PasswordRequirements.jsx:6</text>
+</g>
+<g data-node="src/components/shared/RegistrationTermsPreview.jsx"><rect x="80" y="1104" width="420" height="133" fill="#ffffff" stroke="#c4cbd4" stroke-width="1.2"/><line x1="80" y1="1159" x2="500" y2="1159" stroke="#c4cbd4"/>
+<text x="94" y="1127" font-family="Arial,sans-serif" font-size="16" fill="#2d3748">RegistrationTermsPreview</text>
+<text x="94" y="1146" font-family="Arial,sans-serif" font-size="11.5" fill="#596579">«React component»</text>
+<text x="94" y="1182" font-family="Consolas,monospace" font-size="12" fill="#2d3748">+ RegistrationTermsPreview()</text>
+<text x="94" y="1209" font-family="Arial,sans-serif" font-size="11.5" fill="#596579">src/components/shared/RegistrationTermsPreview.jsx:1</text>
+<text x="94" y="1225" font-family="Arial,sans-serif" font-size="11.5" fill="#596579">  243</text>
+</g>
+<g data-node="src/App.jsx"><rect x="80" y="1295" width="420" height="279" fill="#ffffff" stroke="#c4cbd4" stroke-width="1.2"/><line x1="80" y1="1350" x2="500" y2="1350" stroke="#c4cbd4"/>
+<text x="94" y="1318" font-family="Arial,sans-serif" font-size="16" fill="#2d3748">App</text>
+<text x="94" y="1337" font-family="Arial,sans-serif" font-size="11.5" fill="#596579">«React component»</text>
+<text x="94" y="1373" font-family="Consolas,monospace" font-size="12" fill="#2d3748">- view: state</text>
+<text x="94" y="1391" font-family="Consolas,monospace" font-size="12" fill="#2d3748">- currentUser: state</text>
+<text x="94" y="1409" font-family="Consolas,monospace" font-size="12" fill="#2d3748">- registrationData: state</text>
+<text x="94" y="1427" font-family="Consolas,monospace" font-size="12" fill="#2d3748">+ App()</text>
+<text x="94" y="1445" font-family="Consolas,monospace" font-size="12" fill="#2d3748">+ handlePopState()</text>
+<text x="94" y="1463" font-family="Consolas,monospace" font-size="12" fill="#2d3748">+ handleRegistrationContinue()</text>
+<text x="94" y="1481" font-family="Consolas,monospace" font-size="12" fill="#2d3748">+ handleRegistrationComplete()</text>
+<text x="94" y="1499" font-family="Consolas,monospace" font-size="12" fill="#2d3748">+ handleVerifyEmailRoute()</text>
+<text x="94" y="1517" font-family="Consolas,monospace" font-size="12" fill="#2d3748">+ handleVerificationComplete()</text>
+<text x="94" y="1535" font-family="Consolas,monospace" font-size="12" fill="#2d3748">+ handleForgotPasswordRoute()</text>
+<text x="94" y="1562" font-family="Arial,sans-serif" font-size="11.5" fill="#596579">src/App.jsx:169</text>
+</g>
+<g data-node="php/auth_reset_password.php"><rect x="1400" y="170" width="440" height="117" fill="#ffffff" stroke="#c4cbd4" stroke-width="1.2"/><line x1="1400" y1="225" x2="1840" y2="225" stroke="#c4cbd4"/>
+<text x="1414" y="193" font-family="Arial,sans-serif" font-size="16" fill="#2d3748">AuthResetPassword</text>
+<text x="1414" y="212" font-family="Arial,sans-serif" font-size="11.5" fill="#596579">«PHP module»</text>
+<text x="1414" y="248" font-family="Consolas,monospace" font-size="12" fill="#2d3748">HTTP script / module exports</text>
+<text x="1414" y="275" font-family="Arial,sans-serif" font-size="11.5" fill="#596579">php/auth_reset_password.php:1</text>
+</g>
+<g data-node="php/auth_verify_email.php"><rect x="1400" y="345" width="440" height="117" fill="#ffffff" stroke="#c4cbd4" stroke-width="1.2"/><line x1="1400" y1="400" x2="1840" y2="400" stroke="#c4cbd4"/>
+<text x="1414" y="368" font-family="Arial,sans-serif" font-size="16" fill="#2d3748">AuthVerifyEmail</text>
+<text x="1414" y="387" font-family="Arial,sans-serif" font-size="11.5" fill="#596579">«PHP module»</text>
+<text x="1414" y="423" font-family="Consolas,monospace" font-size="12" fill="#2d3748">HTTP script / module exports</text>
+<text x="1414" y="450" font-family="Arial,sans-serif" font-size="11.5" fill="#596579">php/auth_verify_email.php:1</text>
+</g>
+<g data-node="php/auth_verify_reset_code.php"><rect x="1400" y="520" width="440" height="117" fill="#ffffff" stroke="#c4cbd4" stroke-width="1.2"/><line x1="1400" y1="575" x2="1840" y2="575" stroke="#c4cbd4"/>
+<text x="1414" y="543" font-family="Arial,sans-serif" font-size="16" fill="#2d3748">AuthVerifyResetCode</text>
+<text x="1414" y="562" font-family="Arial,sans-serif" font-size="11.5" fill="#596579">«PHP module»</text>
+<text x="1414" y="598" font-family="Consolas,monospace" font-size="12" fill="#2d3748">HTTP script / module exports</text>
+<text x="1414" y="625" font-family="Arial,sans-serif" font-size="11.5" fill="#596579">php/auth_verify_reset_code.php:1</text>
+</g>
+<g data-node="php/google_auth_helpers.php"><rect x="1400" y="695" width="440" height="261" fill="#ffffff" stroke="#c4cbd4" stroke-width="1.2"/><line x1="1400" y1="750" x2="1840" y2="750" stroke="#c4cbd4"/>
+<text x="1414" y="718" font-family="Arial,sans-serif" font-size="16" fill="#2d3748">GoogleAuthHelpers</text>
+<text x="1414" y="737" font-family="Arial,sans-serif" font-size="11.5" fill="#596579">«PHP module»</text>
+<text x="1414" y="773" font-family="Consolas,monospace" font-size="12" fill="#2d3748">+ __construct()</text>
+<text x="1414" y="791" font-family="Consolas,monospace" font-size="12" fill="#2d3748">+ googleAuthJsonResponse()</text>
+<text x="1414" y="809" font-family="Consolas,monospace" font-size="12" fill="#2d3748">+ googleAuthRequirePost()</text>
+<text x="1414" y="827" font-family="Consolas,monospace" font-size="12" fill="#2d3748">+ googleAuthNormalizeOrigin()</text>
+<text x="1414" y="845" font-family="Consolas,monospace" font-size="12" fill="#2d3748">+ googleAuthRequestOrigin()</text>
+<text x="1414" y="863" font-family="Consolas,monospace" font-size="12" fill="#2d3748">+ googleAuthServerOrigin()</text>
+<text x="1414" y="881" font-family="Consolas,monospace" font-size="12" fill="#2d3748">+ googleAuthRequireTrustedOrigin()</text>
+<text x="1414" y="899" font-family="Consolas,monospace" font-size="12" fill="#2d3748">+ googleAuthReadJsonInput()</text>
+<text x="1414" y="917" font-family="Consolas,monospace" font-size="12" fill="#2d3748">+ 12 more operations [source index]</text>
+<text x="1414" y="944" font-family="Arial,sans-serif" font-size="11.5" fill="#596579">php/google_auth_helpers.php:14</text>
+</g>
+<g data-node="php/login.php"><rect x="1400" y="1014" width="440" height="171" fill="#ffffff" stroke="#c4cbd4" stroke-width="1.2"/><line x1="1400" y1="1069" x2="1840" y2="1069" stroke="#c4cbd4"/>
+<text x="1414" y="1037" font-family="Arial,sans-serif" font-size="16" fill="#2d3748">Login</text>
+<text x="1414" y="1056" font-family="Arial,sans-serif" font-size="11.5" fill="#596579">«PHP module»</text>
+<text x="1414" y="1092" font-family="Consolas,monospace" font-size="12" fill="#2d3748">+ isUserAccountArchived()</text>
+<text x="1414" y="1110" font-family="Consolas,monospace" font-size="12" fill="#2d3748">+ isStaffAccountDeactivated()</text>
+<text x="1414" y="1128" font-family="Consolas,monospace" font-size="12" fill="#2d3748">+ isPetOwnerAccountDeactivated()</text>
+<text x="1414" y="1146" font-family="Consolas,monospace" font-size="12" fill="#2d3748">+ loginColumnExists()</text>
+<text x="1414" y="1173" font-family="Arial,sans-serif" font-size="11.5" fill="#596579">php/login.php:6</text>
+</g>
+<g data-node="php/password_policy_helpers.php"><rect x="1400" y="1243" width="440" height="135" fill="#ffffff" stroke="#c4cbd4" stroke-width="1.2"/><line x1="1400" y1="1298" x2="1840" y2="1298" stroke="#c4cbd4"/>
+<text x="1414" y="1266" font-family="Arial,sans-serif" font-size="16" fill="#2d3748">PasswordPolicyHelpers</text>
+<text x="1414" y="1285" font-family="Arial,sans-serif" font-size="11.5" fill="#596579">«PHP module»</text>
+<text x="1414" y="1321" font-family="Consolas,monospace" font-size="12" fill="#2d3748">+ ipawcus_password_meets_policy()</text>
+<text x="1414" y="1339" font-family="Consolas,monospace" font-size="12" fill="#2d3748">+ ipawcus_password_policy_error()</text>
+<text x="1414" y="1366" font-family="Arial,sans-serif" font-size="11.5" fill="#596579">php/password_policy_helpers.php:5</text>
+</g>
+<g data-node="php/register.php"><rect x="1400" y="1436" width="440" height="136" fill="#ffffff" stroke="#c4cbd4" stroke-width="1.2"/><line x1="1400" y1="1491" x2="1840" y2="1491" stroke="#c4cbd4"/>
+<text x="1414" y="1459" font-family="Arial,sans-serif" font-size="16" fill="#2d3748">Register</text>
+<text x="1414" y="1478" font-family="Arial,sans-serif" font-size="11.5" fill="#596579">«PHP module»</text>
+<text x="1414" y="1514" font-family="Consolas,monospace" font-size="12" fill="#2d3748">HTTP script / module exports</text>
+<text x="1414" y="1560" font-family="Arial,sans-serif" font-size="11.5" fill="#596579">php/register.php:1</text>
+</g>
+<g data-node="src/services/googleAuthService.js"><rect x="740" y="170" width="420" height="117" fill="#f8fafc" stroke="#c4cbd4" stroke-width="1.2" stroke-dasharray="5 4"/><line x1="740" y1="225" x2="1160" y2="225" stroke="#c4cbd4"/>
+<text x="754" y="193" font-family="Arial,sans-serif" font-size="16" fill="#2d3748">googleAuthService</text>
+<text x="754" y="212" font-family="Arial,sans-serif" font-size="11.5" fill="#596579">«JS service module» / page 13</text>
+<text x="754" y="248" font-family="Consolas,monospace" font-size="12" fill="#2d3748">Definition / page 13</text>
+<text x="754" y="275" font-family="Arial,sans-serif" font-size="11.5" fill="#596579">src/services/googleAuthService.js:5</text>
+</g>
+<g data-node="src/services/userService.js"><rect x="740" y="345" width="420" height="117" fill="#f8fafc" stroke="#c4cbd4" stroke-width="1.2" stroke-dasharray="5 4"/><line x1="740" y1="400" x2="1160" y2="400" stroke="#c4cbd4"/>
+<text x="754" y="368" font-family="Arial,sans-serif" font-size="16" fill="#2d3748">userService</text>
+<text x="754" y="387" font-family="Arial,sans-serif" font-size="11.5" fill="#596579">«JS service module» / page 15</text>
+<text x="754" y="423" font-family="Consolas,monospace" font-size="12" fill="#2d3748">Definition / page 15</text>
+<text x="754" y="450" font-family="Arial,sans-serif" font-size="11.5" fill="#596579">src/services/userService.js:3</text>
+</g>
+<g data-node="src/services/apiClient.js"><rect x="740" y="520" width="420" height="117" fill="#f8fafc" stroke="#c4cbd4" stroke-width="1.2" stroke-dasharray="5 4"/><line x1="740" y1="575" x2="1160" y2="575" stroke="#c4cbd4"/>
+<text x="754" y="543" font-family="Arial,sans-serif" font-size="16" fill="#2d3748">apiClient</text>
+<text x="754" y="562" font-family="Arial,sans-serif" font-size="11.5" fill="#596579">«JS service module» / page 11</text>
+<text x="754" y="598" font-family="Consolas,monospace" font-size="12" fill="#2d3748">Definition / page 11</text>
+<text x="754" y="625" font-family="Arial,sans-serif" font-size="11.5" fill="#596579">src/services/apiClient.js:207</text>
+</g>
+<g data-node="src/services/registerUser.js"><rect x="740" y="695" width="420" height="117" fill="#f8fafc" stroke="#c4cbd4" stroke-width="1.2" stroke-dasharray="5 4"/><line x1="740" y1="750" x2="1160" y2="750" stroke="#c4cbd4"/>
+<text x="754" y="718" font-family="Arial,sans-serif" font-size="16" fill="#2d3748">registerUser</text>
+<text x="754" y="737" font-family="Arial,sans-serif" font-size="11.5" fill="#596579">«JS service module» / page 13</text>
+<text x="754" y="773" font-family="Consolas,monospace" font-size="12" fill="#2d3748">Definition / page 13</text>
+<text x="754" y="800" font-family="Arial,sans-serif" font-size="11.5" fill="#596579">src/services/registerUser.js:4</text>
+</g>
+<g data-node="src/services/pushNotificationService.js"><rect x="740" y="870" width="420" height="117" fill="#f8fafc" stroke="#c4cbd4" stroke-width="1.2" stroke-dasharray="5 4"/><line x1="740" y1="925" x2="1160" y2="925" stroke="#c4cbd4"/>
+<text x="754" y="893" font-family="Arial,sans-serif" font-size="16" fill="#2d3748">pushNotificationService</text>
+<text x="754" y="912" font-family="Arial,sans-serif" font-size="11.5" fill="#596579">«JS service module» / page 38</text>
+<text x="754" y="948" font-family="Consolas,monospace" font-size="12" fill="#2d3748">Definition / page 38</text>
+<text x="754" y="975" font-family="Arial,sans-serif" font-size="11.5" fill="#596579">src/services/pushNotificationService.js:133</text>
+</g>
+<g data-node="php/auth_otp_helpers.php"><rect x="1400" y="1630" width="440" height="136" fill="#f8fafc" stroke="#c4cbd4" stroke-width="1.2" stroke-dasharray="5 4"/><line x1="1400" y1="1685" x2="1840" y2="1685" stroke="#c4cbd4"/>
+<text x="1414" y="1653" font-family="Arial,sans-serif" font-size="16" fill="#2d3748">AuthOtpHelpers</text>
+<text x="1414" y="1672" font-family="Arial,sans-serif" font-size="11.5" fill="#596579">«PHP module» / page 13</text>
+<text x="1414" y="1708" font-family="Consolas,monospace" font-size="12" fill="#2d3748">Definition / page 13</text>
+<text x="1414" y="1754" font-family="Arial,sans-serif" font-size="11.5" fill="#596579">php/auth_otp_helpers.php:10</text>
+</g>
+<g data-node="db:users"><rect x="2080" y="170" width="440" height="158" fill="#f8fafc" stroke="#c4cbd4" stroke-width="1.2" stroke-dasharray="5 4"/><line x1="2080" y1="225" x2="2520" y2="225" stroke="#c4cbd4"/>
+<text x="2094" y="193" font-family="Arial,sans-serif" font-size="16" fill="#2d3748">User</text>
+<text x="2094" y="212" font-family="Arial,sans-serif" font-size="11.5" fill="#596579">«entity» users</text>
+<text x="2094" y="248" font-family="Consolas,monospace" font-size="12" fill="#2d3748">+ user_id: int [PK]</text>
+<text x="2094" y="266" font-family="Consolas,monospace" font-size="12" fill="#2d3748">Full SQL attributes / DB page 01</text>
+<text x="2094" y="316" font-family="Arial,sans-serif" font-size="11.5" fill="#596579">iPawcus_ERD_Schema.sql</text>
+</g>
+<g data-node="php/auth_access_helpers.php"><rect x="1400" y="1824" width="440" height="117" fill="#f8fafc" stroke="#c4cbd4" stroke-width="1.2" stroke-dasharray="5 4"/><line x1="1400" y1="1879" x2="1840" y2="1879" stroke="#c4cbd4"/>
+<text x="1414" y="1847" font-family="Arial,sans-serif" font-size="16" fill="#2d3748">AuthAccessHelpers</text>
+<text x="1414" y="1866" font-family="Arial,sans-serif" font-size="11.5" fill="#596579">«PHP module» / page 13</text>
+<text x="1414" y="1902" font-family="Consolas,monospace" font-size="12" fill="#2d3748">Definition / page 13</text>
+<text x="1414" y="1929" font-family="Arial,sans-serif" font-size="11.5" fill="#596579">php/auth_access_helpers.php:3</text>
+</g>
+<g data-node="db:google_auth_onboarding_tokens"><rect x="2080" y="386" width="440" height="135" fill="#f8fafc" stroke="#c4cbd4" stroke-width="1.2" stroke-dasharray="5 4"/><line x1="2080" y1="441" x2="2520" y2="441" stroke="#c4cbd4"/>
+<text x="2094" y="409" font-family="Arial,sans-serif" font-size="16" fill="#2d3748">GoogleAuthOnboardingToken</text>
+<text x="2094" y="428" font-family="Arial,sans-serif" font-size="11.5" fill="#596579">«entity» google_auth_onboarding_tokens</text>
+<text x="2094" y="464" font-family="Consolas,monospace" font-size="12" fill="#2d3748">+ onboarding_id: bigint [PK]</text>
+<text x="2094" y="482" font-family="Consolas,monospace" font-size="12" fill="#2d3748">Full SQL attributes / DB page 01</text>
+<text x="2094" y="509" font-family="Arial,sans-serif" font-size="11.5" fill="#596579">iPawcus_ERD_Schema.sql</text>
+</g>
+<g data-node="php/account_status_helpers.php"><rect x="1400" y="1999" width="440" height="117" fill="#f8fafc" stroke="#c4cbd4" stroke-width="1.2" stroke-dasharray="5 4"/><line x1="1400" y1="2054" x2="1840" y2="2054" stroke="#c4cbd4"/>
+<text x="1414" y="2022" font-family="Arial,sans-serif" font-size="16" fill="#2d3748">AccountStatusHelpers</text>
+<text x="1414" y="2041" font-family="Arial,sans-serif" font-size="11.5" fill="#596579">«PHP module» / page 15</text>
+<text x="1414" y="2077" font-family="Consolas,monospace" font-size="12" fill="#2d3748">Definition / page 15</text>
+<text x="1414" y="2104" font-family="Arial,sans-serif" font-size="11.5" fill="#596579">php/account_status_helpers.php:3</text>
+</g>
+<g data-node="db:veterinarian_profiles"><rect x="2080" y="579" width="440" height="135" fill="#f8fafc" stroke="#c4cbd4" stroke-width="1.2" stroke-dasharray="5 4"/><line x1="2080" y1="634" x2="2520" y2="634" stroke="#c4cbd4"/>
+<text x="2094" y="602" font-family="Arial,sans-serif" font-size="16" fill="#2d3748">VeterinarianProfile</text>
+<text x="2094" y="621" font-family="Arial,sans-serif" font-size="11.5" fill="#596579">«entity» veterinarian_profiles</text>
+<text x="2094" y="657" font-family="Consolas,monospace" font-size="12" fill="#2d3748">+ id: int [PK]</text>
+<text x="2094" y="675" font-family="Consolas,monospace" font-size="12" fill="#2d3748">Full SQL attributes / DB page 01</text>
+<text x="2094" y="702" font-family="Arial,sans-serif" font-size="11.5" fill="#596579">iPawcus_ERD_Schema.sql</text>
+</g>
+<g data-node="db:admin_profiles"><rect x="2080" y="772" width="440" height="135" fill="#f8fafc" stroke="#c4cbd4" stroke-width="1.2" stroke-dasharray="5 4"/><line x1="2080" y1="827" x2="2520" y2="827" stroke="#c4cbd4"/>
+<text x="2094" y="795" font-family="Arial,sans-serif" font-size="16" fill="#2d3748">AdminProfile</text>
+<text x="2094" y="814" font-family="Arial,sans-serif" font-size="11.5" fill="#596579">«entity» admin_profiles</text>
+<text x="2094" y="850" font-family="Consolas,monospace" font-size="12" fill="#2d3748">+ id: int [PK]</text>
+<text x="2094" y="868" font-family="Consolas,monospace" font-size="12" fill="#2d3748">Full SQL attributes / DB page 01</text>
+<text x="2094" y="895" font-family="Arial,sans-serif" font-size="11.5" fill="#596579">iPawcus_ERD_Schema.sql</text>
+</g>
+<g data-node="php/phone_number_helpers.php"><rect x="1400" y="2174" width="440" height="117" fill="#f8fafc" stroke="#c4cbd4" stroke-width="1.2" stroke-dasharray="5 4"/><line x1="1400" y1="2229" x2="1840" y2="2229" stroke="#c4cbd4"/>
+<text x="1414" y="2197" font-family="Arial,sans-serif" font-size="16" fill="#2d3748">PhoneNumberHelpers</text>
+<text x="1414" y="2216" font-family="Arial,sans-serif" font-size="11.5" fill="#596579">«PHP module» / page 11</text>
+<text x="1414" y="2252" font-family="Consolas,monospace" font-size="12" fill="#2d3748">Definition / page 11</text>
+<text x="1414" y="2279" font-family="Arial,sans-serif" font-size="11.5" fill="#596579">php/phone_number_helpers.php:3</text>
+</g>
+<text x="512" y="204" font-family="Consolas,monospace" font-size="11.5" fill="#596579">uses</text>
+<text x="512" y="505" font-family="Consolas,monospace" font-size="11.5" fill="#596579">uses</text>
+<text x="512" y="527" font-family="Consolas,monospace" font-size="11.5" fill="#596579">uses</text>
+<text x="512" y="549" font-family="Consolas,monospace" font-size="11.5" fill="#596579">uses</text>
+<text x="512" y="1329" font-family="Consolas,monospace" font-size="11.5" fill="#596579">uses</text>
+<text x="512" y="1351" font-family="Consolas,monospace" font-size="11.5" fill="#596579">uses</text>
+<text x="512" y="1373" font-family="Consolas,monospace" font-size="11.5" fill="#596579">uses</text>
+<text x="512" y="1395" font-family="Consolas,monospace" font-size="11.5" fill="#596579">uses</text>
+<text x="1852" y="204" font-family="Consolas,monospace" font-size="11.5" fill="#596579">includes</text>
+<text x="1852" y="226" font-family="Consolas,monospace" font-size="11.5" fill="#596579">includes</text>
+<text x="1852" y="248" font-family="Consolas,monospace" font-size="11.5" fill="#596579">SQL</text>
+<text x="1852" y="379" font-family="Consolas,monospace" font-size="11.5" fill="#596579">includes</text>
+<text x="1852" y="401" font-family="Consolas,monospace" font-size="11.5" fill="#596579">SQL</text>
+<text x="1852" y="554" font-family="Consolas,monospace" font-size="11.5" fill="#596579">includes</text>
+<text x="1852" y="729" font-family="Consolas,monospace" font-size="11.5" fill="#596579">includes</text>
+<text x="1852" y="751" font-family="Consolas,monospace" font-size="11.5" fill="#596579">SQL</text>
+<text x="1852" y="773" font-family="Consolas,monospace" font-size="11.5" fill="#596579">SQL</text>
+<text x="1852" y="1048" font-family="Consolas,monospace" font-size="11.5" fill="#596579">includes</text>
+<text x="1852" y="1070" font-family="Consolas,monospace" font-size="11.5" fill="#596579">includes</text>
+<text x="1852" y="1092" font-family="Consolas,monospace" font-size="11.5" fill="#596579">SQL</text>
+<text x="1852" y="1114" font-family="Consolas,monospace" font-size="11.5" fill="#596579">SQL</text>
+<text x="1852" y="1136" font-family="Consolas,monospace" font-size="11.5" fill="#596579">SQL</text>
+<text x="1852" y="1470" font-family="Consolas,monospace" font-size="11.5" fill="#596579">includes</text>
+<text x="1852" y="1492" font-family="Consolas,monospace" font-size="11.5" fill="#596579">includes</text>
+<text x="1852" y="1514" font-family="Consolas,monospace" font-size="11.5" fill="#596579">includes</text>
+<text x="1852" y="1536" font-family="Consolas,monospace" font-size="11.5" fill="#596579">SQL</text>
+</svg>

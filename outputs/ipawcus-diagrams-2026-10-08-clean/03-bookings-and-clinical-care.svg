@@ -1,0 +1,125 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1756" height="952" viewBox="0 0 1756 952" role="img" aria-labelledby="title desc">
+<title id="title">2.0 — Bookings and Clinical Care</title><desc id="desc">Plain black-and-white logical data-flow diagram with roles, numbered processes, open-ended data stores and labeled data arrows.</desc>
+<defs><marker id="arrow" markerWidth="8" markerHeight="8" refX="7" refY="4" orient="auto" markerUnits="userSpaceOnUse"><path d="M0 0 L7 4 L0 8 Z" fill="#000000"/></marker></defs>
+<rect width="100%" height="100%" fill="#ffffff"/>
+<text x="60" y="34" font-family="Arial,sans-serif" font-size="24" fill="#000000">2.0 — Bookings and Clinical Care</text>
+<text x="60" y="64" font-family="Arial,sans-serif" font-size="14" fill="#000000">Expansion of process 2.0. Each user role and each data store appears once.</text>
+<path d="M230 145 L248 145 L248 167 L715 167" fill="none" stroke="#000000" stroke-width="1.2" marker-end="url(#arrow)"><title>Clinic acceptance and online slots</title></path>
+<text x="477" y="159" font-family="Arial,sans-serif" font-size="14" fill="#000000">Clinic acceptance and online slots</text>
+<path d="M715 195 L255 195 L255 163 L230 163" fill="none" stroke="#000000" stroke-width="1.2" marker-end="url(#arrow)"><title>Booking availability</title></path>
+<text x="570" y="187" font-family="Arial,sans-serif" font-size="14" fill="#000000">Booking availability</text>
+<path d="M1482 153 L1360 153 L1360 153 L960 153" fill="none" stroke="#000000" stroke-width="1.2" marker-end="url(#arrow)"><title>Assigned clinics</title></path>
+<text x="1025" y="145" font-family="Arial,sans-serif" font-size="14" fill="#000000">Assigned clinics</text>
+<path d="M1482 223 L1367 223 L1367 181 L960 181" fill="none" stroke="#000000" stroke-width="1.2" marker-end="url(#arrow)"><title>Clinic hours and reservations</title></path>
+<text x="1025" y="173" font-family="Arial,sans-serif" font-size="14" fill="#000000">Clinic hours and reservations</text>
+<path d="M960 209 L1374 209 L1374 241 L1482 241" fill="none" stroke="#000000" stroke-width="1.2" marker-end="url(#arrow)"><title>Booking preferences and online slots</title></path>
+<text x="1025" y="201" font-family="Arial,sans-serif" font-size="14" fill="#000000">Booking preferences and online slots</text>
+<path d="M230 299 L262 299 L262 321 L715 321" fill="none" stroke="#000000" stroke-width="1.2" marker-end="url(#arrow)"><title>Service, pet and booking details</title></path>
+<text x="489" y="313" font-family="Arial,sans-serif" font-size="14" fill="#000000">Service, pet and booking details</text>
+<path d="M715 349 L269 349 L269 317 L230 317" fill="none" stroke="#000000" stroke-width="1.2" marker-end="url(#arrow)"><title>Booking confirmation</title></path>
+<text x="558" y="341" font-family="Arial,sans-serif" font-size="14" fill="#000000">Booking confirmation</text>
+<path d="M230 423 L276 423 L276 377 L715 377" fill="none" stroke="#000000" stroke-width="1.2" marker-end="url(#arrow)"><title>Booking review and assignment</title></path>
+<text x="490" y="369" font-family="Arial,sans-serif" font-size="14" fill="#000000">Booking review and assignment</text>
+<path d="M1482 259 L1381 259 L1381 335 L960 335" fill="none" stroke="#000000" stroke-width="1.2" marker-end="url(#arrow)"><title>Available slots and booking data</title></path>
+<text x="1025" y="327" font-family="Arial,sans-serif" font-size="14" fill="#000000">Available slots and booking data</text>
+<path d="M960 363 L1388 363 L1388 277 L1482 277" fill="none" stroke="#000000" stroke-width="1.2" marker-end="url(#arrow)"><title>Reserved booking and assigned vet</title></path>
+<text x="1025" y="355" font-family="Arial,sans-serif" font-size="14" fill="#000000">Reserved booking and assigned vet</text>
+<path d="M230 441 L283 441 L283 489 L715 489" fill="none" stroke="#000000" stroke-width="1.2" marker-end="url(#arrow)"><title>Findings, images and signed consent</title></path>
+<text x="456" y="481" font-family="Arial,sans-serif" font-size="14" fill="#000000">Findings, images and signed consent</text>
+<path d="M715 517 L290 517 L290 459 L230 459" fill="none" stroke="#000000" stroke-width="1.2" marker-end="url(#arrow)"><title>Exam and reassignment status</title></path>
+<text x="496" y="509" font-family="Arial,sans-serif" font-size="14" fill="#000000">Exam and reassignment status</text>
+<path d="M715 545 L297 545 L297 181 L230 181" fill="none" stroke="#000000" stroke-width="1.2" marker-end="url(#arrow)"><title>Assigned patient and exam status</title></path>
+<text x="477" y="537" font-family="Arial,sans-serif" font-size="14" fill="#000000">Assigned patient and exam status</text>
+<path d="M1482 295 L1395 295 L1395 503 L960 503" fill="none" stroke="#000000" stroke-width="1.2" marker-end="url(#arrow)"><title>Booking, queue and consent data</title></path>
+<text x="1025" y="495" font-family="Arial,sans-serif" font-size="14" fill="#000000">Booking, queue and consent data</text>
+<path d="M960 531 L1402 531 L1402 313 L1482 313" fill="none" stroke="#000000" stroke-width="1.2" marker-end="url(#arrow)"><title>Exam record and recording staff</title></path>
+<text x="1025" y="523" font-family="Arial,sans-serif" font-size="14" fill="#000000">Exam record and recording staff</text>
+<path d="M230 199 L304 199 L304 671 L715 671" fill="none" stroke="#000000" stroke-width="1.2" marker-end="url(#arrow)"><title>Diagnosis and additional consent</title></path>
+<text x="482" y="663" font-family="Arial,sans-serif" font-size="14" fill="#000000">Diagnosis and additional consent</text>
+<path d="M715 699 L311 699 L311 335 L230 335" fill="none" stroke="#000000" stroke-width="1.2" marker-end="url(#arrow)"><title>Medical summary</title></path>
+<text x="581" y="691" font-family="Arial,sans-serif" font-size="14" fill="#000000">Medical summary</text>
+<path d="M1482 331 L1409 331 L1409 657 L960 657" fill="none" stroke="#000000" stroke-width="1.2" marker-end="url(#arrow)"><title>Exam findings and patient history</title></path>
+<text x="1025" y="649" font-family="Arial,sans-serif" font-size="14" fill="#000000">Exam findings and patient history</text>
+<path d="M960 685 L1416 685 L1416 349 L1482 349" fill="none" stroke="#000000" stroke-width="1.2" marker-end="url(#arrow)"><title>Finalized diagnosis and consent</title></path>
+<text x="1025" y="677" font-family="Arial,sans-serif" font-size="14" fill="#000000">Finalized diagnosis and consent</text>
+<path d="M960 713 L1423 713 L1423 716 L1482 716" fill="none" stroke="#000000" stroke-width="1.2" marker-end="url(#arrow)"><title>Clinic prescription details</title></path>
+<text x="1025" y="705" font-family="Arial,sans-serif" font-size="14" fill="#000000">Clinic prescription details</text>
+<path d="M230 353 L318 353 L318 825 L715 825" fill="none" stroke="#000000" stroke-width="1.2" marker-end="url(#arrow)"><title>Call join details</title></path>
+<text x="596" y="817" font-family="Arial,sans-serif" font-size="14" fill="#000000">Call join details</text>
+<path d="M230 217 L325 217 L325 853 L715 853" fill="none" stroke="#000000" stroke-width="1.2" marker-end="url(#arrow)"><title>Call, diagnosis and medication details</title></path>
+<text x="453" y="845" font-family="Arial,sans-serif" font-size="14" fill="#000000">Call, diagnosis and medication details</text>
+<path d="M715 881 L332 881 L332 371 L230 371" fill="none" stroke="#000000" stroke-width="1.2" marker-end="url(#arrow)"><title>Online consultation summary</title></path>
+<text x="508" y="873" font-family="Arial,sans-serif" font-size="14" fill="#000000">Online consultation summary</text>
+<path d="M1482 367 L1430 367 L1430 825 L960 825" fill="none" stroke="#000000" stroke-width="1.2" marker-end="url(#arrow)"><title>Online appointment and call details</title></path>
+<text x="1025" y="817" font-family="Arial,sans-serif" font-size="14" fill="#000000">Online appointment and call details</text>
+<path d="M960 853 L1437 853 L1437 385 L1482 385" fill="none" stroke="#000000" stroke-width="1.2" marker-end="url(#arrow)"><title>Online diagnosis and call status</title></path>
+<text x="1025" y="845" font-family="Arial,sans-serif" font-size="14" fill="#000000">Online diagnosis and call status</text>
+<path d="M960 881 L1444 881 L1444 734 L1482 734" fill="none" stroke="#000000" stroke-width="1.2" marker-end="url(#arrow)"><title>Online prescription details</title></path>
+<text x="1025" y="873" font-family="Arial,sans-serif" font-size="14" fill="#000000">Online prescription details</text>
+<g data-node="03-bookings-and-clinical-care-p-2.1"><title>2.1</title>
+<rect x="715" y="112" width="245" height="112" rx="11" fill="#ffffff" stroke="#000000" stroke-width="1.2"/>
+<line x1="715" y1="138" x2="960" y2="138" stroke="#000000" stroke-width="1.2"/>
+<text x="837.5" y="132" font-family="Arial,sans-serif" font-size="16" fill="#000000" text-anchor="middle" font-weight="700">2.1</text>
+<text x="837.5" y="177.5" font-family="Arial,sans-serif" font-size="16" fill="#000000" text-anchor="middle">Set Booking</text>
+<text x="837.5" y="196.5" font-family="Arial,sans-serif" font-size="16" fill="#000000" text-anchor="middle">Availability</text>
+</g>
+<g data-node="03-bookings-and-clinical-care-p-2.2"><title>2.2</title>
+<rect x="715" y="280" width="245" height="112" rx="11" fill="#ffffff" stroke="#000000" stroke-width="1.2"/>
+<line x1="715" y1="306" x2="960" y2="306" stroke="#000000" stroke-width="1.2"/>
+<text x="837.5" y="300" font-family="Arial,sans-serif" font-size="16" fill="#000000" text-anchor="middle" font-weight="700">2.2</text>
+<text x="837.5" y="345.5" font-family="Arial,sans-serif" font-size="16" fill="#000000" text-anchor="middle">Create and</text>
+<text x="837.5" y="364.5" font-family="Arial,sans-serif" font-size="16" fill="#000000" text-anchor="middle">Review Bookings</text>
+</g>
+<g data-node="03-bookings-and-clinical-care-p-2.3"><title>2.3</title>
+<rect x="715" y="448" width="245" height="112" rx="11" fill="#ffffff" stroke="#000000" stroke-width="1.2"/>
+<line x1="715" y1="474" x2="960" y2="474" stroke="#000000" stroke-width="1.2"/>
+<text x="837.5" y="468" font-family="Arial,sans-serif" font-size="16" fill="#000000" text-anchor="middle" font-weight="700">2.3</text>
+<text x="837.5" y="513.5" font-family="Arial,sans-serif" font-size="16" fill="#000000" text-anchor="middle">Conduct Physical</text>
+<text x="837.5" y="532.5" font-family="Arial,sans-serif" font-size="16" fill="#000000" text-anchor="middle">Examination</text>
+</g>
+<g data-node="03-bookings-and-clinical-care-p-2.4"><title>2.4</title>
+<rect x="715" y="616" width="245" height="112" rx="11" fill="#ffffff" stroke="#000000" stroke-width="1.2"/>
+<line x1="715" y1="642" x2="960" y2="642" stroke="#000000" stroke-width="1.2"/>
+<text x="837.5" y="636" font-family="Arial,sans-serif" font-size="16" fill="#000000" text-anchor="middle" font-weight="700">2.4</text>
+<text x="837.5" y="681.5" font-family="Arial,sans-serif" font-size="16" fill="#000000" text-anchor="middle">Record Clinic</text>
+<text x="837.5" y="700.5" font-family="Arial,sans-serif" font-size="16" fill="#000000" text-anchor="middle">Diagnosis</text>
+</g>
+<g data-node="03-bookings-and-clinical-care-p-2.5"><title>2.5</title>
+<rect x="715" y="784" width="245" height="112" rx="11" fill="#ffffff" stroke="#000000" stroke-width="1.2"/>
+<line x1="715" y1="810" x2="960" y2="810" stroke="#000000" stroke-width="1.2"/>
+<text x="837.5" y="804" font-family="Arial,sans-serif" font-size="16" fill="#000000" text-anchor="middle" font-weight="700">2.5</text>
+<text x="837.5" y="849.5" font-family="Arial,sans-serif" font-size="16" fill="#000000" text-anchor="middle">Conduct Online</text>
+<text x="837.5" y="868.5" font-family="Arial,sans-serif" font-size="16" fill="#000000" text-anchor="middle">Consultation</text>
+</g>
+<g data-node="03-bookings-and-clinical-care-ref-vet"><title>vet</title>
+<rect x="60" y="129" width="170" height="104" rx="0" fill="#ffffff" stroke="#000000" stroke-width="1.2"/>
+<text x="145" y="187" font-family="Arial,sans-serif" font-size="16" fill="#000000" text-anchor="middle" font-weight="700">Veterinarian</text>
+</g>
+<g data-node="03-bookings-and-clinical-care-ref-owner"><title>owner</title>
+<rect x="60" y="283" width="170" height="104" rx="0" fill="#ffffff" stroke="#000000" stroke-width="1.2"/>
+<text x="145" y="341" font-family="Arial,sans-serif" font-size="16" fill="#000000" text-anchor="middle" font-weight="700">Pet Owner</text>
+</g>
+<g data-node="03-bookings-and-clinical-care-ref-admin"><title>admin</title>
+<rect x="60" y="407" width="170" height="68" rx="0" fill="#ffffff" stroke="#000000" stroke-width="1.2"/>
+<text x="145" y="447" font-family="Arial,sans-serif" font-size="16" fill="#000000" text-anchor="middle" font-weight="700">Admin</text>
+</g>
+<g data-node="03-bookings-and-clinical-care-ref-D1"><title>D1</title>
+<path d="M1712 119 H1482 V187 H1712 M1522 119 V187" fill="#ffffff" stroke="#000000" stroke-width="1.2"/>
+<text x="1502" y="159" font-family="Arial,sans-serif" font-size="16" fill="#000000" text-anchor="middle">D1</text>
+<text x="1617" y="149.5" font-family="Arial,sans-serif" font-size="16" fill="#000000" text-anchor="middle">Account and</text>
+<text x="1617" y="168.5" font-family="Arial,sans-serif" font-size="16" fill="#000000" text-anchor="middle">Pet Records</text>
+</g>
+<g data-node="03-bookings-and-clinical-care-ref-D2"><title>D2</title>
+<path d="M1712 207 H1482 V401 H1712 M1522 207 V401" fill="#ffffff" stroke="#000000" stroke-width="1.2"/>
+<text x="1502" y="310" font-family="Arial,sans-serif" font-size="16" fill="#000000" text-anchor="middle">D2</text>
+<text x="1617" y="300.5" font-family="Arial,sans-serif" font-size="16" fill="#000000" text-anchor="middle">Booking and</text>
+<text x="1617" y="319.5" font-family="Arial,sans-serif" font-size="16" fill="#000000" text-anchor="middle">Clinical Records</text>
+</g>
+<g data-node="03-bookings-and-clinical-care-ref-process-3.0"><title>process:3.0</title>
+<rect x="1482" y="665" width="230" height="96" rx="11" fill="#ffffff" stroke="#000000" stroke-width="1.2"/>
+<line x1="1482" y1="689" x2="1712" y2="689" stroke="#000000" stroke-width="1.2"/>
+<text x="1597" y="685" font-family="Arial,sans-serif" font-size="16" fill="#000000" text-anchor="middle" font-weight="700">3.0</text>
+<text x="1597" y="721.5" font-family="Arial,sans-serif" font-size="16" fill="#000000" text-anchor="middle">Manage Prescriptions</text>
+<text x="1597" y="740.5" font-family="Arial,sans-serif" font-size="16" fill="#000000" text-anchor="middle">and Schedules</text>
+</g>
+</svg>

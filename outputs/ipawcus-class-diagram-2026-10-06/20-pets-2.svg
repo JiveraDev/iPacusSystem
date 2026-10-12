@@ -1,0 +1,466 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="2600" height="5053" viewBox="0 0 2600 5053" role="img" aria-labelledby="title desc">
+<title id="title">iPawcus / Pets, ownership and catalog / 2 of 3</title>
+<desc id="desc">Application modules and verified database references. Original SQL entity definitions are on pages 01 to 09. Dashed dependencies are not foreign keys.</desc>
+<defs><marker id="arrow" markerWidth="9" markerHeight="9" refX="8" refY="4.5" orient="auto" markerUnits="userSpaceOnUse"><path d="M0 0 L8 4.5 L0 9" fill="none" stroke="#8793a3" stroke-width="1.2"/></marker><marker id="inheritance" markerWidth="11" markerHeight="11" refX="10" refY="5" orient="auto" markerUnits="userSpaceOnUse"><path d="M0 0 L10 5 L0 10 Z" fill="#ffffff" stroke="#8793a3" stroke-width="1.2"/></marker></defs>
+<rect width="100%" height="100%" fill="#ffffff"/>
+<text x="80" y="44" font-family="Arial,sans-serif" font-size="25" fill="#2d3748">iPawcus / Pets, ownership and catalog / 2 of 3</text>
+<text x="80" y="73" font-family="Arial,sans-serif" font-size="14" fill="#596579">React / service / PHP / entity reference · arrows show source-code dependencies; no invented OO inheritance.</text>
+<text x="80" y="100" font-family="Arial,sans-serif" font-size="13" fill="#596579">Dashed: dependency. Solid: migration FK or real class inheritance. Full source evidence accompanies detailed links.</text>
+<text x="80" y="143" font-family="Arial,sans-serif" font-size="14" fill="#596579">UI and system views</text>
+<text x="740" y="143" font-family="Arial,sans-serif" font-size="14" fill="#596579">JavaScript services</text>
+<text x="1400" y="143" font-family="Arial,sans-serif" font-size="14" fill="#596579">PHP backend modules</text>
+<text x="2080" y="143" font-family="Arial,sans-serif" font-size="14" fill="#596579">Database references</text>
+<path d="M1160 210 L1400 210" fill="none" stroke="#8793a3" stroke-width="1.2" stroke-dasharray="5 4" marker-end="url(#arrow)"><title>src/services/petService.js → php/get_user_pets.php / HTTP</title></path>
+<path d="M1160 232 L1270 232 L1270 2374 L1400 2374" fill="none" stroke="#8793a3" stroke-width="1.2" stroke-dasharray="5 4" marker-end="url(#arrow)"><title>src/services/petService.js → php/add_pet.php / HTTP</title></path>
+<path d="M1160 254 L1290 254 L1290 2549 L1400 2549" fill="none" stroke="#8793a3" stroke-width="1.2" stroke-dasharray="5 4" marker-end="url(#arrow)"><title>src/services/petService.js → php/get_pets.php / HTTP</title></path>
+<path d="M1160 276 L1270 276 L1270 279 L1205 279 L1205 2724 L1400 2724" fill="none" stroke="#8793a3" stroke-width="1.2" stroke-dasharray="5 4" marker-end="url(#arrow)"><title>src/services/petService.js → php/update_pet.php / HTTP</title></path>
+<path d="M1160 298 L1378 298 L1378 2896 L1290 2896 L1290 2899 L1400 2899" fill="none" stroke="#8793a3" stroke-width="1.2" stroke-dasharray="5 4" marker-end="url(#arrow)"><title>src/services/petService.js → php/update_pet_status.php / HTTP</title></path>
+<path d="M1160 320 L1270 320 L1270 385 L1182 385 L1182 3074 L1400 3074" fill="none" stroke="#8793a3" stroke-width="1.2" stroke-dasharray="5 4" marker-end="url(#arrow)"><title>src/services/petService.js → php/get_pet_queues.php / HTTP</title></path>
+<path d="M1160 342 L1290 342 L1290 453 L1169 453 L1169 3249 L1400 3249" fill="none" stroke="#8793a3" stroke-width="1.2" stroke-dasharray="5 4" marker-end="url(#arrow)"><title>src/services/petService.js → php/get_pet_bookings.php / HTTP</title></path>
+<path d="M1160 364 L1913 364 L1913 2137 L1290 2137 L1290 2199 L1400 2199" fill="none" stroke="#8793a3" stroke-width="1.2" stroke-dasharray="5 4" marker-end="url(#arrow)"><title>src/services/petService.js → php/pet_overdue_cancellations.php / HTTP</title></path>
+<path d="M1160 386 L1270 386 L1270 469 L718 469 L718 1433 L1400 1433" fill="none" stroke="#8793a3" stroke-width="1.2" stroke-dasharray="5 4" marker-end="url(#arrow)"><title>src/services/petService.js → php/pet_medical_records.php / HTTP</title></path>
+<path d="M1840 210 L1950 210 L1950 3424 L1840 3424" fill="none" stroke="#8793a3" stroke-width="1.2" stroke-dasharray="5 4" marker-end="url(#arrow)"><title>php/get_user_pets.php → php/reference_number_helpers.php / includes</title></path>
+<path d="M1840 232 L1970 232 L1970 210 L2080 210" fill="none" stroke="#8793a3" stroke-width="1.2" stroke-dasharray="5 4" marker-end="url(#arrow)"><title>php/get_user_pets.php → db:pets_information / SQL</title></path>
+<path d="M1840 254 L1970 254 L1970 448 L2080 448" fill="none" stroke="#8793a3" stroke-width="1.2" stroke-dasharray="5 4" marker-end="url(#arrow)"><title>php/get_user_pets.php → db:pet_ownership / SQL</title></path>
+<path d="M1840 276 L2058 276 L2058 641 L1970 641 L1970 642 L2080 642" fill="none" stroke="#8793a3" stroke-width="1.2" stroke-dasharray="5 4" marker-end="url(#arrow)"><title>php/get_user_pets.php → db:queues / SQL</title></path>
+<path d="M1840 426 L1970 426 L1970 3599 L1840 3599" fill="none" stroke="#8793a3" stroke-width="1.2" stroke-dasharray="5 4" marker-end="url(#arrow)"><title>php/link_pet.php → php/coparent_request_helpers.php / includes</title></path>
+<path d="M1840 448 L1950 448 L1950 407 L1878 407 L1878 232 L2080 232" fill="none" stroke="#8793a3" stroke-width="1.2" stroke-dasharray="5 4" marker-end="url(#arrow)"><title>php/link_pet.php → db:pets_information / SQL</title></path>
+<path d="M1840 470 L2080 470" fill="none" stroke="#8793a3" stroke-width="1.2" stroke-dasharray="5 4" marker-end="url(#arrow)"><title>php/link_pet.php → db:pet_ownership / SQL</title></path>
+<path d="M1840 492 L1950 492 L1950 514 L1878 514 L1878 835 L2080 835" fill="none" stroke="#8793a3" stroke-width="1.2" stroke-dasharray="5 4" marker-end="url(#arrow)"><title>php/link_pet.php → db:users / SQL</title></path>
+<path d="M1840 620 L2058 620 L2058 966 L1970 966 L1970 1028 L2080 1028" fill="none" stroke="#8793a3" stroke-width="1.2" stroke-dasharray="5 4" marker-end="url(#arrow)"><title>php/pet_allergy_helpers.php → db:pet_allergies / SQL</title></path>
+<path d="M1840 642 L1950 642 L1950 601 L1862 601 L1862 491 L1878 491 L1878 425 L1913 425 L1913 254 L2080 254" fill="none" stroke="#8793a3" stroke-width="1.2" stroke-dasharray="5 4" marker-end="url(#arrow)"><title>php/pet_allergy_helpers.php → db:pets_information / SQL</title></path>
+<path d="M1840 939 L1950 939 L1950 952 L1878 952 L1878 1221 L2080 1221" fill="none" stroke="#8793a3" stroke-width="1.2" stroke-dasharray="5 4" marker-end="url(#arrow)"><title>php/pet_catalog.php → db:pet_catalog_options / SQL</title></path>
+<path d="M1840 1114 L1950 1114 L1950 1095 L1862 1095 L1862 938 L1878 938 L1878 492 L2080 492" fill="none" stroke="#8793a3" stroke-width="1.2" stroke-dasharray="5 4" marker-end="url(#arrow)"><title>php/pet_directory_search.php → db:pet_ownership / SQL</title></path>
+<path d="M1840 1136 L2058 1136 L2058 863 L1970 863 L1970 857 L2080 857" fill="none" stroke="#8793a3" stroke-width="1.2" stroke-dasharray="5 4" marker-end="url(#arrow)"><title>php/pet_directory_search.php → db:users / SQL</title></path>
+<path d="M1840 1158 L2542 1158 L2542 372 L1862 372 L1862 276 L2080 276" fill="none" stroke="#8793a3" stroke-width="1.2" stroke-dasharray="5 4" marker-end="url(#arrow)"><title>php/pet_directory_search.php → db:pets_information / SQL</title></path>
+<path d="M1840 1180 L1970 1180 L1970 1050 L2080 1050" fill="none" stroke="#8793a3" stroke-width="1.2" stroke-dasharray="5 4" marker-end="url(#arrow)"><title>php/pet_directory_search.php → db:pet_allergies / SQL</title></path>
+<path d="M1840 1202 L1950 1202 L1950 1205 L1878 1205 L1878 1414 L2080 1414" fill="none" stroke="#8793a3" stroke-width="1.2" stroke-dasharray="5 4" marker-end="url(#arrow)"><title>php/pet_directory_search.php → db:vet_diagnoses / SQL</title></path>
+<path d="M1840 1224 L2058 1224 L2058 1590 L1970 1590 L1970 1607 L2080 1607" fill="none" stroke="#8793a3" stroke-width="1.2" stroke-dasharray="5 4" marker-end="url(#arrow)"><title>php/pet_directory_search.php → db:online_consultation_diagnoses / SQL</title></path>
+<path d="M1840 1246 L1950 1246 L1950 1520 L1878 1520 L1878 1800 L2080 1800" fill="none" stroke="#8793a3" stroke-width="1.2" stroke-dasharray="5 4" marker-end="url(#arrow)"><title>php/pet_directory_search.php → db:bookings / SQL</title></path>
+<path d="M1840 1268 L2058 1268 L2058 1986 L1970 1986 L1970 1993 L2080 1993" fill="none" stroke="#8793a3" stroke-width="1.2" stroke-dasharray="5 4" marker-end="url(#arrow)"><title>php/pet_directory_search.php → db:pet_medical_record_groups / SQL</title></path>
+<path d="M1840 1290 L1950 1290 L1950 1338 L2542 1338 L2542 2124 L1970 2124 L1970 2186 L2080 2186" fill="none" stroke="#8793a3" stroke-width="1.2" stroke-dasharray="5 4" marker-end="url(#arrow)"><title>php/pet_directory_search.php → db:pet_medical_record_group_items / SQL</title></path>
+<path d="M1840 1433 L1970 1433 L1970 1352 L2570 1352 L2570 3668 L1950 3668 L1950 3774 L1840 3774" fill="none" stroke="#8793a3" stroke-width="1.2" stroke-dasharray="5 4" marker-end="url(#arrow)"><title>php/pet_medical_records.php → php/mail_helpers.php / includes</title></path>
+<path d="M1840 1455 L1970 1455 L1970 1590 L1878 1590 L1878 2180 L1913 2180 L1913 3923 L1950 3923 L1950 3949 L1840 3949" fill="none" stroke="#8793a3" stroke-width="1.2" stroke-dasharray="5 4" marker-end="url(#arrow)"><title>php/pet_medical_records.php → php/notification_helpers.php / includes</title></path>
+<path d="M1840 1477 L1950 1477 L1950 1983 L2058 1983 L2058 3446 L1840 3446" fill="none" stroke="#8793a3" stroke-width="1.2" stroke-dasharray="5 4" marker-end="url(#arrow)"><title>php/pet_medical_records.php → php/reference_number_helpers.php / includes</title></path>
+<path d="M1840 1499 L1950 1499 L1950 1498 L1913 1498 L1913 1227 L2058 1227 L2058 1028 L1950 1028 L1950 664 L1840 664" fill="none" stroke="#8793a3" stroke-width="1.2" stroke-dasharray="5 4" marker-end="url(#arrow)"><title>php/pet_medical_records.php → php/pet_allergy_helpers.php / includes</title></path>
+<path d="M1840 1521 L1950 1521 L1950 1524 L1913 1524 L1913 2198 L1878 2198 L1878 4116 L1950 4116 L1950 4124 L1840 4124" fill="none" stroke="#8793a3" stroke-width="1.2" stroke-dasharray="5 4" marker-end="url(#arrow)"><title>php/pet_medical_records.php → php/clinical_record_helpers.php / includes</title></path>
+<path d="M1840 1543 L2570 1543 L2570 385 L1970 385 L1970 298 L2080 298" fill="none" stroke="#8793a3" stroke-width="1.2" stroke-dasharray="5 4" marker-end="url(#arrow)"><title>php/pet_medical_records.php → db:pets_information / SQL</title></path>
+<path d="M1840 1565 L1950 1565 L1950 1531 L1913 1531 L1913 1414 L1862 1414 L1862 1289 L1878 1289 L1878 920 L1862 920 L1862 641 L1970 641 L1970 514 L2080 514" fill="none" stroke="#8793a3" stroke-width="1.2" stroke-dasharray="5 4" marker-end="url(#arrow)"><title>php/pet_medical_records.php → db:pet_ownership / SQL</title></path>
+<path d="M1840 1587 L1970 1587 L1970 1183 L1913 1183 L1913 879 L2080 879" fill="none" stroke="#8793a3" stroke-width="1.2" stroke-dasharray="5 4" marker-end="url(#arrow)"><title>php/pet_medical_records.php → db:users / SQL</title></path>
+<path d="M1840 1609 L1970 1609 L1970 2379 L2080 2379" fill="none" stroke="#8793a3" stroke-width="1.2" stroke-dasharray="5 4" marker-end="url(#arrow)"><title>php/pet_medical_records.php → db:pet_vaccinations / SQL</title></path>
+<path d="M1840 1631 L2058 1631 L2058 2220 L1862 2220 L1862 2572 L2080 2572" fill="none" stroke="#8793a3" stroke-width="1.2" stroke-dasharray="5 4" marker-end="url(#arrow)"><title>php/pet_medical_records.php → db:visit_charges / SQL</title></path>
+<path d="M1840 1653 L1950 1653 L1950 1788 L1878 1788 L1878 2048 L1862 2048 L1862 2180 L1950 2180 L1950 2765 L2080 2765" fill="none" stroke="#8793a3" stroke-width="1.2" stroke-dasharray="5 4" marker-end="url(#arrow)"><title>php/pet_medical_records.php → db:service_catalog / SQL</title></path>
+<path d="M1840 1675 L2058 1675 L2058 1724 L2542 1724 L2542 2896 L1970 2896 L1970 2958 L2080 2958" fill="none" stroke="#8793a3" stroke-width="1.2" stroke-dasharray="5 4" marker-end="url(#arrow)"><title>php/pet_medical_records.php → db:inventory_items / SQL</title></path>
+<path d="M1840 1697 L1970 1697 L1970 1982 L1950 1982 L1950 2198 L1913 2198 L1913 2549 L1862 2549 L1862 3151 L2080 3151" fill="none" stroke="#8793a3" stroke-width="1.2" stroke-dasharray="5 4" marker-end="url(#arrow)"><title>php/pet_medical_records.php → db:visit_payments / SQL</title></path>
+<path d="M1840 1719 L1950 1719 L1950 1724 L2570 1724 L2570 2896 L2542 2896 L2542 3282 L1970 3282 L1970 3344 L2080 3344" fill="none" stroke="#8793a3" stroke-width="1.2" stroke-dasharray="5 4" marker-end="url(#arrow)"><title>php/pet_medical_records.php → db:visit_payment_refunds / SQL</title></path>
+<path d="M1840 1741 L1950 1741 L1950 1744 L1913 1744 L1913 2199 L1878 2199 L1878 3089 L1862 3089 L1862 3537 L2080 3537" fill="none" stroke="#8793a3" stroke-width="1.2" stroke-dasharray="5 4" marker-end="url(#arrow)"><title>php/pet_medical_records.php → db:boarding_documents / SQL</title></path>
+<path d="M1840 1763 L2058 1763 L2058 3712 L1970 3712 L1970 3730 L2080 3730" fill="none" stroke="#8793a3" stroke-width="1.2" stroke-dasharray="5 4" marker-end="url(#arrow)"><title>php/pet_medical_records.php → db:boarding_observations / SQL</title></path>
+<path d="M1840 1785 L1950 1785 L1950 1982 L1878 1982 L1878 2124 L1270 2124 L1270 3887 L1970 3887 L1970 3923 L2080 3923" fill="none" stroke="#8793a3" stroke-width="1.2" stroke-dasharray="5 4" marker-end="url(#arrow)"><title>php/pet_medical_records.php → db:boarding_tasks / SQL</title></path>
+<path d="M1840 1807 L1970 1807 L1970 1822 L2080 1822" fill="none" stroke="#8793a3" stroke-width="1.2" stroke-dasharray="5 4" marker-end="url(#arrow)"><title>php/pet_medical_records.php → db:bookings / SQL</title></path>
+<path d="M1840 1829 L1950 1829 L1950 1832 L1878 1832 L1878 1982 L1862 1982 L1862 1986 L1970 1986 L1970 2896 L1950 2896 L1950 3654 L1970 3654 L1970 4116 L2080 4116" fill="none" stroke="#8793a3" stroke-width="1.2" stroke-dasharray="5 4" marker-end="url(#arrow)"><title>php/pet_medical_records.php → db:grooming_jobs / SQL</title></path>
+<path d="M1840 1851 L1950 1851 L1950 2221 L1862 2221 L1862 4309 L2080 4309" fill="none" stroke="#8793a3" stroke-width="1.2" stroke-dasharray="5 4" marker-end="url(#arrow)"><title>php/pet_medical_records.php → db:grooming_photos / SQL</title></path>
+<path d="M1840 1873 L2058 1873 L2058 1917 L2542 1917 L2542 4440 L1970 4440 L1970 4502 L2080 4502" fill="none" stroke="#8793a3" stroke-width="1.2" stroke-dasharray="5 4" marker-end="url(#arrow)"><title>php/pet_medical_records.php → db:booking_pets / SQL</title></path>
+<path d="M1840 1895 L1970 1895 L1970 2048 L1862 2048 L1862 2123 L1378 2123 L1378 4695 L2080 4695" fill="none" stroke="#8793a3" stroke-width="1.2" stroke-dasharray="5 4" marker-end="url(#arrow)"><title>php/pet_medical_records.php → db:boarding_assignments / SQL</title></path>
+<path d="M1840 1917 L1950 1917 L1950 1920 L1913 1920 L1913 2208 L2080 2208" fill="none" stroke="#8793a3" stroke-width="1.2" stroke-dasharray="5 4" marker-end="url(#arrow)"><title>php/pet_medical_records.php → db:pet_medical_record_group_items / SQL</title></path>
+<path d="M1840 1939 L1950 1939 L1950 2015 L2080 2015" fill="none" stroke="#8793a3" stroke-width="1.2" stroke-dasharray="5 4" marker-end="url(#arrow)"><title>php/pet_medical_records.php → db:pet_medical_record_groups / SQL</title></path>
+<path d="M1840 1961 L1950 1961 L1950 1960 L1878 1960 L1878 1629 L2080 1629" fill="none" stroke="#8793a3" stroke-width="1.2" stroke-dasharray="5 4" marker-end="url(#arrow)"><title>php/pet_medical_records.php → db:online_consultation_diagnoses / SQL</title></path>
+<path d="M1840 1983 L1950 1983 L1950 2004 L1862 2004 L1862 2008 L1878 2008 L1878 2123 L1290 2123 L1290 4888 L2080 4888" fill="none" stroke="#8793a3" stroke-width="1.2" stroke-dasharray="5 4" marker-end="url(#arrow)"><title>php/pet_medical_records.php → db:visits / SQL</title></path>
+<path d="M1840 2005 L1950 2005 L1950 2123 L718 2123 L718 1371 L1950 1371 L1950 1436 L2080 1436" fill="none" stroke="#8793a3" stroke-width="1.2" stroke-dasharray="5 4" marker-end="url(#arrow)"><title>php/pet_medical_records.php → db:vet_diagnoses / SQL</title></path>
+<path d="M1840 2027 L1950 2027 L1950 2049 L1862 2049 L1862 2124 L522 2124 L522 863 L1970 863 L1970 664 L2080 664" fill="none" stroke="#8793a3" stroke-width="1.2" stroke-dasharray="5 4" marker-end="url(#arrow)"><title>php/pet_medical_records.php → db:queues / SQL</title></path>
+<path d="M1840 2049 L1950 2049 L1950 2110 L1862 2110 L1862 2137 L58 2137 L58 1052 L1970 1052 L1970 1072 L2080 1072" fill="none" stroke="#8793a3" stroke-width="1.2" stroke-dasharray="5 4" marker-end="url(#arrow)"><title>php/pet_medical_records.php → db:pet_allergies / SQL</title></path>
+<path d="M1840 2199 L1950 2199 L1950 2202 L1913 2202 L1913 3654 L1950 3654 L1950 4299 L1840 4299" fill="none" stroke="#8793a3" stroke-width="1.2" stroke-dasharray="5 4" marker-end="url(#arrow)"><title>php/pet_overdue_cancellations.php → php/booking_maintenance.php / includes</title></path>
+<path d="M1840 2221 L1950 2221 L1950 2298 L30 2298 L30 148 L1913 148 L1913 320 L2080 320" fill="none" stroke="#8793a3" stroke-width="1.2" stroke-dasharray="5 4" marker-end="url(#arrow)"><title>php/pet_overdue_cancellations.php → db:pets_information / SQL</title></path>
+<g data-node="src/components/shared/ServicePetPeek.jsx"><rect x="80" y="170" width="420" height="117" fill="#ffffff" stroke="#c4cbd4" stroke-width="1.2"/><line x1="80" y1="225" x2="500" y2="225" stroke="#c4cbd4"/>
+<text x="94" y="193" font-family="Arial,sans-serif" font-size="16" fill="#2d3748">ServicePetPeek</text>
+<text x="94" y="212" font-family="Arial,sans-serif" font-size="11.5" fill="#596579">«React component»</text>
+<text x="94" y="248" font-family="Consolas,monospace" font-size="12" fill="#2d3748">+ ServicePetPeek()</text>
+<text x="94" y="275" font-family="Arial,sans-serif" font-size="11.5" fill="#596579">src/components/shared/ServicePetPeek.jsx:3</text>
+</g>
+<g data-node="src/services/petService.js"><rect x="740" y="170" width="420" height="261" fill="#ffffff" stroke="#c4cbd4" stroke-width="1.2"/><line x1="740" y1="225" x2="1160" y2="225" stroke="#c4cbd4"/>
+<text x="754" y="193" font-family="Arial,sans-serif" font-size="16" fill="#2d3748">petService</text>
+<text x="754" y="212" font-family="Arial,sans-serif" font-size="11.5" fill="#596579">«JS service module»</text>
+<text x="754" y="248" font-family="Consolas,monospace" font-size="12" fill="#2d3748">+ fetchUserPets()</text>
+<text x="754" y="266" font-family="Consolas,monospace" font-size="12" fill="#2d3748">+ fetchAllPets()</text>
+<text x="754" y="284" font-family="Consolas,monospace" font-size="12" fill="#2d3748">+ searchPetDirectory()</text>
+<text x="754" y="302" font-family="Consolas,monospace" font-size="12" fill="#2d3748">+ fetchPetDetails()</text>
+<text x="754" y="320" font-family="Consolas,monospace" font-size="12" fill="#2d3748">+ updatePetDetails()</text>
+<text x="754" y="338" font-family="Consolas,monospace" font-size="12" fill="#2d3748">+ updatePetStatus()</text>
+<text x="754" y="356" font-family="Consolas,monospace" font-size="12" fill="#2d3748">+ fetchPetQueues()</text>
+<text x="754" y="374" font-family="Consolas,monospace" font-size="12" fill="#2d3748">+ fetchPetBookings()</text>
+<text x="754" y="392" font-family="Consolas,monospace" font-size="12" fill="#2d3748">+ 10 more operations [source index]</text>
+<text x="754" y="419" font-family="Arial,sans-serif" font-size="11.5" fill="#596579">src/services/petService.js:3</text>
+</g>
+<g data-node="php/get_user_pets.php"><rect x="1400" y="170" width="440" height="158" fill="#ffffff" stroke="#c4cbd4" stroke-width="1.2"/><line x1="1400" y1="225" x2="1840" y2="225" stroke="#c4cbd4"/>
+<text x="1414" y="193" font-family="Arial,sans-serif" font-size="16" fill="#2d3748">GetUserPets</text>
+<text x="1414" y="212" font-family="Arial,sans-serif" font-size="11.5" fill="#596579">«PHP module»</text>
+<text x="1414" y="248" font-family="Consolas,monospace" font-size="12" fill="#2d3748">+ fetchUserPetRows()</text>
+<text x="1414" y="316" font-family="Arial,sans-serif" font-size="11.5" fill="#596579">php/get_user_pets.php:23</text>
+</g>
+<g data-node="php/link_pet.php"><rect x="1400" y="386" width="440" height="136" fill="#ffffff" stroke="#c4cbd4" stroke-width="1.2"/><line x1="1400" y1="441" x2="1840" y2="441" stroke="#c4cbd4"/>
+<text x="1414" y="409" font-family="Arial,sans-serif" font-size="16" fill="#2d3748">LinkPet</text>
+<text x="1414" y="428" font-family="Arial,sans-serif" font-size="11.5" fill="#596579">«PHP module»</text>
+<text x="1414" y="464" font-family="Consolas,monospace" font-size="12" fill="#2d3748">HTTP script / module exports</text>
+<text x="1414" y="510" font-family="Arial,sans-serif" font-size="11.5" fill="#596579">php/link_pet.php:1</text>
+</g>
+<g data-node="php/pet_allergy_helpers.php"><rect x="1400" y="580" width="440" height="261" fill="#ffffff" stroke="#c4cbd4" stroke-width="1.2"/><line x1="1400" y1="635" x2="1840" y2="635" stroke="#c4cbd4"/>
+<text x="1414" y="603" font-family="Arial,sans-serif" font-size="16" fill="#2d3748">PetAllergyHelpers</text>
+<text x="1414" y="622" font-family="Arial,sans-serif" font-size="11.5" fill="#596579">«PHP module»</text>
+<text x="1414" y="658" font-family="Consolas,monospace" font-size="12" fill="#2d3748">+ pet_allergy_table_exists()</text>
+<text x="1414" y="676" font-family="Consolas,monospace" font-size="12" fill="#2d3748">+ pet_allergy_column_exists()</text>
+<text x="1414" y="694" font-family="Consolas,monospace" font-size="12" fill="#2d3748">+ pet_allergy_clean_text()</text>
+<text x="1414" y="712" font-family="Consolas,monospace" font-size="12" fill="#2d3748">+ pet_allergy_compare_text()</text>
+<text x="1414" y="730" font-family="Consolas,monospace" font-size="12" fill="#2d3748">+ pet_allergy_forget_cache()</text>
+<text x="1414" y="748" font-family="Consolas,monospace" font-size="12" fill="#2d3748">+ pet_allergy_normalized_entries()</text>
+<text x="1414" y="766" font-family="Consolas,monospace" font-size="12" fill="#2d3748">+ pet_allergy_effective_entries()</text>
+<text x="1414" y="784" font-family="Consolas,monospace" font-size="12" fill="#2d3748">+ pet_allergy_effective_text()</text>
+<text x="1414" y="802" font-family="Consolas,monospace" font-size="12" fill="#2d3748">+ 4 more operations [source index]</text>
+<text x="1414" y="829" font-family="Arial,sans-serif" font-size="11.5" fill="#596579">php/pet_allergy_helpers.php:3</text>
+</g>
+<g data-node="php/pet_catalog.php"><rect x="1400" y="899" width="440" height="117" fill="#ffffff" stroke="#c4cbd4" stroke-width="1.2"/><line x1="1400" y1="954" x2="1840" y2="954" stroke="#c4cbd4"/>
+<text x="1414" y="922" font-family="Arial,sans-serif" font-size="16" fill="#2d3748">PetCatalog</text>
+<text x="1414" y="941" font-family="Arial,sans-serif" font-size="11.5" fill="#596579">«PHP module»</text>
+<text x="1414" y="977" font-family="Consolas,monospace" font-size="12" fill="#2d3748">HTTP script / module exports</text>
+<text x="1414" y="1004" font-family="Arial,sans-serif" font-size="11.5" fill="#596579">php/pet_catalog.php:1</text>
+</g>
+<g data-node="php/pet_directory_search.php"><rect x="1400" y="1074" width="440" height="261" fill="#ffffff" stroke="#c4cbd4" stroke-width="1.2"/><line x1="1400" y1="1129" x2="1840" y2="1129" stroke="#c4cbd4"/>
+<text x="1414" y="1097" font-family="Arial,sans-serif" font-size="16" fill="#2d3748">PetDirectorySearch</text>
+<text x="1414" y="1116" font-family="Arial,sans-serif" font-size="11.5" fill="#596579">«PHP module»</text>
+<text x="1414" y="1152" font-family="Consolas,monospace" font-size="12" fill="#2d3748">+ pet_directory_table_exists()</text>
+<text x="1414" y="1170" font-family="Consolas,monospace" font-size="12" fill="#2d3748">+ pet_directory_column_exists()</text>
+<text x="1414" y="1188" font-family="Consolas,monospace" font-size="12" fill="#2d3748">+ pet_directory_clean_text()</text>
+<text x="1414" y="1206" font-family="Consolas,monospace" font-size="12" fill="#2d3748">+ pet_directory_contains()</text>
+<text x="1414" y="1224" font-family="Consolas,monospace" font-size="12" fill="#2d3748">+ pet_directory_snippet()</text>
+<text x="1414" y="1242" font-family="Consolas,monospace" font-size="12" fill="#2d3748">+ pet_directory_pet()</text>
+<text x="1414" y="1260" font-family="Consolas,monospace" font-size="12" fill="#2d3748">+ pet_directory_add_match()</text>
+<text x="1414" y="1278" font-family="Consolas,monospace" font-size="12" fill="#2d3748">+ pet_directory_profile_matches()</text>
+<text x="1414" y="1296" font-family="Consolas,monospace" font-size="12" fill="#2d3748">+ 5 more operations [source index]</text>
+<text x="1414" y="1323" font-family="Arial,sans-serif" font-size="11.5" fill="#596579">php/pet_directory_search.php:3</text>
+</g>
+<g data-node="php/pet_medical_records.php"><rect x="1400" y="1393" width="440" height="708" fill="#ffffff" stroke="#c4cbd4" stroke-width="1.2"/><line x1="1400" y1="1448" x2="1840" y2="1448" stroke="#c4cbd4"/>
+<text x="1414" y="1416" font-family="Arial,sans-serif" font-size="16" fill="#2d3748">PetMedicalRecords</text>
+<text x="1414" y="1435" font-family="Arial,sans-serif" font-size="11.5" fill="#596579">«PHP module»</text>
+<text x="1414" y="1471" font-family="Consolas,monospace" font-size="12" fill="#2d3748">+ pet_medical_input()</text>
+<text x="1414" y="1489" font-family="Consolas,monospace" font-size="12" fill="#2d3748">+ pet_medical_error()</text>
+<text x="1414" y="1507" font-family="Consolas,monospace" font-size="12" fill="#2d3748">+ pet_medical_run_atomic()</text>
+<text x="1414" y="1525" font-family="Consolas,monospace" font-size="12" fill="#2d3748">+ pet_medical_table_exists()</text>
+<text x="1414" y="1543" font-family="Consolas,monospace" font-size="12" fill="#2d3748">+ pet_medical_column_exists()</text>
+<text x="1414" y="1561" font-family="Consolas,monospace" font-size="12" fill="#2d3748">+ pet_medical_decode_json()</text>
+<text x="1414" y="1579" font-family="Consolas,monospace" font-size="12" fill="#2d3748">+ pet_medical_json_display_text()</text>
+<text x="1414" y="1597" font-family="Consolas,monospace" font-size="12" fill="#2d3748">+ pet_medical_json()</text>
+<text x="1414" y="1615" font-family="Consolas,monospace" font-size="12" fill="#2d3748">+ 47 more operations [source index]</text>
+<text x="1414" y="2089" font-family="Arial,sans-serif" font-size="11.5" fill="#596579">php/pet_medical_records.php:12</text>
+</g>
+<g data-node="php/pet_overdue_cancellations.php"><rect x="1400" y="2159" width="440" height="117" fill="#ffffff" stroke="#c4cbd4" stroke-width="1.2"/><line x1="1400" y1="2214" x2="1840" y2="2214" stroke="#c4cbd4"/>
+<text x="1414" y="2182" font-family="Arial,sans-serif" font-size="16" fill="#2d3748">PetOverdueCancellations</text>
+<text x="1414" y="2201" font-family="Arial,sans-serif" font-size="11.5" fill="#596579">«PHP module»</text>
+<text x="1414" y="2237" font-family="Consolas,monospace" font-size="12" fill="#2d3748">+ pet_overdue_resolve_pet_id()</text>
+<text x="1414" y="2264" font-family="Arial,sans-serif" font-size="11.5" fill="#596579">php/pet_overdue_cancellations.php:7</text>
+</g>
+<g data-node="php/add_pet.php"><rect x="1400" y="2334" width="440" height="117" fill="#f8fafc" stroke="#c4cbd4" stroke-width="1.2" stroke-dasharray="5 4"/><line x1="1400" y1="2389" x2="1840" y2="2389" stroke="#c4cbd4"/>
+<text x="1414" y="2357" font-family="Arial,sans-serif" font-size="16" fill="#2d3748">AddPet</text>
+<text x="1414" y="2376" font-family="Arial,sans-serif" font-size="11.5" fill="#596579">«PHP module» / page 19</text>
+<text x="1414" y="2412" font-family="Consolas,monospace" font-size="12" fill="#2d3748">Definition / page 19</text>
+<text x="1414" y="2439" font-family="Arial,sans-serif" font-size="11.5" fill="#596579">php/add_pet.php:1</text>
+</g>
+<g data-node="php/get_pets.php"><rect x="1400" y="2509" width="440" height="117" fill="#f8fafc" stroke="#c4cbd4" stroke-width="1.2" stroke-dasharray="5 4"/><line x1="1400" y1="2564" x2="1840" y2="2564" stroke="#c4cbd4"/>
+<text x="1414" y="2532" font-family="Arial,sans-serif" font-size="16" fill="#2d3748">GetPets</text>
+<text x="1414" y="2551" font-family="Arial,sans-serif" font-size="11.5" fill="#596579">«PHP module» / page 19</text>
+<text x="1414" y="2587" font-family="Consolas,monospace" font-size="12" fill="#2d3748">Definition / page 19</text>
+<text x="1414" y="2614" font-family="Arial,sans-serif" font-size="11.5" fill="#596579">php/get_pets.php:1</text>
+</g>
+<g data-node="php/update_pet.php"><rect x="1400" y="2684" width="440" height="117" fill="#f8fafc" stroke="#c4cbd4" stroke-width="1.2" stroke-dasharray="5 4"/><line x1="1400" y1="2739" x2="1840" y2="2739" stroke="#c4cbd4"/>
+<text x="1414" y="2707" font-family="Arial,sans-serif" font-size="16" fill="#2d3748">UpdatePet</text>
+<text x="1414" y="2726" font-family="Arial,sans-serif" font-size="11.5" fill="#596579">«PHP module» / page 21</text>
+<text x="1414" y="2762" font-family="Consolas,monospace" font-size="12" fill="#2d3748">Definition / page 21</text>
+<text x="1414" y="2789" font-family="Arial,sans-serif" font-size="11.5" fill="#596579">php/update_pet.php:1</text>
+</g>
+<g data-node="php/update_pet_status.php"><rect x="1400" y="2859" width="440" height="117" fill="#f8fafc" stroke="#c4cbd4" stroke-width="1.2" stroke-dasharray="5 4"/><line x1="1400" y1="2914" x2="1840" y2="2914" stroke="#c4cbd4"/>
+<text x="1414" y="2882" font-family="Arial,sans-serif" font-size="16" fill="#2d3748">UpdatePetStatus</text>
+<text x="1414" y="2901" font-family="Arial,sans-serif" font-size="11.5" fill="#596579">«PHP module» / page 21</text>
+<text x="1414" y="2937" font-family="Consolas,monospace" font-size="12" fill="#2d3748">Definition / page 21</text>
+<text x="1414" y="2964" font-family="Arial,sans-serif" font-size="11.5" fill="#596579">php/update_pet_status.php:1</text>
+</g>
+<g data-node="php/get_pet_queues.php"><rect x="1400" y="3034" width="440" height="117" fill="#f8fafc" stroke="#c4cbd4" stroke-width="1.2" stroke-dasharray="5 4"/><line x1="1400" y1="3089" x2="1840" y2="3089" stroke="#c4cbd4"/>
+<text x="1414" y="3057" font-family="Arial,sans-serif" font-size="16" fill="#2d3748">GetPetQueues</text>
+<text x="1414" y="3076" font-family="Arial,sans-serif" font-size="11.5" fill="#596579">«PHP module» / page 19</text>
+<text x="1414" y="3112" font-family="Consolas,monospace" font-size="12" fill="#2d3748">Definition / page 19</text>
+<text x="1414" y="3139" font-family="Arial,sans-serif" font-size="11.5" fill="#596579">php/get_pet_queues.php:1</text>
+</g>
+<g data-node="php/get_pet_bookings.php"><rect x="1400" y="3209" width="440" height="117" fill="#f8fafc" stroke="#c4cbd4" stroke-width="1.2" stroke-dasharray="5 4"/><line x1="1400" y1="3264" x2="1840" y2="3264" stroke="#c4cbd4"/>
+<text x="1414" y="3232" font-family="Arial,sans-serif" font-size="16" fill="#2d3748">GetPetBookings</text>
+<text x="1414" y="3251" font-family="Arial,sans-serif" font-size="11.5" fill="#596579">«PHP module» / page 19</text>
+<text x="1414" y="3287" font-family="Consolas,monospace" font-size="12" fill="#2d3748">Definition / page 19</text>
+<text x="1414" y="3314" font-family="Arial,sans-serif" font-size="11.5" fill="#596579">php/get_pet_bookings.php:11</text>
+</g>
+<g data-node="php/reference_number_helpers.php"><rect x="1400" y="3384" width="440" height="117" fill="#f8fafc" stroke="#c4cbd4" stroke-width="1.2" stroke-dasharray="5 4"/><line x1="1400" y1="3439" x2="1840" y2="3439" stroke="#c4cbd4"/>
+<text x="1414" y="3407" font-family="Arial,sans-serif" font-size="16" fill="#2d3748">ReferenceNumberHelpers</text>
+<text x="1414" y="3426" font-family="Arial,sans-serif" font-size="11.5" fill="#596579">«PHP module» / page 12</text>
+<text x="1414" y="3462" font-family="Consolas,monospace" font-size="12" fill="#2d3748">Definition / page 12</text>
+<text x="1414" y="3489" font-family="Arial,sans-serif" font-size="11.5" fill="#596579">php/reference_number_helpers.php:3</text>
+</g>
+<g data-node="db:pets_information"><rect x="2080" y="170" width="440" height="180" fill="#f8fafc" stroke="#c4cbd4" stroke-width="1.2" stroke-dasharray="5 4"/><line x1="2080" y1="225" x2="2520" y2="225" stroke="#c4cbd4"/>
+<text x="2094" y="193" font-family="Arial,sans-serif" font-size="16" fill="#2d3748">Pet</text>
+<text x="2094" y="212" font-family="Arial,sans-serif" font-size="11.5" fill="#596579">«entity» pets_information</text>
+<text x="2094" y="248" font-family="Consolas,monospace" font-size="12" fill="#2d3748">+ pet_id: int [PK]</text>
+<text x="2094" y="266" font-family="Consolas,monospace" font-size="12" fill="#2d3748">Full SQL attributes / DB page 03</text>
+<text x="2094" y="338" font-family="Arial,sans-serif" font-size="11.5" fill="#596579">iPawcus_ERD_Schema.sql</text>
+</g>
+<g data-node="db:pet_ownership"><rect x="2080" y="408" width="440" height="136" fill="#f8fafc" stroke="#c4cbd4" stroke-width="1.2" stroke-dasharray="5 4"/><line x1="2080" y1="463" x2="2520" y2="463" stroke="#c4cbd4"/>
+<text x="2094" y="431" font-family="Arial,sans-serif" font-size="16" fill="#2d3748">PetOwnership</text>
+<text x="2094" y="450" font-family="Arial,sans-serif" font-size="11.5" fill="#596579">«entity» pet_ownership</text>
+<text x="2094" y="486" font-family="Consolas,monospace" font-size="12" fill="#2d3748">+ link_id: int [PK]</text>
+<text x="2094" y="504" font-family="Consolas,monospace" font-size="12" fill="#2d3748">Full SQL attributes / DB page 03</text>
+<text x="2094" y="532" font-family="Arial,sans-serif" font-size="11.5" fill="#596579">iPawcus_ERD_Schema.sql</text>
+</g>
+<g data-node="db:queues"><rect x="2080" y="602" width="440" height="135" fill="#f8fafc" stroke="#c4cbd4" stroke-width="1.2" stroke-dasharray="5 4"/><line x1="2080" y1="657" x2="2520" y2="657" stroke="#c4cbd4"/>
+<text x="2094" y="625" font-family="Arial,sans-serif" font-size="16" fill="#2d3748">Queue</text>
+<text x="2094" y="644" font-family="Arial,sans-serif" font-size="11.5" fill="#596579">«entity» queues</text>
+<text x="2094" y="680" font-family="Consolas,monospace" font-size="12" fill="#2d3748">+ queue_id: int [PK]</text>
+<text x="2094" y="698" font-family="Consolas,monospace" font-size="12" fill="#2d3748">Full SQL attributes / DB page 04</text>
+<text x="2094" y="725" font-family="Arial,sans-serif" font-size="11.5" fill="#596579">iPawcus_ERD_Schema.sql</text>
+</g>
+<g data-node="php/coparent_request_helpers.php"><rect x="1400" y="3559" width="440" height="117" fill="#f8fafc" stroke="#c4cbd4" stroke-width="1.2" stroke-dasharray="5 4"/><line x1="1400" y1="3614" x2="1840" y2="3614" stroke="#c4cbd4"/>
+<text x="1414" y="3582" font-family="Arial,sans-serif" font-size="16" fill="#2d3748">CoparentRequestHelpers</text>
+<text x="1414" y="3601" font-family="Arial,sans-serif" font-size="11.5" fill="#596579">«PHP module» / page 19</text>
+<text x="1414" y="3637" font-family="Consolas,monospace" font-size="12" fill="#2d3748">Definition / page 19</text>
+<text x="1414" y="3664" font-family="Arial,sans-serif" font-size="11.5" fill="#596579">php/coparent_request_helpers.php:5</text>
+</g>
+<g data-node="db:users"><rect x="2080" y="795" width="440" height="135" fill="#f8fafc" stroke="#c4cbd4" stroke-width="1.2" stroke-dasharray="5 4"/><line x1="2080" y1="850" x2="2520" y2="850" stroke="#c4cbd4"/>
+<text x="2094" y="818" font-family="Arial,sans-serif" font-size="16" fill="#2d3748">User</text>
+<text x="2094" y="837" font-family="Arial,sans-serif" font-size="11.5" fill="#596579">«entity» users</text>
+<text x="2094" y="873" font-family="Consolas,monospace" font-size="12" fill="#2d3748">+ user_id: int [PK]</text>
+<text x="2094" y="891" font-family="Consolas,monospace" font-size="12" fill="#2d3748">Full SQL attributes / DB page 01</text>
+<text x="2094" y="918" font-family="Arial,sans-serif" font-size="11.5" fill="#596579">iPawcus_ERD_Schema.sql</text>
+</g>
+<g data-node="db:pet_allergies"><rect x="2080" y="988" width="440" height="135" fill="#f8fafc" stroke="#c4cbd4" stroke-width="1.2" stroke-dasharray="5 4"/><line x1="2080" y1="1043" x2="2520" y2="1043" stroke="#c4cbd4"/>
+<text x="2094" y="1011" font-family="Arial,sans-serif" font-size="16" fill="#2d3748">PetAllergy</text>
+<text x="2094" y="1030" font-family="Arial,sans-serif" font-size="11.5" fill="#596579">«entity» pet_allergies</text>
+<text x="2094" y="1066" font-family="Consolas,monospace" font-size="12" fill="#2d3748">+ allergy_id: int [PK]</text>
+<text x="2094" y="1084" font-family="Consolas,monospace" font-size="12" fill="#2d3748">Full SQL attributes / DB page 03</text>
+<text x="2094" y="1111" font-family="Arial,sans-serif" font-size="11.5" fill="#596579">iPawcus_ERD_Schema.sql</text>
+</g>
+<g data-node="db:pet_catalog_options"><rect x="2080" y="1181" width="440" height="135" fill="#f8fafc" stroke="#c4cbd4" stroke-width="1.2" stroke-dasharray="5 4"/><line x1="2080" y1="1236" x2="2520" y2="1236" stroke="#c4cbd4"/>
+<text x="2094" y="1204" font-family="Arial,sans-serif" font-size="16" fill="#2d3748">PetCatalogOption</text>
+<text x="2094" y="1223" font-family="Arial,sans-serif" font-size="11.5" fill="#596579">«entity» pet_catalog_options</text>
+<text x="2094" y="1259" font-family="Consolas,monospace" font-size="12" fill="#2d3748">+ option_id: int [PK]</text>
+<text x="2094" y="1277" font-family="Consolas,monospace" font-size="12" fill="#2d3748">Full SQL attributes / DB page 03</text>
+<text x="2094" y="1304" font-family="Arial,sans-serif" font-size="11.5" fill="#596579">iPawcus_ERD_Schema.sql</text>
+</g>
+<g data-node="db:vet_diagnoses"><rect x="2080" y="1374" width="440" height="135" fill="#f8fafc" stroke="#c4cbd4" stroke-width="1.2" stroke-dasharray="5 4"/><line x1="2080" y1="1429" x2="2520" y2="1429" stroke="#c4cbd4"/>
+<text x="2094" y="1397" font-family="Arial,sans-serif" font-size="16" fill="#2d3748">VetDiagnosis</text>
+<text x="2094" y="1416" font-family="Arial,sans-serif" font-size="11.5" fill="#596579">«entity» vet_diagnoses</text>
+<text x="2094" y="1452" font-family="Consolas,monospace" font-size="12" fill="#2d3748">+ diagnosis_id: int [PK]</text>
+<text x="2094" y="1470" font-family="Consolas,monospace" font-size="12" fill="#2d3748">Full SQL attributes / DB page 04</text>
+<text x="2094" y="1497" font-family="Arial,sans-serif" font-size="11.5" fill="#596579">iPawcus_ERD_Schema.sql</text>
+</g>
+<g data-node="db:online_consultation_diagnoses"><rect x="2080" y="1567" width="440" height="135" fill="#f8fafc" stroke="#c4cbd4" stroke-width="1.2" stroke-dasharray="5 4"/><line x1="2080" y1="1622" x2="2520" y2="1622" stroke="#c4cbd4"/>
+<text x="2094" y="1590" font-family="Arial,sans-serif" font-size="16" fill="#2d3748">OnlineConsultationDiagnosis</text>
+<text x="2094" y="1609" font-family="Arial,sans-serif" font-size="11.5" fill="#596579">«entity» online_consultation_diagnoses</text>
+<text x="2094" y="1645" font-family="Consolas,monospace" font-size="12" fill="#2d3748">+ diagnosis_id: int [PK]</text>
+<text x="2094" y="1663" font-family="Consolas,monospace" font-size="12" fill="#2d3748">Full SQL attributes / DB page 05</text>
+<text x="2094" y="1690" font-family="Arial,sans-serif" font-size="11.5" fill="#596579">iPawcus_ERD_Schema.sql</text>
+</g>
+<g data-node="db:bookings"><rect x="2080" y="1760" width="440" height="135" fill="#f8fafc" stroke="#c4cbd4" stroke-width="1.2" stroke-dasharray="5 4"/><line x1="2080" y1="1815" x2="2520" y2="1815" stroke="#c4cbd4"/>
+<text x="2094" y="1783" font-family="Arial,sans-serif" font-size="16" fill="#2d3748">Booking</text>
+<text x="2094" y="1802" font-family="Arial,sans-serif" font-size="11.5" fill="#596579">«entity» bookings</text>
+<text x="2094" y="1838" font-family="Consolas,monospace" font-size="12" fill="#2d3748">+ booking_id: int [PK]</text>
+<text x="2094" y="1856" font-family="Consolas,monospace" font-size="12" fill="#2d3748">Full SQL attributes / DB page 04</text>
+<text x="2094" y="1883" font-family="Arial,sans-serif" font-size="11.5" fill="#596579">iPawcus_ERD_Schema.sql</text>
+</g>
+<g data-node="db:pet_medical_record_groups"><rect x="2080" y="1953" width="440" height="135" fill="#f8fafc" stroke="#c4cbd4" stroke-width="1.2" stroke-dasharray="5 4"/><line x1="2080" y1="2008" x2="2520" y2="2008" stroke="#c4cbd4"/>
+<text x="2094" y="1976" font-family="Arial,sans-serif" font-size="16" fill="#2d3748">PetMedicalRecordGroup</text>
+<text x="2094" y="1995" font-family="Arial,sans-serif" font-size="11.5" fill="#596579">«entity» pet_medical_record_groups</text>
+<text x="2094" y="2031" font-family="Consolas,monospace" font-size="12" fill="#2d3748">+ group_id: int [PK]</text>
+<text x="2094" y="2049" font-family="Consolas,monospace" font-size="12" fill="#2d3748">Full SQL attributes / DB page 03</text>
+<text x="2094" y="2076" font-family="Arial,sans-serif" font-size="11.5" fill="#596579">iPawcus_ERD_Schema.sql</text>
+</g>
+<g data-node="db:pet_medical_record_group_items"><rect x="2080" y="2146" width="440" height="135" fill="#f8fafc" stroke="#c4cbd4" stroke-width="1.2" stroke-dasharray="5 4"/><line x1="2080" y1="2201" x2="2520" y2="2201" stroke="#c4cbd4"/>
+<text x="2094" y="2169" font-family="Arial,sans-serif" font-size="16" fill="#2d3748">PetMedicalRecordGroupItem</text>
+<text x="2094" y="2188" font-family="Arial,sans-serif" font-size="11.5" fill="#596579">«entity» pet_medical_record_group_items</text>
+<text x="2094" y="2224" font-family="Consolas,monospace" font-size="12" fill="#2d3748">+ item_id: int [PK]</text>
+<text x="2094" y="2242" font-family="Consolas,monospace" font-size="12" fill="#2d3748">Full SQL attributes / DB page 03</text>
+<text x="2094" y="2269" font-family="Arial,sans-serif" font-size="11.5" fill="#596579">iPawcus_ERD_Schema.sql</text>
+</g>
+<g data-node="php/mail_helpers.php"><rect x="1400" y="3734" width="440" height="117" fill="#f8fafc" stroke="#c4cbd4" stroke-width="1.2" stroke-dasharray="5 4"/><line x1="1400" y1="3789" x2="1840" y2="3789" stroke="#c4cbd4"/>
+<text x="1414" y="3757" font-family="Arial,sans-serif" font-size="16" fill="#2d3748">MailHelpers</text>
+<text x="1414" y="3776" font-family="Arial,sans-serif" font-size="11.5" fill="#596579">«PHP module» / page 38</text>
+<text x="1414" y="3812" font-family="Consolas,monospace" font-size="12" fill="#2d3748">Definition / page 38</text>
+<text x="1414" y="3839" font-family="Arial,sans-serif" font-size="11.5" fill="#596579">php/mail_helpers.php:4</text>
+</g>
+<g data-node="php/notification_helpers.php"><rect x="1400" y="3909" width="440" height="117" fill="#f8fafc" stroke="#c4cbd4" stroke-width="1.2" stroke-dasharray="5 4"/><line x1="1400" y1="3964" x2="1840" y2="3964" stroke="#c4cbd4"/>
+<text x="1414" y="3932" font-family="Arial,sans-serif" font-size="16" fill="#2d3748">NotificationHelpers</text>
+<text x="1414" y="3951" font-family="Arial,sans-serif" font-size="11.5" fill="#596579">«PHP module» / page 38</text>
+<text x="1414" y="3987" font-family="Consolas,monospace" font-size="12" fill="#2d3748">Definition / page 38</text>
+<text x="1414" y="4014" font-family="Arial,sans-serif" font-size="11.5" fill="#596579">php/notification_helpers.php:10</text>
+</g>
+<g data-node="php/clinical_record_helpers.php"><rect x="1400" y="4084" width="440" height="117" fill="#f8fafc" stroke="#c4cbd4" stroke-width="1.2" stroke-dasharray="5 4"/><line x1="1400" y1="4139" x2="1840" y2="4139" stroke="#c4cbd4"/>
+<text x="1414" y="4107" font-family="Arial,sans-serif" font-size="16" fill="#2d3748">ClinicalRecordHelpers</text>
+<text x="1414" y="4126" font-family="Arial,sans-serif" font-size="11.5" fill="#596579">«PHP module» / page 27</text>
+<text x="1414" y="4162" font-family="Consolas,monospace" font-size="12" fill="#2d3748">Definition / page 27</text>
+<text x="1414" y="4189" font-family="Arial,sans-serif" font-size="11.5" fill="#596579">php/clinical_record_helpers.php:3</text>
+</g>
+<g data-node="db:pet_vaccinations"><rect x="2080" y="2339" width="440" height="135" fill="#f8fafc" stroke="#c4cbd4" stroke-width="1.2" stroke-dasharray="5 4"/><line x1="2080" y1="2394" x2="2520" y2="2394" stroke="#c4cbd4"/>
+<text x="2094" y="2362" font-family="Arial,sans-serif" font-size="16" fill="#2d3748">PetVaccination</text>
+<text x="2094" y="2381" font-family="Arial,sans-serif" font-size="11.5" fill="#596579">«entity» pet_vaccinations</text>
+<text x="2094" y="2417" font-family="Consolas,monospace" font-size="12" fill="#2d3748">+ vax_id: int [PK]</text>
+<text x="2094" y="2435" font-family="Consolas,monospace" font-size="12" fill="#2d3748">Full SQL attributes / DB page 03</text>
+<text x="2094" y="2462" font-family="Arial,sans-serif" font-size="11.5" fill="#596579">iPawcus_ERD_Schema.sql</text>
+</g>
+<g data-node="db:visit_charges"><rect x="2080" y="2532" width="440" height="135" fill="#f8fafc" stroke="#c4cbd4" stroke-width="1.2" stroke-dasharray="5 4"/><line x1="2080" y1="2587" x2="2520" y2="2587" stroke="#c4cbd4"/>
+<text x="2094" y="2555" font-family="Arial,sans-serif" font-size="16" fill="#2d3748">VisitCharge</text>
+<text x="2094" y="2574" font-family="Arial,sans-serif" font-size="11.5" fill="#596579">«entity» visit_charges</text>
+<text x="2094" y="2610" font-family="Consolas,monospace" font-size="12" fill="#2d3748">+ charge_id: int [PK]</text>
+<text x="2094" y="2628" font-family="Consolas,monospace" font-size="12" fill="#2d3748">Full SQL attributes / DB page 08</text>
+<text x="2094" y="2655" font-family="Arial,sans-serif" font-size="11.5" fill="#596579">iPawcus_ERD_Schema.sql</text>
+</g>
+<g data-node="db:service_catalog"><rect x="2080" y="2725" width="440" height="135" fill="#f8fafc" stroke="#c4cbd4" stroke-width="1.2" stroke-dasharray="5 4"/><line x1="2080" y1="2780" x2="2520" y2="2780" stroke="#c4cbd4"/>
+<text x="2094" y="2748" font-family="Arial,sans-serif" font-size="16" fill="#2d3748">ServiceCatalog</text>
+<text x="2094" y="2767" font-family="Arial,sans-serif" font-size="11.5" fill="#596579">«entity» service_catalog</text>
+<text x="2094" y="2803" font-family="Consolas,monospace" font-size="12" fill="#2d3748">+ service_id: int [PK]</text>
+<text x="2094" y="2821" font-family="Consolas,monospace" font-size="12" fill="#2d3748">Full SQL attributes / DB page 08</text>
+<text x="2094" y="2848" font-family="Arial,sans-serif" font-size="11.5" fill="#596579">iPawcus_ERD_Schema.sql</text>
+</g>
+<g data-node="db:inventory_items"><rect x="2080" y="2918" width="440" height="135" fill="#f8fafc" stroke="#c4cbd4" stroke-width="1.2" stroke-dasharray="5 4"/><line x1="2080" y1="2973" x2="2520" y2="2973" stroke="#c4cbd4"/>
+<text x="2094" y="2941" font-family="Arial,sans-serif" font-size="16" fill="#2d3748">InventoryItem</text>
+<text x="2094" y="2960" font-family="Arial,sans-serif" font-size="11.5" fill="#596579">«entity» inventory_items</text>
+<text x="2094" y="2996" font-family="Consolas,monospace" font-size="12" fill="#2d3748">+ item_id: int [PK]</text>
+<text x="2094" y="3014" font-family="Consolas,monospace" font-size="12" fill="#2d3748">Full SQL attributes / DB page 07</text>
+<text x="2094" y="3041" font-family="Arial,sans-serif" font-size="11.5" fill="#596579">iPawcus_ERD_Schema.sql</text>
+</g>
+<g data-node="db:visit_payments"><rect x="2080" y="3111" width="440" height="135" fill="#f8fafc" stroke="#c4cbd4" stroke-width="1.2" stroke-dasharray="5 4"/><line x1="2080" y1="3166" x2="2520" y2="3166" stroke="#c4cbd4"/>
+<text x="2094" y="3134" font-family="Arial,sans-serif" font-size="16" fill="#2d3748">VisitPayment</text>
+<text x="2094" y="3153" font-family="Arial,sans-serif" font-size="11.5" fill="#596579">«entity» visit_payments</text>
+<text x="2094" y="3189" font-family="Consolas,monospace" font-size="12" fill="#2d3748">+ payment_id: int [PK]</text>
+<text x="2094" y="3207" font-family="Consolas,monospace" font-size="12" fill="#2d3748">Full SQL attributes / DB page 08</text>
+<text x="2094" y="3234" font-family="Arial,sans-serif" font-size="11.5" fill="#596579">iPawcus_ERD_Schema.sql</text>
+</g>
+<g data-node="db:visit_payment_refunds"><rect x="2080" y="3304" width="440" height="135" fill="#f8fafc" stroke="#c4cbd4" stroke-width="1.2" stroke-dasharray="5 4"/><line x1="2080" y1="3359" x2="2520" y2="3359" stroke="#c4cbd4"/>
+<text x="2094" y="3327" font-family="Arial,sans-serif" font-size="16" fill="#2d3748">VisitPaymentRefund</text>
+<text x="2094" y="3346" font-family="Arial,sans-serif" font-size="11.5" fill="#596579">«entity» visit_payment_refunds</text>
+<text x="2094" y="3382" font-family="Consolas,monospace" font-size="12" fill="#2d3748">+ refund_id: int [PK]</text>
+<text x="2094" y="3400" font-family="Consolas,monospace" font-size="12" fill="#2d3748">Full SQL attributes / DB page 08</text>
+<text x="2094" y="3427" font-family="Arial,sans-serif" font-size="11.5" fill="#596579">iPawcus_ERD_Schema.sql</text>
+</g>
+<g data-node="db:boarding_documents"><rect x="2080" y="3497" width="440" height="135" fill="#f8fafc" stroke="#c4cbd4" stroke-width="1.2" stroke-dasharray="5 4"/><line x1="2080" y1="3552" x2="2520" y2="3552" stroke="#c4cbd4"/>
+<text x="2094" y="3520" font-family="Arial,sans-serif" font-size="16" fill="#2d3748">BoardingDocument</text>
+<text x="2094" y="3539" font-family="Arial,sans-serif" font-size="11.5" fill="#596579">«entity» boarding_documents</text>
+<text x="2094" y="3575" font-family="Consolas,monospace" font-size="12" fill="#2d3748">+ document_id: int [PK]</text>
+<text x="2094" y="3593" font-family="Consolas,monospace" font-size="12" fill="#2d3748">Full SQL attributes / DB page 06</text>
+<text x="2094" y="3620" font-family="Arial,sans-serif" font-size="11.5" fill="#596579">iPawcus_ERD_Schema.sql</text>
+</g>
+<g data-node="db:boarding_observations"><rect x="2080" y="3690" width="440" height="135" fill="#f8fafc" stroke="#c4cbd4" stroke-width="1.2" stroke-dasharray="5 4"/><line x1="2080" y1="3745" x2="2520" y2="3745" stroke="#c4cbd4"/>
+<text x="2094" y="3713" font-family="Arial,sans-serif" font-size="16" fill="#2d3748">BoardingObservation</text>
+<text x="2094" y="3732" font-family="Arial,sans-serif" font-size="11.5" fill="#596579">«entity» boarding_observations</text>
+<text x="2094" y="3768" font-family="Consolas,monospace" font-size="12" fill="#2d3748">+ observation_id: int [PK]</text>
+<text x="2094" y="3786" font-family="Consolas,monospace" font-size="12" fill="#2d3748">Full SQL attributes / DB page 06</text>
+<text x="2094" y="3813" font-family="Arial,sans-serif" font-size="11.5" fill="#596579">iPawcus_ERD_Schema.sql</text>
+</g>
+<g data-node="db:boarding_tasks"><rect x="2080" y="3883" width="440" height="135" fill="#f8fafc" stroke="#c4cbd4" stroke-width="1.2" stroke-dasharray="5 4"/><line x1="2080" y1="3938" x2="2520" y2="3938" stroke="#c4cbd4"/>
+<text x="2094" y="3906" font-family="Arial,sans-serif" font-size="16" fill="#2d3748">BoardingTask</text>
+<text x="2094" y="3925" font-family="Arial,sans-serif" font-size="11.5" fill="#596579">«entity» boarding_tasks</text>
+<text x="2094" y="3961" font-family="Consolas,monospace" font-size="12" fill="#2d3748">+ task_id: int [PK]</text>
+<text x="2094" y="3979" font-family="Consolas,monospace" font-size="12" fill="#2d3748">Full SQL attributes / DB page 06</text>
+<text x="2094" y="4006" font-family="Arial,sans-serif" font-size="11.5" fill="#596579">iPawcus_ERD_Schema.sql</text>
+</g>
+<g data-node="db:grooming_jobs"><rect x="2080" y="4076" width="440" height="135" fill="#f8fafc" stroke="#c4cbd4" stroke-width="1.2" stroke-dasharray="5 4"/><line x1="2080" y1="4131" x2="2520" y2="4131" stroke="#c4cbd4"/>
+<text x="2094" y="4099" font-family="Arial,sans-serif" font-size="16" fill="#2d3748">GroomingJob</text>
+<text x="2094" y="4118" font-family="Arial,sans-serif" font-size="11.5" fill="#596579">«entity» grooming_jobs</text>
+<text x="2094" y="4154" font-family="Consolas,monospace" font-size="12" fill="#2d3748">+ booking_id: int [PK]</text>
+<text x="2094" y="4172" font-family="Consolas,monospace" font-size="12" fill="#2d3748">Full SQL attributes / DB page 06</text>
+<text x="2094" y="4199" font-family="Arial,sans-serif" font-size="11.5" fill="#596579">iPawcus_ERD_Schema.sql</text>
+</g>
+<g data-node="db:grooming_photos"><rect x="2080" y="4269" width="440" height="135" fill="#f8fafc" stroke="#c4cbd4" stroke-width="1.2" stroke-dasharray="5 4"/><line x1="2080" y1="4324" x2="2520" y2="4324" stroke="#c4cbd4"/>
+<text x="2094" y="4292" font-family="Arial,sans-serif" font-size="16" fill="#2d3748">GroomingPhoto</text>
+<text x="2094" y="4311" font-family="Arial,sans-serif" font-size="11.5" fill="#596579">«entity» grooming_photos</text>
+<text x="2094" y="4347" font-family="Consolas,monospace" font-size="12" fill="#2d3748">+ photo_id: int [PK]</text>
+<text x="2094" y="4365" font-family="Consolas,monospace" font-size="12" fill="#2d3748">Full SQL attributes / DB page 06</text>
+<text x="2094" y="4392" font-family="Arial,sans-serif" font-size="11.5" fill="#596579">iPawcus_ERD_Schema.sql</text>
+</g>
+<g data-node="db:booking_pets"><rect x="2080" y="4462" width="440" height="135" fill="#f8fafc" stroke="#c4cbd4" stroke-width="1.2" stroke-dasharray="5 4"/><line x1="2080" y1="4517" x2="2520" y2="4517" stroke="#c4cbd4"/>
+<text x="2094" y="4485" font-family="Arial,sans-serif" font-size="16" fill="#2d3748">BookingPet</text>
+<text x="2094" y="4504" font-family="Arial,sans-serif" font-size="11.5" fill="#596579">«entity» booking_pets</text>
+<text x="2094" y="4540" font-family="Consolas,monospace" font-size="12" fill="#2d3748">+ booking_pet_id: int [PK]</text>
+<text x="2094" y="4558" font-family="Consolas,monospace" font-size="12" fill="#2d3748">Full SQL attributes / DB page 04</text>
+<text x="2094" y="4585" font-family="Arial,sans-serif" font-size="11.5" fill="#596579">iPawcus_ERD_Schema.sql</text>
+</g>
+<g data-node="db:boarding_assignments"><rect x="2080" y="4655" width="440" height="135" fill="#f8fafc" stroke="#c4cbd4" stroke-width="1.2" stroke-dasharray="5 4"/><line x1="2080" y1="4710" x2="2520" y2="4710" stroke="#c4cbd4"/>
+<text x="2094" y="4678" font-family="Arial,sans-serif" font-size="16" fill="#2d3748">BoardingAssignment</text>
+<text x="2094" y="4697" font-family="Arial,sans-serif" font-size="11.5" fill="#596579">«entity» boarding_assignments</text>
+<text x="2094" y="4733" font-family="Consolas,monospace" font-size="12" fill="#2d3748">+ assignment_id: int [PK]</text>
+<text x="2094" y="4751" font-family="Consolas,monospace" font-size="12" fill="#2d3748">Full SQL attributes / DB page 06</text>
+<text x="2094" y="4778" font-family="Arial,sans-serif" font-size="11.5" fill="#596579">iPawcus_ERD_Schema.sql</text>
+</g>
+<g data-node="db:visits"><rect x="2080" y="4848" width="440" height="135" fill="#f8fafc" stroke="#c4cbd4" stroke-width="1.2" stroke-dasharray="5 4"/><line x1="2080" y1="4903" x2="2520" y2="4903" stroke="#c4cbd4"/>
+<text x="2094" y="4871" font-family="Arial,sans-serif" font-size="16" fill="#2d3748">Visit</text>
+<text x="2094" y="4890" font-family="Arial,sans-serif" font-size="11.5" fill="#596579">«entity» visits</text>
+<text x="2094" y="4926" font-family="Consolas,monospace" font-size="12" fill="#2d3748">+ visit_id: int [PK]</text>
+<text x="2094" y="4944" font-family="Consolas,monospace" font-size="12" fill="#2d3748">Full SQL attributes / DB page 08</text>
+<text x="2094" y="4971" font-family="Arial,sans-serif" font-size="11.5" fill="#596579">iPawcus_ERD_Schema.sql</text>
+</g>
+<g data-node="php/booking_maintenance.php"><rect x="1400" y="4259" width="440" height="117" fill="#f8fafc" stroke="#c4cbd4" stroke-width="1.2" stroke-dasharray="5 4"/><line x1="1400" y1="4314" x2="1840" y2="4314" stroke="#c4cbd4"/>
+<text x="1414" y="4282" font-family="Arial,sans-serif" font-size="16" fill="#2d3748">BookingMaintenance</text>
+<text x="1414" y="4301" font-family="Arial,sans-serif" font-size="11.5" fill="#596579">«PHP module» / page 22</text>
+<text x="1414" y="4337" font-family="Consolas,monospace" font-size="12" fill="#2d3748">Definition / page 22</text>
+<text x="1414" y="4364" font-family="Arial,sans-serif" font-size="11.5" fill="#596579">php/booking_maintenance.php:12</text>
+</g>
+<text x="1172" y="204" font-family="Consolas,monospace" font-size="11.5" fill="#596579">HTTP</text>
+<text x="1172" y="226" font-family="Consolas,monospace" font-size="11.5" fill="#596579">HTTP</text>
+<text x="1172" y="248" font-family="Consolas,monospace" font-size="11.5" fill="#596579">HTTP</text>
+<text x="1172" y="270" font-family="Consolas,monospace" font-size="11.5" fill="#596579">HTTP</text>
+<text x="1172" y="292" font-family="Consolas,monospace" font-size="11.5" fill="#596579">HTTP</text>
+<text x="1172" y="314" font-family="Consolas,monospace" font-size="11.5" fill="#596579">HTTP</text>
+<text x="1172" y="336" font-family="Consolas,monospace" font-size="11.5" fill="#596579">HTTP</text>
+<text x="1172" y="358" font-family="Consolas,monospace" font-size="11.5" fill="#596579">HTTP</text>
+<text x="1172" y="380" font-family="Consolas,monospace" font-size="11.5" fill="#596579">HTTP</text>
+<text x="1852" y="204" font-family="Consolas,monospace" font-size="11.5" fill="#596579">includes</text>
+<text x="1852" y="226" font-family="Consolas,monospace" font-size="11.5" fill="#596579">SQL</text>
+<text x="1852" y="248" font-family="Consolas,monospace" font-size="11.5" fill="#596579">SQL</text>
+<text x="1852" y="270" font-family="Consolas,monospace" font-size="11.5" fill="#596579">SQL</text>
+<text x="1852" y="420" font-family="Consolas,monospace" font-size="11.5" fill="#596579">includes</text>
+<text x="1852" y="442" font-family="Consolas,monospace" font-size="11.5" fill="#596579">SQL</text>
+<text x="1852" y="464" font-family="Consolas,monospace" font-size="11.5" fill="#596579">SQL</text>
+<text x="1852" y="486" font-family="Consolas,monospace" font-size="11.5" fill="#596579">SQL</text>
+<text x="1852" y="614" font-family="Consolas,monospace" font-size="11.5" fill="#596579">SQL</text>
+<text x="1852" y="636" font-family="Consolas,monospace" font-size="11.5" fill="#596579">SQL</text>
+<text x="1852" y="933" font-family="Consolas,monospace" font-size="11.5" fill="#596579">SQL</text>
+<text x="1852" y="1108" font-family="Consolas,monospace" font-size="11.5" fill="#596579">SQL</text>
+<text x="1852" y="1130" font-family="Consolas,monospace" font-size="11.5" fill="#596579">SQL</text>
+<text x="1852" y="1152" font-family="Consolas,monospace" font-size="11.5" fill="#596579">SQL</text>
+<text x="1852" y="1174" font-family="Consolas,monospace" font-size="11.5" fill="#596579">SQL</text>
+<text x="1852" y="1196" font-family="Consolas,monospace" font-size="11.5" fill="#596579">SQL</text>
+<text x="1852" y="1218" font-family="Consolas,monospace" font-size="11.5" fill="#596579">SQL</text>
+<text x="1852" y="1240" font-family="Consolas,monospace" font-size="11.5" fill="#596579">SQL</text>
+<text x="1852" y="1262" font-family="Consolas,monospace" font-size="11.5" fill="#596579">SQL</text>
+<text x="1852" y="1284" font-family="Consolas,monospace" font-size="11.5" fill="#596579">SQL</text>
+<text x="1852" y="1427" font-family="Consolas,monospace" font-size="11.5" fill="#596579">includes</text>
+<text x="1852" y="1449" font-family="Consolas,monospace" font-size="11.5" fill="#596579">includes</text>
+<text x="1852" y="1471" font-family="Consolas,monospace" font-size="11.5" fill="#596579">includes</text>
+<text x="1852" y="1493" font-family="Consolas,monospace" font-size="11.5" fill="#596579">includes</text>
+<text x="1852" y="1515" font-family="Consolas,monospace" font-size="11.5" fill="#596579">includes</text>
+<text x="1852" y="1537" font-family="Consolas,monospace" font-size="11.5" fill="#596579">SQL</text>
+<text x="1852" y="1559" font-family="Consolas,monospace" font-size="11.5" fill="#596579">SQL</text>
+<text x="1852" y="1581" font-family="Consolas,monospace" font-size="11.5" fill="#596579">SQL</text>
+<text x="1852" y="1603" font-family="Consolas,monospace" font-size="11.5" fill="#596579">SQL</text>
+<text x="1852" y="1625" font-family="Consolas,monospace" font-size="11.5" fill="#596579">SQL</text>
+<text x="1852" y="1647" font-family="Consolas,monospace" font-size="11.5" fill="#596579">SQL</text>
+<text x="1852" y="1669" font-family="Consolas,monospace" font-size="11.5" fill="#596579">SQL</text>
+<text x="1852" y="1691" font-family="Consolas,monospace" font-size="11.5" fill="#596579">SQL</text>
+<text x="1852" y="1713" font-family="Consolas,monospace" font-size="11.5" fill="#596579">SQL</text>
+<text x="1852" y="1735" font-family="Consolas,monospace" font-size="11.5" fill="#596579">SQL</text>
+<text x="1852" y="1757" font-family="Consolas,monospace" font-size="11.5" fill="#596579">SQL</text>
+<text x="1852" y="1779" font-family="Consolas,monospace" font-size="11.5" fill="#596579">SQL</text>
+<text x="1852" y="1801" font-family="Consolas,monospace" font-size="11.5" fill="#596579">SQL</text>
+<text x="1852" y="1823" font-family="Consolas,monospace" font-size="11.5" fill="#596579">SQL</text>
+<text x="1852" y="1845" font-family="Consolas,monospace" font-size="11.5" fill="#596579">SQL</text>
+<text x="1852" y="1867" font-family="Consolas,monospace" font-size="11.5" fill="#596579">SQL</text>
+<text x="1852" y="1889" font-family="Consolas,monospace" font-size="11.5" fill="#596579">SQL</text>
+<text x="1852" y="1911" font-family="Consolas,monospace" font-size="11.5" fill="#596579">SQL</text>
+<text x="1852" y="1933" font-family="Consolas,monospace" font-size="11.5" fill="#596579">SQL</text>
+<text x="1852" y="1955" font-family="Consolas,monospace" font-size="11.5" fill="#596579">SQL</text>
+<text x="1852" y="1977" font-family="Consolas,monospace" font-size="11.5" fill="#596579">SQL</text>
+<text x="1852" y="1999" font-family="Consolas,monospace" font-size="11.5" fill="#596579">SQL</text>
+<text x="1852" y="2021" font-family="Consolas,monospace" font-size="11.5" fill="#596579">SQL</text>
+<text x="1852" y="2043" font-family="Consolas,monospace" font-size="11.5" fill="#596579">SQL</text>
+<text x="1852" y="2193" font-family="Consolas,monospace" font-size="11.5" fill="#596579">includes</text>
+<text x="1852" y="2215" font-family="Consolas,monospace" font-size="11.5" fill="#596579">SQL</text>
+</svg>

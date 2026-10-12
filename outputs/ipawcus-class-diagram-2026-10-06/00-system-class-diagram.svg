@@ -1,0 +1,828 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="2390" height="2497" viewBox="0 0 2390 2497" role="img" aria-labelledby="title desc">
+<title id="title">iPawcus — System Class Diagram</title>
+<desc id="desc">Domain UML class diagram: names, typed attributes, operations, and relationships. Every label is above its own relationship line near the class. Lines avoid all class boxes. Supporting pages include the complete domain model.</desc>
+<defs><marker id="dependency" markerWidth="9" markerHeight="9" refX="8" refY="4.5" orient="auto" markerUnits="userSpaceOnUse"><path d="M0 0 L8 4.5 L0 9" fill="none" stroke="#858585" stroke-width="1.1"/></marker></defs>
+<rect width="100%" height="100%" fill="#ffffff"/>
+<text x="90" y="40" font-family="Arial,sans-serif" font-size="25" fill="#202020" >iPawcus — System Class Diagram</text>
+<text x="90" y="68" font-family="Arial,sans-serif" font-size="13" fill="#202020" >Classes show attributes and operations. Solid: association · dashed: logical association · dashed arrow: dependency.</text>
+<text x="90" y="91" font-family="Arial,sans-serif" font-size="12" fill="#202020" >Core system objects; all classes and attributes are included on the complete-model and detail sheets.</text>
+<path d="M420 655 L476 655 L476 201 L420 201" fill="none" stroke="#858585" stroke-width="1.1"><title>bookings.branch_id → branches.branch_id / bookings_branch_fk</title></path>
+<path d="M420 673 L504 673 L504 201 L560 201" fill="none" stroke="#858585" stroke-width="1.1"><title>bookings.user_id → users.user_id / bookings_ibfk_1</title></path>
+<path d="M420 691 L516 691 L516 621 L974 621 L974 165 L1030 165" fill="none" stroke="#858585" stroke-width="1.1"><title>bookings.pet_id → pets_information.pet_id / bookings_ibfk_2</title></path>
+<path d="M420 709 L476 709 L476 655 L464 655 L464 221 L476 221 L476 219 L420 219" fill="none" stroke="#858585" stroke-width="1.1"><title>bookings.original_branch_id → branches.branch_id / bookings_original_branch_fk</title></path>
+<path d="M420 1047 L476 1047 L476 781 L420 781" fill="none" stroke="#858585" stroke-width="1.1"><title>booking_pets.booking_id → bookings.booking_id / booking_pets_booking_fk</title></path>
+<path d="M420 1029 L538 1029 L538 851 L946 851 L946 183 L1030 183" fill="none" stroke="#858585" stroke-width="1.1"><title>booking_pets.pet_id → pets_information.pet_id / booking_pets_pet_fk</title></path>
+<path d="M560 2003 L504 2003 L504 673 L537 673 L537 327 L420 327" fill="none" stroke="#858585" stroke-width="1.1"><title>branch_operating_hours.branch_id → branches.branch_id / branch_operating_hours_branch_fk</title></path>
+<path d="M1970 705 L1914 705 L1914 649 L1404 649 L1404 419 L986 419 L986 237 L890 237" fill="none" stroke="#858585" stroke-width="1.1"><title>inventory_items.created_by_user_id → users.user_id / inventory_items_created_by_fk</title></path>
+<path d="M420 1263 L516 1263 L516 835 L420 835" fill="none" stroke="#858585" stroke-width="1.1"><title>online_consultations.booking_id → bookings.booking_id / online_consultations_ibfk_1</title></path>
+<path d="M420 1245 L476 1245 L476 1047 L464 1047 L464 657 L538 657 L538 271 L504 271 L504 255 L560 255" fill="none" stroke="#858585" stroke-width="1.1"><title>online_consultations.owner_user_id → users.user_id / online_consultations_ibfk_2</title></path>
+<path d="M420 1227 L537 1227 L537 691 L516 691 L516 239 L504 239 L504 237 L560 237" fill="none" stroke="#858585" stroke-width="1.1"><title>online_consultations.veterinarian_user_id → users.user_id / online_consultations_ibfk_3</title></path>
+<path d="M420 1573 L476 1573 L476 1281 L420 1281" fill="none" stroke="#858585" stroke-width="1.1"><title>online_consultation_diagnoses.online_consultation_id → online_consultations.online_consultation_id / online_consultation_diagnoses_ibfk_1</title></path>
+<path d="M420 1555 L538 1555 L538 1013 L443 1013 L443 869 L476 869 L476 853 L420 853" fill="none" stroke="#858585" stroke-width="1.1"><title>online_consultation_diagnoses.booking_id → bookings.booking_id / online_consultation_diagnoses_ibfk_2</title></path>
+<path d="M420 1537 L476 1537 L476 1535 L464 1535 L464 1155 L68 1155 L68 369 L443 369 L443 289 L504 289 L504 273 L560 273" fill="none" stroke="#858585" stroke-width="1.1"><title>online_consultation_diagnoses.veterinarian_user_id → users.user_id / online_consultation_diagnoses_ibfk_3</title></path>
+<path d="M1970 165 L1914 165 L1914 113 L1416 113 L1416 165 L1360 165" fill="none" stroke="#858585" stroke-width="1.1"><title>pet_medical_record_groups.pet_id → pets_information.pet_id / pet_medical_record_groups_pet_fk</title></path>
+<path d="M1830 443 L1886 443 L1886 183 L1970 183" fill="none" stroke="#858585" stroke-width="1.1"><title>pet_medical_record_group_items.group_id → pet_medical_record_groups.group_id / pet_medical_record_group_items_group_fk</title></path>
+<path d="M1030 491 L934 491 L934 181 L946 181 L946 183 L890 183" fill="none" stroke="#858585" stroke-width="1.1"><title>pet_ownership.user_id → users.user_id / pet_ownership_ibfk_1</title></path>
+<path d="M1360 491 L1416 491 L1416 201 L1360 201" fill="none" stroke="#858585" stroke-width="1.1"><title>pet_ownership.pet_id → pets_information.pet_id / pet_ownership_ibfk_2</title></path>
+<path d="M1030 2233 L974 2233 L974 579 L890 579" fill="none" stroke="#858585" stroke-width="1.1"><title>pet_owner_todos.user_id → users.user_id / pet_owner_todos_user_fk</title></path>
+<path d="M1500 165 L1444 165 L1444 183 L1360 183" fill="none" stroke="#858585" stroke-width="1.1"><title>pet_vaccinations.pet_id → pets_information.pet_id / pet_vaccinations_ibfk_1</title></path>
+<path d="M1360 1859 L1416 1859 L1416 1605 L1360 1605" fill="none" stroke="#858585" stroke-width="1.1"><title>prescription_items.plan_id → prescription_plans.plan_id / prescription_item_plan_fk</title></path>
+<path d="M1360 1913 L1416 1913 L1416 1895 L1360 1895" fill="none" stroke="#858585" stroke-width="1.1"><title>prescription_items.replaces_item_id → prescription_items.item_id / prescription_item_replaces_fk</title></path>
+<path d="M1500 1635 L1444 1635 L1444 681 L986 681 L986 525 L890 525" fill="none" stroke="#858585" stroke-width="1.1"><title>prescription_occurrences.completed_by_user_id → users.user_id / prescription_occurrence_completed_by_fk</title></path>
+<path d="M1500 1653 L1444 1653 L1444 1877 L1360 1877" fill="none" stroke="#858585" stroke-width="1.1"><title>prescription_occurrences.item_id → prescription_items.item_id / prescription_occurrence_item_fk</title></path>
+<path d="M1030 1533 L934 1533 L934 505 L986 505 L986 471 L890 471" fill="none" stroke="#858585" stroke-width="1.1"><title>prescription_plans.owner_user_id → users.user_id / prescription_plan_owner_fk</title></path>
+<path d="M1360 1533 L1456 1533 L1456 291 L1360 291" fill="none" stroke="#858585" stroke-width="1.1"><title>prescription_plans.pet_id → pets_information.pet_id / prescription_plan_pet_fk</title></path>
+<path d="M1360 1587 L1416 1587 L1416 1569 L1360 1569" fill="none" stroke="#858585" stroke-width="1.1"><title>prescription_plans.supersedes_plan_id → prescription_plans.plan_id / prescription_plan_supersedes_fk</title></path>
+<path d="M1030 1551 L974 1551 L974 1549 L986 1549 L986 689 L1007 689 L1007 489 L890 489" fill="none" stroke="#858585" stroke-width="1.1"><title>prescription_plans.veterinarian_user_id → users.user_id / prescription_plan_vet_fk</title></path>
+<path d="M1500 775 L1404 775 L1404 701 L1007 701 L1007 737 L912 737 L912 853 L538 853 L538 745 L420 745" fill="none" stroke="#858585" stroke-width="1.1"><title>queues.booking_id → bookings.booking_id / queues_booking_fk</title></path>
+<path d="M1500 721 L1416 721 L1416 491 L1444 491 L1444 108 L516 108 L516 255 L420 255" fill="none" stroke="#858585" stroke-width="1.1"><title>queues.branch_id → branches.branch_id / queues_branch_fk</title></path>
+<path d="M1500 739 L1416 739 L1416 705 L1477 705 L1477 219 L1360 219" fill="none" stroke="#858585" stroke-width="1.1"><title>queues.pet_id → pets_information.pet_id / queues_ibfk_1</title></path>
+<path d="M1500 757 L1416 757 L1416 737 L1383 737 L1383 489 L1478 489 L1478 425 L1007 425 L1007 255 L890 255" fill="none" stroke="#858585" stroke-width="1.1"><title>queues.user_id → users.user_id / queues_ibfk_2</title></path>
+<path d="M1970 427 L1914 427 L1914 371 L1404 371 L1404 113 L946 113 L946 165 L890 165" fill="none" stroke="#858585" stroke-width="1.1"><title>service_catalog.created_by_user_id → users.user_id / service_catalog_created_by_fk</title></path>
+<path d="M560 165 L420 165" fill="none" stroke="#858585" stroke-width="1.1"><title>users.preferred_branch_id → branches.branch_id / users_preferred_branch_fk</title></path>
+<path d="M890 693 L1008 693 L1008 489 L986 489 L986 475 L1008 475 L1008 201 L890 201" fill="none" stroke="#858585" stroke-width="1.1"><title>user_branch_assignments.assigned_by_user_id → users.user_id / user_branch_assignment_actor_fk</title></path>
+<path d="M560 693 L504 693 L504 639 L443 639 L443 457 L464 457 L464 425 L442 425 L442 325 L537 325 L537 237 L420 237" fill="none" stroke="#858585" stroke-width="1.1"><title>user_branch_assignments.branch_id → branches.branch_id / user_branch_assignment_branch_fk</title></path>
+<path d="M890 711 L1008 711 L1008 677 L913 677 L913 559 L986 559 L986 419 L913 419 L913 361 L934 361 L934 311 L913 311 L913 221 L946 221 L946 219 L890 219" fill="none" stroke="#858585" stroke-width="1.1"><title>user_branch_assignments.user_id → users.user_id / user_branch_assignment_user_fk</title></path>
+<path d="M1970 1539 L1874 1539 L1874 108 L1416 108 L1416 113 L464 113 L464 221 L443 221 L443 275 L476 275 L476 291 L420 291" fill="none" stroke="#858585" stroke-width="1.1"><title>user_notifications.branch_id → branches.branch_id / user_notifications_branch_fk</title></path>
+<path d="M1970 1557 L1886 1557 L1886 653 L1478 653 L1478 475 L1382 475 L1382 439 L1007 439 L1007 475 L946 475 L946 507 L890 507" fill="none" stroke="#858585" stroke-width="1.1"><title>user_notifications.user_id → users.user_id / user_notifications_user_fk</title></path>
+<path d="M420 441 L476 441 L476 419 L443 419 L443 311 L442 311 L442 289 L476 289 L476 183 L420 183" fill="none" stroke="#858585" stroke-width="1.1"><title>veterinarian_booking_clinics.branch_id → branches.branch_id / vet_booking_clinic_branch_fk</title></path>
+<path d="M420 459 L537 459 L537 217 L504 217 L504 183 L560 183" fill="none" stroke="#858585" stroke-width="1.1"><title>veterinarian_booking_clinics.veterinarian_user_id → users.user_id / vet_booking_clinic_user_fk</title></path>
+<path d="M890 923 L946 923 L946 853 L913 853 L913 709 L934 709 L934 675 L912 675 L912 577 L934 577 L934 509 L913 509 L913 469 L946 469 L946 309 L890 309" fill="none" stroke="#858585" stroke-width="1.1"><title>veterinarian_profiles.user_id → users.user_id / veterinarian_profiles_ibfk_1</title></path>
+<path d="M1030 1195 L946 1195 L946 1467 L890 1467" fill="none" stroke="#858585" stroke-width="1.1"><title>vet_diagnoses.assignment_id → vet_queue_assignments.assignment_id / vet_diagnoses_assignment_fk</title></path>
+<path d="M1030 1177 L946 1177 L946 907 L912 907 L912 855 L443 855 L443 819 L476 819 L476 817 L420 817" fill="none" stroke="#858585" stroke-width="1.1"><title>vet_diagnoses.booking_id → bookings.booking_id / vet_diagnoses_booking_fk</title></path>
+<path d="M1360 1159 L1416 1159 L1416 729 L1382 729 L1382 489 L1404 489 L1404 473 L1383 473 L1383 275 L1416 275 L1416 273 L1360 273" fill="none" stroke="#858585" stroke-width="1.1"><title>vet_diagnoses.pet_id → pets_information.pet_id / vet_diagnoses_pet_fk</title></path>
+<path d="M1360 1177 L1416 1177 L1416 1159 L1404 1159 L1404 811 L1500 811" fill="none" stroke="#858585" stroke-width="1.1"><title>vet_diagnoses.queue_id → queues.queue_id / vet_diagnoses_queue_fk</title></path>
+<path d="M1030 1159 L913 1159 L913 1087 L1383 1087 L1383 769 L1404 769 L1404 653 L1444 653 L1444 437 L1007 437 L1007 381 L890 381" fill="none" stroke="#858585" stroke-width="1.1"><title>vet_diagnoses.veterinarian_user_id → users.user_id / vet_diagnoses_vet_fk</title></path>
+<path d="M890 1449 L1008 1449 L1008 1461 L1404 1461 L1404 1143 L1382 1143 L1382 829 L1500 829" fill="none" stroke="#858585" stroke-width="1.1"><title>vet_queue_assignments.queue_id → queues.queue_id / vet_queue_assignments_queue_fk</title></path>
+<path d="M890 1431 L1007 1431 L1007 1465 L1416 1465 L1416 1301 L1926 1301 L1926 391 L1382 391 L1382 435 L1007 435 L1007 453 L890 453" fill="none" stroke="#858585" stroke-width="1.1"><title>vet_queue_assignments.veterinarian_user_id → users.user_id / vet_queue_assignments_vet_fk</title></path>
+<path d="M890 1201 L946 1201 L946 1177 L912 1177 L912 921 L1007 921 L1007 787 L986 787 L986 729 L1008 729 L1008 703 L1007 703 L1007 491 L974 491 L974 399 L890 399" fill="none" stroke="#858585" stroke-width="1.1"><title>vet_schedules.user_id → users.user_id / vet_schedules_fk</title></path>
+<path d="M1500 1047 L1444 1047 L1444 1099 L1007 1099 L1007 1143 L442 1143 L442 1157 L30 1157 L30 371 L476 371 L476 273 L420 273" fill="none" stroke="#858585" stroke-width="1.1"><title>visits.branch_id → branches.branch_id / visits_branch_fk</title></path>
+<path d="M1500 1137 L1416 1137 L1416 1195 L1360 1195" fill="none" stroke="#858585" stroke-width="1.1"><title>visits.diagnosis_id → vet_diagnoses.diagnosis_id / visits_diagnosis_fk</title></path>
+<path d="M1500 1065 L1444 1065 L1444 1031 L1478 1031 L1478 975 L1914 975 L1914 705 L1853 705 L1853 441 L1914 441 L1914 427 L1852 427 L1852 375 L1478 375 L1478 255 L1360 255" fill="none" stroke="#858585" stroke-width="1.1"><title>visits.pet_id → pets_information.pet_id / visits_ibfk_1</title></path>
+<path d="M1500 1083 L1416 1083 L1416 1029 L1477 1029 L1477 977 L1947 977 L1947 703 L1926 703 L1926 689 L1947 689 L1947 425 L1853 425 L1853 389 L1478 389 L1478 427 L986 427 L986 345 L890 345" fill="none" stroke="#858585" stroke-width="1.1"><title>visits.owner_user_id → users.user_id / visits_ibfk_2</title></path>
+<path d="M1500 1101 L1008 1101 L1008 787 L912 787 L912 709 L946 709 L946 507 L934 507 L934 365 L946 365 L946 363 L890 363" fill="none" stroke="#858585" stroke-width="1.1"><title>visits.veterinarian_user_id → users.user_id / visits_ibfk_3</title></path>
+<path d="M1830 1047 L1914 1047 L1914 975 L1948 975 L1948 721 L1830 721" fill="none" stroke="#858585" stroke-width="1.1"><title>visits.queue_id → queues.queue_id / visits_ibfk_4</title></path>
+<path d="M1500 1119 L1383 1119 L1383 1103 L1007 1103 L1007 869 L516 869 L516 799 L420 799" fill="none" stroke="#858585" stroke-width="1.1"><title>visits.booking_id → bookings.booking_id / visits_ibfk_5</title></path>
+<path d="M1970 999 L1853 999 L1853 719 L1874 719 L1874 703 L1852 703 L1852 441 L1874 441 L1874 383 L1404 383 L1404 419 L1008 419 L1008 327 L890 327" fill="none" stroke="#858585" stroke-width="1.1"><title>visit_charges.created_by_user_id → users.user_id / visit_charges_created_by_fk</title></path>
+<path d="M1970 1017 L1914 1017 L1914 1065 L1830 1065" fill="none" stroke="#858585" stroke-width="1.1"><title>visit_charges.visit_id → visits.visit_id / visit_charges_ibfk_1</title></path>
+<path d="M2300 999 L2356 999 L2356 427 L2300 427" fill="none" stroke="#858585" stroke-width="1.1"><title>visit_charges.service_id → service_catalog.service_id / visit_charges_ibfk_2</title></path>
+<path d="M2300 1017 L2360 1017 L2360 705 L2300 705" fill="none" stroke="#858585" stroke-width="1.1"><title>visit_charges.item_id → inventory_items.item_id / visit_charges_ibfk_3</title></path>
+<path d="M1500 1373 L1444 1373 L1444 1321 L1914 1321 L1914 1221 L2344 1221 L2344 375 L1382 375 L1382 433 L946 433 L946 435 L890 435" fill="none" stroke="#858585" stroke-width="1.1"><title>visit_payments.received_by_user_id → users.user_id / visit_payments_received_by_fk</title></path>
+<path d="M1830 1373 L1886 1373 L1886 1357 L1853 1357 L1853 1103 L1886 1103 L1886 1101 L1830 1101" fill="none" stroke="#858585" stroke-width="1.1"><title>visit_payments.visit_id → visits.visit_id / visit_payments_visit_fk</title></path>
+<path d="M1970 1329 L1914 1329 L1914 1391 L1830 1391" fill="none" stroke="#858585" stroke-width="1.1"><title>visit_payment_refunds.visit_payment_id → visit_payments.payment_id / visit_payment_refund_payment_fk</title></path>
+<path d="M1970 1293 L1914 1293 L1914 1277 L1947 1277 L1947 1015 L1852 1015 L1852 719 L1914 719 L1914 681 L1948 681 L1948 425 L1926 425 L1926 381 L1383 381 L1383 425 L1008 425 L1008 417 L890 417" fill="none" stroke="#858585" stroke-width="1.1"><title>visit_payment_refunds.processed_by_user_id → users.user_id / visit_payment_refund_user_fk</title></path>
+<path d="M1970 1311 L1852 1311 L1852 1099 L1886 1099 L1886 1083 L1830 1083" fill="none" stroke="#858585" stroke-width="1.1"><title>visit_payment_refunds.visit_id → visits.visit_id / visit_payment_refund_visit_fk</title></path>
+<path d="M1360 771 L1416 771 L1416 773 L1404 773 L1404 793 L1500 793" fill="none" stroke="#858585" stroke-width="1.1"><title>clinical_intakes.queue_id → queues.queue_id / clinical_intakes_queue_fk</title></path>
+<path d="M1030 789 L912 789 L912 851 L537 851 L537 799 L516 799 L516 763 L420 763" fill="none" stroke="#858585" stroke-width="1.1"><title>clinical_intakes.booking_id → bookings.booking_id / clinical_intakes_booking_fk</title></path>
+<path d="M1360 753 L1456 753 L1456 703 L1478 703 L1478 379 L1382 379 L1382 289 L1456 289 L1456 237 L1360 237" fill="none" stroke="#858585" stroke-width="1.1"><title>clinical_intakes.pet_id → pets_information.pet_id / clinical_intakes_pet_fk</title></path>
+<path d="M1030 753 L974 753 L974 473 L986 473 L986 399 L974 399 L974 273 L890 273" fill="none" stroke="#858585" stroke-width="1.1"><title>clinical_intakes.assigned_veterinarian_user_id → users.user_id / clinical_intakes_assigned_vet_fk</title></path>
+<path d="M1030 771 L946 771 L946 709 L986 709 L986 473 L1008 473 L1008 381 L1007 381 L1007 291 L890 291" fill="none" stroke="#858585" stroke-width="1.1"><title>clinical_intakes.recorded_by_user_id → users.user_id / clinical_intakes_recorded_by_fk</title></path>
+<path d="M420 727 L476 727 L476 633 L442 633 L442 457 L504 457 L504 219 L560 219" fill="none" stroke="#858585" stroke-width="1.1" stroke-dasharray="8 4"><title>bookings.veterinarian_id → users.user_id / Logical application association; not a declared SQL foreign key.</title></path>
+<path d="M560 1727 L476 1727 L476 1799 L420 1799" fill="none" stroke="#858585" stroke-width="1.1" stroke-dasharray="8 4"><title>consent_form_records.consent_file_id → consent_files.file_id / Logical application association; not a declared SQL foreign key.</title></path>
+<path d="M890 1709 L946 1709 L946 1637 L537 1637 L537 1211 L443 1211 L443 1045 L464 1045 L464 1001 L442 1001 L442 871 L476 871 L476 727 L516 727 L516 677 L538 677 L538 633 L913 633 L913 561 L946 561 L946 543 L890 543" fill="none" stroke="#858585" stroke-width="1.1" stroke-dasharray="8 4"><title>consent_form_records.owner_user_id → users.user_id / Logical application association; not a declared SQL foreign key.</title></path>
+<path d="M890 1727 L946 1727 L946 1793 L1926 1793 L1926 1467 L2356 1467 L2356 983 L2322 983 L2322 703 L2360 703 L2360 108 L986 108 L986 199 L974 199 L974 201 L1030 201" fill="none" stroke="#858585" stroke-width="1.1" stroke-dasharray="8 4"><title>consent_form_records.pet_id → pets_information.pet_id / Logical application association; not a declared SQL foreign key.</title></path>
+<path d="M560 1709 L504 1709 L504 1707 L516 1707 L516 1201 L442 1201 L442 1045 L476 1045 L476 871 L420 871" fill="none" stroke="#858585" stroke-width="1.1" stroke-dasharray="8 4"><title>consent_form_records.booking_id → bookings.booking_id / Logical application association; not a declared SQL foreign key.</title></path>
+<path d="M890 1763 L986 1763 L986 1551 L946 1551 L946 1467 L1383 1467 L1383 1211 L1477 1211 L1477 1153 L1456 1153 L1456 977 L1477 977 L1477 851 L1444 851 L1444 847 L1500 847" fill="none" stroke="#858585" stroke-width="1.1" stroke-dasharray="8 4"><title>consent_form_records.queue_id → queues.queue_id / Logical application association; not a declared SQL foreign key.</title></path>
+<path d="M890 1781 L1008 1781 L1008 1787 L1404 1787 L1404 1481 L1382 1481 L1382 1213 L1478 1213 L1478 1157 L1444 1157 L1444 1155 L1500 1155" fill="none" stroke="#858585" stroke-width="1.1" stroke-dasharray="8 4"><title>consent_form_records.visit_id → visits.visit_id / Logical application association; not a declared SQL foreign key.</title></path>
+<path d="M890 1745 L946 1745 L946 1743 L934 1743 L934 1517 L1008 1517 L1008 1193 L934 1193 L934 1185 L913 1185 L913 921 L934 921 L934 563 L946 563 L946 561 L890 561" fill="none" stroke="#858585" stroke-width="1.1" stroke-dasharray="8 4"><title>consent_form_records.processed_by_user_id → users.user_id / Logical application association; not a declared SQL foreign key.</title></path>
+<path d="M1360 1551 L1477 1551 L1477 1371 L1416 1371 L1416 1213 L1360 1213" fill="none" stroke="#858585" stroke-width="1.1" stroke-dasharray="8 4"><title>prescription_plans.source_record_id → vet_diagnoses.diagnosis_id / Conditional logical reference when source_type = clinic_diagnosis; alternatives are mutually exclusive, not declared SQL foreign keys.</title></path>
+<path d="M1030 1569 L912 1569 L912 1651 L476 1651 L476 1591 L420 1591" fill="none" stroke="#858585" stroke-width="1.1" stroke-dasharray="8 4"><title>prescription_plans.source_record_id → online_consultation_diagnoses.diagnosis_id / Conditional logical reference when source_type = online_consultation; alternatives are mutually exclusive, not declared SQL foreign keys.</title></path>
+<path d="M1500 1865 L1444 1865 L1444 1863 L1456 1863 L1456 1535 L1416 1535 L1416 1481 L1007 1481 L1007 1195 L974 1195 L974 1149 L464 1149 L464 783 L443 783 L443 761 L516 761 L516 727 L538 727 L538 693 L464 693 L464 469 L516 469 L516 309 L420 309" fill="none" stroke="#858585" stroke-width="1.1" stroke-dasharray="4 4" marker-end="url(#dependency)"><title>domain:booking_scheduler. → branches. / dependency</title></path>
+<path d="M1500 1937 L1404 1937 L1404 1807 L946 1807 L946 2003 L890 2003" fill="none" stroke="#858585" stroke-width="1.1" stroke-dasharray="4 4" marker-end="url(#dependency)"><title>domain:booking_scheduler. → branch_operating_hours. / dependency</title></path>
+<path d="M1500 1883 L1444 1883 L1444 1987 L1853 1987 L1853 1371 L1926 1371 L1926 1265 L1948 1265 L1948 1017 L1853 1017 L1853 983 L1478 983 L1478 845 L1382 845 L1382 769 L1444 769 L1444 695 L1020 695 L1020 681 L1008 681 L1008 639 L504 639 L504 477 L420 477" fill="none" stroke="#858585" stroke-width="1.1" stroke-dasharray="4 4" marker-end="url(#dependency)"><title>domain:booking_scheduler. → veterinarian_booking_clinics. / dependency</title></path>
+<path d="M1500 1919 L1444 1919 L1444 1917 L1456 1917 L1456 1843 L1382 1843 L1382 1797 L1007 1797 L1007 1567 L913 1567 L913 1465 L934 1465 L934 1415 L913 1415 L913 1221 L946 1221 L946 1219 L890 1219" fill="none" stroke="#858585" stroke-width="1.1" stroke-dasharray="4 4" marker-end="url(#dependency)"><title>domain:booking_scheduler. → vet_schedules. / dependency</title></path>
+<path d="M1500 1901 L1416 1901 L1416 1835 L1383 1835 L1383 1799 L1008 1799 L1008 1653 L464 1653 L464 1521 L443 1521 L443 1261 L504 1261 L504 907 L420 907" fill="none" stroke="#858585" stroke-width="1.1" stroke-dasharray="4 4" marker-end="url(#dependency)"><title>domain:booking_scheduler. → bookings. / dependency</title></path>
+<path d="M1970 1817 L1914 1817 L1914 1313 L1478 1313 L1478 1153 L1444 1153 L1444 1139 L1383 1139 L1383 1107 L1008 1107 L1008 871 L476 871 L476 889 L420 889" fill="none" stroke="#858585" stroke-width="1.1" stroke-dasharray="4 4" marker-end="url(#dependency)"><title>domain:report_generator. → bookings. / dependency</title></path>
+<path d="M1970 1835 L1852 1835 L1852 1389 L1947 1389 L1947 1327 L1914 1327 L1914 1119 L1830 1119" fill="none" stroke="#858585" stroke-width="1.1" stroke-dasharray="4 4" marker-end="url(#dependency)"><title>domain:report_generator. → visits. / dependency</title></path>
+<path d="M2300 1817 L2360 1817 L2360 723 L2300 723" fill="none" stroke="#858585" stroke-width="1.1" stroke-dasharray="4 4" marker-end="url(#dependency)"><title>domain:report_generator. → inventory_items. / dependency</title></path>
+<g data-class="branches"><title>Branch</title>
+<rect x="90" y="135" width="330" height="212" fill="#ffffff" stroke="#767676" stroke-width="1.2"/>
+<line x1="90" y1="165" x2="420" y2="165" stroke="#767676" stroke-width="1"/>
+<line x1="90" y1="273" x2="420" y2="273" stroke="#767676" stroke-width="1"/>
+<text x="255" y="155" font-family="Arial,sans-serif" font-size="14" fill="#202020" text-anchor="middle" font-weight="600">Branch</text>
+<text x="102" y="182" font-family="Arial,sans-serif" font-size="12" fill="#202020" >+ branchId: int</text>
+<text x="102" y="198" font-family="Arial,sans-serif" font-size="12" fill="#202020" >+ branchCode: string</text>
+<text x="102" y="214" font-family="Arial,sans-serif" font-size="12" fill="#202020" >+ branchName: string</text>
+<text x="102" y="230" font-family="Arial,sans-serif" font-size="12" fill="#202020" >+ branchType: string</text>
+<text x="102" y="246" font-family="Arial,sans-serif" font-size="12" fill="#202020" >+ address: string</text>
+<text x="102" y="262" font-family="Arial,sans-serif" font-size="12" fill="#202020" >+ status: string</text>
+<text x="102" y="290" font-family="Arial,sans-serif" font-size="12" fill="#202020" >+ listBranches()</text>
+<text x="102" y="306" font-family="Arial,sans-serif" font-size="12" fill="#202020" >+ checkAvailability()</text>
+<text x="102" y="322" font-family="Arial,sans-serif" font-size="12" fill="#202020" >+ relocateBooking()</text>
+</g>
+<g data-class="users"><title>User</title>
+<rect x="560" y="135" width="330" height="464" fill="#ffffff" stroke="#767676" stroke-width="1.2"/>
+<line x1="560" y1="165" x2="890" y2="165" stroke="#767676" stroke-width="1"/>
+<line x1="560" y1="305" x2="890" y2="305" stroke="#767676" stroke-width="1"/>
+<text x="725" y="155" font-family="Arial,sans-serif" font-size="14" fill="#202020" text-anchor="middle" font-weight="600">User</text>
+<text x="572" y="182" font-family="Arial,sans-serif" font-size="12" fill="#202020" >+ userId: int</text>
+<text x="572" y="198" font-family="Arial,sans-serif" font-size="12" fill="#202020" >+ firstName: string?</text>
+<text x="572" y="214" font-family="Arial,sans-serif" font-size="12" fill="#202020" >+ lastName: string</text>
+<text x="572" y="230" font-family="Arial,sans-serif" font-size="12" fill="#202020" >+ email: string</text>
+<text x="572" y="246" font-family="Arial,sans-serif" font-size="12" fill="#202020" >+ phoneNumber: string?</text>
+<text x="572" y="262" font-family="Arial,sans-serif" font-size="12" fill="#202020" >+ role: string?</text>
+<text x="572" y="278" font-family="Arial,sans-serif" font-size="12" fill="#202020" >+ accountStatus: string</text>
+<text x="572" y="294" font-family="Arial,sans-serif" font-size="12" fill="#202020" >+ preferredBranchId: int?</text>
+<text x="572" y="322" font-family="Arial,sans-serif" font-size="12" fill="#202020" >+ login()</text>
+<text x="572" y="338" font-family="Arial,sans-serif" font-size="12" fill="#202020" >+ logout()</text>
+<text x="572" y="354" font-family="Arial,sans-serif" font-size="12" fill="#202020" >+ updateProfile()</text>
+<text x="572" y="370" font-family="Arial,sans-serif" font-size="12" fill="#202020" >+ updatePassword()</text>
+</g>
+<g data-class="pets_information"><title>Pet</title>
+<rect x="1030" y="135" width="330" height="262" fill="#ffffff" stroke="#767676" stroke-width="1.2"/>
+<line x1="1030" y1="165" x2="1360" y2="165" stroke="#767676" stroke-width="1"/>
+<line x1="1030" y1="321" x2="1360" y2="321" stroke="#767676" stroke-width="1"/>
+<text x="1195" y="155" font-family="Arial,sans-serif" font-size="14" fill="#202020" text-anchor="middle" font-weight="600">Pet</text>
+<text x="1042" y="182" font-family="Arial,sans-serif" font-size="12" fill="#202020" >+ petId: int</text>
+<text x="1042" y="198" font-family="Arial,sans-serif" font-size="12" fill="#202020" >+ petName: string</text>
+<text x="1042" y="214" font-family="Arial,sans-serif" font-size="12" fill="#202020" >+ species: string</text>
+<text x="1042" y="230" font-family="Arial,sans-serif" font-size="12" fill="#202020" >+ breed: string</text>
+<text x="1042" y="246" font-family="Arial,sans-serif" font-size="12" fill="#202020" >+ birthDate: date</text>
+<text x="1042" y="262" font-family="Arial,sans-serif" font-size="12" fill="#202020" >+ status: string</text>
+<text x="1042" y="278" font-family="Arial,sans-serif" font-size="12" fill="#202020" >+ gender: string</text>
+<text x="1042" y="294" font-family="Arial,sans-serif" font-size="12" fill="#202020" >+ weight: decimal</text>
+<text x="1042" y="310" font-family="Arial,sans-serif" font-size="12" fill="#202020" >+ sharableId: string?</text>
+<text x="1042" y="338" font-family="Arial,sans-serif" font-size="12" fill="#202020" >+ registerPet()</text>
+<text x="1042" y="354" font-family="Arial,sans-serif" font-size="12" fill="#202020" >+ updateDetails()</text>
+<text x="1042" y="370" font-family="Arial,sans-serif" font-size="12" fill="#202020" >+ updateStatus()</text>
+<text x="1042" y="386" font-family="Arial,sans-serif" font-size="12" fill="#202020" >+ viewMedicalHistory()</text>
+</g>
+<g data-class="pet_vaccinations"><title>PetVaccination</title>
+<rect x="1500" y="135" width="330" height="214" fill="#ffffff" stroke="#767676" stroke-width="1.2"/>
+<line x1="1500" y1="165" x2="1830" y2="165" stroke="#767676" stroke-width="1"/>
+<line x1="1500" y1="305" x2="1830" y2="305" stroke="#767676" stroke-width="1"/>
+<text x="1665" y="155" font-family="Arial,sans-serif" font-size="14" fill="#202020" text-anchor="middle" font-weight="600">PetVaccination</text>
+<text x="1512" y="182" font-family="Arial,sans-serif" font-size="12" fill="#202020" >+ vaccinationId: int</text>
+<text x="1512" y="198" font-family="Arial,sans-serif" font-size="12" fill="#202020" >+ petId: int</text>
+<text x="1512" y="214" font-family="Arial,sans-serif" font-size="12" fill="#202020" >+ vaccineName: string</text>
+<text x="1512" y="230" font-family="Arial,sans-serif" font-size="12" fill="#202020" >+ vaccinationDate: date</text>
+<text x="1512" y="246" font-family="Arial,sans-serif" font-size="12" fill="#202020" >+ nextDueDate: date</text>
+<text x="1512" y="262" font-family="Arial,sans-serif" font-size="12" fill="#202020" >+ applicator: string?</text>
+<text x="1512" y="278" font-family="Arial,sans-serif" font-size="12" fill="#202020" >+ status: string?</text>
+<text x="1512" y="294" font-family="Arial,sans-serif" font-size="12" fill="#202020" >+ createdAt: datetime</text>
+<text x="1512" y="322" font-family="Arial,sans-serif" font-size="12" fill="#202020" >+ recordVaccination()</text>
+<text x="1512" y="338" font-family="Arial,sans-serif" font-size="12" fill="#202020" >+ viewHistory()</text>
+</g>
+<g data-class="pet_medical_record_groups"><title>MedicalRecordGroup</title>
+<rect x="1970" y="135" width="330" height="198" fill="#ffffff" stroke="#767676" stroke-width="1.2"/>
+<line x1="1970" y1="165" x2="2300" y2="165" stroke="#767676" stroke-width="1"/>
+<line x1="1970" y1="273" x2="2300" y2="273" stroke="#767676" stroke-width="1"/>
+<text x="2135" y="155" font-family="Arial,sans-serif" font-size="14" fill="#202020" text-anchor="middle" font-weight="600">MedicalRecordGroup</text>
+<text x="1982" y="182" font-family="Arial,sans-serif" font-size="12" fill="#202020" >+ groupId: int</text>
+<text x="1982" y="198" font-family="Arial,sans-serif" font-size="12" fill="#202020" >+ petId: int</text>
+<text x="1982" y="214" font-family="Arial,sans-serif" font-size="12" fill="#202020" >+ title: string</text>
+<text x="1982" y="230" font-family="Arial,sans-serif" font-size="12" fill="#202020" >+ summary: string?</text>
+<text x="1982" y="246" font-family="Arial,sans-serif" font-size="12" fill="#202020" >+ visibleToOwner: bool</text>
+<text x="1982" y="262" font-family="Arial,sans-serif" font-size="12" fill="#202020" >+ sortOrder: int</text>
+<text x="1982" y="290" font-family="Arial,sans-serif" font-size="12" fill="#202020" >+ createGroup()</text>
+<text x="1982" y="306" font-family="Arial,sans-serif" font-size="12" fill="#202020" >+ updateGroup()</text>
+<text x="1982" y="322" font-family="Arial,sans-serif" font-size="12" fill="#202020" >+ deleteGroup()</text>
+</g>
+<g data-class="veterinarian_booking_clinics"><title>VetClinicBookingPreference</title>
+<rect x="90" y="411" width="330" height="150" fill="#ffffff" stroke="#767676" stroke-width="1.2"/>
+<line x1="90" y1="441" x2="420" y2="441" stroke="#767676" stroke-width="1"/>
+<line x1="90" y1="517" x2="420" y2="517" stroke="#767676" stroke-width="1"/>
+<text x="255" y="431" font-family="Arial,sans-serif" font-size="14" fill="#202020" text-anchor="middle" font-weight="600">VetClinicBookingPreference</text>
+<text x="102" y="458" font-family="Arial,sans-serif" font-size="12" fill="#202020" >+ veterinarianUserId: int</text>
+<text x="102" y="474" font-family="Arial,sans-serif" font-size="12" fill="#202020" >+ branchId: int</text>
+<text x="102" y="490" font-family="Arial,sans-serif" font-size="12" fill="#202020" >+ acceptsBookings: bool</text>
+<text x="102" y="506" font-family="Arial,sans-serif" font-size="12" fill="#202020" >+ updatedAt: datetime</text>
+<text x="102" y="534" font-family="Arial,sans-serif" font-size="12" fill="#202020" >+ setAcceptsBookings()</text>
+<text x="102" y="550" font-family="Arial,sans-serif" font-size="12" fill="#202020" >+ listAcceptedClinics()</text>
+</g>
+<g data-class="user_branch_assignments"><title>UserBranchAssignment</title>
+<rect x="560" y="663" width="330" height="166" fill="#ffffff" stroke="#767676" stroke-width="1.2"/>
+<line x1="560" y1="693" x2="890" y2="693" stroke="#767676" stroke-width="1"/>
+<line x1="560" y1="785" x2="890" y2="785" stroke="#767676" stroke-width="1"/>
+<text x="725" y="683" font-family="Arial,sans-serif" font-size="14" fill="#202020" text-anchor="middle" font-weight="600">UserBranchAssignment</text>
+<text x="572" y="710" font-family="Arial,sans-serif" font-size="12" fill="#202020" >+ userBranchAssignmentId: int</text>
+<text x="572" y="726" font-family="Arial,sans-serif" font-size="12" fill="#202020" >+ userId: int</text>
+<text x="572" y="742" font-family="Arial,sans-serif" font-size="12" fill="#202020" >+ branchId: int</text>
+<text x="572" y="758" font-family="Arial,sans-serif" font-size="12" fill="#202020" >+ isPrimary: bool</text>
+<text x="572" y="774" font-family="Arial,sans-serif" font-size="12" fill="#202020" >+ isActive: bool</text>
+<text x="572" y="802" font-family="Arial,sans-serif" font-size="12" fill="#202020" >+ assignClinic()</text>
+<text x="572" y="818" font-family="Arial,sans-serif" font-size="12" fill="#202020" >+ setPrimaryClinic()</text>
+</g>
+<g data-class="pet_ownership"><title>PetOwnership</title>
+<rect x="1030" y="461" width="330" height="198" fill="#ffffff" stroke="#767676" stroke-width="1.2"/>
+<line x1="1030" y1="491" x2="1360" y2="491" stroke="#767676" stroke-width="1"/>
+<line x1="1030" y1="599" x2="1360" y2="599" stroke="#767676" stroke-width="1"/>
+<text x="1195" y="481" font-family="Arial,sans-serif" font-size="14" fill="#202020" text-anchor="middle" font-weight="600">PetOwnership</text>
+<text x="1042" y="508" font-family="Arial,sans-serif" font-size="12" fill="#202020" >+ linkId: int</text>
+<text x="1042" y="524" font-family="Arial,sans-serif" font-size="12" fill="#202020" >+ userId: int?</text>
+<text x="1042" y="540" font-family="Arial,sans-serif" font-size="12" fill="#202020" >+ petId: int?</text>
+<text x="1042" y="556" font-family="Arial,sans-serif" font-size="12" fill="#202020" >+ relationship: string?</text>
+<text x="1042" y="572" font-family="Arial,sans-serif" font-size="12" fill="#202020" >+ isPrimary: bool?</text>
+<text x="1042" y="588" font-family="Arial,sans-serif" font-size="12" fill="#202020" >+ linkedAt: datetime</text>
+<text x="1042" y="616" font-family="Arial,sans-serif" font-size="12" fill="#202020" >+ linkPet()</text>
+<text x="1042" y="632" font-family="Arial,sans-serif" font-size="12" fill="#202020" >+ requestCoParent()</text>
+<text x="1042" y="648" font-family="Arial,sans-serif" font-size="12" fill="#202020" >+ removeOwnership()</text>
+</g>
+<g data-class="pet_medical_record_group_items"><title>MedicalRecordItem</title>
+<rect x="1500" y="413" width="330" height="214" fill="#ffffff" stroke="#767676" stroke-width="1.2"/>
+<line x1="1500" y1="443" x2="1830" y2="443" stroke="#767676" stroke-width="1"/>
+<line x1="1500" y1="567" x2="1830" y2="567" stroke="#767676" stroke-width="1"/>
+<text x="1665" y="433" font-family="Arial,sans-serif" font-size="14" fill="#202020" text-anchor="middle" font-weight="600">MedicalRecordItem</text>
+<text x="1512" y="460" font-family="Arial,sans-serif" font-size="12" fill="#202020" >+ itemId: int</text>
+<text x="1512" y="476" font-family="Arial,sans-serif" font-size="12" fill="#202020" >+ groupId: int</text>
+<text x="1512" y="492" font-family="Arial,sans-serif" font-size="12" fill="#202020" >+ sourceType: string</text>
+<text x="1512" y="508" font-family="Arial,sans-serif" font-size="12" fill="#202020" >+ sourceId: int?</text>
+<text x="1512" y="524" font-family="Arial,sans-serif" font-size="12" fill="#202020" >+ title: string</text>
+<text x="1512" y="540" font-family="Arial,sans-serif" font-size="12" fill="#202020" >+ summary: string?</text>
+<text x="1512" y="556" font-family="Arial,sans-serif" font-size="12" fill="#202020" >+ serviceDate: datetime?</text>
+<text x="1512" y="584" font-family="Arial,sans-serif" font-size="12" fill="#202020" >+ addItem()</text>
+<text x="1512" y="600" font-family="Arial,sans-serif" font-size="12" fill="#202020" >+ updateItem()</text>
+<text x="1512" y="616" font-family="Arial,sans-serif" font-size="12" fill="#202020" >+ removeItem()</text>
+</g>
+<g data-class="service_catalog"><title>ServiceCatalog</title>
+<rect x="1970" y="397" width="330" height="214" fill="#ffffff" stroke="#767676" stroke-width="1.2"/>
+<line x1="1970" y1="427" x2="2300" y2="427" stroke="#767676" stroke-width="1"/>
+<line x1="1970" y1="551" x2="2300" y2="551" stroke="#767676" stroke-width="1"/>
+<text x="2135" y="417" font-family="Arial,sans-serif" font-size="14" fill="#202020" text-anchor="middle" font-weight="600">ServiceCatalog</text>
+<text x="1982" y="444" font-family="Arial,sans-serif" font-size="12" fill="#202020" >+ serviceId: int</text>
+<text x="1982" y="460" font-family="Arial,sans-serif" font-size="12" fill="#202020" >+ serviceCode: string?</text>
+<text x="1982" y="476" font-family="Arial,sans-serif" font-size="12" fill="#202020" >+ serviceName: string</text>
+<text x="1982" y="492" font-family="Arial,sans-serif" font-size="12" fill="#202020" >+ serviceType: string</text>
+<text x="1982" y="508" font-family="Arial,sans-serif" font-size="12" fill="#202020" >+ basePrice: decimal</text>
+<text x="1982" y="524" font-family="Arial,sans-serif" font-size="12" fill="#202020" >+ isMajorService: bool</text>
+<text x="1982" y="540" font-family="Arial,sans-serif" font-size="12" fill="#202020" >+ isActive: bool?</text>
+<text x="1982" y="568" font-family="Arial,sans-serif" font-size="12" fill="#202020" >+ saveService()</text>
+<text x="1982" y="584" font-family="Arial,sans-serif" font-size="12" fill="#202020" >+ updateMaterials()</text>
+<text x="1982" y="600" font-family="Arial,sans-serif" font-size="12" fill="#202020" >+ deactivate()</text>
+</g>
+<g data-class="bookings"><title>Booking</title>
+<rect x="90" y="625" width="330" height="310" fill="#ffffff" stroke="#767676" stroke-width="1.2"/>
+<line x1="90" y1="655" x2="420" y2="655" stroke="#767676" stroke-width="1"/>
+<line x1="90" y1="843" x2="420" y2="843" stroke="#767676" stroke-width="1"/>
+<text x="255" y="645" font-family="Arial,sans-serif" font-size="14" fill="#202020" text-anchor="middle" font-weight="600">Booking</text>
+<text x="102" y="672" font-family="Arial,sans-serif" font-size="12" fill="#202020" >+ bookingId: int</text>
+<text x="102" y="688" font-family="Arial,sans-serif" font-size="12" fill="#202020" >+ userId: int</text>
+<text x="102" y="704" font-family="Arial,sans-serif" font-size="12" fill="#202020" >+ petId: int?</text>
+<text x="102" y="720" font-family="Arial,sans-serif" font-size="12" fill="#202020" >+ bookingNumber: string</text>
+<text x="102" y="736" font-family="Arial,sans-serif" font-size="12" fill="#202020" >+ branchId: int</text>
+<text x="102" y="752" font-family="Arial,sans-serif" font-size="12" fill="#202020" >+ serviceType: string</text>
+<text x="102" y="768" font-family="Arial,sans-serif" font-size="12" fill="#202020" >+ bookingDate: date</text>
+<text x="102" y="784" font-family="Arial,sans-serif" font-size="12" fill="#202020" >+ bookingTime: time</text>
+<text x="102" y="800" font-family="Arial,sans-serif" font-size="12" fill="#202020" >+ status: string?</text>
+<text x="102" y="816" font-family="Arial,sans-serif" font-size="12" fill="#202020" >+ price: decimal?</text>
+<text x="102" y="832" font-family="Arial,sans-serif" font-size="12" fill="#202020" >+ veterinarianId: string?</text>
+<text x="102" y="860" font-family="Arial,sans-serif" font-size="12" fill="#202020" >+ createBooking()</text>
+<text x="102" y="876" font-family="Arial,sans-serif" font-size="12" fill="#202020" >+ updateSchedule()</text>
+<text x="102" y="892" font-family="Arial,sans-serif" font-size="12" fill="#202020" >+ updateStatus()</text>
+<text x="102" y="908" font-family="Arial,sans-serif" font-size="12" fill="#202020" >+ receiveBooking()</text>
+<text x="102" y="924" font-family="Arial,sans-serif" font-size="12" fill="#202020" >+ cancelBooking()</text>
+</g>
+<g data-class="veterinarian_profiles"><title>VeterinarianProfile</title>
+<rect x="560" y="893" width="330" height="214" fill="#ffffff" stroke="#767676" stroke-width="1.2"/>
+<line x1="560" y1="923" x2="890" y2="923" stroke="#767676" stroke-width="1"/>
+<line x1="560" y1="1047" x2="890" y2="1047" stroke="#767676" stroke-width="1"/>
+<text x="725" y="913" font-family="Arial,sans-serif" font-size="14" fill="#202020" text-anchor="middle" font-weight="600">VeterinarianProfile</text>
+<text x="572" y="940" font-family="Arial,sans-serif" font-size="12" fill="#202020" >+ profileId: int</text>
+<text x="572" y="956" font-family="Arial,sans-serif" font-size="12" fill="#202020" >+ userId: int</text>
+<text x="572" y="972" font-family="Arial,sans-serif" font-size="12" fill="#202020" >+ veterinarianId: string?</text>
+<text x="572" y="988" font-family="Arial,sans-serif" font-size="12" fill="#202020" >+ licenseNumber: string?</text>
+<text x="572" y="1004" font-family="Arial,sans-serif" font-size="12" fill="#202020" >+ specialization: string?</text>
+<text x="572" y="1020" font-family="Arial,sans-serif" font-size="12" fill="#202020" >+ consultationRate: decimal?</text>
+<text x="572" y="1036" font-family="Arial,sans-serif" font-size="12" fill="#202020" >+ isAcceptingPatients: bool?</text>
+<text x="572" y="1064" font-family="Arial,sans-serif" font-size="12" fill="#202020" >+ updateProfile()</text>
+<text x="572" y="1080" font-family="Arial,sans-serif" font-size="12" fill="#202020" >+ setAcceptingPatients()</text>
+<text x="572" y="1096" font-family="Arial,sans-serif" font-size="12" fill="#202020" >+ receivePatient()</text>
+</g>
+<g data-class="clinical_intakes"><title>PhysicalExamination / migration-defined; absent from supplied SQL export</title>
+<rect x="1030" y="723" width="330" height="342" fill="#ffffff" stroke="#767676" stroke-width="1.2"/>
+<line x1="1030" y1="753" x2="1360" y2="753" stroke="#767676" stroke-width="1"/>
+<line x1="1030" y1="957" x2="1360" y2="957" stroke="#767676" stroke-width="1"/>
+<text x="1195" y="743" font-family="Arial,sans-serif" font-size="14" fill="#202020" text-anchor="middle" font-weight="600">PhysicalExamination</text>
+<text x="1042" y="770" font-family="Arial,sans-serif" font-size="12" fill="#202020" >+ examinationId: int</text>
+<text x="1042" y="786" font-family="Arial,sans-serif" font-size="12" fill="#202020" >+ queueId: int</text>
+<text x="1042" y="802" font-family="Arial,sans-serif" font-size="12" fill="#202020" >+ petId: int</text>
+<text x="1042" y="818" font-family="Arial,sans-serif" font-size="12" fill="#202020" >+ assignedVeterinarianUserId: int</text>
+<text x="1042" y="834" font-family="Arial,sans-serif" font-size="12" fill="#202020" >+ recordedByUserId: int</text>
+<text x="1042" y="850" font-family="Arial,sans-serif" font-size="12" fill="#202020" >+ status: string</text>
+<text x="1042" y="866" font-family="Arial,sans-serif" font-size="12" fill="#202020" >+ chiefComplaint: string?</text>
+<text x="1042" y="882" font-family="Arial,sans-serif" font-size="12" fill="#202020" >+ symptoms: string?</text>
+<text x="1042" y="898" font-family="Arial,sans-serif" font-size="12" fill="#202020" >+ majorSymptoms: string?</text>
+<text x="1042" y="914" font-family="Arial,sans-serif" font-size="12" fill="#202020" >+ physicalFindings: string?</text>
+<text x="1042" y="930" font-family="Arial,sans-serif" font-size="12" fill="#202020" >+ vitalSigns: json?</text>
+<text x="1042" y="946" font-family="Arial,sans-serif" font-size="12" fill="#202020" >+ attachments: json?</text>
+<text x="1042" y="974" font-family="Arial,sans-serif" font-size="12" fill="#202020" >+ startExamination()</text>
+<text x="1042" y="990" font-family="Arial,sans-serif" font-size="12" fill="#202020" >+ saveFindings()</text>
+<text x="1042" y="1006" font-family="Arial,sans-serif" font-size="12" fill="#202020" >+ completeExamination()</text>
+<text x="1042" y="1022" font-family="Arial,sans-serif" font-size="12" fill="#202020" >+ reassignVeterinarian()</text>
+<text x="1042" y="1038" font-family="Arial,sans-serif" font-size="12" fill="#202020" >+ attachEvidence()</text>
+<text x="1042" y="1054" font-family="Arial,sans-serif" font-size="12" fill="#202020" >+ captureConsent()</text>
+</g>
+<g data-class="queues"><title>QueueEntry</title>
+<rect x="1500" y="691" width="330" height="262" fill="#ffffff" stroke="#767676" stroke-width="1.2"/>
+<line x1="1500" y1="721" x2="1830" y2="721" stroke="#767676" stroke-width="1"/>
+<line x1="1500" y1="877" x2="1830" y2="877" stroke="#767676" stroke-width="1"/>
+<text x="1665" y="711" font-family="Arial,sans-serif" font-size="14" fill="#202020" text-anchor="middle" font-weight="600">QueueEntry</text>
+<text x="1512" y="738" font-family="Arial,sans-serif" font-size="12" fill="#202020" >+ queueId: int</text>
+<text x="1512" y="754" font-family="Arial,sans-serif" font-size="12" fill="#202020" >+ petId: int</text>
+<text x="1512" y="770" font-family="Arial,sans-serif" font-size="12" fill="#202020" >+ userId: int</text>
+<text x="1512" y="786" font-family="Arial,sans-serif" font-size="12" fill="#202020" >+ bookingId: int?</text>
+<text x="1512" y="802" font-family="Arial,sans-serif" font-size="12" fill="#202020" >+ branchId: int</text>
+<text x="1512" y="818" font-family="Arial,sans-serif" font-size="12" fill="#202020" >+ queueNumber: int</text>
+<text x="1512" y="834" font-family="Arial,sans-serif" font-size="12" fill="#202020" >+ queueDate: date</text>
+<text x="1512" y="850" font-family="Arial,sans-serif" font-size="12" fill="#202020" >+ status: string?</text>
+<text x="1512" y="866" font-family="Arial,sans-serif" font-size="12" fill="#202020" >+ priority: string?</text>
+<text x="1512" y="894" font-family="Arial,sans-serif" font-size="12" fill="#202020" >+ enqueue()</text>
+<text x="1512" y="910" font-family="Arial,sans-serif" font-size="12" fill="#202020" >+ updateStatus()</text>
+<text x="1512" y="926" font-family="Arial,sans-serif" font-size="12" fill="#202020" >+ assignVeterinarian()</text>
+<text x="1512" y="942" font-family="Arial,sans-serif" font-size="12" fill="#202020" >+ reenterQueue()</text>
+</g>
+<g data-class="inventory_items"><title>InventoryItem</title>
+<rect x="1970" y="675" width="330" height="230" fill="#ffffff" stroke="#767676" stroke-width="1.2"/>
+<line x1="1970" y1="705" x2="2300" y2="705" stroke="#767676" stroke-width="1"/>
+<line x1="1970" y1="845" x2="2300" y2="845" stroke="#767676" stroke-width="1"/>
+<text x="2135" y="695" font-family="Arial,sans-serif" font-size="14" fill="#202020" text-anchor="middle" font-weight="600">InventoryItem</text>
+<text x="1982" y="722" font-family="Arial,sans-serif" font-size="12" fill="#202020" >+ itemId: int</text>
+<text x="1982" y="738" font-family="Arial,sans-serif" font-size="12" fill="#202020" >+ itemName: string</text>
+<text x="1982" y="754" font-family="Arial,sans-serif" font-size="12" fill="#202020" >+ sku: string</text>
+<text x="1982" y="770" font-family="Arial,sans-serif" font-size="12" fill="#202020" >+ category: string</text>
+<text x="1982" y="786" font-family="Arial,sans-serif" font-size="12" fill="#202020" >+ unit: string</text>
+<text x="1982" y="802" font-family="Arial,sans-serif" font-size="12" fill="#202020" >+ reorderLevel: int?</text>
+<text x="1982" y="818" font-family="Arial,sans-serif" font-size="12" fill="#202020" >+ unitCost: decimal</text>
+<text x="1982" y="834" font-family="Arial,sans-serif" font-size="12" fill="#202020" >+ status: string?</text>
+<text x="1982" y="862" font-family="Arial,sans-serif" font-size="12" fill="#202020" >+ createItem()</text>
+<text x="1982" y="878" font-family="Arial,sans-serif" font-size="12" fill="#202020" >+ updateItem()</text>
+<text x="1982" y="894" font-family="Arial,sans-serif" font-size="12" fill="#202020" >+ stockOut()</text>
+</g>
+<g data-class="booking_pets"><title>BookingPet</title>
+<rect x="90" y="999" width="330" height="134" fill="#ffffff" stroke="#767676" stroke-width="1.2"/>
+<line x1="90" y1="1029" x2="420" y2="1029" stroke="#767676" stroke-width="1"/>
+<line x1="90" y1="1105" x2="420" y2="1105" stroke="#767676" stroke-width="1"/>
+<text x="255" y="1019" font-family="Arial,sans-serif" font-size="14" fill="#202020" text-anchor="middle" font-weight="600">BookingPet</text>
+<text x="102" y="1046" font-family="Arial,sans-serif" font-size="12" fill="#202020" >+ bookingPetId: int</text>
+<text x="102" y="1062" font-family="Arial,sans-serif" font-size="12" fill="#202020" >+ bookingId: int</text>
+<text x="102" y="1078" font-family="Arial,sans-serif" font-size="12" fill="#202020" >+ petId: int</text>
+<text x="102" y="1094" font-family="Arial,sans-serif" font-size="12" fill="#202020" >+ createdAt: datetime</text>
+<text x="102" y="1122" font-family="Arial,sans-serif" font-size="12" fill="#202020" >+ attachPet()</text>
+</g>
+<g data-class="vet_schedules"><title>OnlineVetSchedule</title>
+<rect x="560" y="1171" width="330" height="166" fill="#ffffff" stroke="#767676" stroke-width="1.2"/>
+<line x1="560" y1="1201" x2="890" y2="1201" stroke="#767676" stroke-width="1"/>
+<line x1="560" y1="1293" x2="890" y2="1293" stroke="#767676" stroke-width="1"/>
+<text x="725" y="1191" font-family="Arial,sans-serif" font-size="14" fill="#202020" text-anchor="middle" font-weight="600">OnlineVetSchedule</text>
+<text x="572" y="1218" font-family="Arial,sans-serif" font-size="12" fill="#202020" >+ scheduleId: int</text>
+<text x="572" y="1234" font-family="Arial,sans-serif" font-size="12" fill="#202020" >+ userId: int</text>
+<text x="572" y="1250" font-family="Arial,sans-serif" font-size="12" fill="#202020" >+ dayOfWeek: string</text>
+<text x="572" y="1266" font-family="Arial,sans-serif" font-size="12" fill="#202020" >+ timeSlot: string</text>
+<text x="572" y="1282" font-family="Arial,sans-serif" font-size="12" fill="#202020" >+ isAvailable: bool?</text>
+<text x="572" y="1310" font-family="Arial,sans-serif" font-size="12" fill="#202020" >+ updateAvailability()</text>
+<text x="572" y="1326" font-family="Arial,sans-serif" font-size="12" fill="#202020" >+ listAvailableSlots()</text>
+</g>
+<g data-class="vet_diagnoses"><title>Diagnosis</title>
+<rect x="1030" y="1129" width="330" height="310" fill="#ffffff" stroke="#767676" stroke-width="1.2"/>
+<line x1="1030" y1="1159" x2="1360" y2="1159" stroke="#767676" stroke-width="1"/>
+<line x1="1030" y1="1347" x2="1360" y2="1347" stroke="#767676" stroke-width="1"/>
+<text x="1195" y="1149" font-family="Arial,sans-serif" font-size="14" fill="#202020" text-anchor="middle" font-weight="600">Diagnosis</text>
+<text x="1042" y="1176" font-family="Arial,sans-serif" font-size="12" fill="#202020" >+ diagnosisId: int</text>
+<text x="1042" y="1192" font-family="Arial,sans-serif" font-size="12" fill="#202020" >+ queueId: int?</text>
+<text x="1042" y="1208" font-family="Arial,sans-serif" font-size="12" fill="#202020" >+ bookingId: int?</text>
+<text x="1042" y="1224" font-family="Arial,sans-serif" font-size="12" fill="#202020" >+ petId: int</text>
+<text x="1042" y="1240" font-family="Arial,sans-serif" font-size="12" fill="#202020" >+ veterinarianUserId: int</text>
+<text x="1042" y="1256" font-family="Arial,sans-serif" font-size="12" fill="#202020" >+ chiefComplaint: string?</text>
+<text x="1042" y="1272" font-family="Arial,sans-serif" font-size="12" fill="#202020" >+ physicalExam: string?</text>
+<text x="1042" y="1288" font-family="Arial,sans-serif" font-size="12" fill="#202020" >+ diagnosis: string?</text>
+<text x="1042" y="1304" font-family="Arial,sans-serif" font-size="12" fill="#202020" >+ treatment: string?</text>
+<text x="1042" y="1320" font-family="Arial,sans-serif" font-size="12" fill="#202020" >+ prescriptions: json?</text>
+<text x="1042" y="1336" font-family="Arial,sans-serif" font-size="12" fill="#202020" >+ finalizedAt: datetime?</text>
+<text x="1042" y="1364" font-family="Arial,sans-serif" font-size="12" fill="#202020" >+ recordDiagnosis()</text>
+<text x="1042" y="1380" font-family="Arial,sans-serif" font-size="12" fill="#202020" >+ finalize()</text>
+<text x="1042" y="1396" font-family="Arial,sans-serif" font-size="12" fill="#202020" >+ viewDiagnosis()</text>
+<text x="1042" y="1412" font-family="Arial,sans-serif" font-size="12" fill="#202020" >+ addConsent()</text>
+<text x="1042" y="1428" font-family="Arial,sans-serif" font-size="12" fill="#202020" >+ printPrescription()</text>
+</g>
+<g data-class="visits"><title>Visit</title>
+<rect x="1500" y="1017" width="330" height="262" fill="#ffffff" stroke="#767676" stroke-width="1.2"/>
+<line x1="1500" y1="1047" x2="1830" y2="1047" stroke="#767676" stroke-width="1"/>
+<line x1="1500" y1="1219" x2="1830" y2="1219" stroke="#767676" stroke-width="1"/>
+<text x="1665" y="1037" font-family="Arial,sans-serif" font-size="14" fill="#202020" text-anchor="middle" font-weight="600">Visit</text>
+<text x="1512" y="1064" font-family="Arial,sans-serif" font-size="12" fill="#202020" >+ visitId: int</text>
+<text x="1512" y="1080" font-family="Arial,sans-serif" font-size="12" fill="#202020" >+ branchId: int</text>
+<text x="1512" y="1096" font-family="Arial,sans-serif" font-size="12" fill="#202020" >+ petId: int</text>
+<text x="1512" y="1112" font-family="Arial,sans-serif" font-size="12" fill="#202020" >+ ownerUserId: int</text>
+<text x="1512" y="1128" font-family="Arial,sans-serif" font-size="12" fill="#202020" >+ veterinarianUserId: int?</text>
+<text x="1512" y="1144" font-family="Arial,sans-serif" font-size="12" fill="#202020" >+ queueId: int?</text>
+<text x="1512" y="1160" font-family="Arial,sans-serif" font-size="12" fill="#202020" >+ bookingId: int?</text>
+<text x="1512" y="1176" font-family="Arial,sans-serif" font-size="12" fill="#202020" >+ diagnosisId: int?</text>
+<text x="1512" y="1192" font-family="Arial,sans-serif" font-size="12" fill="#202020" >+ visitStatus: string?</text>
+<text x="1512" y="1208" font-family="Arial,sans-serif" font-size="12" fill="#202020" >+ billingStatus: string?</text>
+<text x="1512" y="1236" font-family="Arial,sans-serif" font-size="12" fill="#202020" >+ createVisit()</text>
+<text x="1512" y="1252" font-family="Arial,sans-serif" font-size="12" fill="#202020" >+ updateStatus()</text>
+<text x="1512" y="1268" font-family="Arial,sans-serif" font-size="12" fill="#202020" >+ calculateBalance()</text>
+</g>
+<g data-class="visit_charges"><title>VisitCharge</title>
+<rect x="1970" y="969" width="330" height="230" fill="#ffffff" stroke="#767676" stroke-width="1.2"/>
+<line x1="1970" y1="999" x2="2300" y2="999" stroke="#767676" stroke-width="1"/>
+<line x1="1970" y1="1155" x2="2300" y2="1155" stroke="#767676" stroke-width="1"/>
+<text x="2135" y="989" font-family="Arial,sans-serif" font-size="14" fill="#202020" text-anchor="middle" font-weight="600">VisitCharge</text>
+<text x="1982" y="1016" font-family="Arial,sans-serif" font-size="12" fill="#202020" >+ chargeId: int</text>
+<text x="1982" y="1032" font-family="Arial,sans-serif" font-size="12" fill="#202020" >+ visitId: int</text>
+<text x="1982" y="1048" font-family="Arial,sans-serif" font-size="12" fill="#202020" >+ chargeType: string</text>
+<text x="1982" y="1064" font-family="Arial,sans-serif" font-size="12" fill="#202020" >+ serviceId: int?</text>
+<text x="1982" y="1080" font-family="Arial,sans-serif" font-size="12" fill="#202020" >+ itemId: int?</text>
+<text x="1982" y="1096" font-family="Arial,sans-serif" font-size="12" fill="#202020" >+ description: string</text>
+<text x="1982" y="1112" font-family="Arial,sans-serif" font-size="12" fill="#202020" >+ quantity: decimal</text>
+<text x="1982" y="1128" font-family="Arial,sans-serif" font-size="12" fill="#202020" >+ unitPrice: decimal</text>
+<text x="1982" y="1144" font-family="Arial,sans-serif" font-size="12" fill="#202020" >+ subtotal: decimal</text>
+<text x="1982" y="1172" font-family="Arial,sans-serif" font-size="12" fill="#202020" >+ saveCharges()</text>
+<text x="1982" y="1188" font-family="Arial,sans-serif" font-size="12" fill="#202020" >+ replaceCharges()</text>
+</g>
+<g data-class="online_consultations"><title>OnlineConsultation</title>
+<rect x="90" y="1197" width="330" height="246" fill="#ffffff" stroke="#767676" stroke-width="1.2"/>
+<line x1="90" y1="1227" x2="420" y2="1227" stroke="#767676" stroke-width="1"/>
+<line x1="90" y1="1367" x2="420" y2="1367" stroke="#767676" stroke-width="1"/>
+<text x="255" y="1217" font-family="Arial,sans-serif" font-size="14" fill="#202020" text-anchor="middle" font-weight="600">OnlineConsultation</text>
+<text x="102" y="1244" font-family="Arial,sans-serif" font-size="12" fill="#202020" >+ consultationId: int</text>
+<text x="102" y="1260" font-family="Arial,sans-serif" font-size="12" fill="#202020" >+ bookingId: int</text>
+<text x="102" y="1276" font-family="Arial,sans-serif" font-size="12" fill="#202020" >+ ownerUserId: int</text>
+<text x="102" y="1292" font-family="Arial,sans-serif" font-size="12" fill="#202020" >+ veterinarianUserId: int</text>
+<text x="102" y="1308" font-family="Arial,sans-serif" font-size="12" fill="#202020" >+ scheduledStart: datetime</text>
+<text x="102" y="1324" font-family="Arial,sans-serif" font-size="12" fill="#202020" >+ scheduledEnd: datetime</text>
+<text x="102" y="1340" font-family="Arial,sans-serif" font-size="12" fill="#202020" >+ meetingUrl: string?</text>
+<text x="102" y="1356" font-family="Arial,sans-serif" font-size="12" fill="#202020" >+ status: string?</text>
+<text x="102" y="1384" font-family="Arial,sans-serif" font-size="12" fill="#202020" >+ start()</text>
+<text x="102" y="1400" font-family="Arial,sans-serif" font-size="12" fill="#202020" >+ join()</text>
+<text x="102" y="1416" font-family="Arial,sans-serif" font-size="12" fill="#202020" >+ end()</text>
+<text x="102" y="1432" font-family="Arial,sans-serif" font-size="12" fill="#202020" >+ submitDiagnosis()</text>
+</g>
+<g data-class="vet_queue_assignments"><title>VetQueueAssignment</title>
+<rect x="560" y="1401" width="330" height="214" fill="#ffffff" stroke="#767676" stroke-width="1.2"/>
+<line x1="560" y1="1431" x2="890" y2="1431" stroke="#767676" stroke-width="1"/>
+<line x1="560" y1="1555" x2="890" y2="1555" stroke="#767676" stroke-width="1"/>
+<text x="725" y="1421" font-family="Arial,sans-serif" font-size="14" fill="#202020" text-anchor="middle" font-weight="600">VetQueueAssignment</text>
+<text x="572" y="1448" font-family="Arial,sans-serif" font-size="12" fill="#202020" >+ assignmentId: int</text>
+<text x="572" y="1464" font-family="Arial,sans-serif" font-size="12" fill="#202020" >+ queueId: int</text>
+<text x="572" y="1480" font-family="Arial,sans-serif" font-size="12" fill="#202020" >+ veterinarianUserId: int</text>
+<text x="572" y="1496" font-family="Arial,sans-serif" font-size="12" fill="#202020" >+ status: string?</text>
+<text x="572" y="1512" font-family="Arial,sans-serif" font-size="12" fill="#202020" >+ receivedAt: datetime?</text>
+<text x="572" y="1528" font-family="Arial,sans-serif" font-size="12" fill="#202020" >+ returnedAt: datetime?</text>
+<text x="572" y="1544" font-family="Arial,sans-serif" font-size="12" fill="#202020" >+ completedAt: datetime?</text>
+<text x="572" y="1572" font-family="Arial,sans-serif" font-size="12" fill="#202020" >+ receive()</text>
+<text x="572" y="1588" font-family="Arial,sans-serif" font-size="12" fill="#202020" >+ returnQueue()</text>
+<text x="572" y="1604" font-family="Arial,sans-serif" font-size="12" fill="#202020" >+ complete()</text>
+</g>
+<g data-class="prescription_plans"><title>PrescriptionPlan</title>
+<rect x="1030" y="1503" width="330" height="262" fill="#ffffff" stroke="#767676" stroke-width="1.2"/>
+<line x1="1030" y1="1533" x2="1360" y2="1533" stroke="#767676" stroke-width="1"/>
+<line x1="1030" y1="1689" x2="1360" y2="1689" stroke="#767676" stroke-width="1"/>
+<text x="1195" y="1523" font-family="Arial,sans-serif" font-size="14" fill="#202020" text-anchor="middle" font-weight="600">PrescriptionPlan</text>
+<text x="1042" y="1550" font-family="Arial,sans-serif" font-size="12" fill="#202020" >+ planId: int</text>
+<text x="1042" y="1566" font-family="Arial,sans-serif" font-size="12" fill="#202020" >+ petId: int</text>
+<text x="1042" y="1582" font-family="Arial,sans-serif" font-size="12" fill="#202020" >+ ownerUserId: int?</text>
+<text x="1042" y="1598" font-family="Arial,sans-serif" font-size="12" fill="#202020" >+ veterinarianUserId: int</text>
+<text x="1042" y="1614" font-family="Arial,sans-serif" font-size="12" fill="#202020" >+ sourceType: string</text>
+<text x="1042" y="1630" font-family="Arial,sans-serif" font-size="12" fill="#202020" >+ sourceRecordId: int</text>
+<text x="1042" y="1646" font-family="Arial,sans-serif" font-size="12" fill="#202020" >+ versionNumber: int</text>
+<text x="1042" y="1662" font-family="Arial,sans-serif" font-size="12" fill="#202020" >+ status: string</text>
+<text x="1042" y="1678" font-family="Arial,sans-serif" font-size="12" fill="#202020" >+ supersedesPlanId: int?</text>
+<text x="1042" y="1706" font-family="Arial,sans-serif" font-size="12" fill="#202020" >+ syncFromDiagnosis()</text>
+<text x="1042" y="1722" font-family="Arial,sans-serif" font-size="12" fill="#202020" >+ startSelectedItems()</text>
+<text x="1042" y="1738" font-family="Arial,sans-serif" font-size="12" fill="#202020" >+ amend()</text>
+<text x="1042" y="1754" font-family="Arial,sans-serif" font-size="12" fill="#202020" >+ notifyOwner()</text>
+</g>
+<g data-class="visit_payments"><title>VisitPayment</title>
+<rect x="1500" y="1343" width="330" height="198" fill="#ffffff" stroke="#767676" stroke-width="1.2"/>
+<line x1="1500" y1="1373" x2="1830" y2="1373" stroke="#767676" stroke-width="1"/>
+<line x1="1500" y1="1497" x2="1830" y2="1497" stroke="#767676" stroke-width="1"/>
+<text x="1665" y="1363" font-family="Arial,sans-serif" font-size="14" fill="#202020" text-anchor="middle" font-weight="600">VisitPayment</text>
+<text x="1512" y="1390" font-family="Arial,sans-serif" font-size="12" fill="#202020" >+ paymentId: int</text>
+<text x="1512" y="1406" font-family="Arial,sans-serif" font-size="12" fill="#202020" >+ visitId: int</text>
+<text x="1512" y="1422" font-family="Arial,sans-serif" font-size="12" fill="#202020" >+ paymentMethod: string</text>
+<text x="1512" y="1438" font-family="Arial,sans-serif" font-size="12" fill="#202020" >+ paymentStatus: string</text>
+<text x="1512" y="1454" font-family="Arial,sans-serif" font-size="12" fill="#202020" >+ amount: decimal</text>
+<text x="1512" y="1470" font-family="Arial,sans-serif" font-size="12" fill="#202020" >+ referenceNumber: string?</text>
+<text x="1512" y="1486" font-family="Arial,sans-serif" font-size="12" fill="#202020" >+ paidAt: datetime</text>
+<text x="1512" y="1514" font-family="Arial,sans-serif" font-size="12" fill="#202020" >+ recordPayment()</text>
+<text x="1512" y="1530" font-family="Arial,sans-serif" font-size="12" fill="#202020" >+ requestRefund()</text>
+</g>
+<g data-class="visit_payment_refunds"><title>VisitPaymentRefund</title>
+<rect x="1970" y="1263" width="330" height="182" fill="#ffffff" stroke="#767676" stroke-width="1.2"/>
+<line x1="1970" y1="1293" x2="2300" y2="1293" stroke="#767676" stroke-width="1"/>
+<line x1="1970" y1="1417" x2="2300" y2="1417" stroke="#767676" stroke-width="1"/>
+<text x="2135" y="1283" font-family="Arial,sans-serif" font-size="14" fill="#202020" text-anchor="middle" font-weight="600">VisitPaymentRefund</text>
+<text x="1982" y="1310" font-family="Arial,sans-serif" font-size="12" fill="#202020" >+ refundId: int</text>
+<text x="1982" y="1326" font-family="Arial,sans-serif" font-size="12" fill="#202020" >+ visitPaymentId: int</text>
+<text x="1982" y="1342" font-family="Arial,sans-serif" font-size="12" fill="#202020" >+ visitId: int</text>
+<text x="1982" y="1358" font-family="Arial,sans-serif" font-size="12" fill="#202020" >+ amount: decimal</text>
+<text x="1982" y="1374" font-family="Arial,sans-serif" font-size="12" fill="#202020" >+ refundMethod: string</text>
+<text x="1982" y="1390" font-family="Arial,sans-serif" font-size="12" fill="#202020" >+ reason: string</text>
+<text x="1982" y="1406" font-family="Arial,sans-serif" font-size="12" fill="#202020" >+ refundStatus: string</text>
+<text x="1982" y="1434" font-family="Arial,sans-serif" font-size="12" fill="#202020" >+ processRefund()</text>
+</g>
+<g data-class="online_consultation_diagnoses"><title>OnlineDiagnosis</title>
+<rect x="90" y="1507" width="330" height="198" fill="#ffffff" stroke="#767676" stroke-width="1.2"/>
+<line x1="90" y1="1537" x2="420" y2="1537" stroke="#767676" stroke-width="1"/>
+<line x1="90" y1="1661" x2="420" y2="1661" stroke="#767676" stroke-width="1"/>
+<text x="255" y="1527" font-family="Arial,sans-serif" font-size="14" fill="#202020" text-anchor="middle" font-weight="600">OnlineDiagnosis</text>
+<text x="102" y="1554" font-family="Arial,sans-serif" font-size="12" fill="#202020" >+ diagnosisId: int</text>
+<text x="102" y="1570" font-family="Arial,sans-serif" font-size="12" fill="#202020" >+ consultationId: int</text>
+<text x="102" y="1586" font-family="Arial,sans-serif" font-size="12" fill="#202020" >+ veterinarianUserId: int</text>
+<text x="102" y="1602" font-family="Arial,sans-serif" font-size="12" fill="#202020" >+ diagnosis: string</text>
+<text x="102" y="1618" font-family="Arial,sans-serif" font-size="12" fill="#202020" >+ treatment: string?</text>
+<text x="102" y="1634" font-family="Arial,sans-serif" font-size="12" fill="#202020" >+ medications: string?</text>
+<text x="102" y="1650" font-family="Arial,sans-serif" font-size="12" fill="#202020" >+ finalizedAt: datetime?</text>
+<text x="102" y="1678" font-family="Arial,sans-serif" font-size="12" fill="#202020" >+ recordDiagnosis()</text>
+<text x="102" y="1694" font-family="Arial,sans-serif" font-size="12" fill="#202020" >+ issuePrescription()</text>
+</g>
+<g data-class="consent_form_records"><title>ConsentRecord</title>
+<rect x="560" y="1679" width="330" height="230" fill="#ffffff" stroke="#767676" stroke-width="1.2"/>
+<line x1="560" y1="1709" x2="890" y2="1709" stroke="#767676" stroke-width="1"/>
+<line x1="560" y1="1865" x2="890" y2="1865" stroke="#767676" stroke-width="1"/>
+<text x="725" y="1699" font-family="Arial,sans-serif" font-size="14" fill="#202020" text-anchor="middle" font-weight="600">ConsentRecord</text>
+<text x="572" y="1726" font-family="Arial,sans-serif" font-size="12" fill="#202020" >+ consentId: int</text>
+<text x="572" y="1742" font-family="Arial,sans-serif" font-size="12" fill="#202020" >+ templateId: int?</text>
+<text x="572" y="1758" font-family="Arial,sans-serif" font-size="12" fill="#202020" >+ queueId: int?</text>
+<text x="572" y="1774" font-family="Arial,sans-serif" font-size="12" fill="#202020" >+ visitId: int?</text>
+<text x="572" y="1790" font-family="Arial,sans-serif" font-size="12" fill="#202020" >+ ownerUserId: int?</text>
+<text x="572" y="1806" font-family="Arial,sans-serif" font-size="12" fill="#202020" >+ petId: int?</text>
+<text x="572" y="1822" font-family="Arial,sans-serif" font-size="12" fill="#202020" >+ status: string</text>
+<text x="572" y="1838" font-family="Arial,sans-serif" font-size="12" fill="#202020" >+ signedFilePath: string?</text>
+<text x="572" y="1854" font-family="Arial,sans-serif" font-size="12" fill="#202020" >+ processedByUserId: int?</text>
+<text x="572" y="1882" font-family="Arial,sans-serif" font-size="12" fill="#202020" >+ saveSignedConsent()</text>
+<text x="572" y="1898" font-family="Arial,sans-serif" font-size="12" fill="#202020" >+ validateDocumentScope()</text>
+</g>
+<g data-class="prescription_items"><title>PrescriptionItem</title>
+<rect x="1030" y="1829" width="330" height="310" fill="#ffffff" stroke="#767676" stroke-width="1.2"/>
+<line x1="1030" y1="1859" x2="1360" y2="1859" stroke="#767676" stroke-width="1"/>
+<line x1="1030" y1="2079" x2="1360" y2="2079" stroke="#767676" stroke-width="1"/>
+<text x="1195" y="1849" font-family="Arial,sans-serif" font-size="14" fill="#202020" text-anchor="middle" font-weight="600">PrescriptionItem</text>
+<text x="1042" y="1876" font-family="Arial,sans-serif" font-size="12" fill="#202020" >+ itemId: int</text>
+<text x="1042" y="1892" font-family="Arial,sans-serif" font-size="12" fill="#202020" >+ planId: int</text>
+<text x="1042" y="1908" font-family="Arial,sans-serif" font-size="12" fill="#202020" >+ medicine: string</text>
+<text x="1042" y="1924" font-family="Arial,sans-serif" font-size="12" fill="#202020" >+ dose: string?</text>
+<text x="1042" y="1940" font-family="Arial,sans-serif" font-size="12" fill="#202020" >+ route: string?</text>
+<text x="1042" y="1956" font-family="Arial,sans-serif" font-size="12" fill="#202020" >+ timesCount: int</text>
+<text x="1042" y="1972" font-family="Arial,sans-serif" font-size="12" fill="#202020" >+ scheduleType: string</text>
+<text x="1042" y="1988" font-family="Arial,sans-serif" font-size="12" fill="#202020" >+ timeSlots: json?</text>
+<text x="1042" y="2004" font-family="Arial,sans-serif" font-size="12" fill="#202020" >+ daysOfWeek: json?</text>
+<text x="1042" y="2020" font-family="Arial,sans-serif" font-size="12" fill="#202020" >+ startAt: datetime?</text>
+<text x="1042" y="2036" font-family="Arial,sans-serif" font-size="12" fill="#202020" >+ endAt: datetime?</text>
+<text x="1042" y="2052" font-family="Arial,sans-serif" font-size="12" fill="#202020" >+ status: string</text>
+<text x="1042" y="2068" font-family="Arial,sans-serif" font-size="12" fill="#202020" >+ replacesItemId: int?</text>
+<text x="1042" y="2096" font-family="Arial,sans-serif" font-size="12" fill="#202020" >+ startItem()</text>
+<text x="1042" y="2112" font-family="Arial,sans-serif" font-size="12" fill="#202020" >+ updateItem()</text>
+<text x="1042" y="2128" font-family="Arial,sans-serif" font-size="12" fill="#202020" >+ generateOccurrences()</text>
+</g>
+<g data-class="prescription_occurrences"><title>PrescriptionOccurrence</title>
+<rect x="1500" y="1605" width="330" height="166" fill="#ffffff" stroke="#767676" stroke-width="1.2"/>
+<line x1="1500" y1="1635" x2="1830" y2="1635" stroke="#767676" stroke-width="1"/>
+<line x1="1500" y1="1727" x2="1830" y2="1727" stroke="#767676" stroke-width="1"/>
+<text x="1665" y="1625" font-family="Arial,sans-serif" font-size="14" fill="#202020" text-anchor="middle" font-weight="600">PrescriptionOccurrence</text>
+<text x="1512" y="1652" font-family="Arial,sans-serif" font-size="12" fill="#202020" >+ occurrenceId: int</text>
+<text x="1512" y="1668" font-family="Arial,sans-serif" font-size="12" fill="#202020" >+ itemId: int</text>
+<text x="1512" y="1684" font-family="Arial,sans-serif" font-size="12" fill="#202020" >+ dueAt: datetime</text>
+<text x="1512" y="1700" font-family="Arial,sans-serif" font-size="12" fill="#202020" >+ status: string</text>
+<text x="1512" y="1716" font-family="Arial,sans-serif" font-size="12" fill="#202020" >+ completedAt: datetime?</text>
+<text x="1512" y="1744" font-family="Arial,sans-serif" font-size="12" fill="#202020" >+ markDone()</text>
+<text x="1512" y="1760" font-family="Arial,sans-serif" font-size="12" fill="#202020" >+ skipOccurrence()</text>
+</g>
+<g data-class="user_notifications"><title>Notification</title>
+<rect x="1970" y="1509" width="330" height="214" fill="#ffffff" stroke="#767676" stroke-width="1.2"/>
+<line x1="1970" y1="1539" x2="2300" y2="1539" stroke="#767676" stroke-width="1"/>
+<line x1="1970" y1="1663" x2="2300" y2="1663" stroke="#767676" stroke-width="1"/>
+<text x="2135" y="1529" font-family="Arial,sans-serif" font-size="14" fill="#202020" text-anchor="middle" font-weight="600">Notification</text>
+<text x="1982" y="1556" font-family="Arial,sans-serif" font-size="12" fill="#202020" >+ notificationId: int</text>
+<text x="1982" y="1572" font-family="Arial,sans-serif" font-size="12" fill="#202020" >+ userId: int</text>
+<text x="1982" y="1588" font-family="Arial,sans-serif" font-size="12" fill="#202020" >+ type: string</text>
+<text x="1982" y="1604" font-family="Arial,sans-serif" font-size="12" fill="#202020" >+ title: string</text>
+<text x="1982" y="1620" font-family="Arial,sans-serif" font-size="12" fill="#202020" >+ message: string?</text>
+<text x="1982" y="1636" font-family="Arial,sans-serif" font-size="12" fill="#202020" >+ redirectPath: string?</text>
+<text x="1982" y="1652" font-family="Arial,sans-serif" font-size="12" fill="#202020" >+ readAt: datetime?</text>
+<text x="1982" y="1680" font-family="Arial,sans-serif" font-size="12" fill="#202020" >+ notify()</text>
+<text x="1982" y="1696" font-family="Arial,sans-serif" font-size="12" fill="#202020" >+ markRead()</text>
+<text x="1982" y="1712" font-family="Arial,sans-serif" font-size="12" fill="#202020" >+ markAllRead()</text>
+</g>
+<g data-class="consent_files"><title>ConsentTemplate</title>
+<rect x="90" y="1769" width="330" height="166" fill="#ffffff" stroke="#767676" stroke-width="1.2"/>
+<line x1="90" y1="1799" x2="420" y2="1799" stroke="#767676" stroke-width="1"/>
+<line x1="90" y1="1875" x2="420" y2="1875" stroke="#767676" stroke-width="1"/>
+<text x="255" y="1789" font-family="Arial,sans-serif" font-size="14" fill="#202020" text-anchor="middle" font-weight="600">ConsentTemplate</text>
+<text x="102" y="1816" font-family="Arial,sans-serif" font-size="12" fill="#202020" >+ templateId: int</text>
+<text x="102" y="1832" font-family="Arial,sans-serif" font-size="12" fill="#202020" >+ fileName: string</text>
+<text x="102" y="1848" font-family="Arial,sans-serif" font-size="12" fill="#202020" >+ content: string?</text>
+<text x="102" y="1864" font-family="Arial,sans-serif" font-size="12" fill="#202020" >+ category: string?</text>
+<text x="102" y="1892" font-family="Arial,sans-serif" font-size="12" fill="#202020" >+ createTemplate()</text>
+<text x="102" y="1908" font-family="Arial,sans-serif" font-size="12" fill="#202020" >+ updateTemplate()</text>
+<text x="102" y="1924" font-family="Arial,sans-serif" font-size="12" fill="#202020" >+ deleteTemplate()</text>
+</g>
+<g data-class="branch_operating_hours"><title>BranchOperatingHour</title>
+<rect x="560" y="1973" width="330" height="166" fill="#ffffff" stroke="#767676" stroke-width="1.2"/>
+<line x1="560" y1="2003" x2="890" y2="2003" stroke="#767676" stroke-width="1"/>
+<line x1="560" y1="2111" x2="890" y2="2111" stroke="#767676" stroke-width="1"/>
+<text x="725" y="1993" font-family="Arial,sans-serif" font-size="14" fill="#202020" text-anchor="middle" font-weight="600">BranchOperatingHour</text>
+<text x="572" y="2020" font-family="Arial,sans-serif" font-size="12" fill="#202020" >+ operatingHourId: int</text>
+<text x="572" y="2036" font-family="Arial,sans-serif" font-size="12" fill="#202020" >+ branchId: int</text>
+<text x="572" y="2052" font-family="Arial,sans-serif" font-size="12" fill="#202020" >+ dayOfWeek: int</text>
+<text x="572" y="2068" font-family="Arial,sans-serif" font-size="12" fill="#202020" >+ opensAt: time?</text>
+<text x="572" y="2084" font-family="Arial,sans-serif" font-size="12" fill="#202020" >+ closesAt: time?</text>
+<text x="572" y="2100" font-family="Arial,sans-serif" font-size="12" fill="#202020" >+ isClosed: bool</text>
+<text x="572" y="2128" font-family="Arial,sans-serif" font-size="12" fill="#202020" >+ checkClinicHours()</text>
+</g>
+<g data-class="pet_owner_todos"><title>PetOwnerTodo</title>
+<rect x="1030" y="2203" width="330" height="214" fill="#ffffff" stroke="#767676" stroke-width="1.2"/>
+<line x1="1030" y1="2233" x2="1360" y2="2233" stroke="#767676" stroke-width="1"/>
+<line x1="1030" y1="2357" x2="1360" y2="2357" stroke="#767676" stroke-width="1"/>
+<text x="1195" y="2223" font-family="Arial,sans-serif" font-size="14" fill="#202020" text-anchor="middle" font-weight="600">PetOwnerTodo</text>
+<text x="1042" y="2250" font-family="Arial,sans-serif" font-size="12" fill="#202020" >+ todoId: int</text>
+<text x="1042" y="2266" font-family="Arial,sans-serif" font-size="12" fill="#202020" >+ userId: int</text>
+<text x="1042" y="2282" font-family="Arial,sans-serif" font-size="12" fill="#202020" >+ title: string</text>
+<text x="1042" y="2298" font-family="Arial,sans-serif" font-size="12" fill="#202020" >+ category: string</text>
+<text x="1042" y="2314" font-family="Arial,sans-serif" font-size="12" fill="#202020" >+ startAt: datetime</text>
+<text x="1042" y="2330" font-family="Arial,sans-serif" font-size="12" fill="#202020" >+ endAt: datetime?</text>
+<text x="1042" y="2346" font-family="Arial,sans-serif" font-size="12" fill="#202020" >+ status: string</text>
+<text x="1042" y="2374" font-family="Arial,sans-serif" font-size="12" fill="#202020" >+ createTodo()</text>
+<text x="1042" y="2390" font-family="Arial,sans-serif" font-size="12" fill="#202020" >+ updateTodo()</text>
+<text x="1042" y="2406" font-family="Arial,sans-serif" font-size="12" fill="#202020" >+ deleteTodo()</text>
+</g>
+<g data-class="domain:booking_scheduler"><title>BookingScheduler</title>
+<rect x="1500" y="1835" width="330" height="130" fill="#ffffff" stroke="#767676" stroke-width="1.2"/>
+<line x1="1500" y1="1865" x2="1830" y2="1865" stroke="#767676" stroke-width="1"/>
+<line x1="1500" y1="1889" x2="1830" y2="1889" stroke="#767676" stroke-width="1"/>
+<text x="1665" y="1855" font-family="Arial,sans-serif" font-size="14" fill="#202020" text-anchor="middle" font-weight="600">BookingScheduler</text>
+<text x="1512" y="1906" font-family="Arial,sans-serif" font-size="12" fill="#202020" >+ findAvailableVets()</text>
+<text x="1512" y="1922" font-family="Arial,sans-serif" font-size="12" fill="#202020" >+ checkCapacity()</text>
+<text x="1512" y="1938" font-family="Arial,sans-serif" font-size="12" fill="#202020" >+ reserveVet()</text>
+<text x="1512" y="1954" font-family="Arial,sans-serif" font-size="12" fill="#202020" >+ getOnlineSlots()</text>
+</g>
+<g data-class="domain:report_generator"><title>ReportGenerator</title>
+<rect x="1970" y="1787" width="330" height="98" fill="#ffffff" stroke="#767676" stroke-width="1.2"/>
+<line x1="1970" y1="1817" x2="2300" y2="1817" stroke="#767676" stroke-width="1"/>
+<line x1="1970" y1="1841" x2="2300" y2="1841" stroke="#767676" stroke-width="1"/>
+<text x="2135" y="1807" font-family="Arial,sans-serif" font-size="14" fill="#202020" text-anchor="middle" font-weight="600">ReportGenerator</text>
+<text x="1982" y="1858" font-family="Arial,sans-serif" font-size="12" fill="#202020" >+ generateReport()</text>
+<text x="1982" y="1874" font-family="Arial,sans-serif" font-size="12" fill="#202020" >+ buildDashboard()</text>
+</g>
+<text x="432" y="650" font-family="Consolas,monospace" font-size="11.5" fill="#202020" data-relationship="system-class-diagram-edge-0" data-endpoint="start">0..*</text>
+<text x="432" y="196" font-family="Consolas,monospace" font-size="11.5" fill="#202020" data-relationship="system-class-diagram-edge-0" data-endpoint="end">1</text>
+<text x="432" y="668" font-family="Consolas,monospace" font-size="11.5" fill="#202020" data-relationship="system-class-diagram-edge-1" data-endpoint="start">0..*</text>
+<text x="539" y="196" font-family="Consolas,monospace" font-size="11.5" fill="#202020" data-relationship="system-class-diagram-edge-1" data-endpoint="end">1</text>
+<text x="432" y="686" font-family="Consolas,monospace" font-size="11.5" fill="#202020" data-relationship="system-class-diagram-edge-2" data-endpoint="start">0..*</text>
+<text x="988" y="160" font-family="Consolas,monospace" font-size="11.5" fill="#202020" data-relationship="system-class-diagram-edge-2" data-endpoint="end">0..1</text>
+<text x="432" y="704" font-family="Consolas,monospace" font-size="11.5" fill="#202020" data-relationship="system-class-diagram-edge-3" data-endpoint="start">0..*</text>
+<text x="432" y="214" font-family="Consolas,monospace" font-size="11.5" fill="#202020" data-relationship="system-class-diagram-edge-3" data-endpoint="end">0..1</text>
+<text x="432" y="1042" font-family="Consolas,monospace" font-size="11.5" fill="#202020" data-relationship="system-class-diagram-edge-4" data-endpoint="start">0..*</text>
+<text x="432" y="776" font-family="Consolas,monospace" font-size="11.5" fill="#202020" data-relationship="system-class-diagram-edge-4" data-endpoint="end">1</text>
+<text x="432" y="1024" font-family="Consolas,monospace" font-size="11.5" fill="#202020" data-relationship="system-class-diagram-edge-5" data-endpoint="start">0..*</text>
+<text x="1009" y="178" font-family="Consolas,monospace" font-size="11.5" fill="#202020" data-relationship="system-class-diagram-edge-5" data-endpoint="end">1</text>
+<text x="518" y="1998" font-family="Consolas,monospace" font-size="11.5" fill="#202020" data-relationship="system-class-diagram-edge-6" data-endpoint="start">0..*</text>
+<text x="432" y="322" font-family="Consolas,monospace" font-size="11.5" fill="#202020" data-relationship="system-class-diagram-edge-6" data-endpoint="end">1</text>
+<text x="1928" y="700" font-family="Consolas,monospace" font-size="11.5" fill="#202020" data-relationship="system-class-diagram-edge-7" data-endpoint="start">0..*</text>
+<text x="902" y="232" font-family="Consolas,monospace" font-size="11.5" fill="#202020" data-relationship="system-class-diagram-edge-7" data-endpoint="end">1</text>
+<text x="432" y="1258" font-family="Consolas,monospace" font-size="11.5" fill="#202020" data-relationship="system-class-diagram-edge-8" data-endpoint="start">0..1</text>
+<text x="432" y="830" font-family="Consolas,monospace" font-size="11.5" fill="#202020" data-relationship="system-class-diagram-edge-8" data-endpoint="end">1</text>
+<text x="432" y="1240" font-family="Consolas,monospace" font-size="11.5" fill="#202020" data-relationship="system-class-diagram-edge-9" data-endpoint="start">0..*</text>
+<text x="539" y="250" font-family="Consolas,monospace" font-size="11.5" fill="#202020" data-relationship="system-class-diagram-edge-9" data-endpoint="end">1</text>
+<text x="432" y="1222" font-family="Consolas,monospace" font-size="11.5" fill="#202020" data-relationship="system-class-diagram-edge-10" data-endpoint="start">0..*</text>
+<text x="539" y="232" font-family="Consolas,monospace" font-size="11.5" fill="#202020" data-relationship="system-class-diagram-edge-10" data-endpoint="end">1</text>
+<text x="432" y="1568" font-family="Consolas,monospace" font-size="11.5" fill="#202020" data-relationship="system-class-diagram-edge-11" data-endpoint="start">0..1</text>
+<text x="432" y="1276" font-family="Consolas,monospace" font-size="11.5" fill="#202020" data-relationship="system-class-diagram-edge-11" data-endpoint="end">1</text>
+<text x="432" y="1550" font-family="Consolas,monospace" font-size="11.5" fill="#202020" data-relationship="system-class-diagram-edge-12" data-endpoint="start">0..*</text>
+<text x="432" y="848" font-family="Consolas,monospace" font-size="11.5" fill="#202020" data-relationship="system-class-diagram-edge-12" data-endpoint="end">1</text>
+<text x="432" y="1532" font-family="Consolas,monospace" font-size="11.5" fill="#202020" data-relationship="system-class-diagram-edge-13" data-endpoint="start">0..*</text>
+<text x="539" y="268" font-family="Consolas,monospace" font-size="11.5" fill="#202020" data-relationship="system-class-diagram-edge-13" data-endpoint="end">1</text>
+<text x="1928" y="160" font-family="Consolas,monospace" font-size="11.5" fill="#202020" data-relationship="system-class-diagram-edge-14" data-endpoint="start">0..*</text>
+<text x="1372" y="160" font-family="Consolas,monospace" font-size="11.5" fill="#202020" data-relationship="system-class-diagram-edge-14" data-endpoint="end">1</text>
+<text x="1842" y="438" font-family="Consolas,monospace" font-size="11.5" fill="#202020" data-relationship="system-class-diagram-edge-15" data-endpoint="start">0..*</text>
+<text x="1949" y="178" font-family="Consolas,monospace" font-size="11.5" fill="#202020" data-relationship="system-class-diagram-edge-15" data-endpoint="end">1</text>
+<text x="988" y="486" font-family="Consolas,monospace" font-size="11.5" fill="#202020" data-relationship="system-class-diagram-edge-16" data-endpoint="start">0..*</text>
+<text x="902" y="178" font-family="Consolas,monospace" font-size="11.5" fill="#202020" data-relationship="system-class-diagram-edge-16" data-endpoint="end">0..1</text>
+<text x="1372" y="486" font-family="Consolas,monospace" font-size="11.5" fill="#202020" data-relationship="system-class-diagram-edge-17" data-endpoint="start">0..*</text>
+<text x="1372" y="196" font-family="Consolas,monospace" font-size="11.5" fill="#202020" data-relationship="system-class-diagram-edge-17" data-endpoint="end">0..1</text>
+<text x="988" y="2228" font-family="Consolas,monospace" font-size="11.5" fill="#202020" data-relationship="system-class-diagram-edge-18" data-endpoint="start">0..*</text>
+<text x="902" y="574" font-family="Consolas,monospace" font-size="11.5" fill="#202020" data-relationship="system-class-diagram-edge-18" data-endpoint="end">1</text>
+<text x="1458" y="160" font-family="Consolas,monospace" font-size="11.5" fill="#202020" data-relationship="system-class-diagram-edge-19" data-endpoint="start">0..*</text>
+<text x="1372" y="178" font-family="Consolas,monospace" font-size="11.5" fill="#202020" data-relationship="system-class-diagram-edge-19" data-endpoint="end">1</text>
+<text x="1372" y="1854" font-family="Consolas,monospace" font-size="11.5" fill="#202020" data-relationship="system-class-diagram-edge-20" data-endpoint="start">0..*</text>
+<text x="1372" y="1600" font-family="Consolas,monospace" font-size="11.5" fill="#202020" data-relationship="system-class-diagram-edge-20" data-endpoint="end">1</text>
+<text x="1372" y="1908" font-family="Consolas,monospace" font-size="11.5" fill="#202020" data-relationship="system-class-diagram-edge-21" data-endpoint="start">0..*</text>
+<text x="1372" y="1890" font-family="Consolas,monospace" font-size="11.5" fill="#202020" data-relationship="system-class-diagram-edge-21" data-endpoint="end">0..1</text>
+<text x="1458" y="1630" font-family="Consolas,monospace" font-size="11.5" fill="#202020" data-relationship="system-class-diagram-edge-22" data-endpoint="start">0..*</text>
+<text x="902" y="520" font-family="Consolas,monospace" font-size="11.5" fill="#202020" data-relationship="system-class-diagram-edge-22" data-endpoint="end">0..1</text>
+<text x="1458" y="1648" font-family="Consolas,monospace" font-size="11.5" fill="#202020" data-relationship="system-class-diagram-edge-23" data-endpoint="start">0..*</text>
+<text x="1372" y="1872" font-family="Consolas,monospace" font-size="11.5" fill="#202020" data-relationship="system-class-diagram-edge-23" data-endpoint="end">1</text>
+<text x="988" y="1528" font-family="Consolas,monospace" font-size="11.5" fill="#202020" data-relationship="system-class-diagram-edge-24" data-endpoint="start">0..*</text>
+<text x="902" y="466" font-family="Consolas,monospace" font-size="11.5" fill="#202020" data-relationship="system-class-diagram-edge-24" data-endpoint="end">0..1</text>
+<text x="1372" y="1528" font-family="Consolas,monospace" font-size="11.5" fill="#202020" data-relationship="system-class-diagram-edge-25" data-endpoint="start">0..*</text>
+<text x="1372" y="286" font-family="Consolas,monospace" font-size="11.5" fill="#202020" data-relationship="system-class-diagram-edge-25" data-endpoint="end">1</text>
+<text x="1372" y="1582" font-family="Consolas,monospace" font-size="11.5" fill="#202020" data-relationship="system-class-diagram-edge-26" data-endpoint="start">0..*</text>
+<text x="1372" y="1564" font-family="Consolas,monospace" font-size="11.5" fill="#202020" data-relationship="system-class-diagram-edge-26" data-endpoint="end">0..1</text>
+<text x="988" y="1546" font-family="Consolas,monospace" font-size="11.5" fill="#202020" data-relationship="system-class-diagram-edge-27" data-endpoint="start">0..*</text>
+<text x="902" y="484" font-family="Consolas,monospace" font-size="11.5" fill="#202020" data-relationship="system-class-diagram-edge-27" data-endpoint="end">1</text>
+<text x="1458" y="770" font-family="Consolas,monospace" font-size="11.5" fill="#202020" data-relationship="system-class-diagram-edge-28" data-endpoint="start">0..*</text>
+<text x="432" y="740" font-family="Consolas,monospace" font-size="11.5" fill="#202020" data-relationship="system-class-diagram-edge-28" data-endpoint="end">0..1</text>
+<text x="1458" y="716" font-family="Consolas,monospace" font-size="11.5" fill="#202020" data-relationship="system-class-diagram-edge-29" data-endpoint="start">0..*</text>
+<text x="432" y="250" font-family="Consolas,monospace" font-size="11.5" fill="#202020" data-relationship="system-class-diagram-edge-29" data-endpoint="end">1</text>
+<text x="1458" y="734" font-family="Consolas,monospace" font-size="11.5" fill="#202020" data-relationship="system-class-diagram-edge-30" data-endpoint="start">0..*</text>
+<text x="1372" y="214" font-family="Consolas,monospace" font-size="11.5" fill="#202020" data-relationship="system-class-diagram-edge-30" data-endpoint="end">1</text>
+<text x="1458" y="752" font-family="Consolas,monospace" font-size="11.5" fill="#202020" data-relationship="system-class-diagram-edge-31" data-endpoint="start">0..*</text>
+<text x="902" y="250" font-family="Consolas,monospace" font-size="11.5" fill="#202020" data-relationship="system-class-diagram-edge-31" data-endpoint="end">1</text>
+<text x="1928" y="422" font-family="Consolas,monospace" font-size="11.5" fill="#202020" data-relationship="system-class-diagram-edge-32" data-endpoint="start">0..*</text>
+<text x="902" y="160" font-family="Consolas,monospace" font-size="11.5" fill="#202020" data-relationship="system-class-diagram-edge-32" data-endpoint="end">0..1</text>
+<text x="518" y="160" font-family="Consolas,monospace" font-size="11.5" fill="#202020" data-relationship="system-class-diagram-edge-33" data-endpoint="start">0..*</text>
+<text x="432" y="160" font-family="Consolas,monospace" font-size="11.5" fill="#202020" data-relationship="system-class-diagram-edge-33" data-endpoint="end">0..1</text>
+<text x="902" y="688" font-family="Consolas,monospace" font-size="11.5" fill="#202020" data-relationship="system-class-diagram-edge-34" data-endpoint="start">0..*</text>
+<text x="902" y="196" font-family="Consolas,monospace" font-size="11.5" fill="#202020" data-relationship="system-class-diagram-edge-34" data-endpoint="end">0..1</text>
+<text x="518" y="688" font-family="Consolas,monospace" font-size="11.5" fill="#202020" data-relationship="system-class-diagram-edge-35" data-endpoint="start">0..*</text>
+<text x="432" y="232" font-family="Consolas,monospace" font-size="11.5" fill="#202020" data-relationship="system-class-diagram-edge-35" data-endpoint="end">1</text>
+<text x="902" y="706" font-family="Consolas,monospace" font-size="11.5" fill="#202020" data-relationship="system-class-diagram-edge-36" data-endpoint="start">0..*</text>
+<text x="902" y="214" font-family="Consolas,monospace" font-size="11.5" fill="#202020" data-relationship="system-class-diagram-edge-36" data-endpoint="end">1</text>
+<text x="1928" y="1534" font-family="Consolas,monospace" font-size="11.5" fill="#202020" data-relationship="system-class-diagram-edge-37" data-endpoint="start">0..*</text>
+<text x="432" y="286" font-family="Consolas,monospace" font-size="11.5" fill="#202020" data-relationship="system-class-diagram-edge-37" data-endpoint="end">0..1</text>
+<text x="1928" y="1552" font-family="Consolas,monospace" font-size="11.5" fill="#202020" data-relationship="system-class-diagram-edge-38" data-endpoint="start">0..*</text>
+<text x="902" y="502" font-family="Consolas,monospace" font-size="11.5" fill="#202020" data-relationship="system-class-diagram-edge-38" data-endpoint="end">1</text>
+<text x="432" y="436" font-family="Consolas,monospace" font-size="11.5" fill="#202020" data-relationship="system-class-diagram-edge-39" data-endpoint="start">0..*</text>
+<text x="432" y="178" font-family="Consolas,monospace" font-size="11.5" fill="#202020" data-relationship="system-class-diagram-edge-39" data-endpoint="end">1</text>
+<text x="432" y="454" font-family="Consolas,monospace" font-size="11.5" fill="#202020" data-relationship="system-class-diagram-edge-40" data-endpoint="start">0..*</text>
+<text x="539" y="178" font-family="Consolas,monospace" font-size="11.5" fill="#202020" data-relationship="system-class-diagram-edge-40" data-endpoint="end">1</text>
+<text x="902" y="918" font-family="Consolas,monospace" font-size="11.5" fill="#202020" data-relationship="system-class-diagram-edge-41" data-endpoint="start">0..*</text>
+<text x="902" y="304" font-family="Consolas,monospace" font-size="11.5" fill="#202020" data-relationship="system-class-diagram-edge-41" data-endpoint="end">1</text>
+<text x="988" y="1190" font-family="Consolas,monospace" font-size="11.5" fill="#202020" data-relationship="system-class-diagram-edge-42" data-endpoint="start">0..*</text>
+<text x="902" y="1462" font-family="Consolas,monospace" font-size="11.5" fill="#202020" data-relationship="system-class-diagram-edge-42" data-endpoint="end">0..1</text>
+<text x="988" y="1172" font-family="Consolas,monospace" font-size="11.5" fill="#202020" data-relationship="system-class-diagram-edge-43" data-endpoint="start">0..*</text>
+<text x="432" y="812" font-family="Consolas,monospace" font-size="11.5" fill="#202020" data-relationship="system-class-diagram-edge-43" data-endpoint="end">0..1</text>
+<text x="1372" y="1154" font-family="Consolas,monospace" font-size="11.5" fill="#202020" data-relationship="system-class-diagram-edge-44" data-endpoint="start">0..*</text>
+<text x="1372" y="268" font-family="Consolas,monospace" font-size="11.5" fill="#202020" data-relationship="system-class-diagram-edge-44" data-endpoint="end">1</text>
+<text x="1372" y="1172" font-family="Consolas,monospace" font-size="11.5" fill="#202020" data-relationship="system-class-diagram-edge-45" data-endpoint="start">0..1</text>
+<text x="1458" y="806" font-family="Consolas,monospace" font-size="11.5" fill="#202020" data-relationship="system-class-diagram-edge-45" data-endpoint="end">0..1</text>
+<text x="988" y="1154" font-family="Consolas,monospace" font-size="11.5" fill="#202020" data-relationship="system-class-diagram-edge-46" data-endpoint="start">0..*</text>
+<text x="902" y="376" font-family="Consolas,monospace" font-size="11.5" fill="#202020" data-relationship="system-class-diagram-edge-46" data-endpoint="end">1</text>
+<text x="902" y="1444" font-family="Consolas,monospace" font-size="11.5" fill="#202020" data-relationship="system-class-diagram-edge-47" data-endpoint="start">0..*</text>
+<text x="1479" y="824" font-family="Consolas,monospace" font-size="11.5" fill="#202020" data-relationship="system-class-diagram-edge-47" data-endpoint="end">1</text>
+<text x="902" y="1426" font-family="Consolas,monospace" font-size="11.5" fill="#202020" data-relationship="system-class-diagram-edge-48" data-endpoint="start">0..*</text>
+<text x="902" y="448" font-family="Consolas,monospace" font-size="11.5" fill="#202020" data-relationship="system-class-diagram-edge-48" data-endpoint="end">1</text>
+<text x="902" y="1196" font-family="Consolas,monospace" font-size="11.5" fill="#202020" data-relationship="system-class-diagram-edge-49" data-endpoint="start">0..*</text>
+<text x="902" y="394" font-family="Consolas,monospace" font-size="11.5" fill="#202020" data-relationship="system-class-diagram-edge-49" data-endpoint="end">1</text>
+<text x="1458" y="1042" font-family="Consolas,monospace" font-size="11.5" fill="#202020" data-relationship="system-class-diagram-edge-50" data-endpoint="start">0..*</text>
+<text x="432" y="268" font-family="Consolas,monospace" font-size="11.5" fill="#202020" data-relationship="system-class-diagram-edge-50" data-endpoint="end">1</text>
+<text x="1458" y="1132" font-family="Consolas,monospace" font-size="11.5" fill="#202020" data-relationship="system-class-diagram-edge-51" data-endpoint="start">0..1</text>
+<text x="1372" y="1190" font-family="Consolas,monospace" font-size="11.5" fill="#202020" data-relationship="system-class-diagram-edge-51" data-endpoint="end">0..1</text>
+<text x="1458" y="1060" font-family="Consolas,monospace" font-size="11.5" fill="#202020" data-relationship="system-class-diagram-edge-52" data-endpoint="start">0..*</text>
+<text x="1372" y="250" font-family="Consolas,monospace" font-size="11.5" fill="#202020" data-relationship="system-class-diagram-edge-52" data-endpoint="end">1</text>
+<text x="1458" y="1078" font-family="Consolas,monospace" font-size="11.5" fill="#202020" data-relationship="system-class-diagram-edge-53" data-endpoint="start">0..*</text>
+<text x="902" y="340" font-family="Consolas,monospace" font-size="11.5" fill="#202020" data-relationship="system-class-diagram-edge-53" data-endpoint="end">1</text>
+<text x="1458" y="1096" font-family="Consolas,monospace" font-size="11.5" fill="#202020" data-relationship="system-class-diagram-edge-54" data-endpoint="start">0..*</text>
+<text x="902" y="358" font-family="Consolas,monospace" font-size="11.5" fill="#202020" data-relationship="system-class-diagram-edge-54" data-endpoint="end">0..1</text>
+<text x="1842" y="1042" font-family="Consolas,monospace" font-size="11.5" fill="#202020" data-relationship="system-class-diagram-edge-55" data-endpoint="start">0..*</text>
+<text x="1842" y="716" font-family="Consolas,monospace" font-size="11.5" fill="#202020" data-relationship="system-class-diagram-edge-55" data-endpoint="end">0..1</text>
+<text x="1458" y="1114" font-family="Consolas,monospace" font-size="11.5" fill="#202020" data-relationship="system-class-diagram-edge-56" data-endpoint="start">0..*</text>
+<text x="432" y="794" font-family="Consolas,monospace" font-size="11.5" fill="#202020" data-relationship="system-class-diagram-edge-56" data-endpoint="end">0..1</text>
+<text x="1928" y="994" font-family="Consolas,monospace" font-size="11.5" fill="#202020" data-relationship="system-class-diagram-edge-57" data-endpoint="start">0..*</text>
+<text x="902" y="322" font-family="Consolas,monospace" font-size="11.5" fill="#202020" data-relationship="system-class-diagram-edge-57" data-endpoint="end">0..1</text>
+<text x="1928" y="1012" font-family="Consolas,monospace" font-size="11.5" fill="#202020" data-relationship="system-class-diagram-edge-58" data-endpoint="start">0..*</text>
+<text x="1842" y="1060" font-family="Consolas,monospace" font-size="11.5" fill="#202020" data-relationship="system-class-diagram-edge-58" data-endpoint="end">1</text>
+<text x="2312" y="994" font-family="Consolas,monospace" font-size="11.5" fill="#202020" data-relationship="system-class-diagram-edge-59" data-endpoint="start">0..*</text>
+<text x="2312" y="422" font-family="Consolas,monospace" font-size="11.5" fill="#202020" data-relationship="system-class-diagram-edge-59" data-endpoint="end">0..1</text>
+<text x="2312" y="1012" font-family="Consolas,monospace" font-size="11.5" fill="#202020" data-relationship="system-class-diagram-edge-60" data-endpoint="start">0..*</text>
+<text x="2312" y="700" font-family="Consolas,monospace" font-size="11.5" fill="#202020" data-relationship="system-class-diagram-edge-60" data-endpoint="end">0..1</text>
+<text x="1458" y="1368" font-family="Consolas,monospace" font-size="11.5" fill="#202020" data-relationship="system-class-diagram-edge-61" data-endpoint="start">0..*</text>
+<text x="902" y="430" font-family="Consolas,monospace" font-size="11.5" fill="#202020" data-relationship="system-class-diagram-edge-61" data-endpoint="end">0..1</text>
+<text x="1842" y="1368" font-family="Consolas,monospace" font-size="11.5" fill="#202020" data-relationship="system-class-diagram-edge-62" data-endpoint="start">0..*</text>
+<text x="1842" y="1096" font-family="Consolas,monospace" font-size="11.5" fill="#202020" data-relationship="system-class-diagram-edge-62" data-endpoint="end">1</text>
+<text x="1928" y="1324" font-family="Consolas,monospace" font-size="11.5" fill="#202020" data-relationship="system-class-diagram-edge-63" data-endpoint="start">0..*</text>
+<text x="1842" y="1386" font-family="Consolas,monospace" font-size="11.5" fill="#202020" data-relationship="system-class-diagram-edge-63" data-endpoint="end">1</text>
+<text x="1928" y="1288" font-family="Consolas,monospace" font-size="11.5" fill="#202020" data-relationship="system-class-diagram-edge-64" data-endpoint="start">0..*</text>
+<text x="902" y="412" font-family="Consolas,monospace" font-size="11.5" fill="#202020" data-relationship="system-class-diagram-edge-64" data-endpoint="end">1</text>
+<text x="1928" y="1306" font-family="Consolas,monospace" font-size="11.5" fill="#202020" data-relationship="system-class-diagram-edge-65" data-endpoint="start">0..*</text>
+<text x="1842" y="1078" font-family="Consolas,monospace" font-size="11.5" fill="#202020" data-relationship="system-class-diagram-edge-65" data-endpoint="end">1</text>
+<text x="1372" y="766" font-family="Consolas,monospace" font-size="11.5" fill="#202020" data-relationship="system-class-diagram-edge-66" data-endpoint="start">0..1</text>
+<text x="1479" y="788" font-family="Consolas,monospace" font-size="11.5" fill="#202020" data-relationship="system-class-diagram-edge-66" data-endpoint="end">1</text>
+<text x="988" y="784" font-family="Consolas,monospace" font-size="11.5" fill="#202020" data-relationship="system-class-diagram-edge-67" data-endpoint="start">0..*</text>
+<text x="432" y="758" font-family="Consolas,monospace" font-size="11.5" fill="#202020" data-relationship="system-class-diagram-edge-67" data-endpoint="end">0..1</text>
+<text x="1372" y="748" font-family="Consolas,monospace" font-size="11.5" fill="#202020" data-relationship="system-class-diagram-edge-68" data-endpoint="start">0..*</text>
+<text x="1372" y="232" font-family="Consolas,monospace" font-size="11.5" fill="#202020" data-relationship="system-class-diagram-edge-68" data-endpoint="end">1</text>
+<text x="988" y="748" font-family="Consolas,monospace" font-size="11.5" fill="#202020" data-relationship="system-class-diagram-edge-69" data-endpoint="start">0..*</text>
+<text x="902" y="268" font-family="Consolas,monospace" font-size="11.5" fill="#202020" data-relationship="system-class-diagram-edge-69" data-endpoint="end">1</text>
+<text x="988" y="766" font-family="Consolas,monospace" font-size="11.5" fill="#202020" data-relationship="system-class-diagram-edge-70" data-endpoint="start">0..*</text>
+<text x="902" y="286" font-family="Consolas,monospace" font-size="11.5" fill="#202020" data-relationship="system-class-diagram-edge-70" data-endpoint="end">1</text>
+<text x="432" y="722" font-family="Consolas,monospace" font-size="11.5" fill="#202020" data-relationship="system-class-diagram-edge-71" data-endpoint="start">0..*</text>
+<text x="518" y="214" font-family="Consolas,monospace" font-size="11.5" fill="#202020" data-relationship="system-class-diagram-edge-71" data-endpoint="end">0..1</text>
+<text x="518" y="1722" font-family="Consolas,monospace" font-size="11.5" fill="#202020" data-relationship="system-class-diagram-edge-72" data-endpoint="start">0..*</text>
+<text x="432" y="1794" font-family="Consolas,monospace" font-size="11.5" fill="#202020" data-relationship="system-class-diagram-edge-72" data-endpoint="end">0..1</text>
+<text x="902" y="1704" font-family="Consolas,monospace" font-size="11.5" fill="#202020" data-relationship="system-class-diagram-edge-73" data-endpoint="start">0..*</text>
+<text x="902" y="538" font-family="Consolas,monospace" font-size="11.5" fill="#202020" data-relationship="system-class-diagram-edge-73" data-endpoint="end">0..1</text>
+<text x="902" y="1722" font-family="Consolas,monospace" font-size="11.5" fill="#202020" data-relationship="system-class-diagram-edge-74" data-endpoint="start">0..*</text>
+<text x="988" y="196" font-family="Consolas,monospace" font-size="11.5" fill="#202020" data-relationship="system-class-diagram-edge-74" data-endpoint="end">0..1</text>
+<text x="518" y="1704" font-family="Consolas,monospace" font-size="11.5" fill="#202020" data-relationship="system-class-diagram-edge-75" data-endpoint="start">0..*</text>
+<text x="432" y="866" font-family="Consolas,monospace" font-size="11.5" fill="#202020" data-relationship="system-class-diagram-edge-75" data-endpoint="end">0..1</text>
+<text x="902" y="1758" font-family="Consolas,monospace" font-size="11.5" fill="#202020" data-relationship="system-class-diagram-edge-76" data-endpoint="start">0..*</text>
+<text x="1458" y="842" font-family="Consolas,monospace" font-size="11.5" fill="#202020" data-relationship="system-class-diagram-edge-76" data-endpoint="end">0..1</text>
+<text x="902" y="1776" font-family="Consolas,monospace" font-size="11.5" fill="#202020" data-relationship="system-class-diagram-edge-77" data-endpoint="start">0..*</text>
+<text x="1458" y="1150" font-family="Consolas,monospace" font-size="11.5" fill="#202020" data-relationship="system-class-diagram-edge-77" data-endpoint="end">0..1</text>
+<text x="902" y="1740" font-family="Consolas,monospace" font-size="11.5" fill="#202020" data-relationship="system-class-diagram-edge-78" data-endpoint="start">0..*</text>
+<text x="902" y="556" font-family="Consolas,monospace" font-size="11.5" fill="#202020" data-relationship="system-class-diagram-edge-78" data-endpoint="end">0..1</text>
+<text x="1372" y="1546" font-family="Consolas,monospace" font-size="11.5" fill="#202020" data-relationship="system-class-diagram-edge-79" data-endpoint="start">0..*</text>
+<text x="1372" y="1208" font-family="Consolas,monospace" font-size="11.5" fill="#202020" data-relationship="system-class-diagram-edge-79" data-endpoint="end">0..1</text>
+<text x="988" y="1564" font-family="Consolas,monospace" font-size="11.5" fill="#202020" data-relationship="system-class-diagram-edge-80" data-endpoint="start">0..*</text>
+<text x="432" y="1586" font-family="Consolas,monospace" font-size="11.5" fill="#202020" data-relationship="system-class-diagram-edge-80" data-endpoint="end">0..1</text>
+<text x="1458" y="1860" font-family="Consolas,monospace" font-size="11.5" fill="#202020" data-relationship="system-class-diagram-edge-81" data-endpoint="start">uses</text>
+<text x="1458" y="1932" font-family="Consolas,monospace" font-size="11.5" fill="#202020" data-relationship="system-class-diagram-edge-82" data-endpoint="start">uses</text>
+<text x="1458" y="1878" font-family="Consolas,monospace" font-size="11.5" fill="#202020" data-relationship="system-class-diagram-edge-83" data-endpoint="start">uses</text>
+<text x="1458" y="1914" font-family="Consolas,monospace" font-size="11.5" fill="#202020" data-relationship="system-class-diagram-edge-84" data-endpoint="start">uses</text>
+<text x="1458" y="1896" font-family="Consolas,monospace" font-size="11.5" fill="#202020" data-relationship="system-class-diagram-edge-85" data-endpoint="start">uses</text>
+<text x="1928" y="1812" font-family="Consolas,monospace" font-size="11.5" fill="#202020" data-relationship="system-class-diagram-edge-86" data-endpoint="start">uses</text>
+<text x="1928" y="1830" font-family="Consolas,monospace" font-size="11.5" fill="#202020" data-relationship="system-class-diagram-edge-87" data-endpoint="start">uses</text>
+<text x="2312" y="1812" font-family="Consolas,monospace" font-size="11.5" fill="#202020" data-relationship="system-class-diagram-edge-88" data-endpoint="start">uses</text>
+</svg>

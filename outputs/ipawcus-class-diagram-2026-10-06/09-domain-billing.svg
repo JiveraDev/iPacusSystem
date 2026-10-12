@@ -1,0 +1,398 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1920" height="1583" viewBox="0 0 1920 1583" role="img" aria-labelledby="title desc">
+<title id="title">iPawcus — Billing and service catalogues</title>
+<desc id="desc">Domain UML class diagram: names, typed attributes, operations, and relationships. Every label is above its own relationship line near the class. Lines avoid all class boxes. Supporting pages include the complete domain model.</desc>
+<defs><marker id="dependency" markerWidth="9" markerHeight="9" refX="8" refY="4.5" orient="auto" markerUnits="userSpaceOnUse"><path d="M0 0 L8 4.5 L0 9" fill="none" stroke="#858585" stroke-width="1.1"/></marker></defs>
+<rect width="100%" height="100%" fill="#ffffff"/>
+<text x="90" y="40" font-family="Arial,sans-serif" font-size="25" fill="#202020" >iPawcus — Billing and service catalogues</text>
+<text x="90" y="68" font-family="Arial,sans-serif" font-size="13" fill="#202020" >Classes show attributes and operations. Solid: association · dashed: logical association · dashed arrow: dependency.</text>
+<text x="90" y="91" font-family="Arial,sans-serif" font-size="12" fill="#202020" >1 required · 0..1 optional · 0..* zero-to-many · ? nullable · source and operation mappings in DOMAIN-REFERENCE.md.</text>
+<path d="M890 1255 L946 1255 L946 365 L1500 365" fill="none" stroke="#858585" stroke-width="1.1"><title>booking_payment_refunds.booking_id → bookings.booking_id / booking_payment_refund_booking_fk</title></path>
+<path d="M560 1255 L504 1255 L504 1277 L420 1277" fill="none" stroke="#858585" stroke-width="1.1"><title>booking_payment_refunds.booking_payment_submission_id → booking_payment_submissions.submission_id / booking_payment_refund_submission_fk</title></path>
+<path d="M890 1273 L946 1273 L946 1301 L1444 1301 L1444 1243 L1500 1243" fill="none" stroke="#858585" stroke-width="1.1"><title>booking_payment_refunds.processed_by_user_id → users.user_id / booking_payment_refund_user_fk</title></path>
+<path d="M420 1223 L476 1223 L476 499 L986 499 L986 355 L1444 355 L1444 347 L1500 347" fill="none" stroke="#858585" stroke-width="1.1"><title>booking_payment_submissions.booking_id → bookings.booking_id / booking_payment_booking_fk</title></path>
+<path d="M420 1259 L516 1259 L516 1183 L1008 1183 L1008 1107 L1444 1107 L1444 1225 L1500 1225" fill="none" stroke="#858585" stroke-width="1.1"><title>booking_payment_submissions.reviewed_by_user_id → users.user_id / booking_payment_reviewer_fk</title></path>
+<path d="M420 1241 L504 1241 L504 505 L974 505 L974 481 L1030 481" fill="none" stroke="#858585" stroke-width="1.1"><title>booking_payment_submissions.linked_visit_payment_id → visit_payments.payment_id / booking_payment_visit_payment_fk</title></path>
+<path d="M420 183 L538 183 L538 519 L1008 519 L1008 733 L1444 733 L1444 1081 L1500 1081" fill="none" stroke="#858585" stroke-width="1.1"><title>service_catalog.created_by_user_id → users.user_id / service_catalog_created_by_fk</title></path>
+<path d="M1360 1159 L1416 1159 L1416 1207 L1500 1207" fill="none" stroke="#858585" stroke-width="1.1"><title>service_display_settings.updated_by_user_id → users.user_id / fk_service_display_settings_user</title></path>
+<path d="M1360 165 L1416 165 L1416 311 L1500 311" fill="none" stroke="#858585" stroke-width="1.1"><title>special_service_booking_items.booking_id → bookings.booking_id / special_service_booking_items_booking_fk</title></path>
+<path d="M1030 165 L890 165" fill="none" stroke="#858585" stroke-width="1.1"><title>special_service_booking_items.special_service_id → special_service_catalog.special_service_id / special_service_booking_items_catalog_fk</title></path>
+<path d="M890 183 L946 183 L946 363 L1416 363 L1416 1063 L1500 1063" fill="none" stroke="#858585" stroke-width="1.1"><title>special_service_catalog.created_by_user_id → users.user_id / special_service_catalog_user_fk</title></path>
+<path d="M420 543 L516 543 L516 507 L934 507 L934 375 L1444 375 L1444 479 L1500 479" fill="none" stroke="#858585" stroke-width="1.1"><title>visits.branch_id → branches.branch_id / visits_branch_fk</title></path>
+<path d="M420 687 L538 687 L538 877 L1007 877 L1007 1357 L1500 1357" fill="none" stroke="#858585" stroke-width="1.1"><title>visits.diagnosis_id → vet_diagnoses.diagnosis_id / visits_diagnosis_fk</title></path>
+<path d="M420 579 L476 579 L476 577 L464 577 L464 509 L1007 509 L1007 719 L1404 719 L1404 771 L1500 771" fill="none" stroke="#858585" stroke-width="1.1"><title>visits.pet_id → pets_information.pet_id / visits_ibfk_1</title></path>
+<path d="M420 651 L516 651 L516 865 L1008 865 L1008 1101 L1416 1101 L1416 1117 L1500 1117" fill="none" stroke="#858585" stroke-width="1.1"><title>visits.owner_user_id → users.user_id / visits_ibfk_2</title></path>
+<path d="M420 669 L476 669 L476 671 L464 671 L464 857 L986 857 L986 1099 L1404 1099 L1404 1135 L1500 1135" fill="none" stroke="#858585" stroke-width="1.1"><title>visits.veterinarian_user_id → users.user_id / visits_ibfk_3</title></path>
+<path d="M420 615 L516 615 L516 543 L538 543 L538 519 L934 519 L934 713 L1382 713 L1382 917 L1500 917" fill="none" stroke="#858585" stroke-width="1.1"><title>visits.queue_id → queues.queue_id / visits_ibfk_4</title></path>
+<path d="M420 507 L912 507 L912 355 L1382 355 L1382 329 L1500 329" fill="none" stroke="#858585" stroke-width="1.1"><title>visits.booking_id → bookings.booking_id / visits_ibfk_5</title></path>
+<path d="M890 571 L974 571 L974 113 L1444 113 L1444 165 L1500 165" fill="none" stroke="#858585" stroke-width="1.1"><title>visit_charges.boarding_material_usage_id → boarding_material_usages.usage_id / visit_charges_boarding_material_fk</title></path>
+<path d="M890 607 L974 607 L974 1097 L1416 1097 L1416 1153 L1500 1153" fill="none" stroke="#858585" stroke-width="1.1"><title>visit_charges.created_by_user_id → users.user_id / visit_charges_created_by_fk</title></path>
+<path d="M560 589 L504 589 L504 561 L420 561" fill="none" stroke="#858585" stroke-width="1.1"><title>visit_charges.visit_id → visits.visit_id / visit_charges_ibfk_1</title></path>
+<path d="M560 571 L476 571 L476 165 L420 165" fill="none" stroke="#858585" stroke-width="1.1"><title>visit_charges.service_id → service_catalog.service_id / visit_charges_ibfk_2</title></path>
+<path d="M890 589 L986 589 L986 713 L1444 713 L1444 625 L1500 625" fill="none" stroke="#858585" stroke-width="1.1"><title>visit_charges.item_id → inventory_items.item_id / visit_charges_ibfk_3</title></path>
+<path d="M420 935 L538 935 L538 1203 L1008 1203 L1008 1305 L1404 1305 L1404 1171 L1500 1171" fill="none" stroke="#858585" stroke-width="1.1"><title>visit_invoice_documents.created_by_user_id → users.user_id / visit_invoice_documents_creator_fk</title></path>
+<path d="M420 881 L538 881 L538 877 L912 877 L912 605 L974 605 L974 571 L986 571 L986 447 L974 447 L974 445 L1030 445" fill="none" stroke="#858585" stroke-width="1.1"><title>visit_invoice_documents.payment_id → visit_payments.payment_id / visit_invoice_documents_payment_fk</title></path>
+<path d="M420 917 L516 917 L516 865 L934 865 L934 733 L1404 733 L1404 789 L1500 789" fill="none" stroke="#858585" stroke-width="1.1"><title>visit_invoice_documents.pet_id → pets_information.pet_id / visit_invoice_documents_pet_fk</title></path>
+<path d="M420 899 L476 899 L476 897 L464 897 L464 857 L443 857 L443 685 L464 685 L464 599 L476 599 L476 597 L420 597" fill="none" stroke="#858585" stroke-width="1.1"><title>visit_invoice_documents.visit_id → visits.visit_id / visit_invoice_documents_visit_fk</title></path>
+<path d="M1360 427 L1456 427 L1456 1097 L1444 1097 L1444 1099 L1500 1099" fill="none" stroke="#858585" stroke-width="1.1"><title>visit_payments.received_by_user_id → users.user_id / visit_payments_received_by_fk</title></path>
+<path d="M1030 427 L974 427 L974 429 L1007 429 L1007 465 L912 465 L912 499 L516 499 L516 525 L420 525" fill="none" stroke="#858585" stroke-width="1.1"><title>visit_payments.visit_id → visits.visit_id / visit_payments_visit_fk</title></path>
+<path d="M890 929 L946 929 L946 927 L934 927 L934 845 L986 845 L986 523 L1008 523 L1008 479 L974 479 L974 463 L1030 463" fill="none" stroke="#858585" stroke-width="1.1"><title>visit_payment_refunds.visit_payment_id → visit_payments.payment_id / visit_payment_refund_payment_fk</title></path>
+<path d="M890 947 L946 947 L946 991 L934 991 L934 1087 L1456 1087 L1456 1187 L1444 1187 L1444 1189 L1500 1189" fill="none" stroke="#858585" stroke-width="1.1"><title>visit_payment_refunds.processed_by_user_id → users.user_id / visit_payment_refund_user_fk</title></path>
+<path d="M560 929 L464 929 L464 865 L442 865 L442 685 L538 685 L538 633 L420 633" fill="none" stroke="#858585" stroke-width="1.1"><title>visit_payment_refunds.visit_id → visits.visit_id / visit_payment_refund_visit_fk</title></path>
+<g data-class="service_catalog"><title>ServiceCatalog</title>
+<rect x="90" y="135" width="330" height="278" fill="#ffffff" stroke="#767676" stroke-width="1.2"/>
+<line x1="90" y1="165" x2="420" y2="165" stroke="#767676" stroke-width="1"/>
+<line x1="90" y1="353" x2="420" y2="353" stroke="#767676" stroke-width="1"/>
+<text x="255" y="155" font-family="Arial,sans-serif" font-size="14" fill="#202020" text-anchor="middle" font-weight="600">ServiceCatalog</text>
+<text x="102" y="182" font-family="Arial,sans-serif" font-size="12" fill="#202020" >+ serviceId: int</text>
+<text x="102" y="198" font-family="Arial,sans-serif" font-size="12" fill="#202020" >+ serviceCode: string?</text>
+<text x="102" y="214" font-family="Arial,sans-serif" font-size="12" fill="#202020" >+ serviceName: string</text>
+<text x="102" y="230" font-family="Arial,sans-serif" font-size="12" fill="#202020" >+ serviceType: string</text>
+<text x="102" y="246" font-family="Arial,sans-serif" font-size="12" fill="#202020" >+ description: string?</text>
+<text x="102" y="262" font-family="Arial,sans-serif" font-size="12" fill="#202020" >+ basePrice: decimal</text>
+<text x="102" y="278" font-family="Arial,sans-serif" font-size="12" fill="#202020" >+ isMajorService: bool</text>
+<text x="102" y="294" font-family="Arial,sans-serif" font-size="12" fill="#202020" >+ isActive: bool?</text>
+<text x="102" y="310" font-family="Arial,sans-serif" font-size="12" fill="#202020" >+ createdByUserId: int?</text>
+<text x="102" y="326" font-family="Arial,sans-serif" font-size="12" fill="#202020" >+ createdAt: datetime</text>
+<text x="102" y="342" font-family="Arial,sans-serif" font-size="12" fill="#202020" >+ updatedAt: datetime</text>
+<text x="102" y="370" font-family="Arial,sans-serif" font-size="12" fill="#202020" >+ saveService()</text>
+<text x="102" y="386" font-family="Arial,sans-serif" font-size="12" fill="#202020" >+ updateMaterials()</text>
+<text x="102" y="402" font-family="Arial,sans-serif" font-size="12" fill="#202020" >+ deactivate()</text>
+</g>
+<g data-class="special_service_catalog"><title>SpecialServiceCatalog</title>
+<rect x="560" y="135" width="330" height="342" fill="#ffffff" stroke="#767676" stroke-width="1.2"/>
+<line x1="560" y1="165" x2="890" y2="165" stroke="#767676" stroke-width="1"/>
+<line x1="560" y1="433" x2="890" y2="433" stroke="#767676" stroke-width="1"/>
+<text x="725" y="155" font-family="Arial,sans-serif" font-size="14" fill="#202020" text-anchor="middle" font-weight="600">SpecialServiceCatalog</text>
+<text x="572" y="182" font-family="Arial,sans-serif" font-size="12" fill="#202020" >+ specialServiceId: int</text>
+<text x="572" y="198" font-family="Arial,sans-serif" font-size="12" fill="#202020" >+ serviceCode: string</text>
+<text x="572" y="214" font-family="Arial,sans-serif" font-size="12" fill="#202020" >+ serviceTitle: string</text>
+<text x="572" y="230" font-family="Arial,sans-serif" font-size="12" fill="#202020" >+ serviceDescription: string?</text>
+<text x="572" y="246" font-family="Arial,sans-serif" font-size="12" fill="#202020" >+ serviceDetails: string?</text>
+<text x="572" y="262" font-family="Arial,sans-serif" font-size="12" fill="#202020" >+ priceLabel: string?</text>
+<text x="572" y="278" font-family="Arial,sans-serif" font-size="12" fill="#202020" >+ basePrice: decimal?</text>
+<text x="572" y="294" font-family="Arial,sans-serif" font-size="12" fill="#202020" >+ durationLabel: string?</text>
+<text x="572" y="310" font-family="Arial,sans-serif" font-size="12" fill="#202020" >+ maxPets: int</text>
+<text x="572" y="326" font-family="Arial,sans-serif" font-size="12" fill="#202020" >+ sortOrder: int</text>
+<text x="572" y="342" font-family="Arial,sans-serif" font-size="12" fill="#202020" >+ isActive: bool</text>
+<text x="572" y="358" font-family="Arial,sans-serif" font-size="12" fill="#202020" >+ dateRestrictionType: string?</text>
+<text x="572" y="374" font-family="Arial,sans-serif" font-size="12" fill="#202020" >+ dateStart: date?</text>
+<text x="572" y="390" font-family="Arial,sans-serif" font-size="12" fill="#202020" >+ dateEnd: date?</text>
+<text x="572" y="406" font-family="Arial,sans-serif" font-size="12" fill="#202020" >+ createdByUserId: int?</text>
+<text x="572" y="422" font-family="Arial,sans-serif" font-size="12" fill="#202020" >+ createdAt: datetime</text>
+<text x="572" y="450" font-family="Arial,sans-serif" font-size="12" fill="#202020" >+ createService()</text>
+<text x="572" y="466" font-family="Arial,sans-serif" font-size="12" fill="#202020" >+ updateService()</text>
+</g>
+<g data-class="special_service_booking_items"><title>SpecialServiceBookingItem</title>
+<rect x="1030" y="135" width="330" height="198" fill="#ffffff" stroke="#767676" stroke-width="1.2"/>
+<line x1="1030" y1="165" x2="1360" y2="165" stroke="#767676" stroke-width="1"/>
+<line x1="1030" y1="305" x2="1360" y2="305" stroke="#767676" stroke-width="1"/>
+<text x="1195" y="155" font-family="Arial,sans-serif" font-size="14" fill="#202020" text-anchor="middle" font-weight="600">SpecialServiceBookingItem</text>
+<text x="1042" y="182" font-family="Arial,sans-serif" font-size="12" fill="#202020" >+ bookingSpecialServiceId: int</text>
+<text x="1042" y="198" font-family="Arial,sans-serif" font-size="12" fill="#202020" >+ bookingId: int</text>
+<text x="1042" y="214" font-family="Arial,sans-serif" font-size="12" fill="#202020" >+ specialServiceId: int?</text>
+<text x="1042" y="230" font-family="Arial,sans-serif" font-size="12" fill="#202020" >+ customServiceTitle: string?</text>
+<text x="1042" y="246" font-family="Arial,sans-serif" font-size="12" fill="#202020" >+ customServiceDescription: string?</text>
+<text x="1042" y="262" font-family="Arial,sans-serif" font-size="12" fill="#202020" >+ customServiceDetails: string?</text>
+<text x="1042" y="278" font-family="Arial,sans-serif" font-size="12" fill="#202020" >+ sequenceNo: int</text>
+<text x="1042" y="294" font-family="Arial,sans-serif" font-size="12" fill="#202020" >+ createdAt: datetime</text>
+<text x="1042" y="322" font-family="Arial,sans-serif" font-size="12" fill="#202020" >+ viewRecord()</text>
+</g>
+<g data-class="visits"><title>Visit</title>
+<rect x="90" y="477" width="330" height="310" fill="#ffffff" stroke="#767676" stroke-width="1.2"/>
+<line x1="90" y1="507" x2="420" y2="507" stroke="#767676" stroke-width="1"/>
+<line x1="90" y1="727" x2="420" y2="727" stroke="#767676" stroke-width="1"/>
+<text x="255" y="497" font-family="Arial,sans-serif" font-size="14" fill="#202020" text-anchor="middle" font-weight="600">Visit</text>
+<text x="102" y="524" font-family="Arial,sans-serif" font-size="12" fill="#202020" >+ visitId: int</text>
+<text x="102" y="540" font-family="Arial,sans-serif" font-size="12" fill="#202020" >+ branchId: int</text>
+<text x="102" y="556" font-family="Arial,sans-serif" font-size="12" fill="#202020" >+ petId: int</text>
+<text x="102" y="572" font-family="Arial,sans-serif" font-size="12" fill="#202020" >+ ownerUserId: int</text>
+<text x="102" y="588" font-family="Arial,sans-serif" font-size="12" fill="#202020" >+ veterinarianUserId: int?</text>
+<text x="102" y="604" font-family="Arial,sans-serif" font-size="12" fill="#202020" >+ queueId: int?</text>
+<text x="102" y="620" font-family="Arial,sans-serif" font-size="12" fill="#202020" >+ bookingId: int?</text>
+<text x="102" y="636" font-family="Arial,sans-serif" font-size="12" fill="#202020" >+ diagnosisId: int?</text>
+<text x="102" y="652" font-family="Arial,sans-serif" font-size="12" fill="#202020" >+ sourceType: string</text>
+<text x="102" y="668" font-family="Arial,sans-serif" font-size="12" fill="#202020" >+ visitStatus: string?</text>
+<text x="102" y="684" font-family="Arial,sans-serif" font-size="12" fill="#202020" >+ billingStatus: string?</text>
+<text x="102" y="700" font-family="Arial,sans-serif" font-size="12" fill="#202020" >+ createdAt: datetime</text>
+<text x="102" y="716" font-family="Arial,sans-serif" font-size="12" fill="#202020" >+ updatedAt: datetime</text>
+<text x="102" y="744" font-family="Arial,sans-serif" font-size="12" fill="#202020" >+ createVisit()</text>
+<text x="102" y="760" font-family="Arial,sans-serif" font-size="12" fill="#202020" >+ updateStatus()</text>
+<text x="102" y="776" font-family="Arial,sans-serif" font-size="12" fill="#202020" >+ calculateBalance()</text>
+</g>
+<g data-class="visit_charges"><title>VisitCharge</title>
+<rect x="560" y="541" width="330" height="294" fill="#ffffff" stroke="#767676" stroke-width="1.2"/>
+<line x1="560" y1="571" x2="890" y2="571" stroke="#767676" stroke-width="1"/>
+<line x1="560" y1="791" x2="890" y2="791" stroke="#767676" stroke-width="1"/>
+<text x="725" y="561" font-family="Arial,sans-serif" font-size="14" fill="#202020" text-anchor="middle" font-weight="600">VisitCharge</text>
+<text x="572" y="588" font-family="Arial,sans-serif" font-size="12" fill="#202020" >+ chargeId: int</text>
+<text x="572" y="604" font-family="Arial,sans-serif" font-size="12" fill="#202020" >+ visitId: int</text>
+<text x="572" y="620" font-family="Arial,sans-serif" font-size="12" fill="#202020" >+ chargeType: string</text>
+<text x="572" y="636" font-family="Arial,sans-serif" font-size="12" fill="#202020" >+ serviceId: int?</text>
+<text x="572" y="652" font-family="Arial,sans-serif" font-size="12" fill="#202020" >+ itemId: int?</text>
+<text x="572" y="668" font-family="Arial,sans-serif" font-size="12" fill="#202020" >+ boardingMaterialUsageId: int?</text>
+<text x="572" y="684" font-family="Arial,sans-serif" font-size="12" fill="#202020" >+ description: string</text>
+<text x="572" y="700" font-family="Arial,sans-serif" font-size="12" fill="#202020" >+ quantity: decimal</text>
+<text x="572" y="716" font-family="Arial,sans-serif" font-size="12" fill="#202020" >+ unitPrice: decimal</text>
+<text x="572" y="732" font-family="Arial,sans-serif" font-size="12" fill="#202020" >+ subtotal: decimal</text>
+<text x="572" y="748" font-family="Arial,sans-serif" font-size="12" fill="#202020" >+ createdByUserId: int?</text>
+<text x="572" y="764" font-family="Arial,sans-serif" font-size="12" fill="#202020" >+ createdAt: datetime</text>
+<text x="572" y="780" font-family="Arial,sans-serif" font-size="12" fill="#202020" >+ updatedAt: datetime</text>
+<text x="572" y="808" font-family="Arial,sans-serif" font-size="12" fill="#202020" >+ saveCharges()</text>
+<text x="572" y="824" font-family="Arial,sans-serif" font-size="12" fill="#202020" >+ replaceCharges()</text>
+</g>
+<g data-class="visit_payments"><title>VisitPayment</title>
+<rect x="1030" y="397" width="330" height="294" fill="#ffffff" stroke="#767676" stroke-width="1.2"/>
+<line x1="1030" y1="427" x2="1360" y2="427" stroke="#767676" stroke-width="1"/>
+<line x1="1030" y1="647" x2="1360" y2="647" stroke="#767676" stroke-width="1"/>
+<text x="1195" y="417" font-family="Arial,sans-serif" font-size="14" fill="#202020" text-anchor="middle" font-weight="600">VisitPayment</text>
+<text x="1042" y="444" font-family="Arial,sans-serif" font-size="12" fill="#202020" >+ paymentId: int</text>
+<text x="1042" y="460" font-family="Arial,sans-serif" font-size="12" fill="#202020" >+ visitId: int</text>
+<text x="1042" y="476" font-family="Arial,sans-serif" font-size="12" fill="#202020" >+ paymentMethod: string</text>
+<text x="1042" y="492" font-family="Arial,sans-serif" font-size="12" fill="#202020" >+ paymentStatus: string</text>
+<text x="1042" y="508" font-family="Arial,sans-serif" font-size="12" fill="#202020" >+ amount: decimal</text>
+<text x="1042" y="524" font-family="Arial,sans-serif" font-size="12" fill="#202020" >+ referenceNumber: string?</text>
+<text x="1042" y="540" font-family="Arial,sans-serif" font-size="12" fill="#202020" >+ proofUrl: string?</text>
+<text x="1042" y="556" font-family="Arial,sans-serif" font-size="12" fill="#202020" >+ notes: string?</text>
+<text x="1042" y="572" font-family="Arial,sans-serif" font-size="12" fill="#202020" >+ paidAt: datetime</text>
+<text x="1042" y="588" font-family="Arial,sans-serif" font-size="12" fill="#202020" >+ receivedByUserId: int?</text>
+<text x="1042" y="604" font-family="Arial,sans-serif" font-size="12" fill="#202020" >+ receivedByName: string?</text>
+<text x="1042" y="620" font-family="Arial,sans-serif" font-size="12" fill="#202020" >+ createdAt: datetime</text>
+<text x="1042" y="636" font-family="Arial,sans-serif" font-size="12" fill="#202020" >+ updatedAt: datetime</text>
+<text x="1042" y="664" font-family="Arial,sans-serif" font-size="12" fill="#202020" >+ recordPayment()</text>
+<text x="1042" y="680" font-family="Arial,sans-serif" font-size="12" fill="#202020" >+ requestRefund()</text>
+</g>
+<g data-class="visit_invoice_documents"><title>VisitInvoiceDocument</title>
+<rect x="90" y="851" width="330" height="278" fill="#ffffff" stroke="#767676" stroke-width="1.2"/>
+<line x1="90" y1="881" x2="420" y2="881" stroke="#767676" stroke-width="1"/>
+<line x1="90" y1="1085" x2="420" y2="1085" stroke="#767676" stroke-width="1"/>
+<text x="255" y="871" font-family="Arial,sans-serif" font-size="14" fill="#202020" text-anchor="middle" font-weight="600">VisitInvoiceDocument</text>
+<text x="102" y="898" font-family="Arial,sans-serif" font-size="12" fill="#202020" >+ invoiceDocumentId: int</text>
+<text x="102" y="914" font-family="Arial,sans-serif" font-size="12" fill="#202020" >+ invoiceNumber: string</text>
+<text x="102" y="930" font-family="Arial,sans-serif" font-size="12" fill="#202020" >+ visitId: int</text>
+<text x="102" y="946" font-family="Arial,sans-serif" font-size="12" fill="#202020" >+ paymentId: int</text>
+<text x="102" y="962" font-family="Arial,sans-serif" font-size="12" fill="#202020" >+ petId: int</text>
+<text x="102" y="978" font-family="Arial,sans-serif" font-size="12" fill="#202020" >+ filePath: string</text>
+<text x="102" y="994" font-family="Arial,sans-serif" font-size="12" fill="#202020" >+ fileName: string</text>
+<text x="102" y="1010" font-family="Arial,sans-serif" font-size="12" fill="#202020" >+ mimeType: string</text>
+<text x="102" y="1026" font-family="Arial,sans-serif" font-size="12" fill="#202020" >+ paperWidth: string</text>
+<text x="102" y="1042" font-family="Arial,sans-serif" font-size="12" fill="#202020" >+ createdByUserId: int?</text>
+<text x="102" y="1058" font-family="Arial,sans-serif" font-size="12" fill="#202020" >+ createdByName: string?</text>
+<text x="102" y="1074" font-family="Arial,sans-serif" font-size="12" fill="#202020" >+ createdAt: datetime</text>
+<text x="102" y="1102" font-family="Arial,sans-serif" font-size="12" fill="#202020" >+ saveInvoice()</text>
+<text x="102" y="1118" font-family="Arial,sans-serif" font-size="12" fill="#202020" >+ listInvoices()</text>
+</g>
+<g data-class="visit_payment_refunds"><title>VisitPaymentRefund</title>
+<rect x="560" y="899" width="330" height="262" fill="#ffffff" stroke="#767676" stroke-width="1.2"/>
+<line x1="560" y1="929" x2="890" y2="929" stroke="#767676" stroke-width="1"/>
+<line x1="560" y1="1133" x2="890" y2="1133" stroke="#767676" stroke-width="1"/>
+<text x="725" y="919" font-family="Arial,sans-serif" font-size="14" fill="#202020" text-anchor="middle" font-weight="600">VisitPaymentRefund</text>
+<text x="572" y="946" font-family="Arial,sans-serif" font-size="12" fill="#202020" >+ refundId: int</text>
+<text x="572" y="962" font-family="Arial,sans-serif" font-size="12" fill="#202020" >+ visitPaymentId: int</text>
+<text x="572" y="978" font-family="Arial,sans-serif" font-size="12" fill="#202020" >+ visitId: int</text>
+<text x="572" y="994" font-family="Arial,sans-serif" font-size="12" fill="#202020" >+ amount: decimal</text>
+<text x="572" y="1010" font-family="Arial,sans-serif" font-size="12" fill="#202020" >+ refundMethod: string</text>
+<text x="572" y="1026" font-family="Arial,sans-serif" font-size="12" fill="#202020" >+ referenceNumber: string?</text>
+<text x="572" y="1042" font-family="Arial,sans-serif" font-size="12" fill="#202020" >+ reason: string</text>
+<text x="572" y="1058" font-family="Arial,sans-serif" font-size="12" fill="#202020" >+ refundStatus: string</text>
+<text x="572" y="1074" font-family="Arial,sans-serif" font-size="12" fill="#202020" >+ processedAt: datetime</text>
+<text x="572" y="1090" font-family="Arial,sans-serif" font-size="12" fill="#202020" >+ processedByUserId: int</text>
+<text x="572" y="1106" font-family="Arial,sans-serif" font-size="12" fill="#202020" >+ processedByName: string</text>
+<text x="572" y="1122" font-family="Arial,sans-serif" font-size="12" fill="#202020" >+ createdAt: datetime</text>
+<text x="572" y="1150" font-family="Arial,sans-serif" font-size="12" fill="#202020" >+ processRefund()</text>
+</g>
+<g data-class="payment_methods"><title>PaymentMethod</title>
+<rect x="1030" y="755" width="330" height="310" fill="#ffffff" stroke="#767676" stroke-width="1.2"/>
+<line x1="1030" y1="785" x2="1360" y2="785" stroke="#767676" stroke-width="1"/>
+<line x1="1030" y1="1021" x2="1360" y2="1021" stroke="#767676" stroke-width="1"/>
+<text x="1195" y="775" font-family="Arial,sans-serif" font-size="14" fill="#202020" text-anchor="middle" font-weight="600">PaymentMethod</text>
+<text x="1042" y="802" font-family="Arial,sans-serif" font-size="12" fill="#202020" >+ methodKey: string</text>
+<text x="1042" y="818" font-family="Arial,sans-serif" font-size="12" fill="#202020" >+ label: string</text>
+<text x="1042" y="834" font-family="Arial,sans-serif" font-size="12" fill="#202020" >+ accountName: string?</text>
+<text x="1042" y="850" font-family="Arial,sans-serif" font-size="12" fill="#202020" >+ accountNumber: string?</text>
+<text x="1042" y="866" font-family="Arial,sans-serif" font-size="12" fill="#202020" >+ instructions: string?</text>
+<text x="1042" y="882" font-family="Arial,sans-serif" font-size="12" fill="#202020" >+ qrImageUrl: string?</text>
+<text x="1042" y="898" font-family="Arial,sans-serif" font-size="12" fill="#202020" >+ isActive: bool</text>
+<text x="1042" y="914" font-family="Arial,sans-serif" font-size="12" fill="#202020" >+ requiresProof: bool</text>
+<text x="1042" y="930" font-family="Arial,sans-serif" font-size="12" fill="#202020" >+ sortOrder: int</text>
+<text x="1042" y="946" font-family="Arial,sans-serif" font-size="12" fill="#202020" >+ updatedByUserId: int?</text>
+<text x="1042" y="962" font-family="Arial,sans-serif" font-size="12" fill="#202020" >+ updatedAt: datetime</text>
+<text x="1042" y="978" font-family="Arial,sans-serif" font-size="12" fill="#202020" >+ createdAt: datetime</text>
+<text x="1042" y="994" font-family="Arial,sans-serif" font-size="12" fill="#202020" >+ methodType: string</text>
+<text x="1042" y="1010" font-family="Arial,sans-serif" font-size="12" fill="#202020" >+ accountNumberEncrypted: string?</text>
+<text x="1042" y="1038" font-family="Arial,sans-serif" font-size="12" fill="#202020" >+ updateMethods()</text>
+<text x="1042" y="1054" font-family="Arial,sans-serif" font-size="12" fill="#202020" >+ requestChangeOtp()</text>
+</g>
+<g data-class="booking_payment_submissions"><title>BookingPaymentSubmission</title>
+<rect x="90" y="1193" width="330" height="310" fill="#ffffff" stroke="#767676" stroke-width="1.2"/>
+<line x1="90" y1="1223" x2="420" y2="1223" stroke="#767676" stroke-width="1"/>
+<line x1="90" y1="1475" x2="420" y2="1475" stroke="#767676" stroke-width="1"/>
+<text x="255" y="1213" font-family="Arial,sans-serif" font-size="14" fill="#202020" text-anchor="middle" font-weight="600">BookingPaymentSubmission</text>
+<text x="102" y="1240" font-family="Arial,sans-serif" font-size="12" fill="#202020" >+ submissionId: int</text>
+<text x="102" y="1256" font-family="Arial,sans-serif" font-size="12" fill="#202020" >+ bookingId: int</text>
+<text x="102" y="1272" font-family="Arial,sans-serif" font-size="12" fill="#202020" >+ purpose: string</text>
+<text x="102" y="1288" font-family="Arial,sans-serif" font-size="12" fill="#202020" >+ amount: decimal</text>
+<text x="102" y="1304" font-family="Arial,sans-serif" font-size="12" fill="#202020" >+ paymentMethod: string</text>
+<text x="102" y="1320" font-family="Arial,sans-serif" font-size="12" fill="#202020" >+ referenceNumber: string?</text>
+<text x="102" y="1336" font-family="Arial,sans-serif" font-size="12" fill="#202020" >+ proofUrl: string?</text>
+<text x="102" y="1352" font-family="Arial,sans-serif" font-size="12" fill="#202020" >+ submissionStatus: string</text>
+<text x="102" y="1368" font-family="Arial,sans-serif" font-size="12" fill="#202020" >+ submittedAt: datetime</text>
+<text x="102" y="1384" font-family="Arial,sans-serif" font-size="12" fill="#202020" >+ reviewedAt: datetime?</text>
+<text x="102" y="1400" font-family="Arial,sans-serif" font-size="12" fill="#202020" >+ reviewedByUserId: int?</text>
+<text x="102" y="1416" font-family="Arial,sans-serif" font-size="12" fill="#202020" >+ reviewNotes: string?</text>
+<text x="102" y="1432" font-family="Arial,sans-serif" font-size="12" fill="#202020" >+ linkedVisitPaymentId: int?</text>
+<text x="102" y="1448" font-family="Arial,sans-serif" font-size="12" fill="#202020" >+ createdAt: datetime</text>
+<text x="102" y="1464" font-family="Arial,sans-serif" font-size="12" fill="#202020" >+ updatedAt: datetime</text>
+<text x="102" y="1492" font-family="Arial,sans-serif" font-size="12" fill="#202020" >+ reviewPayment()</text>
+</g>
+<g data-class="booking_payment_refunds"><title>BookingPaymentRefund</title>
+<rect x="560" y="1225" width="330" height="262" fill="#ffffff" stroke="#767676" stroke-width="1.2"/>
+<line x1="560" y1="1255" x2="890" y2="1255" stroke="#767676" stroke-width="1"/>
+<line x1="560" y1="1459" x2="890" y2="1459" stroke="#767676" stroke-width="1"/>
+<text x="725" y="1245" font-family="Arial,sans-serif" font-size="14" fill="#202020" text-anchor="middle" font-weight="600">BookingPaymentRefund</text>
+<text x="572" y="1272" font-family="Arial,sans-serif" font-size="12" fill="#202020" >+ refundId: int</text>
+<text x="572" y="1288" font-family="Arial,sans-serif" font-size="12" fill="#202020" >+ bookingPaymentSubmissionId: int</text>
+<text x="572" y="1304" font-family="Arial,sans-serif" font-size="12" fill="#202020" >+ bookingId: int</text>
+<text x="572" y="1320" font-family="Arial,sans-serif" font-size="12" fill="#202020" >+ amount: decimal</text>
+<text x="572" y="1336" font-family="Arial,sans-serif" font-size="12" fill="#202020" >+ refundMethod: string</text>
+<text x="572" y="1352" font-family="Arial,sans-serif" font-size="12" fill="#202020" >+ referenceNumber: string?</text>
+<text x="572" y="1368" font-family="Arial,sans-serif" font-size="12" fill="#202020" >+ reason: string</text>
+<text x="572" y="1384" font-family="Arial,sans-serif" font-size="12" fill="#202020" >+ refundStatus: string</text>
+<text x="572" y="1400" font-family="Arial,sans-serif" font-size="12" fill="#202020" >+ processedAt: datetime</text>
+<text x="572" y="1416" font-family="Arial,sans-serif" font-size="12" fill="#202020" >+ processedByUserId: int</text>
+<text x="572" y="1432" font-family="Arial,sans-serif" font-size="12" fill="#202020" >+ processedByName: string</text>
+<text x="572" y="1448" font-family="Arial,sans-serif" font-size="12" fill="#202020" >+ createdAt: datetime</text>
+<text x="572" y="1476" font-family="Arial,sans-serif" font-size="12" fill="#202020" >+ processRefund()</text>
+</g>
+<g data-class="service_display_settings"><title>ServiceDisplaySetting</title>
+<rect x="1030" y="1129" width="330" height="150" fill="#ffffff" stroke="#767676" stroke-width="1.2"/>
+<line x1="1030" y1="1159" x2="1360" y2="1159" stroke="#767676" stroke-width="1"/>
+<line x1="1030" y1="1251" x2="1360" y2="1251" stroke="#767676" stroke-width="1"/>
+<text x="1195" y="1149" font-family="Arial,sans-serif" font-size="14" fill="#202020" text-anchor="middle" font-weight="600">ServiceDisplaySetting</text>
+<text x="1042" y="1176" font-family="Arial,sans-serif" font-size="12" fill="#202020" >+ settingsKey: string</text>
+<text x="1042" y="1192" font-family="Arial,sans-serif" font-size="12" fill="#202020" >+ settingsJson: string</text>
+<text x="1042" y="1208" font-family="Arial,sans-serif" font-size="12" fill="#202020" >+ updatedByUserId: int?</text>
+<text x="1042" y="1224" font-family="Arial,sans-serif" font-size="12" fill="#202020" >+ createdAt: datetime</text>
+<text x="1042" y="1240" font-family="Arial,sans-serif" font-size="12" fill="#202020" >+ updatedAt: datetime</text>
+<text x="1042" y="1268" font-family="Arial,sans-serif" font-size="12" fill="#202020" >+ saveDisplaySettings()</text>
+</g>
+<g data-class="boarding_material_usages"><title>BoardingMaterialUsage / full definition on sheet 7</title>
+<rect x="1500" y="135" width="330" height="82" fill="#ffffff" stroke="#767676" stroke-width="1.2"/>
+<line x1="1500" y1="165" x2="1830" y2="165" stroke="#767676" stroke-width="1"/>
+<line x1="1500" y1="193" x2="1830" y2="193" stroke="#767676" stroke-width="1"/>
+<text x="1665" y="155" font-family="Arial,sans-serif" font-size="14" fill="#202020" text-anchor="middle" font-weight="600">BoardingMaterialUsage</text>
+<text x="1512" y="182" font-family="Arial,sans-serif" font-size="12" fill="#202020" >+ usageId: int</text>
+</g>
+<g data-class="bookings"><title>Booking / full definition on sheet 5</title>
+<rect x="1500" y="281" width="330" height="104" fill="#ffffff" stroke="#767676" stroke-width="1.2"/>
+<line x1="1500" y1="311" x2="1830" y2="311" stroke="#767676" stroke-width="1"/>
+<line x1="1500" y1="339" x2="1830" y2="339" stroke="#767676" stroke-width="1"/>
+<text x="1665" y="301" font-family="Arial,sans-serif" font-size="14" fill="#202020" text-anchor="middle" font-weight="600">Booking</text>
+<text x="1512" y="328" font-family="Arial,sans-serif" font-size="12" fill="#202020" >+ bookingId: int</text>
+</g>
+<g data-class="branches"><title>Branch / full definition on sheet 3</title>
+<rect x="1500" y="449" width="330" height="82" fill="#ffffff" stroke="#767676" stroke-width="1.2"/>
+<line x1="1500" y1="479" x2="1830" y2="479" stroke="#767676" stroke-width="1"/>
+<line x1="1500" y1="507" x2="1830" y2="507" stroke="#767676" stroke-width="1"/>
+<text x="1665" y="469" font-family="Arial,sans-serif" font-size="14" fill="#202020" text-anchor="middle" font-weight="600">Branch</text>
+<text x="1512" y="496" font-family="Arial,sans-serif" font-size="12" fill="#202020" >+ branchId: int</text>
+</g>
+<g data-class="inventory_items"><title>InventoryItem / full definition on sheet 8</title>
+<rect x="1500" y="595" width="330" height="82" fill="#ffffff" stroke="#767676" stroke-width="1.2"/>
+<line x1="1500" y1="625" x2="1830" y2="625" stroke="#767676" stroke-width="1"/>
+<line x1="1500" y1="653" x2="1830" y2="653" stroke="#767676" stroke-width="1"/>
+<text x="1665" y="615" font-family="Arial,sans-serif" font-size="14" fill="#202020" text-anchor="middle" font-weight="600">InventoryItem</text>
+<text x="1512" y="642" font-family="Arial,sans-serif" font-size="12" fill="#202020" >+ itemId: int</text>
+</g>
+<g data-class="pets_information"><title>Pet / full definition on sheet 4</title>
+<rect x="1500" y="741" width="330" height="82" fill="#ffffff" stroke="#767676" stroke-width="1.2"/>
+<line x1="1500" y1="771" x2="1830" y2="771" stroke="#767676" stroke-width="1"/>
+<line x1="1500" y1="799" x2="1830" y2="799" stroke="#767676" stroke-width="1"/>
+<text x="1665" y="761" font-family="Arial,sans-serif" font-size="14" fill="#202020" text-anchor="middle" font-weight="600">Pet</text>
+<text x="1512" y="788" font-family="Arial,sans-serif" font-size="12" fill="#202020" >+ petId: int</text>
+</g>
+<g data-class="queues"><title>QueueEntry / full definition on sheet 5</title>
+<rect x="1500" y="887" width="330" height="82" fill="#ffffff" stroke="#767676" stroke-width="1.2"/>
+<line x1="1500" y1="917" x2="1830" y2="917" stroke="#767676" stroke-width="1"/>
+<line x1="1500" y1="945" x2="1830" y2="945" stroke="#767676" stroke-width="1"/>
+<text x="1665" y="907" font-family="Arial,sans-serif" font-size="14" fill="#202020" text-anchor="middle" font-weight="600">QueueEntry</text>
+<text x="1512" y="934" font-family="Arial,sans-serif" font-size="12" fill="#202020" >+ queueId: int</text>
+</g>
+<g data-class="users"><title>User / full definition on sheet 2</title>
+<rect x="1500" y="1033" width="330" height="230" fill="#ffffff" stroke="#767676" stroke-width="1.2"/>
+<line x1="1500" y1="1063" x2="1830" y2="1063" stroke="#767676" stroke-width="1"/>
+<line x1="1500" y1="1091" x2="1830" y2="1091" stroke="#767676" stroke-width="1"/>
+<text x="1665" y="1053" font-family="Arial,sans-serif" font-size="14" fill="#202020" text-anchor="middle" font-weight="600">User</text>
+<text x="1512" y="1080" font-family="Arial,sans-serif" font-size="12" fill="#202020" >+ userId: int</text>
+</g>
+<g data-class="vet_diagnoses"><title>Diagnosis / full definition on sheet 5</title>
+<rect x="1500" y="1327" width="330" height="82" fill="#ffffff" stroke="#767676" stroke-width="1.2"/>
+<line x1="1500" y1="1357" x2="1830" y2="1357" stroke="#767676" stroke-width="1"/>
+<line x1="1500" y1="1385" x2="1830" y2="1385" stroke="#767676" stroke-width="1"/>
+<text x="1665" y="1347" font-family="Arial,sans-serif" font-size="14" fill="#202020" text-anchor="middle" font-weight="600">Diagnosis</text>
+<text x="1512" y="1374" font-family="Arial,sans-serif" font-size="12" fill="#202020" >+ diagnosisId: int</text>
+</g>
+<text x="902" y="1250" font-family="Consolas,monospace" font-size="11.5" fill="#202020" data-relationship="domain-billing-edge-0" data-endpoint="start">0..*</text>
+<text x="1479" y="360" font-family="Consolas,monospace" font-size="11.5" fill="#202020" data-relationship="domain-billing-edge-0" data-endpoint="end">1</text>
+<text x="518" y="1250" font-family="Consolas,monospace" font-size="11.5" fill="#202020" data-relationship="domain-billing-edge-1" data-endpoint="start">0..*</text>
+<text x="432" y="1272" font-family="Consolas,monospace" font-size="11.5" fill="#202020" data-relationship="domain-billing-edge-1" data-endpoint="end">1</text>
+<text x="902" y="1268" font-family="Consolas,monospace" font-size="11.5" fill="#202020" data-relationship="domain-billing-edge-2" data-endpoint="start">0..*</text>
+<text x="1479" y="1238" font-family="Consolas,monospace" font-size="11.5" fill="#202020" data-relationship="domain-billing-edge-2" data-endpoint="end">1</text>
+<text x="432" y="1218" font-family="Consolas,monospace" font-size="11.5" fill="#202020" data-relationship="domain-billing-edge-3" data-endpoint="start">0..*</text>
+<text x="1479" y="342" font-family="Consolas,monospace" font-size="11.5" fill="#202020" data-relationship="domain-billing-edge-3" data-endpoint="end">1</text>
+<text x="432" y="1254" font-family="Consolas,monospace" font-size="11.5" fill="#202020" data-relationship="domain-billing-edge-4" data-endpoint="start">0..*</text>
+<text x="1458" y="1220" font-family="Consolas,monospace" font-size="11.5" fill="#202020" data-relationship="domain-billing-edge-4" data-endpoint="end">0..1</text>
+<text x="432" y="1236" font-family="Consolas,monospace" font-size="11.5" fill="#202020" data-relationship="domain-billing-edge-5" data-endpoint="start">0..1</text>
+<text x="988" y="476" font-family="Consolas,monospace" font-size="11.5" fill="#202020" data-relationship="domain-billing-edge-5" data-endpoint="end">0..1</text>
+<text x="432" y="178" font-family="Consolas,monospace" font-size="11.5" fill="#202020" data-relationship="domain-billing-edge-6" data-endpoint="start">0..*</text>
+<text x="1458" y="1076" font-family="Consolas,monospace" font-size="11.5" fill="#202020" data-relationship="domain-billing-edge-6" data-endpoint="end">0..1</text>
+<text x="1372" y="1154" font-family="Consolas,monospace" font-size="11.5" fill="#202020" data-relationship="domain-billing-edge-7" data-endpoint="start">0..*</text>
+<text x="1458" y="1202" font-family="Consolas,monospace" font-size="11.5" fill="#202020" data-relationship="domain-billing-edge-7" data-endpoint="end">0..1</text>
+<text x="1372" y="160" font-family="Consolas,monospace" font-size="11.5" fill="#202020" data-relationship="domain-billing-edge-8" data-endpoint="start">0..*</text>
+<text x="1479" y="306" font-family="Consolas,monospace" font-size="11.5" fill="#202020" data-relationship="domain-billing-edge-8" data-endpoint="end">1</text>
+<text x="988" y="160" font-family="Consolas,monospace" font-size="11.5" fill="#202020" data-relationship="domain-billing-edge-9" data-endpoint="start">0..*</text>
+<text x="902" y="160" font-family="Consolas,monospace" font-size="11.5" fill="#202020" data-relationship="domain-billing-edge-9" data-endpoint="end">0..1</text>
+<text x="902" y="178" font-family="Consolas,monospace" font-size="11.5" fill="#202020" data-relationship="domain-billing-edge-10" data-endpoint="start">0..*</text>
+<text x="1458" y="1058" font-family="Consolas,monospace" font-size="11.5" fill="#202020" data-relationship="domain-billing-edge-10" data-endpoint="end">0..1</text>
+<text x="432" y="538" font-family="Consolas,monospace" font-size="11.5" fill="#202020" data-relationship="domain-billing-edge-11" data-endpoint="start">0..*</text>
+<text x="1479" y="474" font-family="Consolas,monospace" font-size="11.5" fill="#202020" data-relationship="domain-billing-edge-11" data-endpoint="end">1</text>
+<text x="432" y="682" font-family="Consolas,monospace" font-size="11.5" fill="#202020" data-relationship="domain-billing-edge-12" data-endpoint="start">0..1</text>
+<text x="1458" y="1352" font-family="Consolas,monospace" font-size="11.5" fill="#202020" data-relationship="domain-billing-edge-12" data-endpoint="end">0..1</text>
+<text x="432" y="574" font-family="Consolas,monospace" font-size="11.5" fill="#202020" data-relationship="domain-billing-edge-13" data-endpoint="start">0..*</text>
+<text x="1479" y="766" font-family="Consolas,monospace" font-size="11.5" fill="#202020" data-relationship="domain-billing-edge-13" data-endpoint="end">1</text>
+<text x="432" y="646" font-family="Consolas,monospace" font-size="11.5" fill="#202020" data-relationship="domain-billing-edge-14" data-endpoint="start">0..*</text>
+<text x="1479" y="1112" font-family="Consolas,monospace" font-size="11.5" fill="#202020" data-relationship="domain-billing-edge-14" data-endpoint="end">1</text>
+<text x="432" y="664" font-family="Consolas,monospace" font-size="11.5" fill="#202020" data-relationship="domain-billing-edge-15" data-endpoint="start">0..*</text>
+<text x="1458" y="1130" font-family="Consolas,monospace" font-size="11.5" fill="#202020" data-relationship="domain-billing-edge-15" data-endpoint="end">0..1</text>
+<text x="432" y="610" font-family="Consolas,monospace" font-size="11.5" fill="#202020" data-relationship="domain-billing-edge-16" data-endpoint="start">0..*</text>
+<text x="1458" y="912" font-family="Consolas,monospace" font-size="11.5" fill="#202020" data-relationship="domain-billing-edge-16" data-endpoint="end">0..1</text>
+<text x="432" y="502" font-family="Consolas,monospace" font-size="11.5" fill="#202020" data-relationship="domain-billing-edge-17" data-endpoint="start">0..*</text>
+<text x="1458" y="324" font-family="Consolas,monospace" font-size="11.5" fill="#202020" data-relationship="domain-billing-edge-17" data-endpoint="end">0..1</text>
+<text x="902" y="566" font-family="Consolas,monospace" font-size="11.5" fill="#202020" data-relationship="domain-billing-edge-18" data-endpoint="start">0..1</text>
+<text x="1458" y="160" font-family="Consolas,monospace" font-size="11.5" fill="#202020" data-relationship="domain-billing-edge-18" data-endpoint="end">0..1</text>
+<text x="902" y="602" font-family="Consolas,monospace" font-size="11.5" fill="#202020" data-relationship="domain-billing-edge-19" data-endpoint="start">0..*</text>
+<text x="1458" y="1148" font-family="Consolas,monospace" font-size="11.5" fill="#202020" data-relationship="domain-billing-edge-19" data-endpoint="end">0..1</text>
+<text x="518" y="584" font-family="Consolas,monospace" font-size="11.5" fill="#202020" data-relationship="domain-billing-edge-20" data-endpoint="start">0..*</text>
+<text x="432" y="556" font-family="Consolas,monospace" font-size="11.5" fill="#202020" data-relationship="domain-billing-edge-20" data-endpoint="end">1</text>
+<text x="518" y="566" font-family="Consolas,monospace" font-size="11.5" fill="#202020" data-relationship="domain-billing-edge-21" data-endpoint="start">0..*</text>
+<text x="432" y="160" font-family="Consolas,monospace" font-size="11.5" fill="#202020" data-relationship="domain-billing-edge-21" data-endpoint="end">0..1</text>
+<text x="902" y="584" font-family="Consolas,monospace" font-size="11.5" fill="#202020" data-relationship="domain-billing-edge-22" data-endpoint="start">0..*</text>
+<text x="1458" y="620" font-family="Consolas,monospace" font-size="11.5" fill="#202020" data-relationship="domain-billing-edge-22" data-endpoint="end">0..1</text>
+<text x="432" y="930" font-family="Consolas,monospace" font-size="11.5" fill="#202020" data-relationship="domain-billing-edge-23" data-endpoint="start">0..*</text>
+<text x="1458" y="1166" font-family="Consolas,monospace" font-size="11.5" fill="#202020" data-relationship="domain-billing-edge-23" data-endpoint="end">0..1</text>
+<text x="432" y="876" font-family="Consolas,monospace" font-size="11.5" fill="#202020" data-relationship="domain-billing-edge-24" data-endpoint="start">0..1</text>
+<text x="1009" y="440" font-family="Consolas,monospace" font-size="11.5" fill="#202020" data-relationship="domain-billing-edge-24" data-endpoint="end">1</text>
+<text x="432" y="912" font-family="Consolas,monospace" font-size="11.5" fill="#202020" data-relationship="domain-billing-edge-25" data-endpoint="start">0..*</text>
+<text x="1479" y="784" font-family="Consolas,monospace" font-size="11.5" fill="#202020" data-relationship="domain-billing-edge-25" data-endpoint="end">1</text>
+<text x="432" y="894" font-family="Consolas,monospace" font-size="11.5" fill="#202020" data-relationship="domain-billing-edge-26" data-endpoint="start">0..*</text>
+<text x="432" y="592" font-family="Consolas,monospace" font-size="11.5" fill="#202020" data-relationship="domain-billing-edge-26" data-endpoint="end">1</text>
+<text x="1372" y="422" font-family="Consolas,monospace" font-size="11.5" fill="#202020" data-relationship="domain-billing-edge-27" data-endpoint="start">0..*</text>
+<text x="1458" y="1094" font-family="Consolas,monospace" font-size="11.5" fill="#202020" data-relationship="domain-billing-edge-27" data-endpoint="end">0..1</text>
+<text x="988" y="422" font-family="Consolas,monospace" font-size="11.5" fill="#202020" data-relationship="domain-billing-edge-28" data-endpoint="start">0..*</text>
+<text x="432" y="520" font-family="Consolas,monospace" font-size="11.5" fill="#202020" data-relationship="domain-billing-edge-28" data-endpoint="end">1</text>
+<text x="902" y="924" font-family="Consolas,monospace" font-size="11.5" fill="#202020" data-relationship="domain-billing-edge-29" data-endpoint="start">0..*</text>
+<text x="1009" y="458" font-family="Consolas,monospace" font-size="11.5" fill="#202020" data-relationship="domain-billing-edge-29" data-endpoint="end">1</text>
+<text x="902" y="942" font-family="Consolas,monospace" font-size="11.5" fill="#202020" data-relationship="domain-billing-edge-30" data-endpoint="start">0..*</text>
+<text x="1479" y="1184" font-family="Consolas,monospace" font-size="11.5" fill="#202020" data-relationship="domain-billing-edge-30" data-endpoint="end">1</text>
+<text x="518" y="924" font-family="Consolas,monospace" font-size="11.5" fill="#202020" data-relationship="domain-billing-edge-31" data-endpoint="start">0..*</text>
+<text x="432" y="628" font-family="Consolas,monospace" font-size="11.5" fill="#202020" data-relationship="domain-billing-edge-31" data-endpoint="end">1</text>
+</svg>

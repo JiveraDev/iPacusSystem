@@ -1,0 +1,338 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1089" height="1313" viewBox="0 0 1089 1313" role="img" aria-labelledby="title description">
+<title id="title">iPawcus - Inventory and materials</title>
+<desc id="description">Conceptual UML class diagram. White three-compartment class boxes with thin gray borders and orthogonal relationships. Attributes and operations describe the existing system, not literal PHP class declarations.</desc>
+<defs><marker id="dependency" markerWidth="8" markerHeight="8" refX="7" refY="4" orient="auto" markerUnits="userSpaceOnUse"><path d="M0 0 L7 4 L0 8" fill="none" stroke="#777777" stroke-width="0.75"/></marker></defs>
+<rect width="100%" height="100%" fill="#ffffff"/>
+<text x="72" y="35" font-family="Arial,sans-serif" font-size="19" fill="#222222" >iPawcus - Inventory and materials</text>
+<text x="72" y="56" font-family="Arial,sans-serif" font-size="10" fill="#222222" >Conceptual UML model | class name, attributes, operations | + public | ? nullable</text>
+<text x="72" y="73" font-family="Arial,sans-serif" font-size="9.5" fill="#222222" >Solid: association | dashed: application association | dashed arrow: uses | 1 / 0..1 / 0..* multiplicities</text>
+<path d="M533 1008 L579 1008 L579 237 L653 237" fill="none" stroke="#777777" stroke-width="0.75"><title>inventory_action_audit.batch_id -&gt; inventory_batches.batch_id</title></path>
+<path d="M345 1008 L299 1008 L299 335.5 L221 335.5" fill="none" stroke="#777777" stroke-width="0.75"><title>inventory_action_audit.item_id -&gt; inventory_items.item_id</title></path>
+<path d="M345 1022 L263.32 1022 L263.32 698.5 L211 698.5" fill="none" stroke="#777777" stroke-width="0.75"><title>inventory_action_audit.location_id -&gt; inventory_locations.location_id</title></path>
+<path d="M533 1022 L624.68 1022 L624.68 651 L880 651 L880 486 L926 486" fill="none" stroke="#777777" stroke-width="0.75"><title>inventory_action_audit.performed_by_user_id -&gt; users.user_id</title></path>
+<path d="M653 195 L607 195 L607 322 L267 322 L267 265.5 L221 265.5" fill="none" stroke="#777777" stroke-width="0.75"><title>inventory_batches.item_id -&gt; inventory_items.item_id</title></path>
+<path d="M653 209 L541.32 209 L541.32 614 L257 614 L257 614.5 L211 614.5" fill="none" stroke="#777777" stroke-width="0.75"><title>inventory_batches.location_id -&gt; inventory_locations.location_id</title></path>
+<path d="M507 216 L553 216 L553 112 L879 112 L879 150.5 L925 150.5" fill="none" stroke="#777777" stroke-width="0.75"><title>inventory_branch_items.branch_id -&gt; branches.branch_id</title></path>
+<path d="M371 216 L325 216 L325 279.5 L221 279.5" fill="none" stroke="#777777" stroke-width="0.75"><title>inventory_branch_items.item_id -&gt; inventory_items.item_id</title></path>
+<path d="M371 230 L260.32 230 L260.32 628.5 L211 628.5" fill="none" stroke="#777777" stroke-width="0.75"><title>inventory_branch_items.primary_location_id -&gt; inventory_locations.location_id</title></path>
+<path d="M507 230 L553 230 L553 376 L880 376 L880 458 L926 458" fill="none" stroke="#777777" stroke-width="0.75"><title>inventory_branch_items.removed_by_user_id -&gt; users.user_id</title></path>
+<path d="M221 307.5 L353 307.5 L353 375 L879 375 L879 444 L926 444" fill="none" stroke="#777777" stroke-width="0.75"><title>inventory_items.created_by_user_id -&gt; users.user_id</title></path>
+<path d="M170.5 473 L170.5 519 L150.5 519 L150.5 517 L150 517 L150 563" fill="none" stroke="#777777" stroke-width="0.75"><title>inventory_items.location_id -&gt; inventory_locations.location_id</title></path>
+<path d="M211 600.5 L257 600.5 L257 328 L879 328 L879 164.5 L925 164.5" fill="none" stroke="#777777" stroke-width="0.75"><title>inventory_locations.branch_id -&gt; branches.branch_id</title></path>
+<path d="M725.5 394 L725.5 348 L729.5 348 L729.5 350 L725.5 350 L725.5 304" fill="none" stroke="#777777" stroke-width="0.75"><title>inventory_stock_movements.batch_id -&gt; inventory_batches.batch_id</title></path>
+<path d="M649 512.5 L603 512.5 L603 333.5 L272 333.5 L272 293.5 L221 293.5" fill="none" stroke="#777777" stroke-width="0.75"><title>inventory_stock_movements.item_id -&gt; inventory_items.item_id</title></path>
+<path d="M649 526.5 L603 526.5 L603 613 L263.32 613 L263.32 642.5 L211 642.5" fill="none" stroke="#777777" stroke-width="0.75"><title>inventory_stock_movements.location_id -&gt; inventory_locations.location_id</title></path>
+<path d="M802 519.5 L848 519.5 L848 540 L967 540 L967 494" fill="none" stroke="#777777" stroke-width="0.75"><title>inventory_stock_movements.performed_by_user_id -&gt; users.user_id</title></path>
+<path d="M229 893 L275 893 L275 347.5 L872 347.5 L872 178.5 L925 178.5" fill="none" stroke="#777777" stroke-width="0.75"><title>inventory_stock_receipts.branch_id -&gt; branches.branch_id</title></path>
+<path d="M229 907 L327 907 L327 837 L618.68 837 L618.68 654.5 L879 654.5 L879 472 L926 472" fill="none" stroke="#777777" stroke-width="0.75"><title>inventory_stock_receipts.received_by_user_id -&gt; users.user_id</title></path>
+<path d="M519 731.5 L565 731.5 L565 223 L653 223" fill="none" stroke="#777777" stroke-width="0.75"><title>inventory_stock_receipt_items.batch_id -&gt; inventory_batches.batch_id</title></path>
+<path d="M358 717.5 L312 717.5 L312 321.5 L221 321.5" fill="none" stroke="#777777" stroke-width="0.75"><title>inventory_stock_receipt_items.item_id -&gt; inventory_items.item_id</title></path>
+<path d="M358 731.5 L257 731.5 L257 656.5 L211 656.5" fill="none" stroke="#777777" stroke-width="0.75"><title>inventory_stock_receipt_items.location_id -&gt; inventory_locations.location_id</title></path>
+<path d="M358 745.5 L312 745.5 L312 921 L229 921" fill="none" stroke="#777777" stroke-width="0.75"><title>inventory_stock_receipt_items.receipt_id -&gt; inventory_stock_receipts.receipt_id</title></path>
+<path d="M438.5 632 L438.5 586 L442.5 586 L442.5 588 L438.5 588 L438.5 542" fill="none" stroke="#777777" stroke-width="0.75"><title>inventory_stock_receipt_items.supplier_id -&gt; inventory_suppliers.supplier_id</title></path>
+<path d="M791 815.5 L1054 815.5 L1054 458 L1008 458" fill="none" stroke="#777777" stroke-width="0.75"><title>inventory_transfers.created_by_user_id -&gt; users.user_id</title></path>
+<path d="M659 808.5 L613 808.5 L613 601 L267 601 L267 670.5 L211 670.5" fill="none" stroke="#777777" stroke-width="0.75"><title>inventory_transfers.from_location_id -&gt; inventory_locations.location_id</title></path>
+<path d="M791 829.5 L1059 829.5 L1059 472 L1008 472" fill="none" stroke="#777777" stroke-width="0.75"><title>inventory_transfers.received_by_user_id -&gt; users.user_id</title></path>
+<path d="M659 822.5 L613 822.5 L613 879 L260.32 879 L260.32 684.5 L211 684.5" fill="none" stroke="#777777" stroke-width="0.75"><title>inventory_transfers.to_location_id -&gt; inventory_locations.location_id</title></path>
+<path d="M226 1144.5 L567.32 1144.5 L567.32 251 L653 251" fill="none" stroke="#777777" stroke-width="0.75"><title>inventory_transfer_items.source_batch_id -&gt; inventory_batches.batch_id</title></path>
+<path d="M150.5 1078 L150.5 1032 L54 1032 L54 519 L130.5 519 L130.5 473" fill="none" stroke="#777777" stroke-width="0.75"><title>inventory_transfer_items.item_id -&gt; inventory_items.item_id</title></path>
+<path d="M226 1158.5 L607 1158.5 L607 836.5 L659 836.5" fill="none" stroke="#777777" stroke-width="0.75"><title>inventory_transfer_items.inventory_transfer_id -&gt; inventory_transfers.inventory_transfer_id</title></path>
+<path d="M787 1086.5 L837 1086.5 L837 311.5 L918 311.5" fill="none" stroke="#777777" stroke-width="0.75"><title>service_materials.service_id -&gt; service_catalog.service_id</title></path>
+<path d="M663 1086.5 L617 1086.5 L617 566 L267 566 L267 349.5 L221 349.5" fill="none" stroke="#777777" stroke-width="0.75"><title>service_materials.item_id -&gt; inventory_items.item_id</title></path>
+<g data-class="inventory_items"><title>InventoryItem</title>
+<rect x="80" y="130" width="141" height="343" fill="#ffffff" stroke="#858585" stroke-width="0.8"/>
+<line x1="80" y1="154" x2="221" y2="154" stroke="#858585" stroke-width="0.8"/>
+<line x1="80" y1="424" x2="221" y2="424" stroke="#858585" stroke-width="0.8"/>
+<text x="150.5" y="146" font-family="Arial,sans-serif" font-size="11" fill="#222222" font-weight="700" text-anchor="middle">InventoryItem</text>
+<text x="90" y="168" font-family="Arial,sans-serif" font-size="10" fill="#222222" >+ itemId: int</text>
+<text x="90" y="181" font-family="Arial,sans-serif" font-size="10" fill="#222222" >+ itemName: string</text>
+<text x="90" y="194" font-family="Arial,sans-serif" font-size="10" fill="#222222" >+ genericName: string?</text>
+<text x="90" y="207" font-family="Arial,sans-serif" font-size="10" fill="#222222" >+ sku: string</text>
+<text x="90" y="220" font-family="Arial,sans-serif" font-size="10" fill="#222222" >+ barcode: string?</text>
+<text x="90" y="233" font-family="Arial,sans-serif" font-size="10" fill="#222222" >+ description: string?</text>
+<text x="90" y="246" font-family="Arial,sans-serif" font-size="10" fill="#222222" >+ category: string</text>
+<text x="90" y="259" font-family="Arial,sans-serif" font-size="10" fill="#222222" >+ brand: string?</text>
+<text x="90" y="272" font-family="Arial,sans-serif" font-size="10" fill="#222222" >+ unit: string</text>
+<text x="90" y="285" font-family="Arial,sans-serif" font-size="10" fill="#222222" >+ reorderLevel: int?</text>
+<text x="90" y="298" font-family="Arial,sans-serif" font-size="10" fill="#222222" >+ unitCost: decimal</text>
+<text x="90" y="311" font-family="Arial,sans-serif" font-size="10" fill="#222222" >+ sellingPrice: decimal?</text>
+<text x="90" y="324" font-family="Arial,sans-serif" font-size="10" fill="#222222" >+ expiryWarningDays: int?</text>
+<text x="90" y="337" font-family="Arial,sans-serif" font-size="10" fill="#222222" >+ profileImagePath: string?</text>
+<text x="90" y="350" font-family="Arial,sans-serif" font-size="10" fill="#222222" >+ status: string?</text>
+<text x="90" y="363" font-family="Arial,sans-serif" font-size="10" fill="#222222" >+ createdByUserId: int</text>
+<text x="90" y="376" font-family="Arial,sans-serif" font-size="10" fill="#222222" >+ createdByName: string</text>
+<text x="90" y="389" font-family="Arial,sans-serif" font-size="10" fill="#222222" >+ createdAt: datetime</text>
+<text x="90" y="402" font-family="Arial,sans-serif" font-size="10" fill="#222222" >+ updatedAt: datetime</text>
+<text x="90" y="415" font-family="Arial,sans-serif" font-size="10" fill="#222222" >+ locationId: int</text>
+<text x="90" y="438" font-family="Arial,sans-serif" font-size="10" fill="#222222" >+ createItem()</text>
+<text x="90" y="451" font-family="Arial,sans-serif" font-size="10" fill="#222222" >+ updateItem()</text>
+<text x="90" y="464" font-family="Arial,sans-serif" font-size="10" fill="#222222" >+ stockOut()</text>
+</g>
+<g data-class="inventory_branch_items"><title>InventoryBranchItem</title>
+<rect x="371" y="130" width="136" height="174" fill="#ffffff" stroke="#858585" stroke-width="0.8"/>
+<line x1="371" y1="154" x2="507" y2="154" stroke="#858585" stroke-width="0.8"/>
+<line x1="371" y1="281" x2="507" y2="281" stroke="#858585" stroke-width="0.8"/>
+<text x="439" y="146" font-family="Arial,sans-serif" font-size="11" fill="#222222" font-weight="700" text-anchor="middle">InventoryBranchItem</text>
+<text x="381" y="168" font-family="Arial,sans-serif" font-size="10" fill="#222222" >+ branchId: int</text>
+<text x="381" y="181" font-family="Arial,sans-serif" font-size="10" fill="#222222" >+ itemId: int</text>
+<text x="381" y="194" font-family="Arial,sans-serif" font-size="10" fill="#222222" >+ primaryLocationId: int</text>
+<text x="381" y="207" font-family="Arial,sans-serif" font-size="10" fill="#222222" >+ status: string</text>
+<text x="381" y="220" font-family="Arial,sans-serif" font-size="10" fill="#222222" >+ removedAt: datetime?</text>
+<text x="381" y="233" font-family="Arial,sans-serif" font-size="10" fill="#222222" >+ removedByUserId: int?</text>
+<text x="381" y="246" font-family="Arial,sans-serif" font-size="10" fill="#222222" >+ removalReason: string?</text>
+<text x="381" y="259" font-family="Arial,sans-serif" font-size="10" fill="#222222" >+ createdAt: datetime</text>
+<text x="381" y="272" font-family="Arial,sans-serif" font-size="10" fill="#222222" >+ updatedAt: datetime</text>
+<text x="381" y="295" font-family="Arial,sans-serif" font-size="10" fill="#222222" >+ removeFromClinic()</text>
+</g>
+<g data-class="inventory_batches"><title>InventoryBatch</title>
+<rect x="653" y="130" width="145" height="174" fill="#ffffff" stroke="#858585" stroke-width="0.8"/>
+<line x1="653" y1="154" x2="798" y2="154" stroke="#858585" stroke-width="0.8"/>
+<line x1="653" y1="281" x2="798" y2="281" stroke="#858585" stroke-width="0.8"/>
+<text x="725.5" y="146" font-family="Arial,sans-serif" font-size="11" fill="#222222" font-weight="700" text-anchor="middle">InventoryBatch</text>
+<text x="663" y="168" font-family="Arial,sans-serif" font-size="10" fill="#222222" >+ batchId: int</text>
+<text x="663" y="181" font-family="Arial,sans-serif" font-size="10" fill="#222222" >+ itemId: int</text>
+<text x="663" y="194" font-family="Arial,sans-serif" font-size="10" fill="#222222" >+ batchNumber: string</text>
+<text x="663" y="207" font-family="Arial,sans-serif" font-size="10" fill="#222222" >+ quantity: int</text>
+<text x="663" y="220" font-family="Arial,sans-serif" font-size="10" fill="#222222" >+ manufacturingDate: date?</text>
+<text x="663" y="233" font-family="Arial,sans-serif" font-size="10" fill="#222222" >+ expiryDate: date?</text>
+<text x="663" y="246" font-family="Arial,sans-serif" font-size="10" fill="#222222" >+ unitCost: decimal</text>
+<text x="663" y="259" font-family="Arial,sans-serif" font-size="10" fill="#222222" >+ createdAt: datetime</text>
+<text x="663" y="272" font-family="Arial,sans-serif" font-size="10" fill="#222222" >+ locationId: int</text>
+<text x="663" y="295" font-family="Arial,sans-serif" font-size="10" fill="#222222" >+ viewRecord()</text>
+</g>
+<g data-class="inventory_locations"><title>InventoryLocation</title>
+<rect x="89" y="563" width="122" height="161" fill="#ffffff" stroke="#858585" stroke-width="0.8"/>
+<line x1="89" y1="587" x2="211" y2="587" stroke="#858585" stroke-width="0.8"/>
+<line x1="89" y1="701" x2="211" y2="701" stroke="#858585" stroke-width="0.8"/>
+<text x="150" y="579" font-family="Arial,sans-serif" font-size="11" fill="#222222" font-weight="700" text-anchor="middle">InventoryLocation</text>
+<text x="99" y="601" font-family="Arial,sans-serif" font-size="10" fill="#222222" >+ locationId: int</text>
+<text x="99" y="614" font-family="Arial,sans-serif" font-size="10" fill="#222222" >+ branchId: int</text>
+<text x="99" y="627" font-family="Arial,sans-serif" font-size="10" fill="#222222" >+ locationName: string</text>
+<text x="99" y="640" font-family="Arial,sans-serif" font-size="10" fill="#222222" >+ locationType: string?</text>
+<text x="99" y="653" font-family="Arial,sans-serif" font-size="10" fill="#222222" >+ address: string?</text>
+<text x="99" y="666" font-family="Arial,sans-serif" font-size="10" fill="#222222" >+ status: string?</text>
+<text x="99" y="679" font-family="Arial,sans-serif" font-size="10" fill="#222222" >+ createdAt: datetime</text>
+<text x="99" y="692" font-family="Arial,sans-serif" font-size="10" fill="#222222" >+ storageArea: string</text>
+<text x="99" y="715" font-family="Arial,sans-serif" font-size="10" fill="#222222" >+ viewRecord()</text>
+</g>
+<g data-class="inventory_suppliers"><title>InventorySupplier</title>
+<rect x="372" y="394" width="133" height="148" fill="#ffffff" stroke="#858585" stroke-width="0.8"/>
+<line x1="372" y1="418" x2="505" y2="418" stroke="#858585" stroke-width="0.8"/>
+<line x1="372" y1="519" x2="505" y2="519" stroke="#858585" stroke-width="0.8"/>
+<text x="438.5" y="410" font-family="Arial,sans-serif" font-size="11" fill="#222222" font-weight="700" text-anchor="middle">InventorySupplier</text>
+<text x="382" y="432" font-family="Arial,sans-serif" font-size="10" fill="#222222" >+ supplierId: int</text>
+<text x="382" y="445" font-family="Arial,sans-serif" font-size="10" fill="#222222" >+ supplierName: string</text>
+<text x="382" y="458" font-family="Arial,sans-serif" font-size="10" fill="#222222" >+ contactNumber: string?</text>
+<text x="382" y="471" font-family="Arial,sans-serif" font-size="10" fill="#222222" >+ email: string?</text>
+<text x="382" y="484" font-family="Arial,sans-serif" font-size="10" fill="#222222" >+ address: string?</text>
+<text x="382" y="497" font-family="Arial,sans-serif" font-size="10" fill="#222222" >+ status: string?</text>
+<text x="382" y="510" font-family="Arial,sans-serif" font-size="10" fill="#222222" >+ createdAt: datetime</text>
+<text x="382" y="533" font-family="Arial,sans-serif" font-size="10" fill="#222222" >+ viewRecord()</text>
+</g>
+<g data-class="inventory_stock_movements"><title>InventoryStockMovement</title>
+<rect x="649" y="394" width="153" height="239" fill="#ffffff" stroke="#858585" stroke-width="0.8"/>
+<line x1="649" y1="418" x2="802" y2="418" stroke="#858585" stroke-width="0.8"/>
+<line x1="649" y1="610" x2="802" y2="610" stroke="#858585" stroke-width="0.8"/>
+<text x="725.5" y="410" font-family="Arial,sans-serif" font-size="11" fill="#222222" font-weight="700" text-anchor="middle">InventoryStockMovement</text>
+<text x="659" y="432" font-family="Arial,sans-serif" font-size="10" fill="#222222" >+ movementId: int</text>
+<text x="659" y="445" font-family="Arial,sans-serif" font-size="10" fill="#222222" >+ itemId: int</text>
+<text x="659" y="458" font-family="Arial,sans-serif" font-size="10" fill="#222222" >+ batchId: int?</text>
+<text x="659" y="471" font-family="Arial,sans-serif" font-size="10" fill="#222222" >+ locationId: int?</text>
+<text x="659" y="484" font-family="Arial,sans-serif" font-size="10" fill="#222222" >+ movementType: string</text>
+<text x="659" y="497" font-family="Arial,sans-serif" font-size="10" fill="#222222" >+ quantityChange: int</text>
+<text x="659" y="510" font-family="Arial,sans-serif" font-size="10" fill="#222222" >+ quantityBefore: int</text>
+<text x="659" y="523" font-family="Arial,sans-serif" font-size="10" fill="#222222" >+ quantityAfter: int</text>
+<text x="659" y="536" font-family="Arial,sans-serif" font-size="10" fill="#222222" >+ referenceType: string?</text>
+<text x="659" y="549" font-family="Arial,sans-serif" font-size="10" fill="#222222" >+ referenceId: int?</text>
+<text x="659" y="562" font-family="Arial,sans-serif" font-size="10" fill="#222222" >+ remarks: string?</text>
+<text x="659" y="575" font-family="Arial,sans-serif" font-size="10" fill="#222222" >+ performedByUserId: int</text>
+<text x="659" y="588" font-family="Arial,sans-serif" font-size="10" fill="#222222" >+ performedByName: string</text>
+<text x="659" y="601" font-family="Arial,sans-serif" font-size="10" fill="#222222" >+ createdAt: datetime</text>
+<text x="659" y="624" font-family="Arial,sans-serif" font-size="10" fill="#222222" >+ viewRecord()</text>
+</g>
+<g data-class="inventory_stock_receipts"><title>InventoryStockReceipt</title>
+<rect x="72" y="814" width="157" height="174" fill="#ffffff" stroke="#858585" stroke-width="0.8"/>
+<line x1="72" y1="838" x2="229" y2="838" stroke="#858585" stroke-width="0.8"/>
+<line x1="72" y1="965" x2="229" y2="965" stroke="#858585" stroke-width="0.8"/>
+<text x="150.5" y="830" font-family="Arial,sans-serif" font-size="11" fill="#222222" font-weight="700" text-anchor="middle">InventoryStockReceipt</text>
+<text x="82" y="852" font-family="Arial,sans-serif" font-size="10" fill="#222222" >+ receiptId: int</text>
+<text x="82" y="865" font-family="Arial,sans-serif" font-size="10" fill="#222222" >+ branchId: int</text>
+<text x="82" y="878" font-family="Arial,sans-serif" font-size="10" fill="#222222" >+ receivingDate: date</text>
+<text x="82" y="891" font-family="Arial,sans-serif" font-size="10" fill="#222222" >+ deliveryNoteNumber: string?</text>
+<text x="82" y="904" font-family="Arial,sans-serif" font-size="10" fill="#222222" >+ proofImagePath: string?</text>
+<text x="82" y="917" font-family="Arial,sans-serif" font-size="10" fill="#222222" >+ notes: string?</text>
+<text x="82" y="930" font-family="Arial,sans-serif" font-size="10" fill="#222222" >+ receivedByUserId: int</text>
+<text x="82" y="943" font-family="Arial,sans-serif" font-size="10" fill="#222222" >+ receivedByName: string</text>
+<text x="82" y="956" font-family="Arial,sans-serif" font-size="10" fill="#222222" >+ createdAt: datetime</text>
+<text x="82" y="979" font-family="Arial,sans-serif" font-size="10" fill="#222222" >+ receiveStock()</text>
+</g>
+<g data-class="inventory_stock_receipt_items"><title>InventoryStockReceiptItem</title>
+<rect x="358" y="632" width="161" height="187" fill="#ffffff" stroke="#858585" stroke-width="0.8"/>
+<line x1="358" y1="656" x2="519" y2="656" stroke="#858585" stroke-width="0.8"/>
+<line x1="358" y1="796" x2="519" y2="796" stroke="#858585" stroke-width="0.8"/>
+<text x="438.5" y="648" font-family="Arial,sans-serif" font-size="11" fill="#222222" font-weight="700" text-anchor="middle">InventoryStockReceiptItem</text>
+<text x="368" y="670" font-family="Arial,sans-serif" font-size="10" fill="#222222" >+ receiptItemId: int</text>
+<text x="368" y="683" font-family="Arial,sans-serif" font-size="10" fill="#222222" >+ receiptId: int</text>
+<text x="368" y="696" font-family="Arial,sans-serif" font-size="10" fill="#222222" >+ itemId: int</text>
+<text x="368" y="709" font-family="Arial,sans-serif" font-size="10" fill="#222222" >+ supplierId: int</text>
+<text x="368" y="722" font-family="Arial,sans-serif" font-size="10" fill="#222222" >+ batchId: int?</text>
+<text x="368" y="735" font-family="Arial,sans-serif" font-size="10" fill="#222222" >+ batchNumber: string</text>
+<text x="368" y="748" font-family="Arial,sans-serif" font-size="10" fill="#222222" >+ quantityReceived: int</text>
+<text x="368" y="761" font-family="Arial,sans-serif" font-size="10" fill="#222222" >+ expiryDate: date?</text>
+<text x="368" y="774" font-family="Arial,sans-serif" font-size="10" fill="#222222" >+ unitCost: decimal</text>
+<text x="368" y="787" font-family="Arial,sans-serif" font-size="10" fill="#222222" >+ locationId: int</text>
+<text x="368" y="810" font-family="Arial,sans-serif" font-size="10" fill="#222222" >+ recordReceivedItem()</text>
+</g>
+<g data-class="inventory_transfers"><title>InventoryTransfer</title>
+<rect x="659" y="723" width="132" height="187" fill="#ffffff" stroke="#858585" stroke-width="0.8"/>
+<line x1="659" y1="747" x2="791" y2="747" stroke="#858585" stroke-width="0.8"/>
+<line x1="659" y1="887" x2="791" y2="887" stroke="#858585" stroke-width="0.8"/>
+<text x="725" y="739" font-family="Arial,sans-serif" font-size="11" fill="#222222" font-weight="700" text-anchor="middle">InventoryTransfer</text>
+<text x="669" y="761" font-family="Arial,sans-serif" font-size="10" fill="#222222" >+ inventoryTransferId: int</text>
+<text x="669" y="774" font-family="Arial,sans-serif" font-size="10" fill="#222222" >+ transferNumber: string</text>
+<text x="669" y="787" font-family="Arial,sans-serif" font-size="10" fill="#222222" >+ fromLocationId: int</text>
+<text x="669" y="800" font-family="Arial,sans-serif" font-size="10" fill="#222222" >+ toLocationId: int</text>
+<text x="669" y="813" font-family="Arial,sans-serif" font-size="10" fill="#222222" >+ status: string</text>
+<text x="669" y="826" font-family="Arial,sans-serif" font-size="10" fill="#222222" >+ notes: string?</text>
+<text x="669" y="839" font-family="Arial,sans-serif" font-size="10" fill="#222222" >+ createdByUserId: int</text>
+<text x="669" y="852" font-family="Arial,sans-serif" font-size="10" fill="#222222" >+ receivedByUserId: int?</text>
+<text x="669" y="865" font-family="Arial,sans-serif" font-size="10" fill="#222222" >+ createdAt: datetime</text>
+<text x="669" y="878" font-family="Arial,sans-serif" font-size="10" fill="#222222" >+ receivedAt: datetime?</text>
+<text x="669" y="901" font-family="Arial,sans-serif" font-size="10" fill="#222222" >+ transferStock()</text>
+</g>
+<g data-class="inventory_transfer_items"><title>InventoryTransferItem</title>
+<rect x="75" y="1078" width="151" height="135" fill="#ffffff" stroke="#858585" stroke-width="0.8"/>
+<line x1="75" y1="1102" x2="226" y2="1102" stroke="#858585" stroke-width="0.8"/>
+<line x1="75" y1="1190" x2="226" y2="1190" stroke="#858585" stroke-width="0.8"/>
+<text x="150.5" y="1094" font-family="Arial,sans-serif" font-size="11" fill="#222222" font-weight="700" text-anchor="middle">InventoryTransferItem</text>
+<text x="85" y="1116" font-family="Arial,sans-serif" font-size="10" fill="#222222" >+ inventoryTransferItemId: int</text>
+<text x="85" y="1129" font-family="Arial,sans-serif" font-size="10" fill="#222222" >+ inventoryTransferId: int</text>
+<text x="85" y="1142" font-family="Arial,sans-serif" font-size="10" fill="#222222" >+ itemId: int</text>
+<text x="85" y="1155" font-family="Arial,sans-serif" font-size="10" fill="#222222" >+ sourceBatchId: int</text>
+<text x="85" y="1168" font-family="Arial,sans-serif" font-size="10" fill="#222222" >+ quantity: int</text>
+<text x="85" y="1181" font-family="Arial,sans-serif" font-size="10" fill="#222222" >+ createdAt: datetime</text>
+<text x="85" y="1204" font-family="Arial,sans-serif" font-size="10" fill="#222222" >+ recordTransferItem()</text>
+</g>
+<g data-class="inventory_action_audit"><title>InventoryAudit</title>
+<rect x="345" y="909" width="188" height="200" fill="#ffffff" stroke="#858585" stroke-width="0.8"/>
+<line x1="345" y1="933" x2="533" y2="933" stroke="#858585" stroke-width="0.8"/>
+<line x1="345" y1="1099" x2="533" y2="1099" stroke="#858585" stroke-width="0.8"/>
+<text x="439" y="925" font-family="Arial,sans-serif" font-size="11" fill="#222222" font-weight="700" text-anchor="middle">InventoryAudit</text>
+<text x="355" y="947" font-family="Arial,sans-serif" font-size="10" fill="#222222" >+ inventoryAuditId: int</text>
+<text x="355" y="960" font-family="Arial,sans-serif" font-size="10" fill="#222222" >+ actionType: string</text>
+<text x="355" y="973" font-family="Arial,sans-serif" font-size="10" fill="#222222" >+ itemId: int?</text>
+<text x="355" y="986" font-family="Arial,sans-serif" font-size="10" fill="#222222" >+ batchId: int?</text>
+<text x="355" y="999" font-family="Arial,sans-serif" font-size="10" fill="#222222" >+ locationId: int?</text>
+<text x="355" y="1012" font-family="Arial,sans-serif" font-size="10" fill="#222222" >+ reason: string?</text>
+<text x="355" y="1025" font-family="Arial,sans-serif" font-size="10" fill="#222222" >+ beforeStateJson: string?</text>
+<text x="355" y="1038" font-family="Arial,sans-serif" font-size="10" fill="#222222" >+ afterStateJson: string?</text>
+<text x="355" y="1051" font-family="Arial,sans-serif" font-size="10" fill="#222222" >+ performedByUserId: int</text>
+<text x="355" y="1064" font-family="Arial,sans-serif" font-size="10" fill="#222222" >+ performedByName: string</text>
+<text x="355" y="1077" font-family="Arial,sans-serif" font-size="10" fill="#222222" >+ responsibilityConfirmedAt: datetime</text>
+<text x="355" y="1090" font-family="Arial,sans-serif" font-size="10" fill="#222222" >+ createdAt: datetime</text>
+</g>
+<g data-class="service_materials"><title>ServiceMaterial</title>
+<rect x="663" y="1000" width="124" height="161" fill="#ffffff" stroke="#858585" stroke-width="0.8"/>
+<line x1="663" y1="1024" x2="787" y2="1024" stroke="#858585" stroke-width="0.8"/>
+<line x1="663" y1="1138" x2="787" y2="1138" stroke="#858585" stroke-width="0.8"/>
+<text x="725" y="1016" font-family="Arial,sans-serif" font-size="11" fill="#222222" font-weight="700" text-anchor="middle">ServiceMaterial</text>
+<text x="673" y="1038" font-family="Arial,sans-serif" font-size="10" fill="#222222" >+ serviceMaterialId: int</text>
+<text x="673" y="1051" font-family="Arial,sans-serif" font-size="10" fill="#222222" >+ serviceId: int</text>
+<text x="673" y="1064" font-family="Arial,sans-serif" font-size="10" fill="#222222" >+ itemId: int?</text>
+<text x="673" y="1077" font-family="Arial,sans-serif" font-size="10" fill="#222222" >+ materialName: string</text>
+<text x="673" y="1090" font-family="Arial,sans-serif" font-size="10" fill="#222222" >+ qtyUsed: decimal</text>
+<text x="673" y="1103" font-family="Arial,sans-serif" font-size="10" fill="#222222" >+ billablePolicy: string?</text>
+<text x="673" y="1116" font-family="Arial,sans-serif" font-size="10" fill="#222222" >+ createdAt: datetime</text>
+<text x="673" y="1129" font-family="Arial,sans-serif" font-size="10" fill="#222222" >+ updatedAt: datetime</text>
+<text x="673" y="1152" font-family="Arial,sans-serif" font-size="10" fill="#222222" >+ updateMaterials()</text>
+</g>
+<g data-class="branches"><title>Branch (reference to the same class on its detail sheet)</title>
+<rect x="925" y="130" width="84" height="57" fill="#ffffff" stroke="#858585" stroke-width="0.8"/>
+<line x1="925" y1="154" x2="1009" y2="154" stroke="#858585" stroke-width="0.8"/>
+<line x1="925" y1="177" x2="1009" y2="177" stroke="#858585" stroke-width="0.8"/>
+<text x="967" y="146" font-family="Arial,sans-serif" font-size="11" fill="#222222" font-weight="700" text-anchor="middle">Branch</text>
+<text x="935" y="168" font-family="Arial,sans-serif" font-size="10" fill="#222222" >+ branchId: int</text>
+</g>
+<g data-class="service_catalog"><title>ServiceCatalog (reference to the same class on its detail sheet)</title>
+<rect x="918" y="277" width="99" height="57" fill="#ffffff" stroke="#858585" stroke-width="0.8"/>
+<line x1="918" y1="301" x2="1017" y2="301" stroke="#858585" stroke-width="0.8"/>
+<line x1="918" y1="324" x2="1017" y2="324" stroke="#858585" stroke-width="0.8"/>
+<text x="967.5" y="293" font-family="Arial,sans-serif" font-size="11" fill="#222222" font-weight="700" text-anchor="middle">ServiceCatalog</text>
+<text x="928" y="315" font-family="Arial,sans-serif" font-size="10" fill="#222222" >+ serviceId: int</text>
+</g>
+<g data-class="users"><title>User (reference to the same class on its detail sheet)</title>
+<rect x="926" y="424" width="82" height="70" fill="#ffffff" stroke="#858585" stroke-width="0.8"/>
+<line x1="926" y1="448" x2="1008" y2="448" stroke="#858585" stroke-width="0.8"/>
+<line x1="926" y1="484" x2="1008" y2="484" stroke="#858585" stroke-width="0.8"/>
+<text x="967" y="440" font-family="Arial,sans-serif" font-size="11" fill="#222222" font-weight="700" text-anchor="middle">User</text>
+<text x="936" y="462" font-family="Arial,sans-serif" font-size="10" fill="#222222" >+ userId: int</text>
+<text x="936" y="475" font-family="Arial,sans-serif" font-size="10" fill="#222222" >+ role: string?</text>
+</g>
+<text x="541" y="1003" font-family="Arial,sans-serif" font-size="9" fill="#222222" style="font-family:Consolas,monospace">0..*</text>
+<text x="620.68" y="232" font-family="Arial,sans-serif" font-size="9" fill="#222222" style="font-family:Consolas,monospace">0..1</text>
+<text x="312.68" y="1003" font-family="Arial,sans-serif" font-size="9" fill="#222222" style="font-family:Consolas,monospace">0..*</text>
+<text x="229" y="330.5" font-family="Arial,sans-serif" font-size="9" fill="#222222" style="font-family:Consolas,monospace">0..1</text>
+<text x="312.68" y="1017" font-family="Arial,sans-serif" font-size="9" fill="#222222" style="font-family:Consolas,monospace">0..*</text>
+<text x="219" y="693.5" font-family="Arial,sans-serif" font-size="9" fill="#222222" style="font-family:Consolas,monospace">0..1</text>
+<text x="541" y="1017" font-family="Arial,sans-serif" font-size="9" fill="#222222" style="font-family:Consolas,monospace">0..*</text>
+<text x="910.42" y="481" font-family="Arial,sans-serif" font-size="9" fill="#222222" style="font-family:Consolas,monospace">1</text>
+<text x="620.68" y="190" font-family="Arial,sans-serif" font-size="9" fill="#222222" style="font-family:Consolas,monospace">0..*</text>
+<text x="229" y="260.5" font-family="Arial,sans-serif" font-size="9" fill="#222222" style="font-family:Consolas,monospace">1</text>
+<text x="620.68" y="204" font-family="Arial,sans-serif" font-size="9" fill="#222222" style="font-family:Consolas,monospace">0..*</text>
+<text x="219" y="609.5" font-family="Arial,sans-serif" font-size="9" fill="#222222" style="font-family:Consolas,monospace">1</text>
+<text x="515" y="211" font-family="Arial,sans-serif" font-size="9" fill="#222222" style="font-family:Consolas,monospace">0..*</text>
+<text x="909.42" y="145.5" font-family="Arial,sans-serif" font-size="9" fill="#222222" style="font-family:Consolas,monospace">1</text>
+<text x="338.68" y="211" font-family="Arial,sans-serif" font-size="9" fill="#222222" style="font-family:Consolas,monospace">0..*</text>
+<text x="229" y="274.5" font-family="Arial,sans-serif" font-size="9" fill="#222222" style="font-family:Consolas,monospace">1</text>
+<text x="338.68" y="225" font-family="Arial,sans-serif" font-size="9" fill="#222222" style="font-family:Consolas,monospace">0..*</text>
+<text x="219" y="623.5" font-family="Arial,sans-serif" font-size="9" fill="#222222" style="font-family:Consolas,monospace">1</text>
+<text x="515" y="225" font-family="Arial,sans-serif" font-size="9" fill="#222222" style="font-family:Consolas,monospace">0..*</text>
+<text x="893.68" y="453" font-family="Arial,sans-serif" font-size="9" fill="#222222" style="font-family:Consolas,monospace">0..1</text>
+<text x="229" y="302.5" font-family="Arial,sans-serif" font-size="9" fill="#222222" style="font-family:Consolas,monospace">0..*</text>
+<text x="910.42" y="439" font-family="Arial,sans-serif" font-size="9" fill="#222222" style="font-family:Consolas,monospace">1</text>
+<text x="176.5" y="494" font-family="Arial,sans-serif" font-size="9" fill="#222222" style="font-family:Consolas,monospace">0..*</text>
+<text x="156" y="541" font-family="Arial,sans-serif" font-size="9" fill="#222222" style="font-family:Consolas,monospace">1</text>
+<text x="219" y="595.5" font-family="Arial,sans-serif" font-size="9" fill="#222222" style="font-family:Consolas,monospace">0..*</text>
+<text x="909.42" y="159.5" font-family="Arial,sans-serif" font-size="9" fill="#222222" style="font-family:Consolas,monospace">1</text>
+<text x="731.5" y="372" font-family="Arial,sans-serif" font-size="9" fill="#222222" style="font-family:Consolas,monospace">0..*</text>
+<text x="731.5" y="325" font-family="Arial,sans-serif" font-size="9" fill="#222222" style="font-family:Consolas,monospace">0..1</text>
+<text x="616.68" y="507.5" font-family="Arial,sans-serif" font-size="9" fill="#222222" style="font-family:Consolas,monospace">0..*</text>
+<text x="229" y="288.5" font-family="Arial,sans-serif" font-size="9" fill="#222222" style="font-family:Consolas,monospace">1</text>
+<text x="616.68" y="521.5" font-family="Arial,sans-serif" font-size="9" fill="#222222" style="font-family:Consolas,monospace">0..*</text>
+<text x="219" y="637.5" font-family="Arial,sans-serif" font-size="9" fill="#222222" style="font-family:Consolas,monospace">0..1</text>
+<text x="810" y="514.5" font-family="Arial,sans-serif" font-size="9" fill="#222222" style="font-family:Consolas,monospace">0..*</text>
+<text x="973" y="515" font-family="Arial,sans-serif" font-size="9" fill="#222222" style="font-family:Consolas,monospace">1</text>
+<text x="237" y="888" font-family="Arial,sans-serif" font-size="9" fill="#222222" style="font-family:Consolas,monospace">0..*</text>
+<text x="909.42" y="173.5" font-family="Arial,sans-serif" font-size="9" fill="#222222" style="font-family:Consolas,monospace">1</text>
+<text x="237" y="902" font-family="Arial,sans-serif" font-size="9" fill="#222222" style="font-family:Consolas,monospace">0..*</text>
+<text x="910.42" y="467" font-family="Arial,sans-serif" font-size="9" fill="#222222" style="font-family:Consolas,monospace">1</text>
+<text x="527" y="726.5" font-family="Arial,sans-serif" font-size="9" fill="#222222" style="font-family:Consolas,monospace">0..*</text>
+<text x="620.68" y="218" font-family="Arial,sans-serif" font-size="9" fill="#222222" style="font-family:Consolas,monospace">0..1</text>
+<text x="325.68" y="712.5" font-family="Arial,sans-serif" font-size="9" fill="#222222" style="font-family:Consolas,monospace">0..*</text>
+<text x="229" y="316.5" font-family="Arial,sans-serif" font-size="9" fill="#222222" style="font-family:Consolas,monospace">1</text>
+<text x="325.68" y="726.5" font-family="Arial,sans-serif" font-size="9" fill="#222222" style="font-family:Consolas,monospace">0..*</text>
+<text x="219" y="651.5" font-family="Arial,sans-serif" font-size="9" fill="#222222" style="font-family:Consolas,monospace">1</text>
+<text x="325.68" y="740.5" font-family="Arial,sans-serif" font-size="9" fill="#222222" style="font-family:Consolas,monospace">0..*</text>
+<text x="237" y="916" font-family="Arial,sans-serif" font-size="9" fill="#222222" style="font-family:Consolas,monospace">1</text>
+<text x="444.5" y="610" font-family="Arial,sans-serif" font-size="9" fill="#222222" style="font-family:Consolas,monospace">0..*</text>
+<text x="444.5" y="563" font-family="Arial,sans-serif" font-size="9" fill="#222222" style="font-family:Consolas,monospace">1</text>
+<text x="799" y="810.5" font-family="Arial,sans-serif" font-size="9" fill="#222222" style="font-family:Consolas,monospace">0..*</text>
+<text x="1016" y="453" font-family="Arial,sans-serif" font-size="9" fill="#222222" style="font-family:Consolas,monospace">1</text>
+<text x="626.68" y="803.5" font-family="Arial,sans-serif" font-size="9" fill="#222222" style="font-family:Consolas,monospace">0..*</text>
+<text x="219" y="665.5" font-family="Arial,sans-serif" font-size="9" fill="#222222" style="font-family:Consolas,monospace">1</text>
+<text x="799" y="824.5" font-family="Arial,sans-serif" font-size="9" fill="#222222" style="font-family:Consolas,monospace">0..*</text>
+<text x="1016" y="467" font-family="Arial,sans-serif" font-size="9" fill="#222222" style="font-family:Consolas,monospace">0..1</text>
+<text x="626.68" y="817.5" font-family="Arial,sans-serif" font-size="9" fill="#222222" style="font-family:Consolas,monospace">0..*</text>
+<text x="219" y="679.5" font-family="Arial,sans-serif" font-size="9" fill="#222222" style="font-family:Consolas,monospace">1</text>
+<text x="234" y="1139.5" font-family="Arial,sans-serif" font-size="9" fill="#222222" style="font-family:Consolas,monospace">0..*</text>
+<text x="637.42" y="246" font-family="Arial,sans-serif" font-size="9" fill="#222222" style="font-family:Consolas,monospace">1</text>
+<text x="156.5" y="1056" font-family="Arial,sans-serif" font-size="9" fill="#222222" style="font-family:Consolas,monospace">0..*</text>
+<text x="136.5" y="494" font-family="Arial,sans-serif" font-size="9" fill="#222222" style="font-family:Consolas,monospace">1</text>
+<text x="234" y="1153.5" font-family="Arial,sans-serif" font-size="9" fill="#222222" style="font-family:Consolas,monospace">0..*</text>
+<text x="643.42" y="831.5" font-family="Arial,sans-serif" font-size="9" fill="#222222" style="font-family:Consolas,monospace">1</text>
+<text x="795" y="1081.5" font-family="Arial,sans-serif" font-size="9" fill="#222222" style="font-family:Consolas,monospace">0..*</text>
+<text x="902.42" y="306.5" font-family="Arial,sans-serif" font-size="9" fill="#222222" style="font-family:Consolas,monospace">1</text>
+<text x="630.68" y="1081.5" font-family="Arial,sans-serif" font-size="9" fill="#222222" style="font-family:Consolas,monospace">0..*</text>
+<text x="229" y="344.5" font-family="Arial,sans-serif" font-size="9" fill="#222222" style="font-family:Consolas,monospace">0..1</text>
+<text x="72" y="1291" font-family="Arial,sans-serif" font-size="9" fill="#222222" >Reference boxes repeat an existing class. Empty operation compartments indicate supporting state.</text>
+</svg>

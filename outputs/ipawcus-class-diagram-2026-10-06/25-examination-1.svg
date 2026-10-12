@@ -1,0 +1,558 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="2600" height="4381" viewBox="0 0 2600 4381" role="img" aria-labelledby="title desc">
+<title id="title">iPawcus / Queue, physical examination and handoff / 1 of 2</title>
+<desc id="desc">Application modules and verified database references. Original SQL entity definitions are on pages 01 to 09. Dashed dependencies are not foreign keys.</desc>
+<defs><marker id="arrow" markerWidth="9" markerHeight="9" refX="8" refY="4.5" orient="auto" markerUnits="userSpaceOnUse"><path d="M0 0 L8 4.5 L0 9" fill="none" stroke="#8793a3" stroke-width="1.2"/></marker><marker id="inheritance" markerWidth="11" markerHeight="11" refX="10" refY="5" orient="auto" markerUnits="userSpaceOnUse"><path d="M0 0 L10 5 L0 10 Z" fill="#ffffff" stroke="#8793a3" stroke-width="1.2"/></marker></defs>
+<rect width="100%" height="100%" fill="#ffffff"/>
+<text x="80" y="44" font-family="Arial,sans-serif" font-size="25" fill="#2d3748">iPawcus / Queue, physical examination and handoff / 1 of 2</text>
+<text x="80" y="73" font-family="Arial,sans-serif" font-size="14" fill="#596579">React / service / PHP / entity reference · arrows show source-code dependencies; no invented OO inheritance.</text>
+<text x="80" y="100" font-family="Arial,sans-serif" font-size="13" fill="#596579">Dashed: dependency. Solid: migration FK or real class inheritance. Full source evidence accompanies detailed links.</text>
+<text x="80" y="143" font-family="Arial,sans-serif" font-size="14" fill="#596579">UI and system views</text>
+<text x="740" y="143" font-family="Arial,sans-serif" font-size="14" fill="#596579">JavaScript services</text>
+<text x="1400" y="143" font-family="Arial,sans-serif" font-size="14" fill="#596579">PHP backend modules</text>
+<text x="2080" y="143" font-family="Arial,sans-serif" font-size="14" fill="#596579">Database references</text>
+<path d="M500 210 L610 210 L610 421 L740 421" fill="none" stroke="#8793a3" stroke-width="1.2" stroke-dasharray="5 4" marker-end="url(#arrow)"><title>src/components/AdminDashboardsComponent/AddQueueDialog.jsx → src/services/queueService.js / uses</title></path>
+<path d="M500 509 L610 509 L610 1006 L740 1006" fill="none" stroke="#8793a3" stroke-width="1.2" stroke-dasharray="5 4" marker-end="url(#arrow)"><title>src/components/AdminDashboardsComponent/PatientIntake.jsx → src/services/accountService.js / uses</title></path>
+<path d="M500 531 L630 531 L630 1181 L740 1181" fill="none" stroke="#8793a3" stroke-width="1.2" stroke-dasharray="5 4" marker-end="url(#arrow)"><title>src/components/AdminDashboardsComponent/PatientIntake.jsx → src/services/bookingService.js / uses</title></path>
+<path d="M500 553 L610 553 L610 556 L545 556 L545 1356 L740 1356" fill="none" stroke="#8793a3" stroke-width="1.2" stroke-dasharray="5 4" marker-end="url(#arrow)"><title>src/components/AdminDashboardsComponent/PatientIntake.jsx → src/services/consentDocumentPdf.js / uses</title></path>
+<path d="M500 575 L718 575 L718 1525 L630 1525 L630 1531 L740 1531" fill="none" stroke="#8793a3" stroke-width="1.2" stroke-dasharray="5 4" marker-end="url(#arrow)"><title>src/components/AdminDashboardsComponent/PatientIntake.jsx → src/services/consentFileService.js / uses</title></path>
+<path d="M500 597 L610 597 L610 662 L522 662 L522 825 L545 825 L545 887 L522 887 L522 1124 L610 1124 L610 1706 L740 1706" fill="none" stroke="#8793a3" stroke-width="1.2" stroke-dasharray="5 4" marker-end="url(#arrow)"><title>src/components/AdminDashboardsComponent/PatientIntake.jsx → src/services/consentRecordService.js / uses</title></path>
+<path d="M500 619 L630 619 L630 443 L740 443" fill="none" stroke="#8793a3" stroke-width="1.2" stroke-dasharray="5 4" marker-end="url(#arrow)"><title>src/components/AdminDashboardsComponent/PatientIntake.jsx → src/services/queueService.js / uses</title></path>
+<path d="M500 641 L718 641 L718 213 L630 213 L630 210 L740 210" fill="none" stroke="#8793a3" stroke-width="1.2" stroke-dasharray="5 4" marker-end="url(#arrow)"><title>src/components/AdminDashboardsComponent/PatientIntake.jsx → src/services/clinicalIntakeService.js / uses</title></path>
+<path d="M500 663 L610 663 L610 1181 L630 1181 L630 1881 L740 1881" fill="none" stroke="#8793a3" stroke-width="1.2" stroke-dasharray="5 4" marker-end="url(#arrow)"><title>src/components/AdminDashboardsComponent/PatientIntake.jsx → src/services/uploadService.js / uses</title></path>
+<path d="M500 844 L630 844 L630 1028 L740 1028" fill="none" stroke="#8793a3" stroke-width="1.2" stroke-dasharray="5 4" marker-end="url(#arrow)"><title>src/components/AdminDashboardsComponent/QueueManagement.jsx → src/services/accountService.js / uses</title></path>
+<path d="M500 866 L718 866 L718 930 L1182 930 L1182 1994 L630 1994 L630 2056 L740 2056" fill="none" stroke="#8793a3" stroke-width="1.2" stroke-dasharray="5 4" marker-end="url(#arrow)"><title>src/components/AdminDashboardsComponent/QueueManagement.jsx → src/services/branchService.js / uses</title></path>
+<path d="M500 888 L630 888 L630 782 L58 782 L58 447 L610 447 L610 465 L740 465" fill="none" stroke="#8793a3" stroke-width="1.2" stroke-dasharray="5 4" marker-end="url(#arrow)"><title>src/components/AdminDashboardsComponent/QueueManagement.jsx → src/services/queueService.js / uses</title></path>
+<path d="M500 1143 L630 1143 L630 1378 L740 1378" fill="none" stroke="#8793a3" stroke-width="1.2" stroke-dasharray="5 4" marker-end="url(#arrow)"><title>src/components/PetOwnerDashboard/Self-Service_QUEUE.jsx → src/services/consentDocumentPdf.js / uses</title></path>
+<path d="M500 1165 L610 1165 L610 1164 L545 1164 L545 1081 L30 1081 L30 446 L545 446 L545 487 L740 487" fill="none" stroke="#8793a3" stroke-width="1.2" stroke-dasharray="5 4" marker-end="url(#arrow)"><title>src/components/PetOwnerDashboard/Self-Service_QUEUE.jsx → src/services/queueService.js / uses</title></path>
+<path d="M500 1187 L718 1187 L718 825 L630 825 L630 813 L740 813" fill="none" stroke="#8793a3" stroke-width="1.2" stroke-dasharray="5 4" marker-end="url(#arrow)"><title>src/components/PetOwnerDashboard/Self-Service_QUEUE.jsx → src/services/selfServiceService.js / uses</title></path>
+<path d="M500 1209 L610 1209 L610 1252 L522 1252 L522 1459 L545 1459 L545 2231 L740 2231" fill="none" stroke="#8793a3" stroke-width="1.2" stroke-dasharray="5 4" marker-end="url(#arrow)"><title>src/components/PetOwnerDashboard/Self-Service_QUEUE.jsx → src/services/petService.js / uses</title></path>
+<path d="M500 1231 L610 1231 L610 1234 L545 1234 L545 1553 L740 1553" fill="none" stroke="#8793a3" stroke-width="1.2" stroke-dasharray="5 4" marker-end="url(#arrow)"><title>src/components/PetOwnerDashboard/Self-Service_QUEUE.jsx → src/services/consentFileService.js / uses</title></path>
+<path d="M500 1253 L718 1253 L718 1896 L630 1896 L630 1903 L740 1903" fill="none" stroke="#8793a3" stroke-width="1.2" stroke-dasharray="5 4" marker-end="url(#arrow)"><title>src/components/PetOwnerDashboard/Self-Service_QUEUE.jsx → src/services/uploadService.js / uses</title></path>
+<path d="M500 1478 L610 1478 L610 1203 L740 1203" fill="none" stroke="#8793a3" stroke-width="1.2" stroke-dasharray="5 4" marker-end="url(#arrow)"><title>src/components/VetrinarianComponents/ApprovedQueueList.jsx → src/services/bookingService.js / uses</title></path>
+<path d="M500 1500 L630 1500 L630 1469 L1205 1469 L1205 359 L630 359 L630 443 L610 443 L610 509 L740 509" fill="none" stroke="#8793a3" stroke-width="1.2" stroke-dasharray="5 4" marker-end="url(#arrow)"><title>src/components/VetrinarianComponents/ApprovedQueueList.jsx → src/services/queueService.js / uses</title></path>
+<path d="M500 1522 L610 1522 L610 1565 L522 1565 L522 2078 L740 2078" fill="none" stroke="#8793a3" stroke-width="1.2" stroke-dasharray="5 4" marker-end="url(#arrow)"><title>src/components/VetrinarianComponents/ApprovedQueueList.jsx → src/services/branchService.js / uses</title></path>
+<path d="M500 1544 L610 1544 L610 2406 L740 2406" fill="none" stroke="#8793a3" stroke-width="1.2" stroke-dasharray="5 4" marker-end="url(#arrow)"><title>src/components/VetrinarianComponents/ApprovedQueueList.jsx → src/services/bookingAvailabilityService.js / uses</title></path>
+<path d="M500 1566 L630 1566 L630 1737 L509 1737 L509 2581 L740 2581" fill="none" stroke="#8793a3" stroke-width="1.2" stroke-dasharray="5 4" marker-end="url(#arrow)"><title>src/components/VetrinarianComponents/ApprovedQueueList.jsx → src/services/groomingService.js / uses</title></path>
+<path d="M1160 210 L1270 210 L1270 1494 L1400 1494" fill="none" stroke="#8793a3" stroke-width="1.2" stroke-dasharray="5 4" marker-end="url(#arrow)"><title>src/services/clinicalIntakeService.js → php/clinical_intakes.php / HTTP</title></path>
+<path d="M1160 421 L1290 421 L1290 210 L1400 210" fill="none" stroke="#8793a3" stroke-width="1.2" stroke-dasharray="5 4" marker-end="url(#arrow)"><title>src/services/queueService.js → php/add_to_queue.php / HTTP</title></path>
+<path d="M1160 443 L1290 443 L1290 2007 L1400 2007" fill="none" stroke="#8793a3" stroke-width="1.2" stroke-dasharray="5 4" marker-end="url(#arrow)"><title>src/services/queueService.js → php/get_queues.php / HTTP</title></path>
+<path d="M1160 465 L1378 465 L1378 1812 L1290 1812 L1290 1813 L1400 1813" fill="none" stroke="#8793a3" stroke-width="1.2" stroke-dasharray="5 4" marker-end="url(#arrow)"><title>src/services/queueService.js → php/get_pets_for_queue.php / HTTP</title></path>
+<path d="M1160 487 L1270 487 L1270 504 L1913 504 L1913 2403 L1290 2403 L1290 2465 L1400 2465" fill="none" stroke="#8793a3" stroke-width="1.2" stroke-dasharray="5 4" marker-end="url(#arrow)"><title>src/services/queueService.js → php/update_queue_status.php / HTTP</title></path>
+<path d="M1160 509 L1290 509 L1290 580 L1400 580" fill="none" stroke="#8793a3" stroke-width="1.2" stroke-dasharray="5 4" marker-end="url(#arrow)"><title>src/services/queueService.js → php/assign_queue_vet.php / HTTP</title></path>
+<path d="M1160 531 L1270 531 L1270 518 L1950 518 L1950 2578 L1290 2578 L1290 2640 L1400 2640" fill="none" stroke="#8793a3" stroke-width="1.2" stroke-dasharray="5 4" marker-end="url(#arrow)"><title>src/services/queueService.js → php/receive_queue.php / HTTP</title></path>
+<path d="M1160 553 L1378 553 L1378 512 L1970 512 L1970 2753 L1290 2753 L1290 2815 L1400 2815" fill="none" stroke="#8793a3" stroke-width="1.2" stroke-dasharray="5 4" marker-end="url(#arrow)"><title>src/services/queueService.js → php/return_queue.php / HTTP</title></path>
+<path d="M1160 575 L1270 575 L1270 578 L1182 578 L1182 794 L1205 794 L1205 812 L1182 812 L1182 1459 L1205 1459 L1205 2990 L1400 2990" fill="none" stroke="#8793a3" stroke-width="1.2" stroke-dasharray="5 4" marker-end="url(#arrow)"><title>src/services/queueService.js → php/reenter_queue.php / HTTP</title></path>
+<path d="M1160 813 L1290 813 L1290 1247 L1400 1247" fill="none" stroke="#8793a3" stroke-width="1.2" stroke-dasharray="5 4" marker-end="url(#arrow)"><title>src/services/selfServiceService.js → php/check_self_service_access.php / HTTP</title></path>
+<path d="M1840 210 L2058 210 L2058 3165 L1840 3165" fill="none" stroke="#8793a3" stroke-width="1.2" stroke-dasharray="5 4" marker-end="url(#arrow)"><title>php/add_to_queue.php → php/notification_helpers.php / includes</title></path>
+<path d="M1840 232 L1950 232 L1950 341 L2542 341 L2542 3340 L1840 3340" fill="none" stroke="#8793a3" stroke-width="1.2" stroke-dasharray="5 4" marker-end="url(#arrow)"><title>php/add_to_queue.php → php/booking_maintenance.php / includes</title></path>
+<path d="M1840 254 L1970 254 L1970 327 L2570 327 L2570 3515 L1840 3515" fill="none" stroke="#8793a3" stroke-width="1.2" stroke-dasharray="5 4" marker-end="url(#arrow)"><title>php/add_to_queue.php → php/consent_record_helpers.php / includes</title></path>
+<path d="M1840 276 L1950 276 L1950 297 L1878 297 L1878 561 L1913 561 L1913 645 L1878 645 L1878 1475 L1913 1475 L1913 1515 L1878 1515 L1878 1988 L1913 1988 L1913 2138 L1878 2138 L1878 3628 L1950 3628 L1950 3690 L1840 3690" fill="none" stroke="#8793a3" stroke-width="1.2" stroke-dasharray="5 4" marker-end="url(#arrow)"><title>php/add_to_queue.php → php/reference_number_helpers.php / includes</title></path>
+<path d="M1840 298 L1950 298 L1950 777 L1862 777 L1862 909 L1878 909 L1878 949 L1862 949 L1862 1432 L1270 1432 L1270 3803 L1950 3803 L1950 3865 L1840 3865" fill="none" stroke="#8793a3" stroke-width="1.2" stroke-dasharray="5 4" marker-end="url(#arrow)"><title>php/add_to_queue.php → php/branch_helpers.php / includes</title></path>
+<path d="M1840 320 L1970 320 L1970 210 L2080 210" fill="none" stroke="#8793a3" stroke-width="1.2" stroke-dasharray="5 4" marker-end="url(#arrow)"><title>php/add_to_queue.php → db:booking_pets / SQL</title></path>
+<path d="M1840 342 L1970 342 L1970 403 L2080 403" fill="none" stroke="#8793a3" stroke-width="1.2" stroke-dasharray="5 4" marker-end="url(#arrow)"><title>php/add_to_queue.php → db:bookings / SQL</title></path>
+<path d="M1840 364 L1970 364 L1970 597 L2080 597" fill="none" stroke="#8793a3" stroke-width="1.2" stroke-dasharray="5 4" marker-end="url(#arrow)"><title>php/add_to_queue.php → db:branch_service_availability / SQL</title></path>
+<path d="M1840 386 L1950 386 L1950 389 L1913 389 L1913 490 L1862 490 L1862 561 L1970 561 L1970 790 L2080 790" fill="none" stroke="#8793a3" stroke-width="1.2" stroke-dasharray="5 4" marker-end="url(#arrow)"><title>php/add_to_queue.php → db:pets_information / SQL</title></path>
+<path d="M1840 408 L1950 408 L1950 429 L1862 429 L1862 556 L2058 556 L2058 972 L1970 972 L1970 983 L2080 983" fill="none" stroke="#8793a3" stroke-width="1.2" stroke-dasharray="5 4" marker-end="url(#arrow)"><title>php/add_to_queue.php → db:queues / SQL</title></path>
+<path d="M1840 430 L1950 430 L1950 490 L1913 490 L1913 1199 L2080 1199" fill="none" stroke="#8793a3" stroke-width="1.2" stroke-dasharray="5 4" marker-end="url(#arrow)"><title>php/add_to_queue.php → db:users / SQL</title></path>
+<path d="M1840 580 L1950 580 L1950 646 L1878 646 L1878 866 L1378 866 L1378 3997 L1950 3997 L1950 4059 L1840 4059" fill="none" stroke="#8793a3" stroke-width="1.2" stroke-dasharray="5 4" marker-end="url(#arrow)"><title>php/assign_queue_vet.php → php/queue_assignment_helpers.php / includes</title></path>
+<path d="M1840 602 L1970 602 L1970 865 L1205 865 L1205 944 L522 944 L522 1067 L58 1067 L58 3103 L1950 3103 L1950 3187 L1840 3187" fill="none" stroke="#8793a3" stroke-width="1.2" stroke-dasharray="5 4" marker-end="url(#arrow)"><title>php/assign_queue_vet.php → php/notification_helpers.php / includes</title></path>
+<path d="M1840 624 L1950 624 L1950 852 L1270 852 L1270 931 L545 931 L545 1071 L30 1071 L30 3278 L1950 3278 L1950 3362 L1840 3362" fill="none" stroke="#8793a3" stroke-width="1.2" stroke-dasharray="5 4" marker-end="url(#arrow)"><title>php/assign_queue_vet.php → php/booking_maintenance.php / includes</title></path>
+<path d="M1840 646 L1950 646 L1950 649 L1878 649 L1878 778 L1862 778 L1862 907 L1950 907 L1950 1603 L1862 1603 L1862 1794 L1878 1794 L1878 1856 L1862 1856 L1862 1945 L1290 1945 L1290 2389 L1862 2389 L1862 3865 L1950 3865 L1950 3887 L1840 3887" fill="none" stroke="#8793a3" stroke-width="1.2" stroke-dasharray="5 4" marker-end="url(#arrow)"><title>php/assign_queue_vet.php → php/branch_helpers.php / includes</title></path>
+<path d="M1840 668 L1950 668 L1950 671 L1913 671 L1913 847 L1970 847 L1970 1005 L2080 1005" fill="none" stroke="#8793a3" stroke-width="1.2" stroke-dasharray="5 4" marker-end="url(#arrow)"><title>php/assign_queue_vet.php → db:queues / SQL</title></path>
+<path d="M1840 690 L2058 690 L2058 1212 L1970 1212 L1970 1221 L2080 1221" fill="none" stroke="#8793a3" stroke-width="1.2" stroke-dasharray="5 4" marker-end="url(#arrow)"><title>php/assign_queue_vet.php → db:users / SQL</title></path>
+<path d="M1840 712 L1950 712 L1950 1005 L1970 1005 L1970 1393 L2080 1393" fill="none" stroke="#8793a3" stroke-width="1.2" stroke-dasharray="5 4" marker-end="url(#arrow)"><title>php/assign_queue_vet.php → db:veterinarian_profiles / SQL</title></path>
+<path d="M1840 734 L2058 734 L2058 429 L1970 429 L1970 425 L2080 425" fill="none" stroke="#8793a3" stroke-width="1.2" stroke-dasharray="5 4" marker-end="url(#arrow)"><title>php/assign_queue_vet.php → db:bookings / SQL</title></path>
+<path d="M1840 756 L1950 756 L1950 759 L1878 759 L1878 1469 L1970 1469 L1970 1586 L2080 1586" fill="none" stroke="#8793a3" stroke-width="1.2" stroke-dasharray="5 4" marker-end="url(#arrow)"><title>php/assign_queue_vet.php → db:vet_queue_assignments / SQL</title></path>
+<path d="M1840 778 L1970 778 L1970 950 L1862 950 L1862 1475 L2058 1475 L2058 1751 L1970 1751 L1970 1779 L2080 1779" fill="none" stroke="#8793a3" stroke-width="1.2" stroke-dasharray="5 4" marker-end="url(#arrow)"><title>php/assign_queue_vet.php → db:clinical_intakes / SQL</title></path>
+<path d="M1840 928 L1970 928 L1970 1027 L2080 1027" fill="none" stroke="#8793a3" stroke-width="1.2" stroke-dasharray="5 4" marker-end="url(#arrow)"><title>php/booking_queue_helpers.php → db:queues / SQL</title></path>
+<path d="M1840 950 L1950 950 L1950 921 L2542 921 L2542 521 L1970 521 L1970 447 L2080 447" fill="none" stroke="#8793a3" stroke-width="1.2" stroke-dasharray="5 4" marker-end="url(#arrow)"><title>php/booking_queue_helpers.php → db:bookings / SQL</title></path>
+<path d="M1840 1494 L1950 1494 L1950 1515 L1913 1515 L1913 1931 L1182 1931 L1182 3789 L1950 3789 L1950 3909 L1840 3909" fill="none" stroke="#8793a3" stroke-width="1.2" stroke-dasharray="5 4" marker-end="url(#arrow)"><title>php/clinical_intakes.php → php/branch_helpers.php / includes</title></path>
+<path d="M1840 1516 L1950 1516 L1950 1519 L1878 1519 L1878 1794 L1950 1794 L1950 2403 L1913 2403 L1913 3515 L1950 3515 L1950 3537 L1840 3537" fill="none" stroke="#8793a3" stroke-width="1.2" stroke-dasharray="5 4" marker-end="url(#arrow)"><title>php/clinical_intakes.php → php/consent_record_helpers.php / includes</title></path>
+<path d="M1840 1538 L1970 1538 L1970 1972 L2080 1972" fill="none" stroke="#8793a3" stroke-width="1.2" stroke-dasharray="5 4" marker-end="url(#arrow)"><title>php/clinical_intakes.php → db:admin_profiles / SQL</title></path>
+<path d="M1840 1560 L1950 1560 L1950 1801 L2080 1801" fill="none" stroke="#8793a3" stroke-width="1.2" stroke-dasharray="5 4" marker-end="url(#arrow)"><title>php/clinical_intakes.php → db:clinical_intakes / SQL</title></path>
+<path d="M1840 1582 L1950 1582 L1950 1581 L1913 1581 L1913 1049 L2080 1049" fill="none" stroke="#8793a3" stroke-width="1.2" stroke-dasharray="5 4" marker-end="url(#arrow)"><title>php/clinical_intakes.php → db:queues / SQL</title></path>
+<path d="M1840 1604 L1970 1604 L1970 1608 L2080 1608" fill="none" stroke="#8793a3" stroke-width="1.2" stroke-dasharray="5 4" marker-end="url(#arrow)"><title>php/clinical_intakes.php → db:vet_queue_assignments / SQL</title></path>
+<path d="M1840 1813 L2058 1813 L2058 1717 L2542 1717 L2542 907 L1950 907 L1950 812 L2080 812" fill="none" stroke="#8793a3" stroke-width="1.2" stroke-dasharray="5 4" marker-end="url(#arrow)"><title>php/get_pets_for_queue.php → db:pets_information / SQL</title></path>
+<path d="M1840 1835 L1970 1835 L1970 2165 L2080 2165" fill="none" stroke="#8793a3" stroke-width="1.2" stroke-dasharray="5 4" marker-end="url(#arrow)"><title>php/get_pets_for_queue.php → db:pet_ownership / SQL</title></path>
+<path d="M1840 1857 L2058 1857 L2058 1247 L1970 1247 L1970 1243 L2080 1243" fill="none" stroke="#8793a3" stroke-width="1.2" stroke-dasharray="5 4" marker-end="url(#arrow)"><title>php/get_pets_for_queue.php → db:users / SQL</title></path>
+<path d="M1840 2007 L2058 2007 L2058 2578 L1950 2578 L1950 3103 L1970 3103 L1970 4081 L1840 4081" fill="none" stroke="#8793a3" stroke-width="1.2" stroke-dasharray="5 4" marker-end="url(#arrow)"><title>php/get_queues.php → php/queue_assignment_helpers.php / includes</title></path>
+<path d="M1840 2029 L1970 2029 L1970 3187 L1950 3187 L1950 3384 L1840 3384" fill="none" stroke="#8793a3" stroke-width="1.2" stroke-dasharray="5 4" marker-end="url(#arrow)"><title>php/get_queues.php → php/booking_maintenance.php / includes</title></path>
+<path d="M1840 2051 L1950 2051 L1950 2138 L1913 2138 L1913 3384 L1950 3384 L1950 3712 L1840 3712" fill="none" stroke="#8793a3" stroke-width="1.2" stroke-dasharray="5 4" marker-end="url(#arrow)"><title>php/get_queues.php → php/reference_number_helpers.php / includes</title></path>
+<path d="M1840 2073 L2058 2073 L2058 1896 L2570 1896 L2570 1123 L1950 1123 L1950 972 L1840 972" fill="none" stroke="#8793a3" stroke-width="1.2" stroke-dasharray="5 4" marker-end="url(#arrow)"><title>php/get_queues.php → php/booking_queue_helpers.php / includes</title></path>
+<path d="M1840 2095 L1950 2095 L1950 2098 L1913 2098 L1913 2139 L1878 2139 L1878 2314 L1862 2314 L1862 3089 L2058 3089 L2058 3559 L1840 3559" fill="none" stroke="#8793a3" stroke-width="1.2" stroke-dasharray="5 4" marker-end="url(#arrow)"><title>php/get_queues.php → php/consent_record_helpers.php / includes</title></path>
+<path d="M1840 2117 L1950 2117 L1950 2314 L1878 2314 L1878 3515 L1913 3515 L1913 4172 L1950 4172 L1950 4234 L1840 4234" fill="none" stroke="#8793a3" stroke-width="1.2" stroke-dasharray="5 4" marker-end="url(#arrow)"><title>php/get_queues.php → php/pet_allergy_helpers.php / includes</title></path>
+<path d="M1840 2139 L2058 2139 L2058 3931 L1840 3931" fill="none" stroke="#8793a3" stroke-width="1.2" stroke-dasharray="5 4" marker-end="url(#arrow)"><title>php/get_queues.php → php/branch_helpers.php / includes</title></path>
+<path d="M1840 2161 L1950 2161 L1950 2160 L1913 2160 L1913 1945 L1290 1945 L1290 1247 L1270 1247 L1270 1171 L1970 1171 L1970 1071 L2080 1071" fill="none" stroke="#8793a3" stroke-width="1.2" stroke-dasharray="5 4" marker-end="url(#arrow)"><title>php/get_queues.php → db:queues / SQL</title></path>
+<path d="M1840 2183 L2058 2183 L2058 2051 L1950 2051 L1950 1988 L1862 1988 L1862 1931 L1205 1931 L1205 930 L1182 930 L1182 813 L1205 813 L1205 508 L1878 508 L1878 469 L2080 469" fill="none" stroke="#8793a3" stroke-width="1.2" stroke-dasharray="5 4" marker-end="url(#arrow)"><title>php/get_queues.php → db:bookings / SQL</title></path>
+<path d="M1840 2205 L1970 2205 L1970 2103 L2542 2103 L2542 1703 L1970 1703 L1970 1630 L2080 1630" fill="none" stroke="#8793a3" stroke-width="1.2" stroke-dasharray="5 4" marker-end="url(#arrow)"><title>php/get_queues.php → db:vet_queue_assignments / SQL</title></path>
+<path d="M1840 2227 L1970 2227 L1970 2358 L2080 2358" fill="none" stroke="#8793a3" stroke-width="1.2" stroke-dasharray="5 4" marker-end="url(#arrow)"><title>php/get_queues.php → db:consent_form_records / SQL</title></path>
+<path d="M1840 2249 L1950 2249 L1950 2282 L2570 2282 L2570 1903 L2058 1903 L2058 1834 L1970 1834 L1970 1823 L2080 1823" fill="none" stroke="#8793a3" stroke-width="1.2" stroke-dasharray="5 4" marker-end="url(#arrow)"><title>php/get_queues.php → db:clinical_intakes / SQL</title></path>
+<path d="M1840 2271 L1950 2271 L1950 2274 L1878 2274 L1878 2315 L1862 2315 L1862 2389 L1378 2389 L1378 2344 L718 2344 L718 1819 L1169 1819 L1169 1805 L1182 1805 L1182 1418 L1970 1418 L1970 1265 L2080 1265" fill="none" stroke="#8793a3" stroke-width="1.2" stroke-dasharray="5 4" marker-end="url(#arrow)"><title>php/get_queues.php → db:users / SQL</title></path>
+<path d="M1840 2293 L1950 2293 L1950 2389 L1270 2389 L1270 866 L1849 866 L1849 852 L1862 852 L1862 834 L2080 834" fill="none" stroke="#8793a3" stroke-width="1.2" stroke-dasharray="5 4" marker-end="url(#arrow)"><title>php/get_queues.php → db:pets_information / SQL</title></path>
+<path d="M1840 2315 L1950 2315 L1950 2551 L2080 2551" fill="none" stroke="#8793a3" stroke-width="1.2" stroke-dasharray="5 4" marker-end="url(#arrow)"><title>php/get_queues.php → db:branches / SQL</title></path>
+<g data-node="src/components/AdminDashboardsComponent/AddQueueDialog.jsx"><rect x="80" y="170" width="420" height="241" fill="#ffffff" stroke="#c4cbd4" stroke-width="1.2"/><line x1="80" y1="225" x2="500" y2="225" stroke="#c4cbd4"/>
+<text x="94" y="193" font-family="Arial,sans-serif" font-size="16" fill="#2d3748">AddQueueDialog</text>
+<text x="94" y="212" font-family="Arial,sans-serif" font-size="11.5" fill="#596579">«React component»</text>
+<text x="94" y="248" font-family="Consolas,monospace" font-size="12" fill="#2d3748">- allPets: state</text>
+<text x="94" y="266" font-family="Consolas,monospace" font-size="12" fill="#2d3748">- searchTerm: state</text>
+<text x="94" y="284" font-family="Consolas,monospace" font-size="12" fill="#2d3748">- selectedPet: state</text>
+<text x="94" y="302" font-family="Consolas,monospace" font-size="12" fill="#2d3748">+ AddQueueDialog()</text>
+<text x="94" y="320" font-family="Consolas,monospace" font-size="12" fill="#2d3748">+ handleSelectPet()</text>
+<text x="94" y="338" font-family="Consolas,monospace" font-size="12" fill="#2d3748">+ submitQueue()</text>
+<text x="94" y="356" font-family="Consolas,monospace" font-size="12" fill="#2d3748">+ handleConfirmBookingCancellation()</text>
+<text x="94" y="383" font-family="Arial,sans-serif" font-size="11.5" fill="#596579">src/components/AdminDashboardsComponent/AddQueueDial</text>
+<text x="94" y="399" font-family="Arial,sans-serif" font-size="11.5" fill="#596579">  og.jsx:53</text>
+</g>
+<g data-node="src/components/AdminDashboardsComponent/PatientIntake.jsx"><rect x="80" y="469" width="420" height="277" fill="#ffffff" stroke="#c4cbd4" stroke-width="1.2"/><line x1="80" y1="524" x2="500" y2="524" stroke="#c4cbd4"/>
+<text x="94" y="492" font-family="Arial,sans-serif" font-size="16" fill="#2d3748">PatientIntake</text>
+<text x="94" y="511" font-family="Arial,sans-serif" font-size="11.5" fill="#596579">«React component»</text>
+<text x="94" y="547" font-family="Consolas,monospace" font-size="12" fill="#2d3748">- queues: state</text>
+<text x="94" y="565" font-family="Consolas,monospace" font-size="12" fill="#2d3748">- bookings: state</text>
+<text x="94" y="583" font-family="Consolas,monospace" font-size="12" fill="#2d3748">- search: state</text>
+<text x="94" y="601" font-family="Consolas,monospace" font-size="12" fill="#2d3748">+ PatientIntake()</text>
+<text x="94" y="619" font-family="Consolas,monospace" font-size="12" fill="#2d3748">+ loadData()</text>
+<text x="94" y="637" font-family="Consolas,monospace" font-size="12" fill="#2d3748">+ loadConsentForms()</text>
+<text x="94" y="655" font-family="Consolas,monospace" font-size="12" fill="#2d3748">+ loadVeterinarians()</text>
+<text x="94" y="673" font-family="Consolas,monospace" font-size="12" fill="#2d3748">+ startExamination()</text>
+<text x="94" y="691" font-family="Consolas,monospace" font-size="12" fill="#2d3748">+ saveSignedConsent()</text>
+<text x="94" y="718" font-family="Arial,sans-serif" font-size="11.5" fill="#596579">src/components/AdminDashboardsComponent/PatientIntak</text>
+<text x="94" y="734" font-family="Arial,sans-serif" font-size="11.5" fill="#596579">  e.jsx:308</text>
+</g>
+<g data-node="src/components/AdminDashboardsComponent/QueueManagement.jsx"><rect x="80" y="804" width="420" height="241" fill="#ffffff" stroke="#c4cbd4" stroke-width="1.2"/><line x1="80" y1="859" x2="500" y2="859" stroke="#c4cbd4"/>
+<text x="94" y="827" font-family="Arial,sans-serif" font-size="16" fill="#2d3748">QueueManagement</text>
+<text x="94" y="846" font-family="Arial,sans-serif" font-size="11.5" fill="#596579">«React component»</text>
+<text x="94" y="882" font-family="Consolas,monospace" font-size="12" fill="#2d3748">- queue: state</text>
+<text x="94" y="900" font-family="Consolas,monospace" font-size="12" fill="#2d3748">- expandedRows: state</text>
+<text x="94" y="918" font-family="Consolas,monospace" font-size="12" fill="#2d3748">- searchTerm: state</text>
+<text x="94" y="936" font-family="Consolas,monospace" font-size="12" fill="#2d3748">+ QueueManagement()</text>
+<text x="94" y="954" font-family="Consolas,monospace" font-size="12" fill="#2d3748">+ fetchQueues()</text>
+<text x="94" y="972" font-family="Consolas,monospace" font-size="12" fill="#2d3748">+ fetchVeterinarians()</text>
+<text x="94" y="990" font-family="Consolas,monospace" font-size="12" fill="#2d3748">+ handleApprove()</text>
+<text x="94" y="1017" font-family="Arial,sans-serif" font-size="11.5" fill="#596579">src/components/AdminDashboardsComponent/QueueManagem</text>
+<text x="94" y="1033" font-family="Arial,sans-serif" font-size="11.5" fill="#596579">  ent.jsx:84</text>
+</g>
+<g data-node="src/components/PetOwnerDashboard/Self-Service_QUEUE.jsx"><rect x="80" y="1103" width="420" height="277" fill="#ffffff" stroke="#c4cbd4" stroke-width="1.2"/><line x1="80" y1="1158" x2="500" y2="1158" stroke="#c4cbd4"/>
+<text x="94" y="1126" font-family="Arial,sans-serif" font-size="16" fill="#2d3748">Self-Service_QUEUE</text>
+<text x="94" y="1145" font-family="Arial,sans-serif" font-size="11.5" fill="#596579">«React component»</text>
+<text x="94" y="1181" font-family="Consolas,monospace" font-size="12" fill="#2d3748">- pets: state</text>
+<text x="94" y="1199" font-family="Consolas,monospace" font-size="12" fill="#2d3748">- isAccessLoading: state</text>
+<text x="94" y="1217" font-family="Consolas,monospace" font-size="12" fill="#2d3748">- isAccessAllowed: state</text>
+<text x="94" y="1235" font-family="Consolas,monospace" font-size="12" fill="#2d3748">+ QueueDashboard()</text>
+<text x="94" y="1253" font-family="Consolas,monospace" font-size="12" fill="#2d3748">+ loadPets()</text>
+<text x="94" y="1271" font-family="Consolas,monospace" font-size="12" fill="#2d3748">+ loadConsentTemplates()</text>
+<text x="94" y="1289" font-family="Consolas,monospace" font-size="12" fill="#2d3748">+ handleImageUpload()</text>
+<text x="94" y="1307" font-family="Consolas,monospace" font-size="12" fill="#2d3748">+ handleRemoveImage()</text>
+<text x="94" y="1325" font-family="Consolas,monospace" font-size="12" fill="#2d3748">+ handleSubmit()</text>
+<text x="94" y="1352" font-family="Arial,sans-serif" font-size="11.5" fill="#596579">src/components/PetOwnerDashboard/Self-Service_</text>
+<text x="94" y="1368" font-family="Arial,sans-serif" font-size="11.5" fill="#596579">  QUEUE.jsx:117</text>
+</g>
+<g data-node="src/components/VetrinarianComponents/ApprovedQueueList.jsx"><rect x="80" y="1438" width="420" height="277" fill="#ffffff" stroke="#c4cbd4" stroke-width="1.2"/><line x1="80" y1="1493" x2="500" y2="1493" stroke="#c4cbd4"/>
+<text x="94" y="1461" font-family="Arial,sans-serif" font-size="16" fill="#2d3748">ApprovedQueueList</text>
+<text x="94" y="1480" font-family="Arial,sans-serif" font-size="11.5" fill="#596579">«React component» / source-only</text>
+<text x="94" y="1516" font-family="Consolas,monospace" font-size="12" fill="#2d3748">- queue: state</text>
+<text x="94" y="1534" font-family="Consolas,monospace" font-size="12" fill="#2d3748">- bookings: state</text>
+<text x="94" y="1552" font-family="Consolas,monospace" font-size="12" fill="#2d3748">- groomingReviews: state</text>
+<text x="94" y="1570" font-family="Consolas,monospace" font-size="12" fill="#2d3748">+ VetQueueList()</text>
+<text x="94" y="1588" font-family="Consolas,monospace" font-size="12" fill="#2d3748">+ loadQueue()</text>
+<text x="94" y="1606" font-family="Consolas,monospace" font-size="12" fill="#2d3748">+ loadBookings()</text>
+<text x="94" y="1624" font-family="Consolas,monospace" font-size="12" fill="#2d3748">+ loadGroomingReviews()</text>
+<text x="94" y="1642" font-family="Consolas,monospace" font-size="12" fill="#2d3748">+ receiveQueue()</text>
+<text x="94" y="1660" font-family="Consolas,monospace" font-size="12" fill="#2d3748">+ receiveBooking()</text>
+<text x="94" y="1687" font-family="Arial,sans-serif" font-size="11.5" fill="#596579">src/components/VetrinarianComponents/ApprovedQueueLi</text>
+<text x="94" y="1703" font-family="Arial,sans-serif" font-size="11.5" fill="#596579">  st.jsx:212</text>
+</g>
+<g data-node="src/services/clinicalIntakeService.js"><rect x="740" y="170" width="420" height="153" fill="#ffffff" stroke="#c4cbd4" stroke-width="1.2"/><line x1="740" y1="225" x2="1160" y2="225" stroke="#c4cbd4"/>
+<text x="754" y="193" font-family="Arial,sans-serif" font-size="16" fill="#2d3748">clinicalIntakeService</text>
+<text x="754" y="212" font-family="Arial,sans-serif" font-size="11.5" fill="#596579">«JS service module»</text>
+<text x="754" y="248" font-family="Consolas,monospace" font-size="12" fill="#2d3748">+ fetchClinicalIntakes()</text>
+<text x="754" y="266" font-family="Consolas,monospace" font-size="12" fill="#2d3748">+ startClinicalIntake()</text>
+<text x="754" y="284" font-family="Consolas,monospace" font-size="12" fill="#2d3748">+ saveClinicalIntake()</text>
+<text x="754" y="311" font-family="Arial,sans-serif" font-size="11.5" fill="#596579">src/services/clinicalIntakeService.js:3</text>
+</g>
+<g data-node="src/services/queueService.js"><rect x="740" y="381" width="420" height="334" fill="#ffffff" stroke="#c4cbd4" stroke-width="1.2"/><line x1="740" y1="436" x2="1160" y2="436" stroke="#c4cbd4"/>
+<text x="754" y="404" font-family="Arial,sans-serif" font-size="16" fill="#2d3748">queueService</text>
+<text x="754" y="423" font-family="Arial,sans-serif" font-size="11.5" fill="#596579">«JS service module»</text>
+<text x="754" y="459" font-family="Consolas,monospace" font-size="12" fill="#2d3748">+ fetchQueues()</text>
+<text x="754" y="477" font-family="Consolas,monospace" font-size="12" fill="#2d3748">+ fetchQueuePets()</text>
+<text x="754" y="495" font-family="Consolas,monospace" font-size="12" fill="#2d3748">+ addQueueItem()</text>
+<text x="754" y="513" font-family="Consolas,monospace" font-size="12" fill="#2d3748">+ updateQueueStatus()</text>
+<text x="754" y="531" font-family="Consolas,monospace" font-size="12" fill="#2d3748">+ assignQueueToVeterinarian()</text>
+<text x="754" y="549" font-family="Consolas,monospace" font-size="12" fill="#2d3748">+ receiveQueue()</text>
+<text x="754" y="567" font-family="Consolas,monospace" font-size="12" fill="#2d3748">+ returnQueue()</text>
+<text x="754" y="585" font-family="Consolas,monospace" font-size="12" fill="#2d3748">+ reenterQueue()</text>
+<text x="754" y="703" font-family="Arial,sans-serif" font-size="11.5" fill="#596579">src/services/queueService.js:4</text>
+</g>
+<g data-node="src/services/selfServiceService.js"><rect x="740" y="773" width="420" height="135" fill="#ffffff" stroke="#c4cbd4" stroke-width="1.2"/><line x1="740" y1="828" x2="1160" y2="828" stroke="#c4cbd4"/>
+<text x="754" y="796" font-family="Arial,sans-serif" font-size="16" fill="#2d3748">selfServiceService</text>
+<text x="754" y="815" font-family="Arial,sans-serif" font-size="11.5" fill="#596579">«JS service module»</text>
+<text x="754" y="851" font-family="Consolas,monospace" font-size="12" fill="#2d3748">+ fetchPublicWanIp()</text>
+<text x="754" y="869" font-family="Consolas,monospace" font-size="12" fill="#2d3748">+ checkSelfServiceAccess()</text>
+<text x="754" y="896" font-family="Arial,sans-serif" font-size="11.5" fill="#596579">src/services/selfServiceService.js:4</text>
+</g>
+<g data-node="php/add_to_queue.php"><rect x="1400" y="170" width="440" height="312" fill="#ffffff" stroke="#c4cbd4" stroke-width="1.2"/><line x1="1400" y1="225" x2="1840" y2="225" stroke="#c4cbd4"/>
+<text x="1414" y="193" font-family="Arial,sans-serif" font-size="16" fill="#2d3748">AddToQueue</text>
+<text x="1414" y="212" font-family="Arial,sans-serif" font-size="11.5" fill="#596579">«PHP module»</text>
+<text x="1414" y="248" font-family="Consolas,monospace" font-size="12" fill="#2d3748">+ getEnvValue()</text>
+<text x="1414" y="266" font-family="Consolas,monospace" font-size="12" fill="#2d3748">+ getClientIpAddress()</text>
+<text x="1414" y="284" font-family="Consolas,monospace" font-size="12" fill="#2d3748">+ getPublicIpForRestriction()</text>
+<text x="1414" y="302" font-family="Consolas,monospace" font-size="12" fill="#2d3748">+ ipMatchesRule()</text>
+<text x="1414" y="320" font-family="Consolas,monospace" font-size="12" fill="#2d3748">+ isIpAllowedForSelfService()</text>
+<text x="1414" y="338" font-family="Consolas,monospace" font-size="12" fill="#2d3748">+ queueActiveBookingsForPet()</text>
+<text x="1414" y="356" font-family="Consolas,monospace" font-size="12" fill="#2d3748">+ queueActiveBookingSummary()</text>
+<text x="1414" y="374" font-family="Consolas,monospace" font-size="12" fill="#2d3748">+ queueRespondWithActiveBookingConflict()</text>
+<text x="1414" y="470" font-family="Arial,sans-serif" font-size="11.5" fill="#596579">php/add_to_queue.php:12</text>
+</g>
+<g data-node="php/assign_queue_vet.php"><rect x="1400" y="540" width="440" height="290" fill="#ffffff" stroke="#c4cbd4" stroke-width="1.2"/><line x1="1400" y1="595" x2="1840" y2="595" stroke="#c4cbd4"/>
+<text x="1414" y="563" font-family="Arial,sans-serif" font-size="16" fill="#2d3748">AssignQueueVet</text>
+<text x="1414" y="582" font-family="Arial,sans-serif" font-size="11.5" fill="#596579">«PHP module»</text>
+<text x="1414" y="618" font-family="Consolas,monospace" font-size="12" fill="#2d3748">HTTP script / module exports</text>
+<text x="1414" y="818" font-family="Arial,sans-serif" font-size="11.5" fill="#596579">php/assign_queue_vet.php:1</text>
+</g>
+<g data-node="php/booking_queue_helpers.php"><rect x="1400" y="888" width="440" height="261" fill="#ffffff" stroke="#c4cbd4" stroke-width="1.2"/><line x1="1400" y1="943" x2="1840" y2="943" stroke="#c4cbd4"/>
+<text x="1414" y="911" font-family="Arial,sans-serif" font-size="16" fill="#2d3748">BookingQueueHelpers</text>
+<text x="1414" y="930" font-family="Arial,sans-serif" font-size="11.5" fill="#596579">«PHP module»</text>
+<text x="1414" y="966" font-family="Consolas,monospace" font-size="12" fill="#2d3748">+ queueTableColumns()</text>
+<text x="1414" y="984" font-family="Consolas,monospace" font-size="12" fill="#2d3748">+ bookingQueueMarker()</text>
+<text x="1414" y="1002" font-family="Consolas,monospace" font-size="12" fill="#2d3748">+ bookingNumberFromQueueComplaint()</text>
+<text x="1414" y="1020" font-family="Consolas,monospace" font-size="12" fill="#2d3748">+ bookingIdForQueue()</text>
+<text x="1414" y="1038" font-family="Consolas,monospace" font-size="12" fill="#2d3748">+ bookingNotesHaveRescheduleTag()</text>
+<text x="1414" y="1056" font-family="Consolas,monospace" font-size="12" fill="#2d3748">+ bookingNormalizeVisibleNotes()</text>
+<text x="1414" y="1074" font-family="Consolas,monospace" font-size="12" fill="#2d3748">+ bookingStripLifecycleNotes()</text>
+<text x="1414" y="1092" font-family="Consolas,monospace" font-size="12" fill="#2d3748">+ bookingCleanVisibleNotes()</text>
+<text x="1414" y="1110" font-family="Consolas,monospace" font-size="12" fill="#2d3748">+ 6 more operations [source index]</text>
+<text x="1414" y="1137" font-family="Arial,sans-serif" font-size="11.5" fill="#596579">php/booking_queue_helpers.php:3</text>
+</g>
+<g data-node="php/check_self_service_access.php"><rect x="1400" y="1207" width="440" height="189" fill="#ffffff" stroke="#c4cbd4" stroke-width="1.2"/><line x1="1400" y1="1262" x2="1840" y2="1262" stroke="#c4cbd4"/>
+<text x="1414" y="1230" font-family="Arial,sans-serif" font-size="16" fill="#2d3748">CheckSelfServiceAccess</text>
+<text x="1414" y="1249" font-family="Arial,sans-serif" font-size="11.5" fill="#596579">«PHP module»</text>
+<text x="1414" y="1285" font-family="Consolas,monospace" font-size="12" fill="#2d3748">+ getEnvValue()</text>
+<text x="1414" y="1303" font-family="Consolas,monospace" font-size="12" fill="#2d3748">+ getClientIpAddress()</text>
+<text x="1414" y="1321" font-family="Consolas,monospace" font-size="12" fill="#2d3748">+ getPublicIpForRestriction()</text>
+<text x="1414" y="1339" font-family="Consolas,monospace" font-size="12" fill="#2d3748">+ ipMatchesRule()</text>
+<text x="1414" y="1357" font-family="Consolas,monospace" font-size="12" fill="#2d3748">+ isIpAllowedForSelfService()</text>
+<text x="1414" y="1384" font-family="Arial,sans-serif" font-size="11.5" fill="#596579">php/check_self_service_access.php:6</text>
+</g>
+<g data-node="php/clinical_intakes.php"><rect x="1400" y="1454" width="440" height="261" fill="#ffffff" stroke="#c4cbd4" stroke-width="1.2"/><line x1="1400" y1="1509" x2="1840" y2="1509" stroke="#c4cbd4"/>
+<text x="1414" y="1477" font-family="Arial,sans-serif" font-size="16" fill="#2d3748">ClinicalIntakes</text>
+<text x="1414" y="1496" font-family="Arial,sans-serif" font-size="11.5" fill="#596579">«PHP module»</text>
+<text x="1414" y="1532" font-family="Consolas,monospace" font-size="12" fill="#2d3748">+ clinical_intake_schema_ready()</text>
+<text x="1414" y="1550" font-family="Consolas,monospace" font-size="12" fill="#2d3748">+ clinical_intake_require_schema()</text>
+<text x="1414" y="1568" font-family="Consolas,monospace" font-size="12" fill="#2d3748">+ clinical_intake_nullable_int()</text>
+<text x="1414" y="1586" font-family="Consolas,monospace" font-size="12" fill="#2d3748">+ clinical_intake_text()</text>
+<text x="1414" y="1604" font-family="Consolas,monospace" font-size="12" fill="#2d3748">+ clinical_intake_json_array()</text>
+<text x="1414" y="1622" font-family="Consolas,monospace" font-size="12" fill="#2d3748">+ clinical_intake_vital_signs()</text>
+<text x="1414" y="1640" font-family="Consolas,monospace" font-size="12" fill="#2d3748">+ clinical_intake_attachments()</text>
+<text x="1414" y="1658" font-family="Consolas,monospace" font-size="12" fill="#2d3748">+ clinical_intake_staff_position()</text>
+<text x="1414" y="1676" font-family="Consolas,monospace" font-size="12" fill="#2d3748">+ 3 more operations [source index]</text>
+<text x="1414" y="1703" font-family="Arial,sans-serif" font-size="11.5" fill="#596579">php/clinical_intakes.php:10</text>
+</g>
+<g data-node="php/get_pets_for_queue.php"><rect x="1400" y="1773" width="440" height="136" fill="#ffffff" stroke="#c4cbd4" stroke-width="1.2"/><line x1="1400" y1="1828" x2="1840" y2="1828" stroke="#c4cbd4"/>
+<text x="1414" y="1796" font-family="Arial,sans-serif" font-size="16" fill="#2d3748">GetPetsForQueue</text>
+<text x="1414" y="1815" font-family="Arial,sans-serif" font-size="11.5" fill="#596579">«PHP module»</text>
+<text x="1414" y="1851" font-family="Consolas,monospace" font-size="12" fill="#2d3748">HTTP script / module exports</text>
+<text x="1414" y="1897" font-family="Arial,sans-serif" font-size="11.5" fill="#596579">php/get_pets_for_queue.php:1</text>
+</g>
+<g data-node="php/get_queues.php"><rect x="1400" y="1967" width="440" height="400" fill="#ffffff" stroke="#c4cbd4" stroke-width="1.2"/><line x1="1400" y1="2022" x2="1840" y2="2022" stroke="#c4cbd4"/>
+<text x="1414" y="1990" font-family="Arial,sans-serif" font-size="16" fill="#2d3748">GetQueues</text>
+<text x="1414" y="2009" font-family="Arial,sans-serif" font-size="11.5" fill="#596579">«PHP module»</text>
+<text x="1414" y="2045" font-family="Consolas,monospace" font-size="12" fill="#2d3748">+ queue_table_exists()</text>
+<text x="1414" y="2355" font-family="Arial,sans-serif" font-size="11.5" fill="#596579">php/get_queues.php:14</text>
+</g>
+<g data-node="src/services/accountService.js"><rect x="740" y="966" width="420" height="117" fill="#f8fafc" stroke="#c4cbd4" stroke-width="1.2" stroke-dasharray="5 4"/><line x1="740" y1="1021" x2="1160" y2="1021" stroke="#c4cbd4"/>
+<text x="754" y="989" font-family="Arial,sans-serif" font-size="16" fill="#2d3748">accountService</text>
+<text x="754" y="1008" font-family="Arial,sans-serif" font-size="11.5" fill="#596579">«JS service module» / page 15</text>
+<text x="754" y="1044" font-family="Consolas,monospace" font-size="12" fill="#2d3748">Definition / page 15</text>
+<text x="754" y="1071" font-family="Arial,sans-serif" font-size="11.5" fill="#596579">src/services/accountService.js:4</text>
+</g>
+<g data-node="src/services/bookingService.js"><rect x="740" y="1141" width="420" height="117" fill="#f8fafc" stroke="#c4cbd4" stroke-width="1.2" stroke-dasharray="5 4"/><line x1="740" y1="1196" x2="1160" y2="1196" stroke="#c4cbd4"/>
+<text x="754" y="1164" font-family="Arial,sans-serif" font-size="16" fill="#2d3748">bookingService</text>
+<text x="754" y="1183" font-family="Arial,sans-serif" font-size="11.5" fill="#596579">«JS service module» / page 22</text>
+<text x="754" y="1219" font-family="Consolas,monospace" font-size="12" fill="#2d3748">Definition / page 22</text>
+<text x="754" y="1246" font-family="Arial,sans-serif" font-size="11.5" fill="#596579">src/services/bookingService.js:14</text>
+</g>
+<g data-node="src/services/consentDocumentPdf.js"><rect x="740" y="1316" width="420" height="117" fill="#f8fafc" stroke="#c4cbd4" stroke-width="1.2" stroke-dasharray="5 4"/><line x1="740" y1="1371" x2="1160" y2="1371" stroke="#c4cbd4"/>
+<text x="754" y="1339" font-family="Arial,sans-serif" font-size="16" fill="#2d3748">consentDocumentPdf</text>
+<text x="754" y="1358" font-family="Arial,sans-serif" font-size="11.5" fill="#596579">«JS service module» / page 31</text>
+<text x="754" y="1394" font-family="Consolas,monospace" font-size="12" fill="#2d3748">Definition / page 31</text>
+<text x="754" y="1421" font-family="Arial,sans-serif" font-size="11.5" fill="#596579">src/services/consentDocumentPdf.js:212</text>
+</g>
+<g data-node="src/services/consentFileService.js"><rect x="740" y="1491" width="420" height="117" fill="#f8fafc" stroke="#c4cbd4" stroke-width="1.2" stroke-dasharray="5 4"/><line x1="740" y1="1546" x2="1160" y2="1546" stroke="#c4cbd4"/>
+<text x="754" y="1514" font-family="Arial,sans-serif" font-size="16" fill="#2d3748">consentFileService</text>
+<text x="754" y="1533" font-family="Arial,sans-serif" font-size="11.5" fill="#596579">«JS service module» / page 31</text>
+<text x="754" y="1569" font-family="Consolas,monospace" font-size="12" fill="#2d3748">Definition / page 31</text>
+<text x="754" y="1596" font-family="Arial,sans-serif" font-size="11.5" fill="#596579">src/services/consentFileService.js:3</text>
+</g>
+<g data-node="src/services/consentRecordService.js"><rect x="740" y="1666" width="420" height="117" fill="#f8fafc" stroke="#c4cbd4" stroke-width="1.2" stroke-dasharray="5 4"/><line x1="740" y1="1721" x2="1160" y2="1721" stroke="#c4cbd4"/>
+<text x="754" y="1689" font-family="Arial,sans-serif" font-size="16" fill="#2d3748">consentRecordService</text>
+<text x="754" y="1708" font-family="Arial,sans-serif" font-size="11.5" fill="#596579">«JS service module» / page 31</text>
+<text x="754" y="1744" font-family="Consolas,monospace" font-size="12" fill="#2d3748">Definition / page 31</text>
+<text x="754" y="1771" font-family="Arial,sans-serif" font-size="11.5" fill="#596579">src/services/consentRecordService.js:3</text>
+</g>
+<g data-node="src/services/uploadService.js"><rect x="740" y="1841" width="420" height="117" fill="#f8fafc" stroke="#c4cbd4" stroke-width="1.2" stroke-dasharray="5 4"/><line x1="740" y1="1896" x2="1160" y2="1896" stroke="#c4cbd4"/>
+<text x="754" y="1864" font-family="Arial,sans-serif" font-size="16" fill="#2d3748">uploadService</text>
+<text x="754" y="1883" font-family="Arial,sans-serif" font-size="11.5" fill="#596579">«JS service module» / page 41</text>
+<text x="754" y="1919" font-family="Consolas,monospace" font-size="12" fill="#2d3748">Definition / page 41</text>
+<text x="754" y="1946" font-family="Arial,sans-serif" font-size="11.5" fill="#596579">src/services/uploadService.js:3</text>
+</g>
+<g data-node="src/services/branchService.js"><rect x="740" y="2016" width="420" height="117" fill="#f8fafc" stroke="#c4cbd4" stroke-width="1.2" stroke-dasharray="5 4"/><line x1="740" y1="2071" x2="1160" y2="2071" stroke="#c4cbd4"/>
+<text x="754" y="2039" font-family="Arial,sans-serif" font-size="16" fill="#2d3748">branchService</text>
+<text x="754" y="2058" font-family="Arial,sans-serif" font-size="11.5" fill="#596579">«JS service module» / page 17</text>
+<text x="754" y="2094" font-family="Consolas,monospace" font-size="12" fill="#2d3748">Definition / page 17</text>
+<text x="754" y="2121" font-family="Arial,sans-serif" font-size="11.5" fill="#596579">src/services/branchService.js:13</text>
+</g>
+<g data-node="src/services/petService.js"><rect x="740" y="2191" width="420" height="117" fill="#f8fafc" stroke="#c4cbd4" stroke-width="1.2" stroke-dasharray="5 4"/><line x1="740" y1="2246" x2="1160" y2="2246" stroke="#c4cbd4"/>
+<text x="754" y="2214" font-family="Arial,sans-serif" font-size="16" fill="#2d3748">petService</text>
+<text x="754" y="2233" font-family="Arial,sans-serif" font-size="11.5" fill="#596579">«JS service module» / page 20</text>
+<text x="754" y="2269" font-family="Consolas,monospace" font-size="12" fill="#2d3748">Definition / page 20</text>
+<text x="754" y="2296" font-family="Arial,sans-serif" font-size="11.5" fill="#596579">src/services/petService.js:3</text>
+</g>
+<g data-node="src/services/bookingAvailabilityService.js"><rect x="740" y="2366" width="420" height="117" fill="#f8fafc" stroke="#c4cbd4" stroke-width="1.2" stroke-dasharray="5 4"/><line x1="740" y1="2421" x2="1160" y2="2421" stroke="#c4cbd4"/>
+<text x="754" y="2389" font-family="Arial,sans-serif" font-size="16" fill="#2d3748">bookingAvailabilityService</text>
+<text x="754" y="2408" font-family="Arial,sans-serif" font-size="11.5" fill="#596579">«JS service module» / page 22</text>
+<text x="754" y="2444" font-family="Consolas,monospace" font-size="12" fill="#2d3748">Definition / page 22</text>
+<text x="754" y="2471" font-family="Arial,sans-serif" font-size="11.5" fill="#596579">src/services/bookingAvailabilityService.js:3</text>
+</g>
+<g data-node="src/services/groomingService.js"><rect x="740" y="2541" width="420" height="117" fill="#f8fafc" stroke="#c4cbd4" stroke-width="1.2" stroke-dasharray="5 4"/><line x1="740" y1="2596" x2="1160" y2="2596" stroke="#c4cbd4"/>
+<text x="754" y="2564" font-family="Arial,sans-serif" font-size="16" fill="#2d3748">groomingService</text>
+<text x="754" y="2583" font-family="Arial,sans-serif" font-size="11.5" fill="#596579">«JS service module» / page 32</text>
+<text x="754" y="2619" font-family="Consolas,monospace" font-size="12" fill="#2d3748">Definition / page 32</text>
+<text x="754" y="2646" font-family="Arial,sans-serif" font-size="11.5" fill="#596579">src/services/groomingService.js:5</text>
+</g>
+<g data-node="php/update_queue_status.php"><rect x="1400" y="2425" width="440" height="117" fill="#f8fafc" stroke="#c4cbd4" stroke-width="1.2" stroke-dasharray="5 4"/><line x1="1400" y1="2480" x2="1840" y2="2480" stroke="#c4cbd4"/>
+<text x="1414" y="2448" font-family="Arial,sans-serif" font-size="16" fill="#2d3748">UpdateQueueStatus</text>
+<text x="1414" y="2467" font-family="Arial,sans-serif" font-size="11.5" fill="#596579">«PHP module» / page 26</text>
+<text x="1414" y="2503" font-family="Consolas,monospace" font-size="12" fill="#2d3748">Definition / page 26</text>
+<text x="1414" y="2530" font-family="Arial,sans-serif" font-size="11.5" fill="#596579">php/update_queue_status.php:1</text>
+</g>
+<g data-node="php/receive_queue.php"><rect x="1400" y="2600" width="440" height="117" fill="#f8fafc" stroke="#c4cbd4" stroke-width="1.2" stroke-dasharray="5 4"/><line x1="1400" y1="2655" x2="1840" y2="2655" stroke="#c4cbd4"/>
+<text x="1414" y="2623" font-family="Arial,sans-serif" font-size="16" fill="#2d3748">ReceiveQueue</text>
+<text x="1414" y="2642" font-family="Arial,sans-serif" font-size="11.5" fill="#596579">«PHP module» / page 26</text>
+<text x="1414" y="2678" font-family="Consolas,monospace" font-size="12" fill="#2d3748">Definition / page 26</text>
+<text x="1414" y="2705" font-family="Arial,sans-serif" font-size="11.5" fill="#596579">php/receive_queue.php:1</text>
+</g>
+<g data-node="php/return_queue.php"><rect x="1400" y="2775" width="440" height="117" fill="#f8fafc" stroke="#c4cbd4" stroke-width="1.2" stroke-dasharray="5 4"/><line x1="1400" y1="2830" x2="1840" y2="2830" stroke="#c4cbd4"/>
+<text x="1414" y="2798" font-family="Arial,sans-serif" font-size="16" fill="#2d3748">ReturnQueue</text>
+<text x="1414" y="2817" font-family="Arial,sans-serif" font-size="11.5" fill="#596579">«PHP module» / page 26</text>
+<text x="1414" y="2853" font-family="Consolas,monospace" font-size="12" fill="#2d3748">Definition / page 26</text>
+<text x="1414" y="2880" font-family="Arial,sans-serif" font-size="11.5" fill="#596579">php/return_queue.php:1</text>
+</g>
+<g data-node="php/reenter_queue.php"><rect x="1400" y="2950" width="440" height="117" fill="#f8fafc" stroke="#c4cbd4" stroke-width="1.2" stroke-dasharray="5 4"/><line x1="1400" y1="3005" x2="1840" y2="3005" stroke="#c4cbd4"/>
+<text x="1414" y="2973" font-family="Arial,sans-serif" font-size="16" fill="#2d3748">ReenterQueue</text>
+<text x="1414" y="2992" font-family="Arial,sans-serif" font-size="11.5" fill="#596579">«PHP module» / page 26</text>
+<text x="1414" y="3028" font-family="Consolas,monospace" font-size="12" fill="#2d3748">Definition / page 26</text>
+<text x="1414" y="3055" font-family="Arial,sans-serif" font-size="11.5" fill="#596579">php/reenter_queue.php:1</text>
+</g>
+<g data-node="php/notification_helpers.php"><rect x="1400" y="3125" width="440" height="117" fill="#f8fafc" stroke="#c4cbd4" stroke-width="1.2" stroke-dasharray="5 4"/><line x1="1400" y1="3180" x2="1840" y2="3180" stroke="#c4cbd4"/>
+<text x="1414" y="3148" font-family="Arial,sans-serif" font-size="16" fill="#2d3748">NotificationHelpers</text>
+<text x="1414" y="3167" font-family="Arial,sans-serif" font-size="11.5" fill="#596579">«PHP module» / page 38</text>
+<text x="1414" y="3203" font-family="Consolas,monospace" font-size="12" fill="#2d3748">Definition / page 38</text>
+<text x="1414" y="3230" font-family="Arial,sans-serif" font-size="11.5" fill="#596579">php/notification_helpers.php:10</text>
+</g>
+<g data-node="php/booking_maintenance.php"><rect x="1400" y="3300" width="440" height="117" fill="#f8fafc" stroke="#c4cbd4" stroke-width="1.2" stroke-dasharray="5 4"/><line x1="1400" y1="3355" x2="1840" y2="3355" stroke="#c4cbd4"/>
+<text x="1414" y="3323" font-family="Arial,sans-serif" font-size="16" fill="#2d3748">BookingMaintenance</text>
+<text x="1414" y="3342" font-family="Arial,sans-serif" font-size="11.5" fill="#596579">«PHP module» / page 22</text>
+<text x="1414" y="3378" font-family="Consolas,monospace" font-size="12" fill="#2d3748">Definition / page 22</text>
+<text x="1414" y="3405" font-family="Arial,sans-serif" font-size="11.5" fill="#596579">php/booking_maintenance.php:12</text>
+</g>
+<g data-node="php/consent_record_helpers.php"><rect x="1400" y="3475" width="440" height="117" fill="#f8fafc" stroke="#c4cbd4" stroke-width="1.2" stroke-dasharray="5 4"/><line x1="1400" y1="3530" x2="1840" y2="3530" stroke="#c4cbd4"/>
+<text x="1414" y="3498" font-family="Arial,sans-serif" font-size="16" fill="#2d3748">ConsentRecordHelpers</text>
+<text x="1414" y="3517" font-family="Arial,sans-serif" font-size="11.5" fill="#596579">«PHP module» / page 31</text>
+<text x="1414" y="3553" font-family="Consolas,monospace" font-size="12" fill="#2d3748">Definition / page 31</text>
+<text x="1414" y="3580" font-family="Arial,sans-serif" font-size="11.5" fill="#596579">php/consent_record_helpers.php:7</text>
+</g>
+<g data-node="php/reference_number_helpers.php"><rect x="1400" y="3650" width="440" height="117" fill="#f8fafc" stroke="#c4cbd4" stroke-width="1.2" stroke-dasharray="5 4"/><line x1="1400" y1="3705" x2="1840" y2="3705" stroke="#c4cbd4"/>
+<text x="1414" y="3673" font-family="Arial,sans-serif" font-size="16" fill="#2d3748">ReferenceNumberHelpers</text>
+<text x="1414" y="3692" font-family="Arial,sans-serif" font-size="11.5" fill="#596579">«PHP module» / page 12</text>
+<text x="1414" y="3728" font-family="Consolas,monospace" font-size="12" fill="#2d3748">Definition / page 12</text>
+<text x="1414" y="3755" font-family="Arial,sans-serif" font-size="11.5" fill="#596579">php/reference_number_helpers.php:3</text>
+</g>
+<g data-node="php/branch_helpers.php"><rect x="1400" y="3825" width="440" height="136" fill="#f8fafc" stroke="#c4cbd4" stroke-width="1.2" stroke-dasharray="5 4"/><line x1="1400" y1="3880" x2="1840" y2="3880" stroke="#c4cbd4"/>
+<text x="1414" y="3848" font-family="Arial,sans-serif" font-size="16" fill="#2d3748">BranchHelpers</text>
+<text x="1414" y="3867" font-family="Arial,sans-serif" font-size="11.5" fill="#596579">«PHP module» / page 17</text>
+<text x="1414" y="3903" font-family="Consolas,monospace" font-size="12" fill="#2d3748">Definition / page 17</text>
+<text x="1414" y="3949" font-family="Arial,sans-serif" font-size="11.5" fill="#596579">php/branch_helpers.php:3</text>
+</g>
+<g data-node="db:booking_pets"><rect x="2080" y="170" width="440" height="135" fill="#f8fafc" stroke="#c4cbd4" stroke-width="1.2" stroke-dasharray="5 4"/><line x1="2080" y1="225" x2="2520" y2="225" stroke="#c4cbd4"/>
+<text x="2094" y="193" font-family="Arial,sans-serif" font-size="16" fill="#2d3748">BookingPet</text>
+<text x="2094" y="212" font-family="Arial,sans-serif" font-size="11.5" fill="#596579">«entity» booking_pets</text>
+<text x="2094" y="248" font-family="Consolas,monospace" font-size="12" fill="#2d3748">+ booking_pet_id: int [PK]</text>
+<text x="2094" y="266" font-family="Consolas,monospace" font-size="12" fill="#2d3748">Full SQL attributes / DB page 04</text>
+<text x="2094" y="293" font-family="Arial,sans-serif" font-size="11.5" fill="#596579">iPawcus_ERD_Schema.sql</text>
+</g>
+<g data-node="db:bookings"><rect x="2080" y="363" width="440" height="136" fill="#f8fafc" stroke="#c4cbd4" stroke-width="1.2" stroke-dasharray="5 4"/><line x1="2080" y1="418" x2="2520" y2="418" stroke="#c4cbd4"/>
+<text x="2094" y="386" font-family="Arial,sans-serif" font-size="16" fill="#2d3748">Booking</text>
+<text x="2094" y="405" font-family="Arial,sans-serif" font-size="11.5" fill="#596579">«entity» bookings</text>
+<text x="2094" y="441" font-family="Consolas,monospace" font-size="12" fill="#2d3748">+ booking_id: int [PK]</text>
+<text x="2094" y="459" font-family="Consolas,monospace" font-size="12" fill="#2d3748">Full SQL attributes / DB page 04</text>
+<text x="2094" y="487" font-family="Arial,sans-serif" font-size="11.5" fill="#596579">iPawcus_ERD_Schema.sql</text>
+</g>
+<g data-node="db:branch_service_availability"><rect x="2080" y="557" width="440" height="135" fill="#f8fafc" stroke="#c4cbd4" stroke-width="1.2" stroke-dasharray="5 4"/><line x1="2080" y1="612" x2="2520" y2="612" stroke="#c4cbd4"/>
+<text x="2094" y="580" font-family="Arial,sans-serif" font-size="16" fill="#2d3748">BranchServiceAvailability</text>
+<text x="2094" y="599" font-family="Arial,sans-serif" font-size="11.5" fill="#596579">«entity» branch_service_availability</text>
+<text x="2094" y="635" font-family="Consolas,monospace" font-size="12" fill="#2d3748">+ branch_service_id: int [PK]</text>
+<text x="2094" y="653" font-family="Consolas,monospace" font-size="12" fill="#2d3748">Full SQL attributes / DB page 02</text>
+<text x="2094" y="680" font-family="Arial,sans-serif" font-size="11.5" fill="#596579">iPawcus_ERD_Schema.sql</text>
+</g>
+<g data-node="db:pets_information"><rect x="2080" y="750" width="440" height="135" fill="#f8fafc" stroke="#c4cbd4" stroke-width="1.2" stroke-dasharray="5 4"/><line x1="2080" y1="805" x2="2520" y2="805" stroke="#c4cbd4"/>
+<text x="2094" y="773" font-family="Arial,sans-serif" font-size="16" fill="#2d3748">Pet</text>
+<text x="2094" y="792" font-family="Arial,sans-serif" font-size="11.5" fill="#596579">«entity» pets_information</text>
+<text x="2094" y="828" font-family="Consolas,monospace" font-size="12" fill="#2d3748">+ pet_id: int [PK]</text>
+<text x="2094" y="846" font-family="Consolas,monospace" font-size="12" fill="#2d3748">Full SQL attributes / DB page 03</text>
+<text x="2094" y="873" font-family="Arial,sans-serif" font-size="11.5" fill="#596579">iPawcus_ERD_Schema.sql</text>
+</g>
+<g data-node="db:queues"><rect x="2080" y="943" width="440" height="158" fill="#f8fafc" stroke="#c4cbd4" stroke-width="1.2" stroke-dasharray="5 4"/><line x1="2080" y1="998" x2="2520" y2="998" stroke="#c4cbd4"/>
+<text x="2094" y="966" font-family="Arial,sans-serif" font-size="16" fill="#2d3748">Queue</text>
+<text x="2094" y="985" font-family="Arial,sans-serif" font-size="11.5" fill="#596579">«entity» queues</text>
+<text x="2094" y="1021" font-family="Consolas,monospace" font-size="12" fill="#2d3748">+ queue_id: int [PK]</text>
+<text x="2094" y="1039" font-family="Consolas,monospace" font-size="12" fill="#2d3748">Full SQL attributes / DB page 04</text>
+<text x="2094" y="1089" font-family="Arial,sans-serif" font-size="11.5" fill="#596579">iPawcus_ERD_Schema.sql</text>
+</g>
+<g data-node="db:users"><rect x="2080" y="1159" width="440" height="136" fill="#f8fafc" stroke="#c4cbd4" stroke-width="1.2" stroke-dasharray="5 4"/><line x1="2080" y1="1214" x2="2520" y2="1214" stroke="#c4cbd4"/>
+<text x="2094" y="1182" font-family="Arial,sans-serif" font-size="16" fill="#2d3748">User</text>
+<text x="2094" y="1201" font-family="Arial,sans-serif" font-size="11.5" fill="#596579">«entity» users</text>
+<text x="2094" y="1237" font-family="Consolas,monospace" font-size="12" fill="#2d3748">+ user_id: int [PK]</text>
+<text x="2094" y="1255" font-family="Consolas,monospace" font-size="12" fill="#2d3748">Full SQL attributes / DB page 01</text>
+<text x="2094" y="1283" font-family="Arial,sans-serif" font-size="11.5" fill="#596579">iPawcus_ERD_Schema.sql</text>
+</g>
+<g data-node="php/queue_assignment_helpers.php"><rect x="1400" y="4019" width="440" height="117" fill="#f8fafc" stroke="#c4cbd4" stroke-width="1.2" stroke-dasharray="5 4"/><line x1="1400" y1="4074" x2="1840" y2="4074" stroke="#c4cbd4"/>
+<text x="1414" y="4042" font-family="Arial,sans-serif" font-size="16" fill="#2d3748">QueueAssignmentHelpers</text>
+<text x="1414" y="4061" font-family="Arial,sans-serif" font-size="11.5" fill="#596579">«PHP module» / page 26</text>
+<text x="1414" y="4097" font-family="Consolas,monospace" font-size="12" fill="#2d3748">Definition / page 26</text>
+<text x="1414" y="4124" font-family="Arial,sans-serif" font-size="11.5" fill="#596579">php/queue_assignment_helpers.php:3</text>
+</g>
+<g data-node="db:veterinarian_profiles"><rect x="2080" y="1353" width="440" height="135" fill="#f8fafc" stroke="#c4cbd4" stroke-width="1.2" stroke-dasharray="5 4"/><line x1="2080" y1="1408" x2="2520" y2="1408" stroke="#c4cbd4"/>
+<text x="2094" y="1376" font-family="Arial,sans-serif" font-size="16" fill="#2d3748">VeterinarianProfile</text>
+<text x="2094" y="1395" font-family="Arial,sans-serif" font-size="11.5" fill="#596579">«entity» veterinarian_profiles</text>
+<text x="2094" y="1431" font-family="Consolas,monospace" font-size="12" fill="#2d3748">+ id: int [PK]</text>
+<text x="2094" y="1449" font-family="Consolas,monospace" font-size="12" fill="#2d3748">Full SQL attributes / DB page 01</text>
+<text x="2094" y="1476" font-family="Arial,sans-serif" font-size="11.5" fill="#596579">iPawcus_ERD_Schema.sql</text>
+</g>
+<g data-node="db:vet_queue_assignments"><rect x="2080" y="1546" width="440" height="135" fill="#f8fafc" stroke="#c4cbd4" stroke-width="1.2" stroke-dasharray="5 4"/><line x1="2080" y1="1601" x2="2520" y2="1601" stroke="#c4cbd4"/>
+<text x="2094" y="1569" font-family="Arial,sans-serif" font-size="16" fill="#2d3748">VetQueueAssignment</text>
+<text x="2094" y="1588" font-family="Arial,sans-serif" font-size="11.5" fill="#596579">«entity» vet_queue_assignments</text>
+<text x="2094" y="1624" font-family="Consolas,monospace" font-size="12" fill="#2d3748">+ assignment_id: int [PK]</text>
+<text x="2094" y="1642" font-family="Consolas,monospace" font-size="12" fill="#2d3748">Full SQL attributes / DB page 04</text>
+<text x="2094" y="1669" font-family="Arial,sans-serif" font-size="11.5" fill="#596579">iPawcus_ERD_Schema.sql</text>
+</g>
+<g data-node="db:clinical_intakes"><rect x="2080" y="1739" width="440" height="135" fill="#f8fafc" stroke="#c4cbd4" stroke-width="1.2" stroke-dasharray="5 4"/><line x1="2080" y1="1794" x2="2520" y2="1794" stroke="#c4cbd4"/>
+<text x="2094" y="1762" font-family="Arial,sans-serif" font-size="16" fill="#2d3748">ClinicalIntake</text>
+<text x="2094" y="1781" font-family="Arial,sans-serif" font-size="11.5" fill="#596579">«entity» clinical_intakes</text>
+<text x="2094" y="1817" font-family="Consolas,monospace" font-size="12" fill="#2d3748">+ intake_id: int [PK]</text>
+<text x="2094" y="1835" font-family="Consolas,monospace" font-size="12" fill="#2d3748">Migration only; absent from SQL export</text>
+<text x="2094" y="1862" font-family="Arial,sans-serif" font-size="11.5" fill="#596579">DDL/20261004_01_clinical_intakes.sql:4</text>
+</g>
+<g data-node="db:admin_profiles"><rect x="2080" y="1932" width="440" height="135" fill="#f8fafc" stroke="#c4cbd4" stroke-width="1.2" stroke-dasharray="5 4"/><line x1="2080" y1="1987" x2="2520" y2="1987" stroke="#c4cbd4"/>
+<text x="2094" y="1955" font-family="Arial,sans-serif" font-size="16" fill="#2d3748">AdminProfile</text>
+<text x="2094" y="1974" font-family="Arial,sans-serif" font-size="11.5" fill="#596579">«entity» admin_profiles</text>
+<text x="2094" y="2010" font-family="Consolas,monospace" font-size="12" fill="#2d3748">+ id: int [PK]</text>
+<text x="2094" y="2028" font-family="Consolas,monospace" font-size="12" fill="#2d3748">Full SQL attributes / DB page 01</text>
+<text x="2094" y="2055" font-family="Arial,sans-serif" font-size="11.5" fill="#596579">iPawcus_ERD_Schema.sql</text>
+</g>
+<g data-node="db:pet_ownership"><rect x="2080" y="2125" width="440" height="135" fill="#f8fafc" stroke="#c4cbd4" stroke-width="1.2" stroke-dasharray="5 4"/><line x1="2080" y1="2180" x2="2520" y2="2180" stroke="#c4cbd4"/>
+<text x="2094" y="2148" font-family="Arial,sans-serif" font-size="16" fill="#2d3748">PetOwnership</text>
+<text x="2094" y="2167" font-family="Arial,sans-serif" font-size="11.5" fill="#596579">«entity» pet_ownership</text>
+<text x="2094" y="2203" font-family="Consolas,monospace" font-size="12" fill="#2d3748">+ link_id: int [PK]</text>
+<text x="2094" y="2221" font-family="Consolas,monospace" font-size="12" fill="#2d3748">Full SQL attributes / DB page 03</text>
+<text x="2094" y="2248" font-family="Arial,sans-serif" font-size="11.5" fill="#596579">iPawcus_ERD_Schema.sql</text>
+</g>
+<g data-node="php/pet_allergy_helpers.php"><rect x="1400" y="4194" width="440" height="117" fill="#f8fafc" stroke="#c4cbd4" stroke-width="1.2" stroke-dasharray="5 4"/><line x1="1400" y1="4249" x2="1840" y2="4249" stroke="#c4cbd4"/>
+<text x="1414" y="4217" font-family="Arial,sans-serif" font-size="16" fill="#2d3748">PetAllergyHelpers</text>
+<text x="1414" y="4236" font-family="Arial,sans-serif" font-size="11.5" fill="#596579">«PHP module» / page 20</text>
+<text x="1414" y="4272" font-family="Consolas,monospace" font-size="12" fill="#2d3748">Definition / page 20</text>
+<text x="1414" y="4299" font-family="Arial,sans-serif" font-size="11.5" fill="#596579">php/pet_allergy_helpers.php:3</text>
+</g>
+<g data-node="db:consent_form_records"><rect x="2080" y="2318" width="440" height="135" fill="#f8fafc" stroke="#c4cbd4" stroke-width="1.2" stroke-dasharray="5 4"/><line x1="2080" y1="2373" x2="2520" y2="2373" stroke="#c4cbd4"/>
+<text x="2094" y="2341" font-family="Arial,sans-serif" font-size="16" fill="#2d3748">ConsentFormRecord</text>
+<text x="2094" y="2360" font-family="Arial,sans-serif" font-size="11.5" fill="#596579">«entity» consent_form_records</text>
+<text x="2094" y="2396" font-family="Consolas,monospace" font-size="12" fill="#2d3748">+ consent_record_id: int [PK]</text>
+<text x="2094" y="2414" font-family="Consolas,monospace" font-size="12" fill="#2d3748">Full SQL attributes / DB page 04</text>
+<text x="2094" y="2441" font-family="Arial,sans-serif" font-size="11.5" fill="#596579">iPawcus_ERD_Schema.sql</text>
+</g>
+<g data-node="db:branches"><rect x="2080" y="2511" width="440" height="135" fill="#f8fafc" stroke="#c4cbd4" stroke-width="1.2" stroke-dasharray="5 4"/><line x1="2080" y1="2566" x2="2520" y2="2566" stroke="#c4cbd4"/>
+<text x="2094" y="2534" font-family="Arial,sans-serif" font-size="16" fill="#2d3748">Branch</text>
+<text x="2094" y="2553" font-family="Arial,sans-serif" font-size="11.5" fill="#596579">«entity» branches</text>
+<text x="2094" y="2589" font-family="Consolas,monospace" font-size="12" fill="#2d3748">+ branch_id: int [PK]</text>
+<text x="2094" y="2607" font-family="Consolas,monospace" font-size="12" fill="#2d3748">Full SQL attributes / DB page 02</text>
+<text x="2094" y="2634" font-family="Arial,sans-serif" font-size="11.5" fill="#596579">iPawcus_ERD_Schema.sql</text>
+</g>
+<text x="512" y="204" font-family="Consolas,monospace" font-size="11.5" fill="#596579">uses</text>
+<text x="512" y="503" font-family="Consolas,monospace" font-size="11.5" fill="#596579">uses</text>
+<text x="512" y="525" font-family="Consolas,monospace" font-size="11.5" fill="#596579">uses</text>
+<text x="512" y="547" font-family="Consolas,monospace" font-size="11.5" fill="#596579">uses</text>
+<text x="512" y="569" font-family="Consolas,monospace" font-size="11.5" fill="#596579">uses</text>
+<text x="512" y="591" font-family="Consolas,monospace" font-size="11.5" fill="#596579">uses</text>
+<text x="512" y="613" font-family="Consolas,monospace" font-size="11.5" fill="#596579">uses</text>
+<text x="512" y="635" font-family="Consolas,monospace" font-size="11.5" fill="#596579">uses</text>
+<text x="512" y="657" font-family="Consolas,monospace" font-size="11.5" fill="#596579">uses</text>
+<text x="512" y="838" font-family="Consolas,monospace" font-size="11.5" fill="#596579">uses</text>
+<text x="512" y="860" font-family="Consolas,monospace" font-size="11.5" fill="#596579">uses</text>
+<text x="512" y="882" font-family="Consolas,monospace" font-size="11.5" fill="#596579">uses</text>
+<text x="512" y="1137" font-family="Consolas,monospace" font-size="11.5" fill="#596579">uses</text>
+<text x="512" y="1159" font-family="Consolas,monospace" font-size="11.5" fill="#596579">uses</text>
+<text x="512" y="1181" font-family="Consolas,monospace" font-size="11.5" fill="#596579">uses</text>
+<text x="512" y="1203" font-family="Consolas,monospace" font-size="11.5" fill="#596579">uses</text>
+<text x="512" y="1225" font-family="Consolas,monospace" font-size="11.5" fill="#596579">uses</text>
+<text x="512" y="1247" font-family="Consolas,monospace" font-size="11.5" fill="#596579">uses</text>
+<text x="512" y="1472" font-family="Consolas,monospace" font-size="11.5" fill="#596579">uses</text>
+<text x="512" y="1494" font-family="Consolas,monospace" font-size="11.5" fill="#596579">uses</text>
+<text x="512" y="1516" font-family="Consolas,monospace" font-size="11.5" fill="#596579">uses</text>
+<text x="512" y="1538" font-family="Consolas,monospace" font-size="11.5" fill="#596579">uses</text>
+<text x="512" y="1560" font-family="Consolas,monospace" font-size="11.5" fill="#596579">uses</text>
+<text x="1172" y="204" font-family="Consolas,monospace" font-size="11.5" fill="#596579">HTTP</text>
+<text x="1172" y="415" font-family="Consolas,monospace" font-size="11.5" fill="#596579">HTTP</text>
+<text x="1172" y="437" font-family="Consolas,monospace" font-size="11.5" fill="#596579">HTTP</text>
+<text x="1172" y="459" font-family="Consolas,monospace" font-size="11.5" fill="#596579">HTTP</text>
+<text x="1172" y="481" font-family="Consolas,monospace" font-size="11.5" fill="#596579">HTTP</text>
+<text x="1172" y="503" font-family="Consolas,monospace" font-size="11.5" fill="#596579">HTTP</text>
+<text x="1172" y="525" font-family="Consolas,monospace" font-size="11.5" fill="#596579">HTTP</text>
+<text x="1172" y="547" font-family="Consolas,monospace" font-size="11.5" fill="#596579">HTTP</text>
+<text x="1172" y="569" font-family="Consolas,monospace" font-size="11.5" fill="#596579">HTTP</text>
+<text x="1172" y="807" font-family="Consolas,monospace" font-size="11.5" fill="#596579">HTTP</text>
+<text x="1852" y="204" font-family="Consolas,monospace" font-size="11.5" fill="#596579">includes</text>
+<text x="1852" y="226" font-family="Consolas,monospace" font-size="11.5" fill="#596579">includes</text>
+<text x="1852" y="248" font-family="Consolas,monospace" font-size="11.5" fill="#596579">includes</text>
+<text x="1852" y="270" font-family="Consolas,monospace" font-size="11.5" fill="#596579">includes</text>
+<text x="1852" y="292" font-family="Consolas,monospace" font-size="11.5" fill="#596579">includes</text>
+<text x="1852" y="314" font-family="Consolas,monospace" font-size="11.5" fill="#596579">SQL</text>
+<text x="1852" y="336" font-family="Consolas,monospace" font-size="11.5" fill="#596579">SQL</text>
+<text x="1852" y="358" font-family="Consolas,monospace" font-size="11.5" fill="#596579">SQL</text>
+<text x="1852" y="380" font-family="Consolas,monospace" font-size="11.5" fill="#596579">SQL</text>
+<text x="1852" y="402" font-family="Consolas,monospace" font-size="11.5" fill="#596579">SQL</text>
+<text x="1852" y="424" font-family="Consolas,monospace" font-size="11.5" fill="#596579">SQL</text>
+<text x="1852" y="574" font-family="Consolas,monospace" font-size="11.5" fill="#596579">includes</text>
+<text x="1852" y="596" font-family="Consolas,monospace" font-size="11.5" fill="#596579">includes</text>
+<text x="1852" y="618" font-family="Consolas,monospace" font-size="11.5" fill="#596579">includes</text>
+<text x="1852" y="640" font-family="Consolas,monospace" font-size="11.5" fill="#596579">includes</text>
+<text x="1852" y="662" font-family="Consolas,monospace" font-size="11.5" fill="#596579">SQL</text>
+<text x="1852" y="684" font-family="Consolas,monospace" font-size="11.5" fill="#596579">SQL</text>
+<text x="1852" y="706" font-family="Consolas,monospace" font-size="11.5" fill="#596579">SQL</text>
+<text x="1852" y="728" font-family="Consolas,monospace" font-size="11.5" fill="#596579">SQL</text>
+<text x="1852" y="750" font-family="Consolas,monospace" font-size="11.5" fill="#596579">SQL</text>
+<text x="1852" y="772" font-family="Consolas,monospace" font-size="11.5" fill="#596579">SQL</text>
+<text x="1852" y="922" font-family="Consolas,monospace" font-size="11.5" fill="#596579">SQL</text>
+<text x="1852" y="944" font-family="Consolas,monospace" font-size="11.5" fill="#596579">SQL</text>
+<text x="1852" y="1488" font-family="Consolas,monospace" font-size="11.5" fill="#596579">includes</text>
+<text x="1852" y="1510" font-family="Consolas,monospace" font-size="11.5" fill="#596579">includes</text>
+<text x="1852" y="1532" font-family="Consolas,monospace" font-size="11.5" fill="#596579">SQL</text>
+<text x="1852" y="1554" font-family="Consolas,monospace" font-size="11.5" fill="#596579">SQL</text>
+<text x="1852" y="1576" font-family="Consolas,monospace" font-size="11.5" fill="#596579">SQL</text>
+<text x="1852" y="1598" font-family="Consolas,monospace" font-size="11.5" fill="#596579">SQL</text>
+<text x="1852" y="1807" font-family="Consolas,monospace" font-size="11.5" fill="#596579">SQL</text>
+<text x="1852" y="1829" font-family="Consolas,monospace" font-size="11.5" fill="#596579">SQL</text>
+<text x="1852" y="1851" font-family="Consolas,monospace" font-size="11.5" fill="#596579">SQL</text>
+<text x="1852" y="2001" font-family="Consolas,monospace" font-size="11.5" fill="#596579">includes</text>
+<text x="1852" y="2023" font-family="Consolas,monospace" font-size="11.5" fill="#596579">includes</text>
+<text x="1852" y="2045" font-family="Consolas,monospace" font-size="11.5" fill="#596579">includes</text>
+<text x="1852" y="2067" font-family="Consolas,monospace" font-size="11.5" fill="#596579">includes</text>
+<text x="1852" y="2089" font-family="Consolas,monospace" font-size="11.5" fill="#596579">includes</text>
+<text x="1852" y="2111" font-family="Consolas,monospace" font-size="11.5" fill="#596579">includes</text>
+<text x="1852" y="2133" font-family="Consolas,monospace" font-size="11.5" fill="#596579">includes</text>
+<text x="1852" y="2155" font-family="Consolas,monospace" font-size="11.5" fill="#596579">SQL</text>
+<text x="1852" y="2177" font-family="Consolas,monospace" font-size="11.5" fill="#596579">SQL</text>
+<text x="1852" y="2199" font-family="Consolas,monospace" font-size="11.5" fill="#596579">SQL</text>
+<text x="1852" y="2221" font-family="Consolas,monospace" font-size="11.5" fill="#596579">SQL</text>
+<text x="1852" y="2243" font-family="Consolas,monospace" font-size="11.5" fill="#596579">SQL</text>
+<text x="1852" y="2265" font-family="Consolas,monospace" font-size="11.5" fill="#596579">SQL</text>
+<text x="1852" y="2287" font-family="Consolas,monospace" font-size="11.5" fill="#596579">SQL</text>
+<text x="1852" y="2309" font-family="Consolas,monospace" font-size="11.5" fill="#596579">SQL</text>
+</svg>

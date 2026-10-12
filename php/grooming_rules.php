@@ -1,0 +1,105 @@
+<?php
+
+function grooming_is_service($service): bool
+{
+    return in_array(strtolower(trim((string)$service)), ['grooming', 'pet grooming'], true);
+}
+
+function grooming_validate_details(array $input): array
+{
+    $result = [];
+    foreach (['package', 'assistantName', 'addOns', 'ownerRequest', 'emergencyContact', 'pickupPerson', 'belongings', 'allergies', 'coat', 'handling', 'intakeNotes', 'internalNotes', 'ownerSummary', 'productsUsed', 'approvalNote', 'pickupNote'] as $field) {
+        if (isset($input[$field]) && !is_string($input[$field])) throw new InvalidArgumentException('Enter text in ' . $field . '.');
+        $result[$field] = trim((string)($input[$field] ?? ''));
+        if (strlen($result[$field]) > 3000) throw new InvalidArgumentException('A note is too long. Keep each field under 3,000 characters.');
+    }
+    foreach (['coat' => ['unknown', 'clear', 'tangled', 'matted', 'review'], 'handling' => ['unknown', 'settled', 'nervous', 'sensitive', 'support']] as $field => $allowed) {
+        $result[$field] = $result[$field] ?: 'unknown';
+        if (!in_array($result[$field], $allowed, true)) throw new InvalidArgumentException('Choose a valid ' . $field . ' assessment.');
+    }
+    $duration = filter_var($input['durationMinutes'] ?? 60, FILTER_VALIDATE_INT);
+    if ($duration === false || $duration < 30 || $duration > 480 || $duration % 30 !== 0) throw new InvalidArgumentException('Choose a grooming duration in 30-minute steps, from 30 minutes to 8 hours.');
+    $result['durationMinutes'] = $duration;
+    $quote = $input['agreedTotal'] ?? '';
+    if ($quote !== '' && (!is_numeric($quote) || !is_finite((float)$quote) || (float)$quote < 0 || (float)$quote > 100000)) throw new InvalidArgumentException('Enter a valid agreed total from 0 to 100,000.');
+    $result['agreedTotal'] = $quote === '' ? '' : round((float)$quote, 2);
+    $submittedCatalogServiceIds = $input['catalogServiceIds'] ?? null;
+    if ($submittedCatalogServiceIds !== null && !is_array($submittedCatalogServiceIds)) {
+        throw new InvalidArgumentException('Choose valid grooming services from Service Catalog.');
+    }
+    if ($submittedCatalogServiceIds === null) {
+        $legacyCatalogServiceId = $input['catalogServiceId'] ?? null;
+        $submittedCatalogServiceIds = ($legacyCatalogServiceId === '' || $legacyCatalogServiceId === null)
+            ? []
+            : [$legacyCatalogServiceId];
+    }
+    if (count($submittedCatalogServiceIds) > 20) {
+        throw new InvalidArgumentException('Choose no more than 20 grooming services for one job.');
+    }
+    $catalogServiceIds = [];
+    foreach ($submittedCatalogServiceIds as $catalogServiceId) {
+        if (filter_var($catalogServiceId, FILTER_VALIDATE_INT) === false || (int)$catalogServiceId <= 0) {
+            throw new InvalidArgumentException('Choose valid grooming services from Service Catalog.');
+        }
+        $catalogServiceIds[(int)$catalogServiceId] = (int)$catalogServiceId;
+    }
+    $result['catalogServiceIds'] = array_values($catalogServiceIds);
+    // Keep the first ID for older clients and historical reporting code.
+    $result['catalogServiceId'] = $result['catalogServiceIds'][0] ?? null;
+    $result['ownerApproved'] = ($input['ownerApproved'] ?? false) === true;
+    $result['intakeConfirmed'] = ($input['intakeConfirmed'] ?? false) === true;
+    $result['completionConfirmed'] = ($input['completionConfirmed'] ?? false) === true;
+    $result['pickupConfirmed'] = ($input['pickupConfirmed'] ?? false) === true;
+    // The grooming checklist was intentionally removed. Completion is recorded
+    // by the explicit Finish grooming action and the before/after evidence.
+    $result['tasks'] = [];
+    return $result;
+}
+
+function grooming_assert_transition(string $from, string $to, array $details, string $performer, ?string $reviewOutcome): void
+{
+    $transitions = [
+        'scheduled' => ['checked_in', 'cancelled', 'no_show'],
+        'checked_in' => ['in_progress', 'cancelled'],
+        'in_progress' => ['ready', 'cancelled'],
+        'vet_review' => ['in_progress', 'cancelled'],
+        'ready' => [],
+        'released' => [], 'cancelled' => [], 'no_show' => [], 'transferred' => [],
+    ];
+    if (!isset($transitions[$from]) || ($from !== $to && !in_array($to, $transitions[$from], true))) throw new InvalidArgumentException('This status change is not available. Refresh the job and review its progress.');
+    if (in_array($from, ['released', 'cancelled', 'no_show', 'transferred'], true)) throw new InvalidArgumentException('This job is closed. Its recorded history cannot be overwritten.');
+    if ($from === 'vet_review' && $to === 'in_progress' && $reviewOutcome !== 'resume') throw new InvalidArgumentException('Wait for the assigned vet to clear this grooming job before resuming.');
+    if ($from !== $to && $to === 'in_progress' && empty($details['catalogServiceIds']) && empty($details['catalogServiceId'])) throw new InvalidArgumentException('Select at least one active grooming service and price from Service Catalog before starting.');
+    if (in_array($to, ['in_progress', 'ready', 'released'], true)) {
+        if ($performer === '' || empty($details['package']) || empty($details['intakeConfirmed'])) throw new InvalidArgumentException('Assign the staff member, select a package, and confirm the intake before starting.');
+        if (empty($details['ownerApproved'])) throw new InvalidArgumentException('Confirm the owner agreed to the service before starting grooming.');
+    }
+    if ($from !== $to && in_array($to, ['in_progress', 'ready'], true) && ($details['coat'] ?? '') === 'review' && $reviewOutcome !== 'resume') throw new InvalidArgumentException('Request a vet review for the recorded coat concern before continuing grooming.');
+    if (in_array($to, ['ready', 'released'], true) && empty($details['completionConfirmed'])) throw new InvalidArgumentException('Use Finish grooming to confirm the work is done.');
+}
+
+function grooming_completion_summary(array $details): string
+{
+    // Routine completion needs no additional writing. Do not publish internal
+    // notes, invent an assessment, or claim specific checklist tasks were done.
+    return trim((string)($details['ownerSummary'] ?? '')) ?: 'Grooming visit finished. Service: ' . $details['package'] . '.';
+}
+
+function grooming_handler_name(array $user): string
+{
+    return trim((string)($user['first_Name'] ?? '') . ' ' . (string)($user['last_Name'] ?? ''))
+        ?: 'Clinic staff #' . (int)($user['user_id'] ?? 0);
+}
+
+function grooming_default_pickup_person(array $booking, array $user): string
+{
+    $ownerName = trim((string)($booking['grooming_owner_name'] ?? ''));
+    return $ownerName !== '' ? $ownerName : grooming_handler_name($user);
+}
+
+function grooming_form_details(array $submitted, array $stored): array
+{
+    // Never accept a price override from the grooming form, including old clients.
+    $submitted['agreedTotal'] = $stored['agreedTotal'] ?? '';
+    return grooming_validate_details($submitted);
+}

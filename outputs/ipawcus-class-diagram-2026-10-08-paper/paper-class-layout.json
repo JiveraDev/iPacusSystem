@@ -1,0 +1,2014 @@
+{
+  "title": "iPawcus: A Web-Based Veterinary Management System with Online Booking and Pet Record Management for Vetfocus Care Animal Clinic",
+  "page": {
+    "id": "paper-overview",
+    "title": "Simplified System Class Diagram",
+    "columns": 4,
+    "number": 0,
+    "nodes": [
+      {
+        "id": "Clinic",
+        "name": "Clinic",
+        "column": 0,
+        "row": 0,
+        "attrs": [
+          "- clinicId: Integer",
+          "- name: String",
+          "- address: String",
+          "- operatingHours: Map",
+          "- closures: List",
+          "- status: String"
+        ],
+        "methods": [
+          "+ updateClinic()",
+          "+ checkOnsiteAvailability()",
+          "+ reserveAvailableVet()"
+        ],
+        "members": [
+          "branches",
+          "branch_closures",
+          "branch_operating_hours",
+          "branch_service_availability",
+          "veterinarian_booking_time_off",
+          "veterinarian_branch_schedules",
+          "veterinarian_working_hours",
+          "domain:booking_scheduler"
+        ],
+        "explanation": "Represents a clinic and its operating calendar. Onsite medical capacity is determined by active veterinarians assigned to that clinic who accept bookings, with conflicts checked across sites and online calls. Three eligible veterinarians allow three simultaneous medical appointments, including the same service. Grooming and boarding retain their separate capacity rules. Legacy veterinarian working-hours, time-off and clinic-visit tables are reference data only; they are not current onsite scheduling gates.",
+        "w": 190,
+        "x": 160,
+        "header": 30,
+        "attributeHeight": 104,
+        "methodY": 134,
+        "methodHeight": 56,
+        "h": 190,
+        "y": 135,
+        "originalBounds": {
+          "x": 90,
+          "y": 135,
+          "w": 330,
+          "h": 198
+        }
+      },
+      {
+        "id": "UserAccount",
+        "name": "UserAccount",
+        "column": 1,
+        "row": 0,
+        "attrs": [
+          "- userId: Integer",
+          "- name: String",
+          "- email: String",
+          "- role: String",
+          "- roleProfile: Map",
+          "- clinicAcceptance: Map",
+          "- onlineAvailability: List",
+          "- status: String"
+        ],
+        "methods": [
+          "+ authenticate()",
+          "+ updateProfile()",
+          "+ assignClinics()",
+          "+ setClinicAcceptance()",
+          "+ setOnlineAvailability()",
+          "+ viewTasks()"
+        ],
+        "members": [
+          "users",
+          "admin_profiles",
+          "veterinarian_profiles",
+          "user_auth_identities",
+          "api_access_tokens",
+          "email_otp_tokens",
+          "google_auth_onboarding_tokens",
+          "admin_feature_permissions",
+          "admin_feature_permission_audit",
+          "user_branch_assignments",
+          "veterinarian_booking_clinics",
+          "vet_schedules",
+          "pet_owner_todos"
+        ],
+        "explanation": "Represents Pet Owner, Admin, Veterinarian and Super Admin accounts using a role property rather than four duplicated classes. Role-specific profiles retain staff position and veterinarian license details. Super Admin assigns clinic access; veterinarians independently toggle booking acceptance at their assigned clinics and select a separate online-call calendar. Authentication, permissions and account tasks are supporting objects. Fields and operations are role-dependent: a pet owner cannot assign clinics or edit veterinarian availability. Today's My List and future booking tasks are views of assigned records, not new entity classes.",
+        "w": 174,
+        "x": 638,
+        "header": 30,
+        "attributeHeight": 136,
+        "methodY": 166,
+        "methodHeight": 104,
+        "h": 270,
+        "y": 135,
+        "originalBounds": {
+          "x": 560,
+          "y": 135,
+          "w": 330,
+          "h": 278
+        }
+      },
+      {
+        "id": "Pet",
+        "name": "Pet",
+        "column": 2,
+        "row": 0,
+        "attrs": [
+          "- petId: Integer",
+          "- name: String",
+          "- species: String",
+          "- breed: String",
+          "- birthDate: Date",
+          "- status: String"
+        ],
+        "methods": [
+          "+ register()",
+          "+ updateDetails()",
+          "+ linkOwner()",
+          "+ viewHistory()"
+        ],
+        "members": [
+          "pets_information",
+          "pet_ownership",
+          "pet_coparent_requests",
+          "pet_catalog_options"
+        ],
+        "explanation": "Represents a patient independently of a single owner account. Ownership links and co-parent requests support shared pet access. Registration details, species/breed choices and status remain part of the patient identity. The same pet identifier links bookings, examinations, medical history, prescriptions and billing, so updated prescription plans remain synchronized to the correct pet.",
+        "w": 134,
+        "x": 1128,
+        "header": 30,
+        "attributeHeight": 104,
+        "methodY": 134,
+        "methodHeight": 72,
+        "h": 206,
+        "y": 135,
+        "originalBounds": {
+          "x": 1030,
+          "y": 135,
+          "w": 330,
+          "h": 214
+        }
+      },
+      {
+        "id": "Notification",
+        "name": "Notification",
+        "column": 3,
+        "row": 0,
+        "attrs": [
+          "- notificationId: Integer",
+          "- recipient: UserAccount",
+          "- message: String",
+          "- redirectPath: String",
+          "- readAt: DateTime?"
+        ],
+        "methods": [
+          "+ notify()",
+          "+ markRead()",
+          "+ updatePreferences()"
+        ],
+        "members": [
+          "user_notifications",
+          "notification_preferences",
+          "notification_push_subscriptions",
+          "mail_queue"
+        ],
+        "explanation": "Represents a user-directed message and its navigation target. Booking changes, care updates and prescription-plan updates can direct the recipient to the related record or checklist. Read state, delivery preferences, push subscriptions and outgoing email are retained as supporting records rather than separate boxes. A notification is not itself a medication occurrence or proof that a dose was taken.",
+        "w": 176,
+        "x": 1577,
+        "header": 30,
+        "attributeHeight": 88,
+        "methodY": 118,
+        "methodHeight": 56,
+        "h": 174,
+        "y": 135,
+        "originalBounds": {
+          "x": 1500,
+          "y": 135,
+          "w": 330,
+          "h": 182
+        }
+      },
+      {
+        "id": "BillingRecord",
+        "name": "BillingRecord",
+        "column": 0,
+        "row": 1,
+        "attrs": [
+          "- visitId: Integer",
+          "- patient: Pet",
+          "- charges: List",
+          "- payments: List",
+          "- refunds: List",
+          "- billingStatus: String"
+        ],
+        "methods": [
+          "+ saveCharges()",
+          "+ reviewPayment()",
+          "+ recordPayment()",
+          "+ processRefund()",
+          "+ calculateBalance()",
+          "+ saveInvoice()"
+        ],
+        "members": [
+          "visits",
+          "visit_charges",
+          "visit_invoice_documents",
+          "visit_payments",
+          "visit_payment_refunds",
+          "booking_payment_submissions",
+          "booking_payment_refunds",
+          "payment_methods",
+          "service_catalog",
+          "service_display_settings",
+          "service_materials",
+          "special_service_catalog"
+        ],
+        "explanation": "Represents the visit-centered financial record, not a single payment. Charge lines, invoices, booking payment proofs, reviewed payments and refunds remain distinct supporting records within this simplified explanation. Service catalogues define available service prices and required materials; they are referenced by booking, care and billing rather than becoming extra overview classes. Walk-in billing may exist without a booking. Calculate balance uses recorded charges, payments and refunds; it does not silently erase payment history.",
+        "w": 154,
+        "x": 178,
+        "header": 30,
+        "attributeHeight": 104,
+        "methodY": 134,
+        "methodHeight": 104,
+        "h": 238,
+        "y": 397,
+        "originalBounds": {
+          "x": 90,
+          "y": 397,
+          "w": 330,
+          "h": 246
+        }
+      },
+      {
+        "id": "Booking",
+        "name": "Booking",
+        "column": 1,
+        "row": 1,
+        "attrs": [
+          "- bookingId: Integer",
+          "- owner: UserAccount",
+          "- clinic: Clinic",
+          "- serviceType: String",
+          "- scheduledAt: DateTime",
+          "- assignedVet: UserAccount?",
+          "- status: String"
+        ],
+        "methods": [
+          "+ create()",
+          "+ reschedule()",
+          "+ changeClinic()",
+          "+ assignVeterinarian()",
+          "+ cancel()"
+        ],
+        "members": [
+          "bookings",
+          "booking_branch_transfers",
+          "booking_pets",
+          "special_service_booking_items"
+        ],
+        "explanation": "Represents a scheduled service request. Supporting pet links allow multiple registered patients, while legacy/unregistered-pet booking details are retained in the implementation. Onsite bookings use clinic hours and a reserved eligible veterinarian. Online consultations use the veterinarian's separate call slots, although both calendars prevent an individual veterinarian from overlapping appointments. Branch transfers, status changes and service details remain covered. Online, grooming and boarding bookings lead to their corresponding workflows; not every booking requires a physical examination.",
+        "w": 208,
+        "x": 621,
+        "header": 30,
+        "attributeHeight": 120,
+        "methodY": 150,
+        "methodHeight": 88,
+        "h": 238,
+        "y": 477,
+        "originalBounds": {
+          "x": 560,
+          "y": 477,
+          "w": 330,
+          "h": 246
+        }
+      },
+      {
+        "id": "MedicalRecord",
+        "name": "MedicalRecord",
+        "column": 2,
+        "row": 1,
+        "attrs": [
+          "- recordId: Integer",
+          "- patient: Pet",
+          "- entries: List",
+          "- vaccinations: List",
+          "- allergies: List",
+          "- certificates: List"
+        ],
+        "methods": [
+          "+ viewHistory()",
+          "+ updateEntry()",
+          "+ recordVaccination()",
+          "+ reviewUpdateRequest()"
+        ],
+        "members": [
+          "pet_medical_record_groups",
+          "pet_medical_record_group_items",
+          "pet_vaccinations",
+          "pet_allergies",
+          "history_before_registration",
+          "pet_medical_certificates",
+          "pet_record_update_requests",
+          "pet_record_update_request_events"
+        ],
+        "explanation": "Represents a pet-linked record group and its supporting clinical entries. Diagnosis results, prior history, vaccination records, allergies and medical certificates remain available in the electronic record. Owner update requests and their review history are supporting records, not automatic edits to verified clinical history. This is a logical record aggregate; it does not claim that vaccinations or certificates are columns in one SQL table.",
+        "w": 186,
+        "x": 1102,
+        "header": 30,
+        "attributeHeight": 104,
+        "methodY": 134,
+        "methodHeight": 72,
+        "h": 206,
+        "y": 413,
+        "originalBounds": {
+          "x": 1030,
+          "y": 413,
+          "w": 330,
+          "h": 214
+        }
+      },
+      {
+        "id": "SystemOperations",
+        "name": "SystemOperations",
+        "column": 3,
+        "row": 1,
+        "attrs": [
+          "- reportFilters: Map",
+          "- backupPolicy: Map"
+        ],
+        "methods": [
+          "+ buildDashboard()",
+          "+ generateReport()",
+          "+ viewStaffHistory()",
+          "+ manageMedia()",
+          "+ createBackup()",
+          "+ downloadBackup()"
+        ],
+        "members": [
+          "system_backups",
+          "system_backup_settings",
+          "domain:report_generator"
+        ],
+        "explanation": "A conceptual service facade for cross-cutting administration, not a new database table or a literal PHP class declaration. It summarizes role-authorized report generation, dashboard charts, staff activity history, media management and backup creation/download. Reporting reads existing records rather than maintaining a duplicate reporting database. Backup endpoints require an active Super Admin. The diagram shows authorized account use of the service; report inputs such as bookings, billing, inventory and care records are documented here rather than connecting this service to every class.",
+        "w": 172,
+        "x": 1579,
+        "header": 30,
+        "attributeHeight": 40,
+        "methodY": 70,
+        "methodHeight": 104,
+        "h": 174,
+        "y": 381,
+        "originalBounds": {
+          "x": 1500,
+          "y": 381,
+          "w": 330,
+          "h": 182
+        }
+      },
+      {
+        "id": "CareSession",
+        "name": "CareSession",
+        "column": 0,
+        "row": 2,
+        "attrs": [
+          "- sourceId: Integer",
+          "- booking: Booking",
+          "- careType: String",
+          "- room: Map?",
+          "- observations: List",
+          "- status: String"
+        ],
+        "methods": [
+          "+ updateGrooming()",
+          "+ assignRoom()",
+          "+ checkIn()",
+          "+ recordObservation()",
+          "+ completeTask()",
+          "+ checkOut()"
+        ],
+        "members": [
+          "grooming_jobs",
+          "grooming_events",
+          "grooming_photos",
+          "grooming_reviews",
+          "boarding_assignments",
+          "boarding_documents",
+          "boarding_material_usages",
+          "boarding_observations",
+          "boarding_tasks",
+          "rooms",
+          "room_unit_statuses"
+        ],
+        "explanation": "A common overview abstraction for grooming jobs and boarding/confinement stays. It is not a request to merge their tables or workflows. Grooming keeps job details, photos, events and veterinarian review. Boarding/confinement keeps room reservations, check-in/out, observations, documents, tasks and material use. Room-related fields and operations apply only to boarding/confinement; grooming uses its own service capacity. sourceId is interpreted together with careType, so unrelated table IDs are not treated as globally unique.",
+        "w": 164,
+        "x": 173,
+        "header": 30,
+        "attributeHeight": 104,
+        "methodY": 134,
+        "methodHeight": 104,
+        "h": 238,
+        "y": 707,
+        "originalBounds": {
+          "x": 90,
+          "y": 707,
+          "w": 330,
+          "h": 246
+        }
+      },
+      {
+        "id": "PatientExamination",
+        "name": "PatientExamination",
+        "column": 1,
+        "row": 2,
+        "attrs": [
+          "- patient: Pet",
+          "- examinedBy: UserAccount",
+          "- assignedVet: UserAccount",
+          "- chiefComplaint: Text",
+          "- symptoms: Text",
+          "- urgentSymptoms: Text",
+          "- vitalSigns: Map",
+          "- physicalFindings: Text",
+          "- attachments: List",
+          "- status: String"
+        ],
+        "methods": [
+          "+ startExamination()",
+          "+ saveFindings()",
+          "+ attachEvidence()",
+          "+ reassignVeterinarian()",
+          "+ completeExamination()"
+        ],
+        "members": [
+          "clinical_intakes",
+          "queues",
+          "vet_queue_assignments"
+        ],
+        "explanation": "Represents the admin/assistant-led physical examination and its queue/assignment context. It retains chief complaint, symptoms and clinical signs, major/urgent symptoms, vital signs, physical findings and images. Starting examination marks the patient as undergoing physical examination in the assigned veterinarian's current-day list. examinedBy preserves who performed the assessment; assignedVet remains separately adjustable. Consent must be captured before completion. Walk-ins are supported without a booking. The physical-examination table comes from the current clinical_intakes migration, which is absent from the supplied SQL export.",
+        "w": 200,
+        "x": 625,
+        "header": 30,
+        "attributeHeight": 168,
+        "methodY": 198,
+        "methodHeight": 88,
+        "h": 286,
+        "y": 787,
+        "originalBounds": {
+          "x": 560,
+          "y": 787,
+          "w": 330,
+          "h": 294
+        }
+      },
+      {
+        "id": "Diagnosis",
+        "name": "Diagnosis",
+        "column": 2,
+        "row": 2,
+        "attrs": [
+          "- sourceId: Integer",
+          "- sourceType: String",
+          "- patient: Pet",
+          "- veterinarian: UserAccount",
+          "- findings: Map",
+          "- finalizedAt: DateTime?"
+        ],
+        "methods": [
+          "+ recordDiagnosis()",
+          "+ saveTreatment()",
+          "+ addConsent()",
+          "+ finalize()",
+          "+ printPrescription()"
+        ],
+        "members": [
+          "vet_diagnoses",
+          "online_consultation_diagnoses"
+        ],
+        "explanation": "A shared conceptual abstraction for onsite and online diagnostic records. Findings include assessment, treatment, laboratory-result entries, notes, attachments and follow-up information where the corresponding workflow supports them. The veterinarian can retain/add consent during diagnosis; moving initial consent to admin examination does not remove that capability. Finalization synchronizes nonempty prescription content to the patient's plan. Automatic prescription printing runs only when printable medicine rows exist. sourceType and sourceId distinguish onsite and online records, so this overview does not imply that their tables share an identifier namespace or a declared inheritance hierarchy.",
+        "w": 198,
+        "x": 1096,
+        "header": 30,
+        "attributeHeight": 104,
+        "methodY": 134,
+        "methodHeight": 88,
+        "h": 222,
+        "y": 691,
+        "originalBounds": {
+          "x": 1030,
+          "y": 691,
+          "w": 330,
+          "h": 230
+        }
+      },
+      {
+        "id": "OnlineConsultation",
+        "name": "OnlineConsultation",
+        "column": 3,
+        "row": 2,
+        "attrs": [
+          "- consultationId: Integer",
+          "- booking: Booking",
+          "- veterinarian: UserAccount",
+          "- scheduledInterval: Map",
+          "- meetingUrl: String?",
+          "- status: String"
+        ],
+        "methods": [
+          "+ start()",
+          "+ join()",
+          "+ reschedule()",
+          "+ end()",
+          "+ submitDiagnosis()"
+        ],
+        "members": [
+          "online_consultations",
+          "online_consultation_reschedules"
+        ],
+        "explanation": "Represents the remote call attached to an online booking. It keeps the scheduled call interval, meeting details, participation/status timestamps and reschedule history. Online availability remains distinct from clinic operating hours and clinic booking acceptance, while shared veterinarian conflict checking prevents overlapping onsite and remote appointments. Its diagnostic record can issue prescription plans and per-item schedules, just like an onsite diagnosis; a call does not require an onsite physical examination.",
+        "w": 198,
+        "x": 1566,
+        "header": 30,
+        "attributeHeight": 104,
+        "methodY": 134,
+        "methodHeight": 88,
+        "h": 222,
+        "y": 627,
+        "originalBounds": {
+          "x": 1500,
+          "y": 627,
+          "w": 330,
+          "h": 230
+        }
+      },
+      {
+        "id": "InventoryItem",
+        "name": "InventoryItem",
+        "column": 0,
+        "row": 3,
+        "attrs": [
+          "- itemId: Integer",
+          "- name: String",
+          "- sku: String",
+          "- branchStock: Map",
+          "- batches: List",
+          "- reorderLevel: Integer"
+        ],
+        "methods": [
+          "+ stockIn()",
+          "+ stockOut()",
+          "+ transferStock()",
+          "+ checkReorderLevel()"
+        ],
+        "members": [
+          "inventory_items",
+          "inventory_branch_items",
+          "inventory_batches",
+          "inventory_locations",
+          "inventory_stock_movements",
+          "inventory_stock_receipts",
+          "inventory_stock_receipt_items",
+          "inventory_suppliers",
+          "inventory_transfers",
+          "inventory_transfer_items",
+          "inventory_action_audit"
+        ],
+        "explanation": "Represents a medicine, supply or product together with its stock-management details. Branch/location balances, batches, receipts, suppliers, stock movements, transfers and audit history remain supporting records. Care sessions and service material definitions reference inventory for consumption. Billing may reference an inventory item for a product charge. This simplification does not replace auditable movements with an untracked editable total.",
+        "w": 170,
+        "x": 170,
+        "header": 30,
+        "attributeHeight": 104,
+        "methodY": 134,
+        "methodHeight": 72,
+        "h": 206,
+        "y": 1017,
+        "originalBounds": {
+          "x": 90,
+          "y": 1017,
+          "w": 330,
+          "h": 214
+        }
+      },
+      {
+        "id": "ConsentRecord",
+        "name": "ConsentRecord",
+        "column": 1,
+        "row": 3,
+        "attrs": [
+          "- consentId: Integer",
+          "- patient: Pet?",
+          "- signerName: String?",
+          "- processedBy: UserAccount?",
+          "- documentPath: String?",
+          "- status: String"
+        ],
+        "methods": [
+          "+ captureSignature()",
+          "+ saveDocument()",
+          "+ validateScope()"
+        ],
+        "members": [
+          "consent_form_records",
+          "consent_files"
+        ],
+        "explanation": "Represents a consent instance and its signed/physical document, template, patient/owner context and processing staff. Admin captures the initial owner consent during examination; the veterinarian can handle additional consent in diagnosis. Consent can also be tied to booking or visit context without an examination, so the optional association in the diagram is not a requirement that every consent record originated at intake. Signer, examined-by staff and assigned veterinarian are different responsibilities.",
+        "w": 212,
+        "x": 619,
+        "header": 30,
+        "attributeHeight": 104,
+        "methodY": 134,
+        "methodHeight": 56,
+        "h": 190,
+        "y": 1145,
+        "originalBounds": {
+          "x": 560,
+          "y": 1145,
+          "w": 330,
+          "h": 198
+        }
+      },
+      {
+        "id": "PrescriptionPlan",
+        "name": "PrescriptionPlan",
+        "column": 2,
+        "row": 3,
+        "attrs": [
+          "- planId: Integer",
+          "- patient: Pet",
+          "- sourceRecord: Map",
+          "- version: Integer",
+          "- status: String"
+        ],
+        "methods": [
+          "+ syncFromDiagnosis()",
+          "+ startSelectedItems()",
+          "+ amend()",
+          "+ notifyOwner()"
+        ],
+        "members": [
+          "prescription_plans",
+          "prescription_events"
+        ],
+        "explanation": "Represents a pet-specific, versioned prescription linked to an onsite or online diagnosis. New or amended content is synchronized to pet/veterinarian views; replacement versions supersede previous plans while keeping history. Owners can start selected medicines or all medicines and receive a navigation-linked update notification. The plan contains item definitions, but it does not force all medicines to share one start date or frequency. Empty diagnostic prescription content does not create a new plan.",
+        "w": 172,
+        "x": 1109,
+        "header": 30,
+        "attributeHeight": 88,
+        "methodY": 118,
+        "methodHeight": 72,
+        "h": 190,
+        "y": 985,
+        "originalBounds": {
+          "x": 1030,
+          "y": 985,
+          "w": 330,
+          "h": 198
+        }
+      },
+      {
+        "id": "PrescriptionItem",
+        "name": "PrescriptionItem",
+        "column": 3,
+        "row": 3,
+        "attrs": [
+          "- itemId: Integer",
+          "- medicine: String",
+          "- dose: String",
+          "- route: String",
+          "- startDate: Date?",
+          "- frequency: Map",
+          "- duration: Map",
+          "- occurrences: List",
+          "- status: String"
+        ],
+        "methods": [
+          "+ startItem()",
+          "+ updateItem()",
+          "+ generateOccurrences()",
+          "+ markOccurrence()"
+        ],
+        "members": [
+          "prescription_items",
+          "prescription_occurrences"
+        ],
+        "explanation": "Represents one medicine and its own dosing rules, instructions, duration, selected start date and dated completion occurrences. Daily time slots, hourly intervals or selected weekdays belong to the item, not the entire plan. Three-times-a-day defaults can use morning, noon and evening slots, with item-specific times retained. Starting an item generates its due checklist/calendar occurrences. Completing or skipping an occurrence updates that dated dose, not every medicine or every day. Occurrence rows remain stored separately in the implementation even though this paper diagram nests them under PrescriptionItem.",
+        "w": 184,
+        "x": 1573,
+        "header": 30,
+        "attributeHeight": 152,
+        "methodY": 182,
+        "methodHeight": 72,
+        "h": 254,
+        "y": 921,
+        "originalBounds": {
+          "x": 1500,
+          "y": 921,
+          "w": 330,
+          "h": 262
+        }
+      }
+    ],
+    "edges": [
+      {
+        "id": "clinic-staff",
+        "source": "Clinic",
+        "target": "UserAccount",
+        "sourceText": "0..*",
+        "targetText": "0..*",
+        "meaning": "Staff clinic assignments; role-specific booking acceptance is stored on the account.",
+        "kind": "association",
+        "sourceSide": "R",
+        "targetSide": "L",
+        "start": {
+          "x": 350,
+          "y": 165
+        },
+        "startAnchor": {
+          "x": 406,
+          "y": 165
+        },
+        "end": {
+          "x": 638,
+          "y": 165
+        },
+        "endAnchor": {
+          "x": 582,
+          "y": 165
+        },
+        "labels": [
+          {
+            "text": "0..*",
+            "endpoint": "start",
+            "owner": "Clinic",
+            "lineY": 165,
+            "x": 362,
+            "y": 151,
+            "w": 30,
+            "h": 10,
+            "baselineOffset": 9
+          },
+          {
+            "text": "0..*",
+            "endpoint": "end",
+            "owner": "UserAccount",
+            "lineY": 165,
+            "x": 596,
+            "y": 151,
+            "w": 30,
+            "h": 10,
+            "baselineOffset": 9
+          }
+        ],
+        "points": [
+          {
+            "x": 350,
+            "y": 165
+          },
+          {
+            "x": 638,
+            "y": 165
+          }
+        ]
+      },
+      {
+        "id": "pet-owners",
+        "source": "UserAccount",
+        "target": "Pet",
+        "sourceText": "0..*",
+        "targetText": "0..*",
+        "meaning": "Owner/co-parent access; imported or unlinked patient records may have no linked account.",
+        "kind": "association",
+        "sourceSide": "R",
+        "targetSide": "L",
+        "start": {
+          "x": 812,
+          "y": 165
+        },
+        "startAnchor": {
+          "x": 868,
+          "y": 165
+        },
+        "end": {
+          "x": 1128,
+          "y": 165
+        },
+        "endAnchor": {
+          "x": 1072,
+          "y": 165
+        },
+        "labels": [
+          {
+            "text": "0..*",
+            "endpoint": "start",
+            "owner": "UserAccount",
+            "lineY": 165,
+            "x": 824,
+            "y": 151,
+            "w": 30,
+            "h": 10,
+            "baselineOffset": 9
+          },
+          {
+            "text": "0..*",
+            "endpoint": "end",
+            "owner": "Pet",
+            "lineY": 165,
+            "x": 1086,
+            "y": 151,
+            "w": 30,
+            "h": 10,
+            "baselineOffset": 9
+          }
+        ],
+        "points": [
+          {
+            "x": 812,
+            "y": 165
+          },
+          {
+            "x": 1128,
+            "y": 165
+          }
+        ]
+      },
+      {
+        "id": "booking-requester",
+        "source": "UserAccount",
+        "target": "Booking",
+        "sourceText": "1",
+        "targetText": "0..*",
+        "meaning": "Each booking has one requesting account; an account may have many bookings.",
+        "kind": "association",
+        "sourceSide": "R",
+        "targetSide": "R",
+        "start": {
+          "x": 812,
+          "y": 219
+        },
+        "startAnchor": {
+          "x": 868,
+          "y": 219
+        },
+        "end": {
+          "x": 829,
+          "y": 507
+        },
+        "endAnchor": {
+          "x": 885,
+          "y": 507
+        },
+        "labels": [
+          {
+            "text": "1",
+            "endpoint": "start",
+            "owner": "UserAccount",
+            "lineY": 219,
+            "x": 824,
+            "y": 205,
+            "w": 9,
+            "h": 10,
+            "baselineOffset": 9
+          },
+          {
+            "text": "0..*",
+            "endpoint": "end",
+            "owner": "Booking",
+            "lineY": 507,
+            "x": 841,
+            "y": 493,
+            "w": 30,
+            "h": 10,
+            "baselineOffset": 9
+          }
+        ],
+        "points": [
+          {
+            "x": 812,
+            "y": 219
+          },
+          {
+            "x": 885,
+            "y": 219
+          },
+          {
+            "x": 885,
+            "y": 507
+          },
+          {
+            "x": 829,
+            "y": 507
+          }
+        ]
+      },
+      {
+        "id": "clinic-bookings",
+        "source": "Clinic",
+        "target": "Booking",
+        "sourceText": "1",
+        "targetText": "0..*",
+        "meaning": "Each booking retains one clinic; online clinic metadata does not control call hours.",
+        "kind": "association",
+        "sourceSide": "R",
+        "targetSide": "L",
+        "start": {
+          "x": 350,
+          "y": 183
+        },
+        "startAnchor": {
+          "x": 406,
+          "y": 183
+        },
+        "end": {
+          "x": 621,
+          "y": 507
+        },
+        "endAnchor": {
+          "x": 565,
+          "y": 507
+        },
+        "labels": [
+          {
+            "text": "1",
+            "endpoint": "start",
+            "owner": "Clinic",
+            "lineY": 183,
+            "x": 362,
+            "y": 169,
+            "w": 9,
+            "h": 10,
+            "baselineOffset": 9
+          },
+          {
+            "text": "0..*",
+            "endpoint": "end",
+            "owner": "Booking",
+            "lineY": 507,
+            "x": 579,
+            "y": 493,
+            "w": 30,
+            "h": 10,
+            "baselineOffset": 9
+          }
+        ],
+        "points": [
+          {
+            "x": 350,
+            "y": 183
+          },
+          {
+            "x": 406,
+            "y": 183
+          },
+          {
+            "x": 406,
+            "y": 507
+          },
+          {
+            "x": 621,
+            "y": 507
+          }
+        ]
+      },
+      {
+        "id": "user-notifications",
+        "source": "UserAccount",
+        "target": "Notification",
+        "sourceText": "1",
+        "targetText": "0..*",
+        "meaning": "A notification is addressed to one account.",
+        "kind": "association",
+        "sourceSide": "R",
+        "targetSide": "L",
+        "start": {
+          "x": 812,
+          "y": 183
+        },
+        "startAnchor": {
+          "x": 868,
+          "y": 183
+        },
+        "end": {
+          "x": 1577,
+          "y": 165
+        },
+        "endAnchor": {
+          "x": 1521,
+          "y": 165
+        },
+        "labels": [
+          {
+            "text": "1",
+            "endpoint": "start",
+            "owner": "UserAccount",
+            "lineY": 183,
+            "x": 824,
+            "y": 169,
+            "w": 9,
+            "h": 10,
+            "baselineOffset": 9
+          },
+          {
+            "text": "0..*",
+            "endpoint": "end",
+            "owner": "Notification",
+            "lineY": 165,
+            "x": 1535,
+            "y": 151,
+            "w": 30,
+            "h": 10,
+            "baselineOffset": 9
+          }
+        ],
+        "points": [
+          {
+            "x": 812,
+            "y": 183
+          },
+          {
+            "x": 1080,
+            "y": 183
+          },
+          {
+            "x": 1080,
+            "y": 641
+          },
+          {
+            "x": 1521,
+            "y": 641
+          },
+          {
+            "x": 1521,
+            "y": 165
+          },
+          {
+            "x": 1577,
+            "y": 165
+          }
+        ]
+      },
+      {
+        "id": "pet-records",
+        "source": "Pet",
+        "target": "MedicalRecord",
+        "sourceText": "1",
+        "targetText": "0..*",
+        "meaning": "A patient may have multiple record groups and clinical entries.",
+        "kind": "association",
+        "sourceSide": "R",
+        "targetSide": "R",
+        "start": {
+          "x": 1262,
+          "y": 165
+        },
+        "startAnchor": {
+          "x": 1318,
+          "y": 165
+        },
+        "end": {
+          "x": 1288,
+          "y": 443
+        },
+        "endAnchor": {
+          "x": 1344,
+          "y": 443
+        },
+        "labels": [
+          {
+            "text": "1",
+            "endpoint": "start",
+            "owner": "Pet",
+            "lineY": 165,
+            "x": 1274,
+            "y": 151,
+            "w": 9,
+            "h": 10,
+            "baselineOffset": 9
+          },
+          {
+            "text": "0..*",
+            "endpoint": "end",
+            "owner": "MedicalRecord",
+            "lineY": 443,
+            "x": 1300,
+            "y": 429,
+            "w": 30,
+            "h": 10,
+            "baselineOffset": 9
+          }
+        ],
+        "points": [
+          {
+            "x": 1262,
+            "y": 165
+          },
+          {
+            "x": 1344,
+            "y": 165
+          },
+          {
+            "x": 1344,
+            "y": 443
+          },
+          {
+            "x": 1288,
+            "y": 443
+          }
+        ]
+      },
+      {
+        "id": "booking-billing",
+        "source": "Booking",
+        "target": "BillingRecord",
+        "sourceText": "0..1",
+        "targetText": "0..*",
+        "meaning": "Visit billing may optionally refer to a booking, including multi-pet visits.",
+        "kind": "association",
+        "sourceSide": "L",
+        "targetSide": "R",
+        "start": {
+          "x": 621,
+          "y": 525
+        },
+        "startAnchor": {
+          "x": 565,
+          "y": 525
+        },
+        "end": {
+          "x": 332,
+          "y": 427
+        },
+        "endAnchor": {
+          "x": 388,
+          "y": 427
+        },
+        "labels": [
+          {
+            "text": "0..1",
+            "endpoint": "start",
+            "owner": "Booking",
+            "lineY": 525,
+            "x": 579,
+            "y": 511,
+            "w": 30,
+            "h": 10,
+            "baselineOffset": 9
+          },
+          {
+            "text": "0..*",
+            "endpoint": "end",
+            "owner": "BillingRecord",
+            "lineY": 427,
+            "x": 344,
+            "y": 413,
+            "w": 30,
+            "h": 10,
+            "baselineOffset": 9
+          }
+        ],
+        "points": [
+          {
+            "x": 621,
+            "y": 525
+          },
+          {
+            "x": 388,
+            "y": 525
+          },
+          {
+            "x": 388,
+            "y": 427
+          },
+          {
+            "x": 332,
+            "y": 427
+          }
+        ]
+      },
+      {
+        "id": "booking-care",
+        "source": "Booking",
+        "target": "CareSession",
+        "sourceText": "1",
+        "targetText": "0..*",
+        "meaning": "Grooming/boarding care records belong to a booking; not every booking has them.",
+        "kind": "association",
+        "sourceSide": "L",
+        "targetSide": "R",
+        "start": {
+          "x": 621,
+          "y": 543
+        },
+        "startAnchor": {
+          "x": 565,
+          "y": 543
+        },
+        "end": {
+          "x": 337,
+          "y": 737
+        },
+        "endAnchor": {
+          "x": 393,
+          "y": 737
+        },
+        "labels": [
+          {
+            "text": "1",
+            "endpoint": "start",
+            "owner": "Booking",
+            "lineY": 543,
+            "x": 600,
+            "y": 529,
+            "w": 9,
+            "h": 10,
+            "baselineOffset": 9
+          },
+          {
+            "text": "0..*",
+            "endpoint": "end",
+            "owner": "CareSession",
+            "lineY": 737,
+            "x": 349,
+            "y": 723,
+            "w": 30,
+            "h": 10,
+            "baselineOffset": 9
+          }
+        ],
+        "points": [
+          {
+            "x": 621,
+            "y": 543
+          },
+          {
+            "x": 565,
+            "y": 543
+          },
+          {
+            "x": 565,
+            "y": 737
+          },
+          {
+            "x": 337,
+            "y": 737
+          }
+        ]
+      },
+      {
+        "id": "booking-exam",
+        "source": "Booking",
+        "target": "PatientExamination",
+        "sourceText": "0..1",
+        "targetText": "0..*",
+        "meaning": "Examination may follow a booking; walk-in examination does not require one.",
+        "kind": "association",
+        "sourceSide": "R",
+        "targetSide": "R",
+        "start": {
+          "x": 829,
+          "y": 543
+        },
+        "startAnchor": {
+          "x": 885,
+          "y": 543
+        },
+        "end": {
+          "x": 825,
+          "y": 817
+        },
+        "endAnchor": {
+          "x": 881,
+          "y": 817
+        },
+        "labels": [
+          {
+            "text": "0..1",
+            "endpoint": "start",
+            "owner": "Booking",
+            "lineY": 543,
+            "x": 841,
+            "y": 529,
+            "w": 30,
+            "h": 10,
+            "baselineOffset": 9
+          },
+          {
+            "text": "0..*",
+            "endpoint": "end",
+            "owner": "PatientExamination",
+            "lineY": 817,
+            "x": 837,
+            "y": 803,
+            "w": 30,
+            "h": 10,
+            "baselineOffset": 9
+          }
+        ],
+        "points": [
+          {
+            "x": 829,
+            "y": 543
+          },
+          {
+            "x": 885,
+            "y": 543
+          },
+          {
+            "x": 885,
+            "y": 817
+          },
+          {
+            "x": 825,
+            "y": 817
+          }
+        ]
+      },
+      {
+        "id": "booking-call",
+        "source": "Booking",
+        "target": "OnlineConsultation",
+        "sourceText": "1",
+        "targetText": "0..1",
+        "meaning": "An online booking may have one consultation record.",
+        "kind": "association",
+        "sourceSide": "R",
+        "targetSide": "L",
+        "start": {
+          "x": 829,
+          "y": 525
+        },
+        "startAnchor": {
+          "x": 885,
+          "y": 525
+        },
+        "end": {
+          "x": 1566,
+          "y": 657
+        },
+        "endAnchor": {
+          "x": 1510,
+          "y": 657
+        },
+        "labels": [
+          {
+            "text": "1",
+            "endpoint": "start",
+            "owner": "Booking",
+            "lineY": 525,
+            "x": 841,
+            "y": 511,
+            "w": 9,
+            "h": 10,
+            "baselineOffset": 9
+          },
+          {
+            "text": "0..1",
+            "endpoint": "end",
+            "owner": "OnlineConsultation",
+            "lineY": 657,
+            "x": 1524,
+            "y": 643,
+            "w": 30,
+            "h": 10,
+            "baselineOffset": 9
+          }
+        ],
+        "points": [
+          {
+            "x": 829,
+            "y": 525
+          },
+          {
+            "x": 1078,
+            "y": 525
+          },
+          {
+            "x": 1078,
+            "y": 657
+          },
+          {
+            "x": 1566,
+            "y": 657
+          }
+        ]
+      },
+      {
+        "id": "exam-diagnosis",
+        "source": "PatientExamination",
+        "target": "Diagnosis",
+        "sourceText": "0..1",
+        "targetText": "0..*",
+        "meaning": "Onsite diagnoses can use intake findings through queue context; online diagnoses have no onsite examination.",
+        "kind": "association",
+        "sourceSide": "R",
+        "targetSide": "L",
+        "start": {
+          "x": 825,
+          "y": 835
+        },
+        "startAnchor": {
+          "x": 881,
+          "y": 835
+        },
+        "end": {
+          "x": 1096,
+          "y": 721
+        },
+        "endAnchor": {
+          "x": 1040,
+          "y": 721
+        },
+        "labels": [
+          {
+            "text": "0..1",
+            "endpoint": "start",
+            "owner": "PatientExamination",
+            "lineY": 835,
+            "x": 837,
+            "y": 821,
+            "w": 30,
+            "h": 10,
+            "baselineOffset": 9
+          },
+          {
+            "text": "0..*",
+            "endpoint": "end",
+            "owner": "Diagnosis",
+            "lineY": 721,
+            "x": 1054,
+            "y": 707,
+            "w": 30,
+            "h": 10,
+            "baselineOffset": 9
+          }
+        ],
+        "points": [
+          {
+            "x": 825,
+            "y": 835
+          },
+          {
+            "x": 1040,
+            "y": 835
+          },
+          {
+            "x": 1040,
+            "y": 721
+          },
+          {
+            "x": 1096,
+            "y": 721
+          }
+        ]
+      },
+      {
+        "id": "call-diagnosis",
+        "source": "OnlineConsultation",
+        "target": "Diagnosis",
+        "sourceText": "0..1",
+        "targetText": "0..1",
+        "meaning": "The online diagnostic subtype has one consultation; onsite records have none.",
+        "kind": "association",
+        "sourceSide": "L",
+        "targetSide": "R",
+        "start": {
+          "x": 1566,
+          "y": 675
+        },
+        "startAnchor": {
+          "x": 1510,
+          "y": 675
+        },
+        "end": {
+          "x": 1294,
+          "y": 721
+        },
+        "endAnchor": {
+          "x": 1350,
+          "y": 721
+        },
+        "labels": [
+          {
+            "text": "0..1",
+            "endpoint": "start",
+            "owner": "OnlineConsultation",
+            "lineY": 675,
+            "x": 1524,
+            "y": 661,
+            "w": 30,
+            "h": 10,
+            "baselineOffset": 9
+          },
+          {
+            "text": "0..1",
+            "endpoint": "end",
+            "owner": "Diagnosis",
+            "lineY": 721,
+            "x": 1306,
+            "y": 707,
+            "w": 30,
+            "h": 10,
+            "baselineOffset": 9
+          }
+        ],
+        "points": [
+          {
+            "x": 1566,
+            "y": 675
+          },
+          {
+            "x": 1510,
+            "y": 675
+          },
+          {
+            "x": 1510,
+            "y": 721
+          },
+          {
+            "x": 1294,
+            "y": 721
+          }
+        ]
+      },
+      {
+        "id": "exam-consent",
+        "source": "PatientExamination",
+        "target": "ConsentRecord",
+        "sourceText": "0..1",
+        "targetText": "0..*",
+        "meaning": "Queue-scoped consent can accompany intake; other consent contexts do not require an intake.",
+        "kind": "association",
+        "sourceSide": "R",
+        "targetSide": "R",
+        "start": {
+          "x": 825,
+          "y": 853
+        },
+        "startAnchor": {
+          "x": 881,
+          "y": 853
+        },
+        "end": {
+          "x": 831,
+          "y": 1175
+        },
+        "endAnchor": {
+          "x": 887,
+          "y": 1175
+        },
+        "labels": [
+          {
+            "text": "0..1",
+            "endpoint": "start",
+            "owner": "PatientExamination",
+            "lineY": 853,
+            "x": 837,
+            "y": 839,
+            "w": 30,
+            "h": 10,
+            "baselineOffset": 9
+          },
+          {
+            "text": "0..*",
+            "endpoint": "end",
+            "owner": "ConsentRecord",
+            "lineY": 1175,
+            "x": 843,
+            "y": 1161,
+            "w": 30,
+            "h": 10,
+            "baselineOffset": 9
+          }
+        ],
+        "points": [
+          {
+            "x": 825,
+            "y": 853
+          },
+          {
+            "x": 887,
+            "y": 853
+          },
+          {
+            "x": 887,
+            "y": 1175
+          },
+          {
+            "x": 831,
+            "y": 1175
+          }
+        ]
+      },
+      {
+        "id": "diagnosis-plans",
+        "source": "Diagnosis",
+        "target": "PrescriptionPlan",
+        "sourceText": "1",
+        "targetText": "0..*",
+        "meaning": "A diagnostic source may issue multiple prescription versions, or none.",
+        "kind": "association",
+        "sourceSide": "R",
+        "targetSide": "R",
+        "start": {
+          "x": 1294,
+          "y": 739
+        },
+        "startAnchor": {
+          "x": 1350,
+          "y": 739
+        },
+        "end": {
+          "x": 1281,
+          "y": 1033
+        },
+        "endAnchor": {
+          "x": 1337,
+          "y": 1033
+        },
+        "labels": [
+          {
+            "text": "1",
+            "endpoint": "start",
+            "owner": "Diagnosis",
+            "lineY": 739,
+            "x": 1306,
+            "y": 725,
+            "w": 9,
+            "h": 10,
+            "baselineOffset": 9
+          },
+          {
+            "text": "0..*",
+            "endpoint": "end",
+            "owner": "PrescriptionPlan",
+            "lineY": 1033,
+            "x": 1293,
+            "y": 1019,
+            "w": 30,
+            "h": 10,
+            "baselineOffset": 9
+          }
+        ],
+        "points": [
+          {
+            "x": 1294,
+            "y": 739
+          },
+          {
+            "x": 1350,
+            "y": 739
+          },
+          {
+            "x": 1350,
+            "y": 1033
+          },
+          {
+            "x": 1281,
+            "y": 1033
+          }
+        ]
+      },
+      {
+        "id": "patient-plans",
+        "source": "Pet",
+        "target": "PrescriptionPlan",
+        "sourceText": "1",
+        "targetText": "0..*",
+        "meaning": "All versions remain linked to the same patient.",
+        "kind": "association",
+        "sourceSide": "R",
+        "targetSide": "R",
+        "start": {
+          "x": 1262,
+          "y": 183
+        },
+        "startAnchor": {
+          "x": 1318,
+          "y": 183
+        },
+        "end": {
+          "x": 1281,
+          "y": 1015
+        },
+        "endAnchor": {
+          "x": 1337,
+          "y": 1015
+        },
+        "labels": [
+          {
+            "text": "1",
+            "endpoint": "start",
+            "owner": "Pet",
+            "lineY": 183,
+            "x": 1274,
+            "y": 169,
+            "w": 9,
+            "h": 10,
+            "baselineOffset": 9
+          },
+          {
+            "text": "0..*",
+            "endpoint": "end",
+            "owner": "PrescriptionPlan",
+            "lineY": 1015,
+            "x": 1293,
+            "y": 1001,
+            "w": 30,
+            "h": 10,
+            "baselineOffset": 9
+          }
+        ],
+        "points": [
+          {
+            "x": 1262,
+            "y": 183
+          },
+          {
+            "x": 1517,
+            "y": 183
+          },
+          {
+            "x": 1517,
+            "y": 113
+          },
+          {
+            "x": 1786,
+            "y": 113
+          },
+          {
+            "x": 1786,
+            "y": 1197
+          },
+          {
+            "x": 1087,
+            "y": 1197
+          },
+          {
+            "x": 1087,
+            "y": 963
+          },
+          {
+            "x": 1337,
+            "y": 963
+          },
+          {
+            "x": 1337,
+            "y": 1015
+          },
+          {
+            "x": 1281,
+            "y": 1015
+          }
+        ]
+      },
+      {
+        "id": "plan-items",
+        "source": "PrescriptionPlan",
+        "target": "PrescriptionItem",
+        "sourceText": "1",
+        "targetText": "0..*",
+        "meaning": "A prescription plan groups individually scheduled medicines; archived/cleared states are allowed.",
+        "kind": "association",
+        "sourceSide": "R",
+        "targetSide": "L",
+        "start": {
+          "x": 1281,
+          "y": 1051
+        },
+        "startAnchor": {
+          "x": 1337,
+          "y": 1051
+        },
+        "end": {
+          "x": 1573,
+          "y": 951
+        },
+        "endAnchor": {
+          "x": 1517,
+          "y": 951
+        },
+        "labels": [
+          {
+            "text": "1",
+            "endpoint": "start",
+            "owner": "PrescriptionPlan",
+            "lineY": 1051,
+            "x": 1293,
+            "y": 1037,
+            "w": 9,
+            "h": 10,
+            "baselineOffset": 9
+          },
+          {
+            "text": "0..*",
+            "endpoint": "end",
+            "owner": "PrescriptionItem",
+            "lineY": 951,
+            "x": 1531,
+            "y": 937,
+            "w": 30,
+            "h": 10,
+            "baselineOffset": 9
+          }
+        ],
+        "points": [
+          {
+            "x": 1281,
+            "y": 1051
+          },
+          {
+            "x": 1517,
+            "y": 1051
+          },
+          {
+            "x": 1517,
+            "y": 951
+          },
+          {
+            "x": 1573,
+            "y": 951
+          }
+        ]
+      },
+      {
+        "id": "care-materials",
+        "source": "CareSession",
+        "target": "InventoryItem",
+        "sourceText": "0..*",
+        "targetText": "0..*",
+        "meaning": "Recorded material use connects care work to stocked supplies.",
+        "kind": "association",
+        "sourceSide": "R",
+        "targetSide": "R",
+        "start": {
+          "x": 337,
+          "y": 755
+        },
+        "startAnchor": {
+          "x": 393,
+          "y": 755
+        },
+        "end": {
+          "x": 340,
+          "y": 1047
+        },
+        "endAnchor": {
+          "x": 396,
+          "y": 1047
+        },
+        "labels": [
+          {
+            "text": "0..*",
+            "endpoint": "start",
+            "owner": "CareSession",
+            "lineY": 755,
+            "x": 349,
+            "y": 741,
+            "w": 30,
+            "h": 10,
+            "baselineOffset": 9
+          },
+          {
+            "text": "0..*",
+            "endpoint": "end",
+            "owner": "InventoryItem",
+            "lineY": 1047,
+            "x": 352,
+            "y": 1033,
+            "w": 30,
+            "h": 10,
+            "baselineOffset": 9
+          }
+        ],
+        "points": [
+          {
+            "x": 337,
+            "y": 755
+          },
+          {
+            "x": 396,
+            "y": 755
+          },
+          {
+            "x": 396,
+            "y": 1047
+          },
+          {
+            "x": 340,
+            "y": 1047
+          }
+        ]
+      },
+      {
+        "id": "authorized-operations",
+        "source": "UserAccount",
+        "target": "SystemOperations",
+        "sourceText": "",
+        "targetText": "uses",
+        "meaning": "Authorized roles request reports, monitoring, media and backups; operation-specific permissions still apply.",
+        "kind": "dependency",
+        "sourceSide": "R",
+        "targetSide": "L",
+        "start": {
+          "x": 812,
+          "y": 201
+        },
+        "startAnchor": {
+          "x": 868,
+          "y": 201
+        },
+        "end": {
+          "x": 1579,
+          "y": 411
+        },
+        "endAnchor": {
+          "x": 1523,
+          "y": 411
+        },
+        "labels": [
+          {
+            "text": "uses",
+            "endpoint": "end",
+            "owner": "SystemOperations",
+            "lineY": 411,
+            "x": 1537,
+            "y": 397,
+            "w": 30,
+            "h": 10,
+            "baselineOffset": 9
+          }
+        ],
+        "points": [
+          {
+            "x": 812,
+            "y": 201
+          },
+          {
+            "x": 1074,
+            "y": 201
+          },
+          {
+            "x": 1074,
+            "y": 647
+          },
+          {
+            "x": 1522,
+            "y": 647
+          },
+          {
+            "x": 1522,
+            "y": 411
+          },
+          {
+            "x": 1579,
+            "y": 411
+          }
+        ]
+      }
+    ],
+    "width": 1920,
+    "height": 1423,
+    "bridges": [
+      {
+        "edge": "booking-call",
+        "segment": 0,
+        "x": 1074,
+        "y": 525,
+        "radius": 4
+      },
+      {
+        "edge": "patient-plans",
+        "segment": 0,
+        "x": 1344,
+        "y": 183,
+        "radius": 4
+      },
+      {
+        "edge": "authorized-operations",
+        "segment": 2,
+        "x": 1078,
+        "y": 647,
+        "radius": 4
+      }
+    ]
+  },
+  "originals": {
+    "docs/IPAWCUS-Class-Diagram.drawio": "0be024d720376e660b47964acbf7b1dc3f8f4a39a0613d45e9b15cd8f8502690",
+    "outputs/ipawcus-class-diagram-2026-10-06/ipawcus-system-class-diagram.drawio": "a450fa4a7179e264121a82ec59d69e009f415f52d7b28f36d2c9ed69d6a158f4"
+  },
+  "basis": "outputs/ipawcus-class-diagram-2026-10-06/domain-model.json",
+  "constraints": [
+    "All four user roles share UserAccount; permissions and role-specific profile fields remain distinct.",
+    "Clinic assignments are set by Super Admin. A vet toggles acceptance only for assigned sites.",
+    "Onsite hours follow the clinic. Online availability is separately selected; one vet cannot overlap appointments.",
+    "Grooming uses service slots; boarding/confinement uses room and date-range capacity.",
+    "Admin starts examination and records findings/images/consent; examiner identity differs from assigned vet.",
+    "Initial consent is required before completing intake. Vet additional consent remains supported.",
+    "Today's My List excludes future bookings; future schedules remain in To-dos and next-booking preview.",
+    "Prescription plans are pet-specific and versioned; each item has its own start date and recurrence.",
+    "Online diagnosis also synchronizes prescriptions. Empty prescriptions neither create a plan nor trigger printing.",
+    "Backup creation/download is Super Admin-only. Reporting does not imply an additional reporting database."
+  ],
+  "statistics": {
+    "mainClasses": 16,
+    "previousOverviewClasses": 35,
+    "selectedRelations": 18,
+    "mappedDetailedResponsibilities": 91,
+    "persistentObjects": 89,
+    "retainedSourceOperations": 174
+  }
+}

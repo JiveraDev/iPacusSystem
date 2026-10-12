@@ -1,0 +1,202 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1042" height="993" viewBox="0 0 1042 993" role="img" aria-labelledby="title description">
+<title id="title">iPawcus - Notifications and system operations</title>
+<desc id="description">Conceptual UML class diagram. White three-compartment class boxes with thin gray borders and orthogonal relationships. Attributes and operations describe the existing system, not literal PHP class declarations.</desc>
+<defs><marker id="dependency" markerWidth="8" markerHeight="8" refX="7" refY="4" orient="auto" markerUnits="userSpaceOnUse"><path d="M0 0 L7 4 L0 8" fill="none" stroke="#777777" stroke-width="0.75"/></marker></defs>
+<rect width="100%" height="100%" fill="#ffffff"/>
+<text x="72" y="35" font-family="Arial,sans-serif" font-size="19" fill="#222222" >iPawcus - Notifications and system operations</text>
+<text x="72" y="56" font-family="Arial,sans-serif" font-size="10" fill="#222222" >Conceptual UML model | class name, attributes, operations | + public | ? nullable</text>
+<text x="72" y="73" font-family="Arial,sans-serif" font-size="9.5" fill="#222222" >Solid: association | dashed: application association | dashed arrow: uses | 1 / 0..1 / 0..* multiplicities</text>
+<path d="M471 275 L517 275 L517 387 L841 387 L841 297 L887 297" fill="none" stroke="#777777" stroke-width="0.75"><title>notification_preferences.user_id -&gt; users.user_id</title></path>
+<path d="M765 255.5 L811 255.5 L811 311 L887 311" fill="none" stroke="#777777" stroke-width="0.75"><title>notification_push_subscriptions.user_id -&gt; users.user_id</title></path>
+<path d="M468 688 L840 688 L840 325 L887 325" fill="none" stroke="#777777" stroke-width="0.75"><title>system_backups.created_by_user_id -&gt; users.user_id</title></path>
+<path d="M395.5 880 L395.5 926 L355.5 926 L355.5 880" fill="none" stroke="#777777" stroke-width="0.75"><title>system_backups.base_backup_id -&gt; system_backups.backup_id</title></path>
+<path d="M435.5 880 L435.5 943 L277 943 L277 695 L323 695" fill="none" stroke="#777777" stroke-width="0.75"><title>system_backups.parent_backup_id -&gt; system_backups.backup_id</title></path>
+<path d="M770 552 L816 552 L816 393 L928 393 L928 347" fill="none" stroke="#777777" stroke-width="0.75"><title>system_backup_settings.updated_by_user_id -&gt; users.user_id</title></path>
+<path d="M587 552 L541 552 L541 702 L468 702" fill="none" stroke="#777777" stroke-width="0.75"><title>system_backup_settings.last_automatic_backup_id -&gt; system_backups.backup_id</title></path>
+<path d="M205 707.5 L251 707.5 L251 426 L804.32 426 L804.32 164.5 L886 164.5" fill="none" stroke="#777777" stroke-width="0.75"><title>user_notifications.branch_id -&gt; branches.branch_id</title></path>
+<path d="M205 721.5 L288.68 721.5 L288.68 441 L811 441 L811 339 L887 339" fill="none" stroke="#777777" stroke-width="0.75"><title>user_notifications.user_id -&gt; users.user_id</title></path>
+<g data-class="mail_queue"><title>OutgoingEmail</title>
+<rect x="77" y="130" width="123" height="304" fill="#ffffff" stroke="#858585" stroke-width="0.8"/>
+<line x1="77" y1="154" x2="200" y2="154" stroke="#858585" stroke-width="0.8"/>
+<line x1="77" y1="411" x2="200" y2="411" stroke="#858585" stroke-width="0.8"/>
+<text x="138.5" y="146" font-family="Arial,sans-serif" font-size="11" fill="#222222" font-weight="700" text-anchor="middle">OutgoingEmail</text>
+<text x="87" y="168" font-family="Arial,sans-serif" font-size="10" fill="#222222" >+ queueId: int</text>
+<text x="87" y="181" font-family="Arial,sans-serif" font-size="10" fill="#222222" >+ toEmail: string</text>
+<text x="87" y="194" font-family="Arial,sans-serif" font-size="10" fill="#222222" >+ toName: string?</text>
+<text x="87" y="207" font-family="Arial,sans-serif" font-size="10" fill="#222222" >+ subject: string</text>
+<text x="87" y="220" font-family="Arial,sans-serif" font-size="10" fill="#222222" >+ htmlBody: string</text>
+<text x="87" y="233" font-family="Arial,sans-serif" font-size="10" fill="#222222" >+ textBody: string?</text>
+<text x="87" y="246" font-family="Arial,sans-serif" font-size="10" fill="#222222" >+ optionsJson: string?</text>
+<text x="87" y="259" font-family="Arial,sans-serif" font-size="10" fill="#222222" >+ notificationId: int?</text>
+<text x="87" y="272" font-family="Arial,sans-serif" font-size="10" fill="#222222" >+ status: string</text>
+<text x="87" y="285" font-family="Arial,sans-serif" font-size="10" fill="#222222" >+ priority: int</text>
+<text x="87" y="298" font-family="Arial,sans-serif" font-size="10" fill="#222222" >+ attempts: int</text>
+<text x="87" y="311" font-family="Arial,sans-serif" font-size="10" fill="#222222" >+ maxAttempts: int</text>
+<text x="87" y="324" font-family="Arial,sans-serif" font-size="10" fill="#222222" >+ availableAt: datetime</text>
+<text x="87" y="337" font-family="Arial,sans-serif" font-size="10" fill="#222222" >+ lockedAt: datetime?</text>
+<text x="87" y="350" font-family="Arial,sans-serif" font-size="10" fill="#222222" >+ lockToken: string?</text>
+<text x="87" y="363" font-family="Arial,sans-serif" font-size="10" fill="#222222" >+ sentAt: datetime?</text>
+<text x="87" y="376" font-family="Arial,sans-serif" font-size="10" fill="#222222" >+ lastError: string?</text>
+<text x="87" y="389" font-family="Arial,sans-serif" font-size="10" fill="#222222" >+ createdAt: datetime</text>
+<text x="87" y="402" font-family="Arial,sans-serif" font-size="10" fill="#222222" >+ updatedAt: datetime</text>
+<text x="87" y="425" font-family="Arial,sans-serif" font-size="10" fill="#222222" >+ viewRecord()</text>
+</g>
+<g data-class="notification_preferences"><title>NotificationPreference</title>
+<rect x="321" y="130" width="150" height="278" fill="#ffffff" stroke="#858585" stroke-width="0.8"/>
+<line x1="321" y1="154" x2="471" y2="154" stroke="#858585" stroke-width="0.8"/>
+<line x1="321" y1="372" x2="471" y2="372" stroke="#858585" stroke-width="0.8"/>
+<text x="396" y="146" font-family="Arial,sans-serif" font-size="11" fill="#222222" font-weight="700" text-anchor="middle">NotificationPreference</text>
+<text x="331" y="168" font-family="Arial,sans-serif" font-size="10" fill="#222222" >+ userId: int</text>
+<text x="331" y="181" font-family="Arial,sans-serif" font-size="10" fill="#222222" >+ emailEnabled: bool</text>
+<text x="331" y="194" font-family="Arial,sans-serif" font-size="10" fill="#222222" >+ inAppEnabled: bool</text>
+<text x="331" y="207" font-family="Arial,sans-serif" font-size="10" fill="#222222" >+ browserPushEnabled: bool</text>
+<text x="331" y="220" font-family="Arial,sans-serif" font-size="10" fill="#222222" >+ bookingUpdates: bool</text>
+<text x="331" y="233" font-family="Arial,sans-serif" font-size="10" fill="#222222" >+ scheduleReminders: bool</text>
+<text x="331" y="246" font-family="Arial,sans-serif" font-size="10" fill="#222222" >+ paymentUpdates: bool</text>
+<text x="331" y="259" font-family="Arial,sans-serif" font-size="10" fill="#222222" >+ diagnosisUpdates: bool</text>
+<text x="331" y="272" font-family="Arial,sans-serif" font-size="10" fill="#222222" >+ queueUpdates: bool</text>
+<text x="331" y="285" font-family="Arial,sans-serif" font-size="10" fill="#222222" >+ boardingUpdates: bool</text>
+<text x="331" y="298" font-family="Arial,sans-serif" font-size="10" fill="#222222" >+ ownershipUpdates: bool</text>
+<text x="331" y="311" font-family="Arial,sans-serif" font-size="10" fill="#222222" >+ reminder_24h: bool</text>
+<text x="331" y="324" font-family="Arial,sans-serif" font-size="10" fill="#222222" >+ reminder_2h: bool</text>
+<text x="331" y="337" font-family="Arial,sans-serif" font-size="10" fill="#222222" >+ reminderSameDay: bool</text>
+<text x="331" y="350" font-family="Arial,sans-serif" font-size="10" fill="#222222" >+ createdAt: datetime</text>
+<text x="331" y="363" font-family="Arial,sans-serif" font-size="10" fill="#222222" >+ updatedAt: datetime</text>
+<text x="331" y="386" font-family="Arial,sans-serif" font-size="10" fill="#222222" >+ loadPreferences()</text>
+<text x="331" y="399" font-family="Arial,sans-serif" font-size="10" fill="#222222" >+ savePreferences()</text>
+</g>
+<g data-class="notification_push_subscriptions"><title>NotificationPushSubscription</title>
+<rect x="591" y="130" width="174" height="239" fill="#ffffff" stroke="#858585" stroke-width="0.8"/>
+<line x1="591" y1="154" x2="765" y2="154" stroke="#858585" stroke-width="0.8"/>
+<line x1="591" y1="333" x2="765" y2="333" stroke="#858585" stroke-width="0.8"/>
+<text x="678" y="146" font-family="Arial,sans-serif" font-size="11" fill="#222222" font-weight="700" text-anchor="middle">NotificationPushSubscription</text>
+<text x="601" y="168" font-family="Arial,sans-serif" font-size="10" fill="#222222" >+ subscriptionId: int</text>
+<text x="601" y="181" font-family="Arial,sans-serif" font-size="10" fill="#222222" >+ userId: int</text>
+<text x="601" y="194" font-family="Arial,sans-serif" font-size="10" fill="#222222" >+ endpoint: string</text>
+<text x="601" y="207" font-family="Arial,sans-serif" font-size="10" fill="#222222" >+ endpointHash: string</text>
+<text x="601" y="220" font-family="Arial,sans-serif" font-size="10" fill="#222222" >+ p256dh: string?</text>
+<text x="601" y="233" font-family="Arial,sans-serif" font-size="10" fill="#222222" >+ auth: string?</text>
+<text x="601" y="246" font-family="Arial,sans-serif" font-size="10" fill="#222222" >+ contentEncoding: string?</text>
+<text x="601" y="259" font-family="Arial,sans-serif" font-size="10" fill="#222222" >+ userAgent: string?</text>
+<text x="601" y="272" font-family="Arial,sans-serif" font-size="10" fill="#222222" >+ isActive: bool</text>
+<text x="601" y="285" font-family="Arial,sans-serif" font-size="10" fill="#222222" >+ lastSentAt: datetime?</text>
+<text x="601" y="298" font-family="Arial,sans-serif" font-size="10" fill="#222222" >+ lastError: string?</text>
+<text x="601" y="311" font-family="Arial,sans-serif" font-size="10" fill="#222222" >+ createdAt: datetime</text>
+<text x="601" y="324" font-family="Arial,sans-serif" font-size="10" fill="#222222" >+ updatedAt: datetime</text>
+<text x="601" y="347" font-family="Arial,sans-serif" font-size="10" fill="#222222" >+ subscribe()</text>
+<text x="601" y="360" font-family="Arial,sans-serif" font-size="10" fill="#222222" >+ disable()</text>
+</g>
+<g data-class="user_notifications"><title>Notification</title>
+<rect x="72" y="524" width="133" height="369" fill="#ffffff" stroke="#858585" stroke-width="0.8"/>
+<line x1="72" y1="548" x2="205" y2="548" stroke="#858585" stroke-width="0.8"/>
+<line x1="72" y1="844" x2="205" y2="844" stroke="#858585" stroke-width="0.8"/>
+<text x="138.5" y="540" font-family="Arial,sans-serif" font-size="11" fill="#222222" font-weight="700" text-anchor="middle">Notification</text>
+<text x="82" y="562" font-family="Arial,sans-serif" font-size="10" fill="#222222" >+ notificationId: int</text>
+<text x="82" y="575" font-family="Arial,sans-serif" font-size="10" fill="#222222" >+ userId: int</text>
+<text x="82" y="588" font-family="Arial,sans-serif" font-size="10" fill="#222222" >+ branchId: int?</text>
+<text x="82" y="601" font-family="Arial,sans-serif" font-size="10" fill="#222222" >+ type: string</text>
+<text x="82" y="614" font-family="Arial,sans-serif" font-size="10" fill="#222222" >+ category: string</text>
+<text x="82" y="627" font-family="Arial,sans-serif" font-size="10" fill="#222222" >+ title: string</text>
+<text x="82" y="640" font-family="Arial,sans-serif" font-size="10" fill="#222222" >+ message: string?</text>
+<text x="82" y="653" font-family="Arial,sans-serif" font-size="10" fill="#222222" >+ pushTitle: string?</text>
+<text x="82" y="666" font-family="Arial,sans-serif" font-size="10" fill="#222222" >+ pushMessage: string?</text>
+<text x="82" y="679" font-family="Arial,sans-serif" font-size="10" fill="#222222" >+ redirectPath: string?</text>
+<text x="82" y="692" font-family="Arial,sans-serif" font-size="10" fill="#222222" >+ inAppVisible: bool</text>
+<text x="82" y="705" font-family="Arial,sans-serif" font-size="10" fill="#222222" >+ dedupeKey: string?</text>
+<text x="82" y="718" font-family="Arial,sans-serif" font-size="10" fill="#222222" >+ emailSubject: string?</text>
+<text x="82" y="731" font-family="Arial,sans-serif" font-size="10" fill="#222222" >+ emailStatus: string</text>
+<text x="82" y="744" font-family="Arial,sans-serif" font-size="10" fill="#222222" >+ emailSentAt: datetime?</text>
+<text x="82" y="757" font-family="Arial,sans-serif" font-size="10" fill="#222222" >+ emailError: string?</text>
+<text x="82" y="770" font-family="Arial,sans-serif" font-size="10" fill="#222222" >+ pushStatus: string</text>
+<text x="82" y="783" font-family="Arial,sans-serif" font-size="10" fill="#222222" >+ pushSentAt: datetime?</text>
+<text x="82" y="796" font-family="Arial,sans-serif" font-size="10" fill="#222222" >+ pushError: string?</text>
+<text x="82" y="809" font-family="Arial,sans-serif" font-size="10" fill="#222222" >+ readAt: datetime?</text>
+<text x="82" y="822" font-family="Arial,sans-serif" font-size="10" fill="#222222" >+ createdAt: datetime</text>
+<text x="82" y="835" font-family="Arial,sans-serif" font-size="10" fill="#222222" >+ updatedAt: datetime</text>
+<text x="82" y="858" font-family="Arial,sans-serif" font-size="10" fill="#222222" >+ notify()</text>
+<text x="82" y="871" font-family="Arial,sans-serif" font-size="10" fill="#222222" >+ markRead()</text>
+<text x="82" y="884" font-family="Arial,sans-serif" font-size="10" fill="#222222" >+ markAllRead()</text>
+</g>
+<g data-class="system_backups"><title>SystemBackup</title>
+<rect x="323" y="498" width="145" height="382" fill="#ffffff" stroke="#858585" stroke-width="0.8"/>
+<line x1="323" y1="522" x2="468" y2="522" stroke="#858585" stroke-width="0.8"/>
+<line x1="323" y1="831" x2="468" y2="831" stroke="#858585" stroke-width="0.8"/>
+<text x="395.5" y="514" font-family="Arial,sans-serif" font-size="11" fill="#222222" font-weight="700" text-anchor="middle">SystemBackup</text>
+<text x="333" y="536" font-family="Arial,sans-serif" font-size="10" fill="#222222" >+ backupId: int</text>
+<text x="333" y="549" font-family="Arial,sans-serif" font-size="10" fill="#222222" >+ backupUuid: string</text>
+<text x="333" y="562" font-family="Arial,sans-serif" font-size="10" fill="#222222" >+ backupType: string</text>
+<text x="333" y="575" font-family="Arial,sans-serif" font-size="10" fill="#222222" >+ status: string</text>
+<text x="333" y="588" font-family="Arial,sans-serif" font-size="10" fill="#222222" >+ progressPercent: int</text>
+<text x="333" y="601" font-family="Arial,sans-serif" font-size="10" fill="#222222" >+ progressStage: string</text>
+<text x="333" y="614" font-family="Arial,sans-serif" font-size="10" fill="#222222" >+ parentBackupId: int?</text>
+<text x="333" y="627" font-family="Arial,sans-serif" font-size="10" fill="#222222" >+ baseBackupId: int?</text>
+<text x="333" y="640" font-family="Arial,sans-serif" font-size="10" fill="#222222" >+ archiveName: string?</text>
+<text x="333" y="653" font-family="Arial,sans-serif" font-size="10" fill="#222222" >+ archivePath: string?</text>
+<text x="333" y="666" font-family="Arial,sans-serif" font-size="10" fill="#222222" >+ statePath: string?</text>
+<text x="333" y="679" font-family="Arial,sans-serif" font-size="10" fill="#222222" >+ archiveSize: int?</text>
+<text x="333" y="692" font-family="Arial,sans-serif" font-size="10" fill="#222222" >+ checksumSha256: string?</text>
+<text x="333" y="705" font-family="Arial,sans-serif" font-size="10" fill="#222222" >+ scannedRowCount: int</text>
+<text x="333" y="718" font-family="Arial,sans-serif" font-size="10" fill="#222222" >+ changedRowCount: int</text>
+<text x="333" y="731" font-family="Arial,sans-serif" font-size="10" fill="#222222" >+ includedFileCount: int</text>
+<text x="333" y="744" font-family="Arial,sans-serif" font-size="10" fill="#222222" >+ deletedFileCount: int</text>
+<text x="333" y="757" font-family="Arial,sans-serif" font-size="10" fill="#222222" >+ createdByUserId: int?</text>
+<text x="333" y="770" font-family="Arial,sans-serif" font-size="10" fill="#222222" >+ createdByName: string</text>
+<text x="333" y="783" font-family="Arial,sans-serif" font-size="10" fill="#222222" >+ startedAt: datetime</text>
+<text x="333" y="796" font-family="Arial,sans-serif" font-size="10" fill="#222222" >+ completedAt: datetime?</text>
+<text x="333" y="809" font-family="Arial,sans-serif" font-size="10" fill="#222222" >+ errorMessage: string?</text>
+<text x="333" y="822" font-family="Arial,sans-serif" font-size="10" fill="#222222" >+ createdAt: datetime</text>
+<text x="333" y="845" font-family="Arial,sans-serif" font-size="10" fill="#222222" >+ createBackup()</text>
+<text x="333" y="858" font-family="Arial,sans-serif" font-size="10" fill="#222222" >+ listBackups()</text>
+<text x="333" y="871" font-family="Arial,sans-serif" font-size="10" fill="#222222" >+ downloadBackup()</text>
+</g>
+<g data-class="system_backup_settings"><title>SystemBackupSetting</title>
+<rect x="587" y="459" width="183" height="174" fill="#ffffff" stroke="#858585" stroke-width="0.8"/>
+<line x1="587" y1="483" x2="770" y2="483" stroke="#858585" stroke-width="0.8"/>
+<line x1="587" y1="623" x2="770" y2="623" stroke="#858585" stroke-width="0.8"/>
+<text x="678.5" y="475" font-family="Arial,sans-serif" font-size="11" fill="#222222" font-weight="700" text-anchor="middle">SystemBackupSetting</text>
+<text x="597" y="497" font-family="Arial,sans-serif" font-size="10" fill="#222222" >+ settingsId: int</text>
+<text x="597" y="510" font-family="Arial,sans-serif" font-size="10" fill="#222222" >+ automaticEnabled: bool</text>
+<text x="597" y="523" font-family="Arial,sans-serif" font-size="10" fill="#222222" >+ automaticTime: time</text>
+<text x="597" y="536" font-family="Arial,sans-serif" font-size="10" fill="#222222" >+ storageDirectory: string</text>
+<text x="597" y="549" font-family="Arial,sans-serif" font-size="10" fill="#222222" >+ lastAutomaticAttemptAt: datetime?</text>
+<text x="597" y="562" font-family="Arial,sans-serif" font-size="10" fill="#222222" >+ lastAutomaticStatus: string</text>
+<text x="597" y="575" font-family="Arial,sans-serif" font-size="10" fill="#222222" >+ lastAutomaticBackupId: int?</text>
+<text x="597" y="588" font-family="Arial,sans-serif" font-size="10" fill="#222222" >+ updatedByUserId: int?</text>
+<text x="597" y="601" font-family="Arial,sans-serif" font-size="10" fill="#222222" >+ updatedByName: string</text>
+<text x="597" y="614" font-family="Arial,sans-serif" font-size="10" fill="#222222" >+ updatedAt: datetime</text>
+</g>
+<g data-class="branches"><title>Branch (reference to the same class on its detail sheet)</title>
+<rect x="886" y="130" width="84" height="57" fill="#ffffff" stroke="#858585" stroke-width="0.8"/>
+<line x1="886" y1="154" x2="970" y2="154" stroke="#858585" stroke-width="0.8"/>
+<line x1="886" y1="177" x2="970" y2="177" stroke="#858585" stroke-width="0.8"/>
+<text x="928" y="146" font-family="Arial,sans-serif" font-size="11" fill="#222222" font-weight="700" text-anchor="middle">Branch</text>
+<text x="896" y="168" font-family="Arial,sans-serif" font-size="10" fill="#222222" >+ branchId: int</text>
+</g>
+<g data-class="users"><title>User (reference to the same class on its detail sheet)</title>
+<rect x="887" y="277" width="82" height="70" fill="#ffffff" stroke="#858585" stroke-width="0.8"/>
+<line x1="887" y1="301" x2="969" y2="301" stroke="#858585" stroke-width="0.8"/>
+<line x1="887" y1="337" x2="969" y2="337" stroke="#858585" stroke-width="0.8"/>
+<text x="928" y="293" font-family="Arial,sans-serif" font-size="11" fill="#222222" font-weight="700" text-anchor="middle">User</text>
+<text x="897" y="315" font-family="Arial,sans-serif" font-size="10" fill="#222222" >+ userId: int</text>
+<text x="897" y="328" font-family="Arial,sans-serif" font-size="10" fill="#222222" >+ role: string?</text>
+</g>
+<text x="479" y="270" font-family="Arial,sans-serif" font-size="9" fill="#222222" style="font-family:Consolas,monospace">0..1</text>
+<text x="871.42" y="292" font-family="Arial,sans-serif" font-size="9" fill="#222222" style="font-family:Consolas,monospace">1</text>
+<text x="773" y="250.5" font-family="Arial,sans-serif" font-size="9" fill="#222222" style="font-family:Consolas,monospace">0..*</text>
+<text x="871.42" y="306" font-family="Arial,sans-serif" font-size="9" fill="#222222" style="font-family:Consolas,monospace">1</text>
+<text x="476" y="683" font-family="Arial,sans-serif" font-size="9" fill="#222222" style="font-family:Consolas,monospace">0..*</text>
+<text x="854.68" y="320" font-family="Arial,sans-serif" font-size="9" fill="#222222" style="font-family:Consolas,monospace">0..1</text>
+<text x="401.5" y="901" font-family="Arial,sans-serif" font-size="9" fill="#222222" style="font-family:Consolas,monospace">0..*</text>
+<text x="361.5" y="901" font-family="Arial,sans-serif" font-size="9" fill="#222222" style="font-family:Consolas,monospace">0..1</text>
+<text x="441.5" y="901" font-family="Arial,sans-serif" font-size="9" fill="#222222" style="font-family:Consolas,monospace">0..*</text>
+<text x="290.68" y="690" font-family="Arial,sans-serif" font-size="9" fill="#222222" style="font-family:Consolas,monospace">0..1</text>
+<text x="778" y="547" font-family="Arial,sans-serif" font-size="9" fill="#222222" style="font-family:Consolas,monospace">0..*</text>
+<text x="934" y="368" font-family="Arial,sans-serif" font-size="9" fill="#222222" style="font-family:Consolas,monospace">0..1</text>
+<text x="554.68" y="547" font-family="Arial,sans-serif" font-size="9" fill="#222222" style="font-family:Consolas,monospace">0..*</text>
+<text x="476" y="697" font-family="Arial,sans-serif" font-size="9" fill="#222222" style="font-family:Consolas,monospace">0..1</text>
+<text x="213" y="702.5" font-family="Arial,sans-serif" font-size="9" fill="#222222" style="font-family:Consolas,monospace">0..*</text>
+<text x="853.68" y="159.5" font-family="Arial,sans-serif" font-size="9" fill="#222222" style="font-family:Consolas,monospace">0..1</text>
+<text x="213" y="716.5" font-family="Arial,sans-serif" font-size="9" fill="#222222" style="font-family:Consolas,monospace">0..*</text>
+<text x="871.42" y="334" font-family="Arial,sans-serif" font-size="9" fill="#222222" style="font-family:Consolas,monospace">1</text>
+<text x="72" y="971" font-family="Arial,sans-serif" font-size="9" fill="#222222" >Reference boxes repeat an existing class. Empty operation compartments indicate supporting state.</text>
+</svg>

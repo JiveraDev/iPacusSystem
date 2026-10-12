@@ -1,0 +1,377 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="2600" height="4029" viewBox="0 0 2600 4029" role="img" aria-labelledby="title desc">
+<title id="title">iPawcus / System shell and API infrastructure / 1 of 2</title>
+<desc id="desc">Application modules and verified database references. Original SQL entity definitions are on pages 01 to 09. Dashed dependencies are not foreign keys.</desc>
+<defs><marker id="arrow" markerWidth="9" markerHeight="9" refX="8" refY="4.5" orient="auto" markerUnits="userSpaceOnUse"><path d="M0 0 L8 4.5 L0 9" fill="none" stroke="#8793a3" stroke-width="1.2"/></marker><marker id="inheritance" markerWidth="11" markerHeight="11" refX="10" refY="5" orient="auto" markerUnits="userSpaceOnUse"><path d="M0 0 L10 5 L0 10 Z" fill="#ffffff" stroke="#8793a3" stroke-width="1.2"/></marker></defs>
+<rect width="100%" height="100%" fill="#ffffff"/>
+<text x="80" y="44" font-family="Arial,sans-serif" font-size="25" fill="#2d3748">iPawcus / System shell and API infrastructure / 1 of 2</text>
+<text x="80" y="73" font-family="Arial,sans-serif" font-size="14" fill="#596579">React / service / PHP / entity reference · arrows show source-code dependencies; no invented OO inheritance.</text>
+<text x="80" y="100" font-family="Arial,sans-serif" font-size="13" fill="#596579">Dashed: dependency. Solid: migration FK or real class inheritance. Full source evidence accompanies detailed links.</text>
+<text x="80" y="143" font-family="Arial,sans-serif" font-size="14" fill="#596579">UI and system views</text>
+<text x="740" y="143" font-family="Arial,sans-serif" font-size="14" fill="#596579">JavaScript services</text>
+<text x="1400" y="143" font-family="Arial,sans-serif" font-size="14" fill="#596579">PHP backend modules</text>
+<text x="2080" y="143" font-family="Arial,sans-serif" font-size="14" fill="#596579">Database references</text>
+<path d="M500 576 L610 576 L610 787 L740 787" fill="none" stroke="#8793a3" stroke-width="1.2" stroke-dasharray="5 4" marker-end="url(#arrow)"><title>src/components/ServerDownPage.jsx → src/services/problemReportService.js / uses</title></path>
+<path d="M500 1245 L630 1245 L630 210 L740 210" fill="none" stroke="#8793a3" stroke-width="1.2" stroke-dasharray="5 4" marker-end="url(#arrow)"><title>src/components/shared/AddressMapPreview.jsx → src/services/addressAutocomplete.js / uses</title></path>
+<path d="M1160 439 L1270 439 L1270 1156 L1160 1156" fill="none" stroke="#8793a3" stroke-width="1.2" stroke-dasharray="5 4" marker-end="url(#arrow)"><title>src/services/apiClient.js → src/services/apiClient.js#ApiError / declares</title></path>
+<path d="M1160 1178 L1270 1178 L1270 1331 L1160 1331" fill="none" stroke="#8793a3" stroke-width="1.2" marker-end="url(#inheritance)"><title>src/services/apiClient.js#ApiError → external:Error / extends</title></path>
+<path d="M1160 461 L1290 461 L1290 529 L1400 529" fill="none" stroke="#8793a3" stroke-width="1.2" stroke-dasharray="5 4" marker-end="url(#arrow)"><title>src/services/apiClient.js → php/db.php / HTTP</title></path>
+<path d="M1160 483 L1270 483 L1270 486 L1233 486 L1233 1957 L1400 1957" fill="none" stroke="#8793a3" stroke-width="1.2" stroke-dasharray="5 4" marker-end="url(#arrow)"><title>src/services/apiClient.js → php/login.php / HTTP</title></path>
+<path d="M1160 505 L1290 505 L1290 2132 L1400 2132" fill="none" stroke="#8793a3" stroke-width="1.2" stroke-dasharray="5 4" marker-end="url(#arrow)"><title>src/services/apiClient.js → php/register.php / HTTP</title></path>
+<path d="M1160 527 L1270 527 L1270 529 L1226 529 L1226 2307 L1400 2307" fill="none" stroke="#8793a3" stroke-width="1.2" stroke-dasharray="5 4" marker-end="url(#arrow)"><title>src/services/apiClient.js → php/check_self_service_access.php / HTTP</title></path>
+<path d="M1160 549 L1378 549 L1378 2420 L1290 2420 L1290 2482 L1400 2482" fill="none" stroke="#8793a3" stroke-width="1.2" stroke-dasharray="5 4" marker-end="url(#arrow)"><title>src/services/apiClient.js → php/status_display.php / HTTP</title></path>
+<path d="M1160 571 L1270 571 L1270 574 L1205 574 L1205 1159 L1270 1159 L1270 1178 L1205 1178 L1205 2657 L1400 2657" fill="none" stroke="#8793a3" stroke-width="1.2" stroke-dasharray="5 4" marker-end="url(#arrow)"><title>src/services/apiClient.js → php/booking_availability.php / HTTP</title></path>
+<path d="M1160 593 L1270 593 L1270 614 L1182 614 L1182 725 L718 725 L718 2832 L1400 2832" fill="none" stroke="#8793a3" stroke-width="1.2" stroke-dasharray="5 4" marker-end="url(#arrow)"><title>src/services/apiClient.js → php/vet_presence.php / HTTP</title></path>
+<path d="M1160 615 L1270 615 L1270 772 L1913 772 L1913 2945 L1290 2945 L1290 3007 L1400 3007" fill="none" stroke="#8793a3" stroke-width="1.2" stroke-dasharray="5 4" marker-end="url(#arrow)"><title>src/services/apiClient.js → php/notifications.php / HTTP</title></path>
+<path d="M1160 787 L1290 787 L1290 551 L1400 551" fill="none" stroke="#8793a3" stroke-width="1.2" stroke-dasharray="5 4" marker-end="url(#arrow)"><title>src/services/problemReportService.js → php/db.php / HTTP</title></path>
+<path d="M1160 809 L1270 809 L1270 830 L1182 830 L1182 962 L1205 962 L1205 1024 L1182 1024 L1182 1159 L1226 1159 L1226 1177 L1182 1177 L1182 3182 L1400 3182" fill="none" stroke="#8793a3" stroke-width="1.2" stroke-dasharray="5 4" marker-end="url(#arrow)"><title>src/services/problemReportService.js → php/system_problem_report.php / HTTP</title></path>
+<path d="M1160 831 L1270 831 L1270 637 L1160 637" fill="none" stroke="#8793a3" stroke-width="1.2" stroke-dasharray="5 4" marker-end="url(#arrow)"><title>src/services/problemReportService.js → src/services/apiClient.js / uses</title></path>
+<path d="M1160 981 L1270 981 L1270 2504 L1400 2504" fill="none" stroke="#8793a3" stroke-width="1.2" stroke-dasharray="5 4" marker-end="url(#arrow)"><title>src/services/statusDisplayService.js → php/status_display.php / HTTP</title></path>
+<path d="M1160 1003 L1378 1003 L1378 659 L1160 659" fill="none" stroke="#8793a3" stroke-width="1.2" stroke-dasharray="5 4" marker-end="url(#arrow)"><title>src/services/statusDisplayService.js → src/services/apiClient.js / uses</title></path>
+<path d="M1160 1025 L1290 1025 L1290 1506 L1160 1506" fill="none" stroke="#8793a3" stroke-width="1.2" stroke-dasharray="5 4" marker-end="url(#arrow)"><title>src/services/statusDisplayService.js → src/services/branchService.js / uses</title></path>
+<path d="M1840 848 L1950 848 L1950 529 L1840 529" fill="none" stroke="#8793a3" stroke-width="1.2" stroke-dasharray="5 4" marker-end="url(#arrow)"><title>php/get_user.php → php/db.php / includes</title></path>
+<path d="M1840 870 L1970 870 L1970 210 L2080 210" fill="none" stroke="#8793a3" stroke-width="1.2" stroke-dasharray="5 4" marker-end="url(#arrow)"><title>php/get_user.php → db:users / SQL</title></path>
+<path d="M1840 1023 L1950 1023 L1950 3357 L1840 3357" fill="none" stroke="#8793a3" stroke-width="1.2" stroke-dasharray="5 4" marker-end="url(#arrow)"><title>php/index.php → php/role_access.php / includes</title></path>
+<path d="M1840 1045 L1970 1045 L1970 3532 L1840 3532" fill="none" stroke="#8793a3" stroke-width="1.2" stroke-dasharray="5 4" marker-end="url(#arrow)"><title>php/index.php → php/staff_activity_helpers.php / includes</title></path>
+<path d="M1840 1067 L1950 1067 L1950 892 L1840 892" fill="none" stroke="#8793a3" stroke-width="1.2" stroke-dasharray="5 4" marker-end="url(#arrow)"><title>php/index.php → php/get_user.php / includes</title></path>
+<path d="M1840 1089 L2058 1089 L2058 3707 L1840 3707" fill="none" stroke="#8793a3" stroke-width="1.2" stroke-dasharray="5 4" marker-end="url(#arrow)"><title>php/index.php → php/delete_consent_file.php / includes</title></path>
+<path d="M1840 1111 L1950 1111 L1950 1238 L1878 1238 L1878 3820 L1950 3820 L1950 3882 L1840 3882" fill="none" stroke="#8793a3" stroke-width="1.2" stroke-dasharray="5 4" marker-end="url(#arrow)"><title>php/index.php → php/get_pet.php / includes</title></path>
+<path d="M1840 1239 L2058 1239 L2058 551 L1840 551" fill="none" stroke="#8793a3" stroke-width="1.2" stroke-dasharray="5 4" marker-end="url(#arrow)"><title>php/lifecycle_recovery_report.php → php/db.php / includes</title></path>
+<path d="M1840 1261 L1970 1261 L1970 829 L1878 829 L1878 403 L2080 403" fill="none" stroke="#8793a3" stroke-width="1.2" stroke-dasharray="5 4" marker-end="url(#arrow)"><title>php/lifecycle_recovery_report.php → db:queues / SQL</title></path>
+<path d="M1840 1283 L1950 1283 L1950 1292 L2542 1292 L2542 713 L1970 713 L1970 596 L2080 596" fill="none" stroke="#8793a3" stroke-width="1.2" stroke-dasharray="5 4" marker-end="url(#arrow)"><title>php/lifecycle_recovery_report.php → db:vet_diagnoses / SQL</title></path>
+<path d="M1840 1305 L2570 1305 L2570 727 L1970 727 L1970 789 L2080 789" fill="none" stroke="#8793a3" stroke-width="1.2" stroke-dasharray="5 4" marker-end="url(#arrow)"><title>php/lifecycle_recovery_report.php → db:visits / SQL</title></path>
+<path d="M1840 1327 L1950 1327 L1950 1292 L1913 1292 L1913 1220 L1878 1220 L1878 1110 L1913 1110 L1913 982 L2080 982" fill="none" stroke="#8793a3" stroke-width="1.2" stroke-dasharray="5 4" marker-end="url(#arrow)"><title>php/lifecycle_recovery_report.php → db:visit_charges / SQL</title></path>
+<path d="M1840 1349 L1970 1349 L1970 1264 L1950 1264 L1950 1175 L2080 1175" fill="none" stroke="#8793a3" stroke-width="1.2" stroke-dasharray="5 4" marker-end="url(#arrow)"><title>php/lifecycle_recovery_report.php → db:pets_information / SQL</title></path>
+<path d="M1840 1371 L1970 1371 L1970 1368 L2080 1368" fill="none" stroke="#8793a3" stroke-width="1.2" stroke-dasharray="5 4" marker-end="url(#arrow)"><title>php/lifecycle_recovery_report.php → db:bookings / SQL</title></path>
+<path d="M1840 1499 L1950 1499 L1950 1561 L2080 1561" fill="none" stroke="#8793a3" stroke-width="1.2" stroke-dasharray="5 4" marker-end="url(#arrow)"><title>php/payment_method_helpers.php → db:payment_methods / SQL</title></path>
+<g data-node="src/components/PetOwnerDashboard/LaboratoryTesting.jsx"><rect x="80" y="170" width="420" height="133" fill="#ffffff" stroke="#c4cbd4" stroke-width="1.2"/><line x1="80" y1="225" x2="500" y2="225" stroke="#c4cbd4"/>
+<text x="94" y="193" font-family="Arial,sans-serif" font-size="16" fill="#2d3748">LaboratoryTesting</text>
+<text x="94" y="212" font-family="Arial,sans-serif" font-size="11.5" fill="#596579">«React component»</text>
+<text x="94" y="248" font-family="Consolas,monospace" font-size="12" fill="#2d3748">+ LaboratoryTesting()</text>
+<text x="94" y="275" font-family="Arial,sans-serif" font-size="11.5" fill="#596579">src/components/PetOwnerDashboard/LaboratoryTesting.j</text>
+<text x="94" y="291" font-family="Arial,sans-serif" font-size="11.5" fill="#596579">  sx:17</text>
+</g>
+<g data-node="src/components/PetOwnerDashboard/Services.jsx"><rect x="80" y="361" width="420" height="117" fill="#ffffff" stroke="#c4cbd4" stroke-width="1.2"/><line x1="80" y1="416" x2="500" y2="416" stroke="#c4cbd4"/>
+<text x="94" y="384" font-family="Arial,sans-serif" font-size="16" fill="#2d3748">Services</text>
+<text x="94" y="403" font-family="Arial,sans-serif" font-size="11.5" fill="#596579">«React component»</text>
+<text x="94" y="439" font-family="Consolas,monospace" font-size="12" fill="#2d3748">+ Services()</text>
+<text x="94" y="466" font-family="Arial,sans-serif" font-size="11.5" fill="#596579">src/components/PetOwnerDashboard/Services.jsx:112</text>
+</g>
+<g data-node="src/components/ServerDownPage.jsx"><rect x="80" y="536" width="420" height="153" fill="#ffffff" stroke="#c4cbd4" stroke-width="1.2"/><line x1="80" y1="591" x2="500" y2="591" stroke="#c4cbd4"/>
+<text x="94" y="559" font-family="Arial,sans-serif" font-size="16" fill="#2d3748">ServerDownPage</text>
+<text x="94" y="578" font-family="Arial,sans-serif" font-size="11.5" fill="#596579">«React component»</text>
+<text x="94" y="614" font-family="Consolas,monospace" font-size="12" fill="#2d3748">- reportState: state</text>
+<text x="94" y="632" font-family="Consolas,monospace" font-size="12" fill="#2d3748">+ ServerDownPage()</text>
+<text x="94" y="650" font-family="Consolas,monospace" font-size="12" fill="#2d3748">+ handleReportProblem()</text>
+<text x="94" y="677" font-family="Arial,sans-serif" font-size="11.5" fill="#596579">src/components/ServerDownPage.jsx:68</text>
+</g>
+<g data-node="src/components/dashboardRouter.jsx"><rect x="80" y="747" width="420" height="225" fill="#ffffff" stroke="#c4cbd4" stroke-width="1.2"/><line x1="80" y1="802" x2="500" y2="802" stroke="#c4cbd4"/>
+<text x="94" y="770" font-family="Arial,sans-serif" font-size="16" fill="#2d3748">dashboardRouter</text>
+<text x="94" y="789" font-family="Arial,sans-serif" font-size="11.5" fill="#596579">«React component»</text>
+<text x="94" y="825" font-family="Consolas,monospace" font-size="12" fill="#2d3748">+ DashboardRouterProvider()</text>
+<text x="94" y="843" font-family="Consolas,monospace" font-size="12" fill="#2d3748">+ getRouteMatch()</text>
+<text x="94" y="861" font-family="Consolas,monospace" font-size="12" fill="#2d3748">+ normalizePath()</text>
+<text x="94" y="879" font-family="Consolas,monospace" font-size="12" fill="#2d3748">+ useNavigate()</text>
+<text x="94" y="897" font-family="Consolas,monospace" font-size="12" fill="#2d3748">+ useParams()</text>
+<text x="94" y="915" font-family="Consolas,monospace" font-size="12" fill="#2d3748">+ useUserUpdate()</text>
+<text x="94" y="933" font-family="Consolas,monospace" font-size="12" fill="#2d3748">+ useDashboardUser()</text>
+<text x="94" y="960" font-family="Arial,sans-serif" font-size="11.5" fill="#596579">src/components/dashboardRouter.jsx:153</text>
+</g>
+<g data-node="src/components/landingpage.jsx"><rect x="80" y="1030" width="420" height="117" fill="#ffffff" stroke="#c4cbd4" stroke-width="1.2"/><line x1="80" y1="1085" x2="500" y2="1085" stroke="#c4cbd4"/>
+<text x="94" y="1053" font-family="Arial,sans-serif" font-size="16" fill="#2d3748">landingpage</text>
+<text x="94" y="1072" font-family="Arial,sans-serif" font-size="11.5" fill="#596579">«React component»</text>
+<text x="94" y="1108" font-family="Consolas,monospace" font-size="12" fill="#2d3748">+ LandingPage()</text>
+<text x="94" y="1135" font-family="Arial,sans-serif" font-size="11.5" fill="#596579">src/components/landingpage.jsx:4</text>
+</g>
+<g data-node="src/components/shared/AddressMapPreview.jsx"><rect x="80" y="1205" width="420" height="135" fill="#ffffff" stroke="#c4cbd4" stroke-width="1.2"/><line x1="80" y1="1260" x2="500" y2="1260" stroke="#c4cbd4"/>
+<text x="94" y="1228" font-family="Arial,sans-serif" font-size="16" fill="#2d3748">AddressMapPreview</text>
+<text x="94" y="1247" font-family="Arial,sans-serif" font-size="11.5" fill="#596579">«React component»</text>
+<text x="94" y="1283" font-family="Consolas,monospace" font-size="12" fill="#2d3748">- failedMapUrls: state</text>
+<text x="94" y="1301" font-family="Consolas,monospace" font-size="12" fill="#2d3748">+ AddressMapPreview()</text>
+<text x="94" y="1328" font-family="Arial,sans-serif" font-size="11.5" fill="#596579">src/components/shared/AddressMapPreview.jsx:5</text>
+</g>
+<g data-node="src/components/shared/AppMotionSystem.jsx"><rect x="80" y="1398" width="420" height="117" fill="#ffffff" stroke="#c4cbd4" stroke-width="1.2"/><line x1="80" y1="1453" x2="500" y2="1453" stroke="#c4cbd4"/>
+<text x="94" y="1421" font-family="Arial,sans-serif" font-size="16" fill="#2d3748">AppMotionSystem</text>
+<text x="94" y="1440" font-family="Arial,sans-serif" font-size="11.5" fill="#596579">«React component» / source-only</text>
+<text x="94" y="1476" font-family="Consolas,monospace" font-size="12" fill="#2d3748">+ AppMotionSystem()</text>
+<text x="94" y="1503" font-family="Arial,sans-serif" font-size="11.5" fill="#596579">src/components/shared/AppMotionSystem.jsx:88</text>
+</g>
+<g data-node="src/services/addressAutocomplete.js"><rect x="740" y="170" width="420" height="171" fill="#ffffff" stroke="#c4cbd4" stroke-width="1.2"/><line x1="740" y1="225" x2="1160" y2="225" stroke="#c4cbd4"/>
+<text x="754" y="193" font-family="Arial,sans-serif" font-size="16" fill="#2d3748">addressAutocomplete</text>
+<text x="754" y="212" font-family="Arial,sans-serif" font-size="11.5" fill="#596579">«JS service module»</text>
+<text x="754" y="248" font-family="Consolas,monospace" font-size="12" fill="#2d3748">+ searchAddresses()</text>
+<text x="754" y="266" font-family="Consolas,monospace" font-size="12" fill="#2d3748">+ reverseGeocodeAddress()</text>
+<text x="754" y="284" font-family="Consolas,monospace" font-size="12" fill="#2d3748">+ getAddressMapPreviewUrls()</text>
+<text x="754" y="302" font-family="Consolas,monospace" font-size="12" fill="#2d3748">+ getAddressMapPreviewUrl()</text>
+<text x="754" y="329" font-family="Arial,sans-serif" font-size="11.5" fill="#596579">src/services/addressAutocomplete.js:29</text>
+</g>
+<g data-node="src/services/apiClient.js"><rect x="740" y="399" width="420" height="290" fill="#ffffff" stroke="#c4cbd4" stroke-width="1.2"/><line x1="740" y1="454" x2="1160" y2="454" stroke="#c4cbd4"/>
+<text x="754" y="422" font-family="Arial,sans-serif" font-size="16" fill="#2d3748">apiClient</text>
+<text x="754" y="441" font-family="Arial,sans-serif" font-size="11.5" fill="#596579">«JS service module»</text>
+<text x="754" y="477" font-family="Consolas,monospace" font-size="12" fill="#2d3748">+ getServerStatusSnapshot()</text>
+<text x="754" y="495" font-family="Consolas,monospace" font-size="12" fill="#2d3748">+ subscribeToServerStatus()</text>
+<text x="754" y="513" font-family="Consolas,monospace" font-size="12" fill="#2d3748">+ reportServerUnavailable()</text>
+<text x="754" y="531" font-family="Consolas,monospace" font-size="12" fill="#2d3748">+ reportServerAvailable()</text>
+<text x="754" y="549" font-family="Consolas,monospace" font-size="12" fill="#2d3748">+ getApiUrl()</text>
+<text x="754" y="567" font-family="Consolas,monospace" font-size="12" fill="#2d3748">+ getStoredApiUser()</text>
+<text x="754" y="585" font-family="Consolas,monospace" font-size="12" fill="#2d3748">+ getStoredAuthToken()</text>
+<text x="754" y="603" font-family="Consolas,monospace" font-size="12" fill="#2d3748">+ clearStoredAuthSession()</text>
+<text x="754" y="621" font-family="Consolas,monospace" font-size="12" fill="#2d3748">+ 10 more operations [source index]</text>
+<text x="754" y="677" font-family="Arial,sans-serif" font-size="11.5" fill="#596579">src/services/apiClient.js:207</text>
+</g>
+<g data-node="src/services/problemReportService.js"><rect x="740" y="747" width="420" height="136" fill="#ffffff" stroke="#c4cbd4" stroke-width="1.2"/><line x1="740" y1="802" x2="1160" y2="802" stroke="#c4cbd4"/>
+<text x="754" y="770" font-family="Arial,sans-serif" font-size="16" fill="#2d3748">problemReportService</text>
+<text x="754" y="789" font-family="Arial,sans-serif" font-size="11.5" fill="#596579">«JS service module»</text>
+<text x="754" y="825" font-family="Consolas,monospace" font-size="12" fill="#2d3748">+ sendMaintenanceProblemReport()</text>
+<text x="754" y="871" font-family="Arial,sans-serif" font-size="11.5" fill="#596579">src/services/problemReportService.js:77</text>
+</g>
+<g data-node="src/services/statusDisplayService.js"><rect x="740" y="941" width="420" height="117" fill="#ffffff" stroke="#c4cbd4" stroke-width="1.2"/><line x1="740" y1="996" x2="1160" y2="996" stroke="#c4cbd4"/>
+<text x="754" y="964" font-family="Arial,sans-serif" font-size="16" fill="#2d3748">statusDisplayService</text>
+<text x="754" y="983" font-family="Arial,sans-serif" font-size="11.5" fill="#596579">«JS service module»</text>
+<text x="754" y="1019" font-family="Consolas,monospace" font-size="12" fill="#2d3748">+ fetchStatusDisplay()</text>
+<text x="754" y="1046" font-family="Arial,sans-serif" font-size="11.5" fill="#596579">src/services/statusDisplayService.js:8</text>
+</g>
+<g data-node="php/api_error_response.php"><rect x="1400" y="170" width="440" height="261" fill="#ffffff" stroke="#c4cbd4" stroke-width="1.2"/><line x1="1400" y1="225" x2="1840" y2="225" stroke="#c4cbd4"/>
+<text x="1414" y="193" font-family="Arial,sans-serif" font-size="16" fill="#2d3748">ApiErrorResponse</text>
+<text x="1414" y="212" font-family="Arial,sans-serif" font-size="11.5" fill="#596579">«PHP module»</text>
+<text x="1414" y="248" font-family="Consolas,monospace" font-size="12" fill="#2d3748">+ ipawcus_error_response_is_http()</text>
+<text x="1414" y="266" font-family="Consolas,monospace" font-size="12" fill="#2d3748">+ ipawcus_error_response_reference_id()</text>
+<text x="1414" y="284" font-family="Consolas,monospace" font-size="12" fill="#2d3748">+ ipawcus_error_response_request_context()</text>
+<text x="1414" y="302" font-family="Consolas,monospace" font-size="12" fill="#2d3748">+ ipawcus_error_response_log()</text>
+<text x="1414" y="320" font-family="Consolas,monospace" font-size="12" fill="#2d3748">+ ipawcus_error_response_log_throwable()</text>
+<text x="1414" y="338" font-family="Consolas,monospace" font-size="12" fill="#2d3748">+ ipawcus_error_response_public_message()</text>
+<text x="1414" y="356" font-family="Consolas,monospace" font-size="12" fill="#2d3748">+ ipawcus_error_response_contains_technical_details()</text>
+<text x="1414" y="374" font-family="Consolas,monospace" font-size="12" fill="#2d3748">+ ipawcus_error_response_is_list()</text>
+<text x="1414" y="392" font-family="Consolas,monospace" font-size="12" fill="#2d3748">+ 13 more operations [source index]</text>
+<text x="1414" y="419" font-family="Arial,sans-serif" font-size="11.5" fill="#596579">php/api_error_response.php:11</text>
+</g>
+<g data-node="php/db.php"><rect x="1400" y="489" width="440" height="261" fill="#ffffff" stroke="#c4cbd4" stroke-width="1.2"/><line x1="1400" y1="544" x2="1840" y2="544" stroke="#c4cbd4"/>
+<text x="1414" y="512" font-family="Arial,sans-serif" font-size="16" fill="#2d3748">Db</text>
+<text x="1414" y="531" font-family="Arial,sans-serif" font-size="11.5" fill="#596579">«PHP module»</text>
+<text x="1414" y="567" font-family="Consolas,monospace" font-size="12" fill="#2d3748">+ createDatabaseConnection()</text>
+<text x="1414" y="585" font-family="Consolas,monospace" font-size="12" fill="#2d3748">+ reconnectDatabase()</text>
+<text x="1414" y="603" font-family="Consolas,monospace" font-size="12" fill="#2d3748">+ ipawcus_get_pdo()</text>
+<text x="1414" y="621" font-family="Consolas,monospace" font-size="12" fill="#2d3748">+ ipawcus_current_pdo()</text>
+<text x="1414" y="639" font-family="Consolas,monospace" font-size="12" fill="#2d3748">+ ipawcus_rollback_current_transaction()</text>
+<text x="1414" y="657" font-family="Consolas,monospace" font-size="12" fill="#2d3748">+ ipawcus_json_error()</text>
+<text x="1414" y="675" font-family="Consolas,monospace" font-size="12" fill="#2d3748">+ ipawcus_database_unavailable_payload()</text>
+<text x="1414" y="693" font-family="Consolas,monospace" font-size="12" fill="#2d3748">+ ipawcus_send_database_connection_error()</text>
+<text x="1414" y="711" font-family="Consolas,monospace" font-size="12" fill="#2d3748">+ 6 more operations [source index]</text>
+<text x="1414" y="738" font-family="Arial,sans-serif" font-size="11.5" fill="#596579">php/db.php:5</text>
+</g>
+<g data-node="php/get_user.php"><rect x="1400" y="808" width="440" height="117" fill="#ffffff" stroke="#c4cbd4" stroke-width="1.2"/><line x1="1400" y1="863" x2="1840" y2="863" stroke="#c4cbd4"/>
+<text x="1414" y="831" font-family="Arial,sans-serif" font-size="16" fill="#2d3748">GetUser</text>
+<text x="1414" y="850" font-family="Arial,sans-serif" font-size="11.5" fill="#596579">«PHP module»</text>
+<text x="1414" y="886" font-family="Consolas,monospace" font-size="12" fill="#2d3748">HTTP script / module exports</text>
+<text x="1414" y="913" font-family="Arial,sans-serif" font-size="11.5" fill="#596579">php/get_user.php:1</text>
+</g>
+<g data-node="php/index.php"><rect x="1400" y="983" width="440" height="158" fill="#ffffff" stroke="#c4cbd4" stroke-width="1.2"/><line x1="1400" y1="1038" x2="1840" y2="1038" stroke="#c4cbd4"/>
+<text x="1414" y="1006" font-family="Arial,sans-serif" font-size="16" fill="#2d3748">Index</text>
+<text x="1414" y="1025" font-family="Arial,sans-serif" font-size="11.5" fill="#596579">«PHP module»</text>
+<text x="1414" y="1061" font-family="Consolas,monospace" font-size="12" fill="#2d3748">HTTP script / module exports</text>
+<text x="1414" y="1129" font-family="Arial,sans-serif" font-size="11.5" fill="#596579">php/index.php:1</text>
+</g>
+<g data-node="php/lifecycle_recovery_report.php"><rect x="1400" y="1199" width="440" height="202" fill="#ffffff" stroke="#c4cbd4" stroke-width="1.2"/><line x1="1400" y1="1254" x2="1840" y2="1254" stroke="#c4cbd4"/>
+<text x="1414" y="1222" font-family="Arial,sans-serif" font-size="16" fill="#2d3748">LifecycleRecoveryReport</text>
+<text x="1414" y="1241" font-family="Arial,sans-serif" font-size="11.5" fill="#596579">«PHP module»</text>
+<text x="1414" y="1277" font-family="Consolas,monospace" font-size="12" fill="#2d3748">+ lifecycle_report_table_exists()</text>
+<text x="1414" y="1295" font-family="Consolas,monospace" font-size="12" fill="#2d3748">+ lifecycle_report_schema_ready()</text>
+<text x="1414" y="1389" font-family="Arial,sans-serif" font-size="11.5" fill="#596579">php/lifecycle_recovery_report.php:6</text>
+</g>
+<g data-node="php/payment_method_helpers.php"><rect x="1400" y="1459" width="440" height="153" fill="#ffffff" stroke="#c4cbd4" stroke-width="1.2"/><line x1="1400" y1="1514" x2="1840" y2="1514" stroke="#c4cbd4"/>
+<text x="1414" y="1482" font-family="Arial,sans-serif" font-size="16" fill="#2d3748">PaymentMethodHelpers</text>
+<text x="1414" y="1501" font-family="Arial,sans-serif" font-size="11.5" fill="#596579">«PHP module»</text>
+<text x="1414" y="1537" font-family="Consolas,monospace" font-size="12" fill="#2d3748">+ ipawcus_payment_method_key()</text>
+<text x="1414" y="1555" font-family="Consolas,monospace" font-size="12" fill="#2d3748">+ ipawcus_payment_method_is_allowed()</text>
+<text x="1414" y="1573" font-family="Consolas,monospace" font-size="12" fill="#2d3748">+ ipawcus_payment_method_require()</text>
+<text x="1414" y="1600" font-family="Arial,sans-serif" font-size="11.5" fill="#596579">php/payment_method_helpers.php:3</text>
+</g>
+<g data-node="php/phone_number_helpers.php"><rect x="1400" y="1670" width="440" height="189" fill="#ffffff" stroke="#c4cbd4" stroke-width="1.2"/><line x1="1400" y1="1725" x2="1840" y2="1725" stroke="#c4cbd4"/>
+<text x="1414" y="1693" font-family="Arial,sans-serif" font-size="16" fill="#2d3748">PhoneNumberHelpers</text>
+<text x="1414" y="1712" font-family="Arial,sans-serif" font-size="11.5" fill="#596579">«PHP module»</text>
+<text x="1414" y="1748" font-family="Consolas,monospace" font-size="12" fill="#2d3748">+ normalizePhilippinePhoneNumber()</text>
+<text x="1414" y="1766" font-family="Consolas,monospace" font-size="12" fill="#2d3748">+ philippinePhoneDigits()</text>
+<text x="1414" y="1784" font-family="Consolas,monospace" font-size="12" fill="#2d3748">+ isPhilippinePhonePrefixOnly()</text>
+<text x="1414" y="1802" font-family="Consolas,monospace" font-size="12" fill="#2d3748">+ isValidPhilippinePhoneNumber()</text>
+<text x="1414" y="1820" font-family="Consolas,monospace" font-size="12" fill="#2d3748">+ rejectInvalidPhilippinePhoneNumber()</text>
+<text x="1414" y="1847" font-family="Arial,sans-serif" font-size="11.5" fill="#596579">php/phone_number_helpers.php:3</text>
+</g>
+<g data-node="src/services/apiClient.js#ApiError"><rect x="740" y="1116" width="420" height="117" fill="#ffffff" stroke="#c4cbd4" stroke-width="1.2"/><line x1="740" y1="1171" x2="1160" y2="1171" stroke="#c4cbd4"/>
+<text x="754" y="1139" font-family="Arial,sans-serif" font-size="16" fill="#2d3748">ApiError</text>
+<text x="754" y="1158" font-family="Arial,sans-serif" font-size="11.5" fill="#596579">«actual JavaScript class»</text>
+<text x="754" y="1194" font-family="Consolas,monospace" font-size="12" fill="#2d3748">+ constructor()</text>
+<text x="754" y="1221" font-family="Arial,sans-serif" font-size="11.5" fill="#596579">src/services/apiClient.js:41</text>
+</g>
+<g data-node="external:Error"><rect x="740" y="1291" width="420" height="117" fill="#f8fafc" stroke="#c4cbd4" stroke-width="1.2" stroke-dasharray="5 4"/><line x1="740" y1="1346" x2="1160" y2="1346" stroke="#c4cbd4"/>
+<text x="754" y="1314" font-family="Arial,sans-serif" font-size="16" fill="#2d3748">Error</text>
+<text x="754" y="1333" font-family="Arial,sans-serif" font-size="11.5" fill="#596579">«external class»</text>
+<text x="754" y="1369" font-family="Consolas,monospace" font-size="12" fill="#2d3748">Base class referenced by source</text>
+<text x="754" y="1396" font-family="Arial,sans-serif" font-size="11.5" fill="#596579">External language / framework class</text>
+</g>
+<g data-node="php/login.php"><rect x="1400" y="1917" width="440" height="117" fill="#f8fafc" stroke="#c4cbd4" stroke-width="1.2" stroke-dasharray="5 4"/><line x1="1400" y1="1972" x2="1840" y2="1972" stroke="#c4cbd4"/>
+<text x="1414" y="1940" font-family="Arial,sans-serif" font-size="16" fill="#2d3748">Login</text>
+<text x="1414" y="1959" font-family="Arial,sans-serif" font-size="11.5" fill="#596579">«PHP module» / page 14</text>
+<text x="1414" y="1995" font-family="Consolas,monospace" font-size="12" fill="#2d3748">Definition / page 14</text>
+<text x="1414" y="2022" font-family="Arial,sans-serif" font-size="11.5" fill="#596579">php/login.php:6</text>
+</g>
+<g data-node="php/register.php"><rect x="1400" y="2092" width="440" height="117" fill="#f8fafc" stroke="#c4cbd4" stroke-width="1.2" stroke-dasharray="5 4"/><line x1="1400" y1="2147" x2="1840" y2="2147" stroke="#c4cbd4"/>
+<text x="1414" y="2115" font-family="Arial,sans-serif" font-size="16" fill="#2d3748">Register</text>
+<text x="1414" y="2134" font-family="Arial,sans-serif" font-size="11.5" fill="#596579">«PHP module» / page 14</text>
+<text x="1414" y="2170" font-family="Consolas,monospace" font-size="12" fill="#2d3748">Definition / page 14</text>
+<text x="1414" y="2197" font-family="Arial,sans-serif" font-size="11.5" fill="#596579">php/register.php:1</text>
+</g>
+<g data-node="php/check_self_service_access.php"><rect x="1400" y="2267" width="440" height="117" fill="#f8fafc" stroke="#c4cbd4" stroke-width="1.2" stroke-dasharray="5 4"/><line x1="1400" y1="2322" x2="1840" y2="2322" stroke="#c4cbd4"/>
+<text x="1414" y="2290" font-family="Arial,sans-serif" font-size="16" fill="#2d3748">CheckSelfServiceAccess</text>
+<text x="1414" y="2309" font-family="Arial,sans-serif" font-size="11.5" fill="#596579">«PHP module» / page 25</text>
+<text x="1414" y="2345" font-family="Consolas,monospace" font-size="12" fill="#2d3748">Definition / page 25</text>
+<text x="1414" y="2372" font-family="Arial,sans-serif" font-size="11.5" fill="#596579">php/check_self_service_access.php:6</text>
+</g>
+<g data-node="php/status_display.php"><rect x="1400" y="2442" width="440" height="117" fill="#f8fafc" stroke="#c4cbd4" stroke-width="1.2" stroke-dasharray="5 4"/><line x1="1400" y1="2497" x2="1840" y2="2497" stroke="#c4cbd4"/>
+<text x="1414" y="2465" font-family="Arial,sans-serif" font-size="16" fill="#2d3748">StatusDisplay</text>
+<text x="1414" y="2484" font-family="Arial,sans-serif" font-size="11.5" fill="#596579">«PHP module» / page 12</text>
+<text x="1414" y="2520" font-family="Consolas,monospace" font-size="12" fill="#2d3748">Definition / page 12</text>
+<text x="1414" y="2547" font-family="Arial,sans-serif" font-size="11.5" fill="#596579">php/status_display.php:9</text>
+</g>
+<g data-node="php/booking_availability.php"><rect x="1400" y="2617" width="440" height="117" fill="#f8fafc" stroke="#c4cbd4" stroke-width="1.2" stroke-dasharray="5 4"/><line x1="1400" y1="2672" x2="1840" y2="2672" stroke="#c4cbd4"/>
+<text x="1414" y="2640" font-family="Arial,sans-serif" font-size="16" fill="#2d3748">BookingAvailability</text>
+<text x="1414" y="2659" font-family="Arial,sans-serif" font-size="11.5" fill="#596579">«PHP module» / page 22</text>
+<text x="1414" y="2695" font-family="Consolas,monospace" font-size="12" fill="#2d3748">Definition / page 22</text>
+<text x="1414" y="2722" font-family="Arial,sans-serif" font-size="11.5" fill="#596579">php/booking_availability.php:14</text>
+</g>
+<g data-node="php/vet_presence.php"><rect x="1400" y="2792" width="440" height="117" fill="#f8fafc" stroke="#c4cbd4" stroke-width="1.2" stroke-dasharray="5 4"/><line x1="1400" y1="2847" x2="1840" y2="2847" stroke="#c4cbd4"/>
+<text x="1414" y="2815" font-family="Arial,sans-serif" font-size="16" fill="#2d3748">VetPresence</text>
+<text x="1414" y="2834" font-family="Arial,sans-serif" font-size="11.5" fill="#596579">«PHP module» / page 17</text>
+<text x="1414" y="2870" font-family="Consolas,monospace" font-size="12" fill="#2d3748">Definition / page 17</text>
+<text x="1414" y="2897" font-family="Arial,sans-serif" font-size="11.5" fill="#596579">php/vet_presence.php:1</text>
+</g>
+<g data-node="php/notifications.php"><rect x="1400" y="2967" width="440" height="117" fill="#f8fafc" stroke="#c4cbd4" stroke-width="1.2" stroke-dasharray="5 4"/><line x1="1400" y1="3022" x2="1840" y2="3022" stroke="#c4cbd4"/>
+<text x="1414" y="2990" font-family="Arial,sans-serif" font-size="16" fill="#2d3748">Notifications</text>
+<text x="1414" y="3009" font-family="Arial,sans-serif" font-size="11.5" fill="#596579">«PHP module» / page 38</text>
+<text x="1414" y="3045" font-family="Consolas,monospace" font-size="12" fill="#2d3748">Definition / page 38</text>
+<text x="1414" y="3072" font-family="Arial,sans-serif" font-size="11.5" fill="#596579">php/notifications.php:8</text>
+</g>
+<g data-node="php/system_problem_report.php"><rect x="1400" y="3142" width="440" height="117" fill="#f8fafc" stroke="#c4cbd4" stroke-width="1.2" stroke-dasharray="5 4"/><line x1="1400" y1="3197" x2="1840" y2="3197" stroke="#c4cbd4"/>
+<text x="1414" y="3165" font-family="Arial,sans-serif" font-size="16" fill="#2d3748">SystemProblemReport</text>
+<text x="1414" y="3184" font-family="Arial,sans-serif" font-size="11.5" fill="#596579">«PHP module» / page 12</text>
+<text x="1414" y="3220" font-family="Consolas,monospace" font-size="12" fill="#2d3748">Definition / page 12</text>
+<text x="1414" y="3247" font-family="Arial,sans-serif" font-size="11.5" fill="#596579">php/system_problem_report.php:12</text>
+</g>
+<g data-node="src/services/branchService.js"><rect x="740" y="1466" width="420" height="117" fill="#f8fafc" stroke="#c4cbd4" stroke-width="1.2" stroke-dasharray="5 4"/><line x1="740" y1="1521" x2="1160" y2="1521" stroke="#c4cbd4"/>
+<text x="754" y="1489" font-family="Arial,sans-serif" font-size="16" fill="#2d3748">branchService</text>
+<text x="754" y="1508" font-family="Arial,sans-serif" font-size="11.5" fill="#596579">«JS service module» / page 17</text>
+<text x="754" y="1544" font-family="Consolas,monospace" font-size="12" fill="#2d3748">Definition / page 17</text>
+<text x="754" y="1571" font-family="Arial,sans-serif" font-size="11.5" fill="#596579">src/services/branchService.js:13</text>
+</g>
+<g data-node="db:users"><rect x="2080" y="170" width="440" height="135" fill="#f8fafc" stroke="#c4cbd4" stroke-width="1.2" stroke-dasharray="5 4"/><line x1="2080" y1="225" x2="2520" y2="225" stroke="#c4cbd4"/>
+<text x="2094" y="193" font-family="Arial,sans-serif" font-size="16" fill="#2d3748">User</text>
+<text x="2094" y="212" font-family="Arial,sans-serif" font-size="11.5" fill="#596579">«entity» users</text>
+<text x="2094" y="248" font-family="Consolas,monospace" font-size="12" fill="#2d3748">+ user_id: int [PK]</text>
+<text x="2094" y="266" font-family="Consolas,monospace" font-size="12" fill="#2d3748">Full SQL attributes / DB page 01</text>
+<text x="2094" y="293" font-family="Arial,sans-serif" font-size="11.5" fill="#596579">iPawcus_ERD_Schema.sql</text>
+</g>
+<g data-node="php/role_access.php"><rect x="1400" y="3317" width="440" height="117" fill="#f8fafc" stroke="#c4cbd4" stroke-width="1.2" stroke-dasharray="5 4"/><line x1="1400" y1="3372" x2="1840" y2="3372" stroke="#c4cbd4"/>
+<text x="1414" y="3340" font-family="Arial,sans-serif" font-size="16" fill="#2d3748">RoleAccess</text>
+<text x="1414" y="3359" font-family="Arial,sans-serif" font-size="11.5" fill="#596579">«PHP module» / page 12</text>
+<text x="1414" y="3395" font-family="Consolas,monospace" font-size="12" fill="#2d3748">Definition / page 12</text>
+<text x="1414" y="3422" font-family="Arial,sans-serif" font-size="11.5" fill="#596579">php/role_access.php:5</text>
+</g>
+<g data-node="php/staff_activity_helpers.php"><rect x="1400" y="3492" width="440" height="117" fill="#f8fafc" stroke="#c4cbd4" stroke-width="1.2" stroke-dasharray="5 4"/><line x1="1400" y1="3547" x2="1840" y2="3547" stroke="#c4cbd4"/>
+<text x="1414" y="3515" font-family="Arial,sans-serif" font-size="16" fill="#2d3748">StaffActivityHelpers</text>
+<text x="1414" y="3534" font-family="Arial,sans-serif" font-size="11.5" fill="#596579">«PHP module» / page 39</text>
+<text x="1414" y="3570" font-family="Consolas,monospace" font-size="12" fill="#2d3748">Definition / page 39</text>
+<text x="1414" y="3597" font-family="Arial,sans-serif" font-size="11.5" fill="#596579">php/staff_activity_helpers.php:6</text>
+</g>
+<g data-node="php/delete_consent_file.php"><rect x="1400" y="3667" width="440" height="117" fill="#f8fafc" stroke="#c4cbd4" stroke-width="1.2" stroke-dasharray="5 4"/><line x1="1400" y1="3722" x2="1840" y2="3722" stroke="#c4cbd4"/>
+<text x="1414" y="3690" font-family="Arial,sans-serif" font-size="16" fill="#2d3748">DeleteConsentFile</text>
+<text x="1414" y="3709" font-family="Arial,sans-serif" font-size="11.5" fill="#596579">«PHP module» / page 31</text>
+<text x="1414" y="3745" font-family="Consolas,monospace" font-size="12" fill="#2d3748">Definition / page 31</text>
+<text x="1414" y="3772" font-family="Arial,sans-serif" font-size="11.5" fill="#596579">php/delete_consent_file.php:1</text>
+</g>
+<g data-node="php/get_pet.php"><rect x="1400" y="3842" width="440" height="117" fill="#f8fafc" stroke="#c4cbd4" stroke-width="1.2" stroke-dasharray="5 4"/><line x1="1400" y1="3897" x2="1840" y2="3897" stroke="#c4cbd4"/>
+<text x="1414" y="3865" font-family="Arial,sans-serif" font-size="16" fill="#2d3748">GetPet</text>
+<text x="1414" y="3884" font-family="Arial,sans-serif" font-size="11.5" fill="#596579">«PHP module» / page 19</text>
+<text x="1414" y="3920" font-family="Consolas,monospace" font-size="12" fill="#2d3748">Definition / page 19</text>
+<text x="1414" y="3947" font-family="Arial,sans-serif" font-size="11.5" fill="#596579">php/get_pet.php:14</text>
+</g>
+<g data-node="db:queues"><rect x="2080" y="363" width="440" height="135" fill="#f8fafc" stroke="#c4cbd4" stroke-width="1.2" stroke-dasharray="5 4"/><line x1="2080" y1="418" x2="2520" y2="418" stroke="#c4cbd4"/>
+<text x="2094" y="386" font-family="Arial,sans-serif" font-size="16" fill="#2d3748">Queue</text>
+<text x="2094" y="405" font-family="Arial,sans-serif" font-size="11.5" fill="#596579">«entity» queues</text>
+<text x="2094" y="441" font-family="Consolas,monospace" font-size="12" fill="#2d3748">+ queue_id: int [PK]</text>
+<text x="2094" y="459" font-family="Consolas,monospace" font-size="12" fill="#2d3748">Full SQL attributes / DB page 04</text>
+<text x="2094" y="486" font-family="Arial,sans-serif" font-size="11.5" fill="#596579">iPawcus_ERD_Schema.sql</text>
+</g>
+<g data-node="db:vet_diagnoses"><rect x="2080" y="556" width="440" height="135" fill="#f8fafc" stroke="#c4cbd4" stroke-width="1.2" stroke-dasharray="5 4"/><line x1="2080" y1="611" x2="2520" y2="611" stroke="#c4cbd4"/>
+<text x="2094" y="579" font-family="Arial,sans-serif" font-size="16" fill="#2d3748">VetDiagnosis</text>
+<text x="2094" y="598" font-family="Arial,sans-serif" font-size="11.5" fill="#596579">«entity» vet_diagnoses</text>
+<text x="2094" y="634" font-family="Consolas,monospace" font-size="12" fill="#2d3748">+ diagnosis_id: int [PK]</text>
+<text x="2094" y="652" font-family="Consolas,monospace" font-size="12" fill="#2d3748">Full SQL attributes / DB page 04</text>
+<text x="2094" y="679" font-family="Arial,sans-serif" font-size="11.5" fill="#596579">iPawcus_ERD_Schema.sql</text>
+</g>
+<g data-node="db:visits"><rect x="2080" y="749" width="440" height="135" fill="#f8fafc" stroke="#c4cbd4" stroke-width="1.2" stroke-dasharray="5 4"/><line x1="2080" y1="804" x2="2520" y2="804" stroke="#c4cbd4"/>
+<text x="2094" y="772" font-family="Arial,sans-serif" font-size="16" fill="#2d3748">Visit</text>
+<text x="2094" y="791" font-family="Arial,sans-serif" font-size="11.5" fill="#596579">«entity» visits</text>
+<text x="2094" y="827" font-family="Consolas,monospace" font-size="12" fill="#2d3748">+ visit_id: int [PK]</text>
+<text x="2094" y="845" font-family="Consolas,monospace" font-size="12" fill="#2d3748">Full SQL attributes / DB page 08</text>
+<text x="2094" y="872" font-family="Arial,sans-serif" font-size="11.5" fill="#596579">iPawcus_ERD_Schema.sql</text>
+</g>
+<g data-node="db:visit_charges"><rect x="2080" y="942" width="440" height="135" fill="#f8fafc" stroke="#c4cbd4" stroke-width="1.2" stroke-dasharray="5 4"/><line x1="2080" y1="997" x2="2520" y2="997" stroke="#c4cbd4"/>
+<text x="2094" y="965" font-family="Arial,sans-serif" font-size="16" fill="#2d3748">VisitCharge</text>
+<text x="2094" y="984" font-family="Arial,sans-serif" font-size="11.5" fill="#596579">«entity» visit_charges</text>
+<text x="2094" y="1020" font-family="Consolas,monospace" font-size="12" fill="#2d3748">+ charge_id: int [PK]</text>
+<text x="2094" y="1038" font-family="Consolas,monospace" font-size="12" fill="#2d3748">Full SQL attributes / DB page 08</text>
+<text x="2094" y="1065" font-family="Arial,sans-serif" font-size="11.5" fill="#596579">iPawcus_ERD_Schema.sql</text>
+</g>
+<g data-node="db:pets_information"><rect x="2080" y="1135" width="440" height="135" fill="#f8fafc" stroke="#c4cbd4" stroke-width="1.2" stroke-dasharray="5 4"/><line x1="2080" y1="1190" x2="2520" y2="1190" stroke="#c4cbd4"/>
+<text x="2094" y="1158" font-family="Arial,sans-serif" font-size="16" fill="#2d3748">Pet</text>
+<text x="2094" y="1177" font-family="Arial,sans-serif" font-size="11.5" fill="#596579">«entity» pets_information</text>
+<text x="2094" y="1213" font-family="Consolas,monospace" font-size="12" fill="#2d3748">+ pet_id: int [PK]</text>
+<text x="2094" y="1231" font-family="Consolas,monospace" font-size="12" fill="#2d3748">Full SQL attributes / DB page 03</text>
+<text x="2094" y="1258" font-family="Arial,sans-serif" font-size="11.5" fill="#596579">iPawcus_ERD_Schema.sql</text>
+</g>
+<g data-node="db:bookings"><rect x="2080" y="1328" width="440" height="135" fill="#f8fafc" stroke="#c4cbd4" stroke-width="1.2" stroke-dasharray="5 4"/><line x1="2080" y1="1383" x2="2520" y2="1383" stroke="#c4cbd4"/>
+<text x="2094" y="1351" font-family="Arial,sans-serif" font-size="16" fill="#2d3748">Booking</text>
+<text x="2094" y="1370" font-family="Arial,sans-serif" font-size="11.5" fill="#596579">«entity» bookings</text>
+<text x="2094" y="1406" font-family="Consolas,monospace" font-size="12" fill="#2d3748">+ booking_id: int [PK]</text>
+<text x="2094" y="1424" font-family="Consolas,monospace" font-size="12" fill="#2d3748">Full SQL attributes / DB page 04</text>
+<text x="2094" y="1451" font-family="Arial,sans-serif" font-size="11.5" fill="#596579">iPawcus_ERD_Schema.sql</text>
+</g>
+<g data-node="db:payment_methods"><rect x="2080" y="1521" width="440" height="135" fill="#f8fafc" stroke="#c4cbd4" stroke-width="1.2" stroke-dasharray="5 4"/><line x1="2080" y1="1576" x2="2520" y2="1576" stroke="#c4cbd4"/>
+<text x="2094" y="1544" font-family="Arial,sans-serif" font-size="16" fill="#2d3748">PaymentMethod</text>
+<text x="2094" y="1563" font-family="Arial,sans-serif" font-size="11.5" fill="#596579">«entity» payment_methods</text>
+<text x="2094" y="1599" font-family="Consolas,monospace" font-size="12" fill="#2d3748">+ method_key: varchar [PK]</text>
+<text x="2094" y="1617" font-family="Consolas,monospace" font-size="12" fill="#2d3748">Full SQL attributes / DB page 08</text>
+<text x="2094" y="1644" font-family="Arial,sans-serif" font-size="11.5" fill="#596579">iPawcus_ERD_Schema.sql</text>
+</g>
+<text x="512" y="570" font-family="Consolas,monospace" font-size="11.5" fill="#596579">uses</text>
+<text x="512" y="1239" font-family="Consolas,monospace" font-size="11.5" fill="#596579">uses</text>
+<text x="1172" y="433" font-family="Consolas,monospace" font-size="11.5" fill="#596579">declares</text>
+<text x="1172" y="1172" font-family="Consolas,monospace" font-size="11.5" fill="#596579">extends</text>
+<text x="1172" y="455" font-family="Consolas,monospace" font-size="11.5" fill="#596579">HTTP</text>
+<text x="1172" y="477" font-family="Consolas,monospace" font-size="11.5" fill="#596579">HTTP</text>
+<text x="1172" y="499" font-family="Consolas,monospace" font-size="11.5" fill="#596579">HTTP</text>
+<text x="1172" y="521" font-family="Consolas,monospace" font-size="11.5" fill="#596579">HTTP</text>
+<text x="1172" y="543" font-family="Consolas,monospace" font-size="11.5" fill="#596579">HTTP</text>
+<text x="1172" y="565" font-family="Consolas,monospace" font-size="11.5" fill="#596579">HTTP</text>
+<text x="1172" y="587" font-family="Consolas,monospace" font-size="11.5" fill="#596579">HTTP</text>
+<text x="1172" y="609" font-family="Consolas,monospace" font-size="11.5" fill="#596579">HTTP</text>
+<text x="1172" y="781" font-family="Consolas,monospace" font-size="11.5" fill="#596579">HTTP</text>
+<text x="1172" y="803" font-family="Consolas,monospace" font-size="11.5" fill="#596579">HTTP</text>
+<text x="1172" y="825" font-family="Consolas,monospace" font-size="11.5" fill="#596579">uses</text>
+<text x="1172" y="975" font-family="Consolas,monospace" font-size="11.5" fill="#596579">HTTP</text>
+<text x="1172" y="997" font-family="Consolas,monospace" font-size="11.5" fill="#596579">uses</text>
+<text x="1172" y="1019" font-family="Consolas,monospace" font-size="11.5" fill="#596579">uses</text>
+<text x="1852" y="842" font-family="Consolas,monospace" font-size="11.5" fill="#596579">includes</text>
+<text x="1852" y="864" font-family="Consolas,monospace" font-size="11.5" fill="#596579">SQL</text>
+<text x="1852" y="1017" font-family="Consolas,monospace" font-size="11.5" fill="#596579">includes</text>
+<text x="1852" y="1039" font-family="Consolas,monospace" font-size="11.5" fill="#596579">includes</text>
+<text x="1852" y="1061" font-family="Consolas,monospace" font-size="11.5" fill="#596579">includes</text>
+<text x="1852" y="1083" font-family="Consolas,monospace" font-size="11.5" fill="#596579">includes</text>
+<text x="1852" y="1105" font-family="Consolas,monospace" font-size="11.5" fill="#596579">includes</text>
+<text x="1852" y="1233" font-family="Consolas,monospace" font-size="11.5" fill="#596579">includes</text>
+<text x="1852" y="1255" font-family="Consolas,monospace" font-size="11.5" fill="#596579">SQL</text>
+<text x="1852" y="1277" font-family="Consolas,monospace" font-size="11.5" fill="#596579">SQL</text>
+<text x="1852" y="1299" font-family="Consolas,monospace" font-size="11.5" fill="#596579">SQL</text>
+<text x="1852" y="1321" font-family="Consolas,monospace" font-size="11.5" fill="#596579">SQL</text>
+<text x="1852" y="1343" font-family="Consolas,monospace" font-size="11.5" fill="#596579">SQL</text>
+<text x="1852" y="1365" font-family="Consolas,monospace" font-size="11.5" fill="#596579">SQL</text>
+<text x="1852" y="1493" font-family="Consolas,monospace" font-size="11.5" fill="#596579">SQL</text>
+</svg>

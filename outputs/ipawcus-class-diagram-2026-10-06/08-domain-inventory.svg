@@ -1,0 +1,336 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1920" height="1407" viewBox="0 0 1920 1407" role="img" aria-labelledby="title desc">
+<title id="title">iPawcus — Inventory and materials</title>
+<desc id="desc">Domain UML class diagram: names, typed attributes, operations, and relationships. Every label is above its own relationship line near the class. Lines avoid all class boxes. Supporting pages include the complete domain model.</desc>
+<defs><marker id="dependency" markerWidth="9" markerHeight="9" refX="8" refY="4.5" orient="auto" markerUnits="userSpaceOnUse"><path d="M0 0 L8 4.5 L0 9" fill="none" stroke="#858585" stroke-width="1.1"/></marker></defs>
+<rect width="100%" height="100%" fill="#ffffff"/>
+<text x="90" y="40" font-family="Arial,sans-serif" font-size="25" fill="#202020" >iPawcus — Inventory and materials</text>
+<text x="90" y="68" font-family="Arial,sans-serif" font-size="13" fill="#202020" >Classes show attributes and operations. Solid: association · dashed: logical association · dashed arrow: dependency.</text>
+<text x="90" y="91" font-family="Arial,sans-serif" font-size="12" fill="#202020" >1 required · 0..1 optional · 0..* zero-to-many · ? nullable · source and operation mappings in DOMAIN-REFERENCE.md.</text>
+<path d="M890 983 L946 983 L946 219 L1030 219" fill="none" stroke="#858585" stroke-width="1.1"><title>inventory_action_audit.batch_id → inventory_batches.batch_id / inventory_audit_batch_fk</title></path>
+<path d="M560 983 L504 983 L504 273 L420 273" fill="none" stroke="#858585" stroke-width="1.1"><title>inventory_action_audit.item_id → inventory_items.item_id / inventory_audit_item_fk</title></path>
+<path d="M560 1001 L476 1001 L476 795 L420 795" fill="none" stroke="#858585" stroke-width="1.1"><title>inventory_action_audit.location_id → inventory_locations.location_id / inventory_audit_location_fk</title></path>
+<path d="M890 1001 L986 1001 L986 729 L1444 729 L1444 569 L1500 569" fill="none" stroke="#858585" stroke-width="1.1"><title>inventory_action_audit.performed_by_user_id → users.user_id / inventory_audit_user_fk</title></path>
+<path d="M1030 165 L974 165 L974 113 L476 113 L476 165 L420 165" fill="none" stroke="#858585" stroke-width="1.1"><title>inventory_batches.item_id → inventory_items.item_id / inventory_batches_item_fk</title></path>
+<path d="M1030 183 L974 183 L974 637 L476 637 L476 687 L420 687" fill="none" stroke="#858585" stroke-width="1.1"><title>inventory_batches.location_id → inventory_locations.location_id / inventory_batches_location_fk</title></path>
+<path d="M890 165 L946 165 L946 108 L1444 108 L1444 165 L1500 165" fill="none" stroke="#858585" stroke-width="1.1"><title>inventory_branch_items.branch_id → branches.branch_id / inventory_branch_items_branch_fk</title></path>
+<path d="M560 165 L504 165 L504 183 L420 183" fill="none" stroke="#858585" stroke-width="1.1"><title>inventory_branch_items.item_id → inventory_items.item_id / inventory_branch_items_item_fk</title></path>
+<path d="M560 183 L504 183 L504 273 L516 273 L516 705 L420 705" fill="none" stroke="#858585" stroke-width="1.1"><title>inventory_branch_items.primary_location_id → inventory_locations.location_id / inventory_branch_items_location_fk</title></path>
+<path d="M890 183 L986 183 L986 391 L1444 391 L1444 479 L1500 479" fill="none" stroke="#858585" stroke-width="1.1"><title>inventory_branch_items.removed_by_user_id → users.user_id / inventory_branch_items_removed_by_fk</title></path>
+<path d="M420 219 L476 219 L476 389 L1416 389 L1416 461 L1500 461" fill="none" stroke="#858585" stroke-width="1.1"><title>inventory_items.created_by_user_id → users.user_id / inventory_items_created_by_fk</title></path>
+<path d="M420 237 L538 237 L538 651 L420 651" fill="none" stroke="#858585" stroke-width="1.1"><title>inventory_items.location_id → inventory_locations.location_id / inventory_items_location_fk</title></path>
+<path d="M420 669 L476 669 L476 667 L464 667 L464 371 L1444 371 L1444 183 L1500 183" fill="none" stroke="#858585" stroke-width="1.1"><title>inventory_locations.branch_id → branches.branch_id / inventory_locations_branch_fk</title></path>
+<path d="M1360 443 L1416 443 L1416 165 L1360 165" fill="none" stroke="#858585" stroke-width="1.1"><title>inventory_stock_movements.batch_id → inventory_batches.batch_id / inventory_movements_batch_fk</title></path>
+<path d="M1030 443 L913 443 L913 391 L464 391 L464 203 L476 203 L476 201 L420 201" fill="none" stroke="#858585" stroke-width="1.1"><title>inventory_stock_movements.item_id → inventory_items.item_id / inventory_movements_item_fk</title></path>
+<path d="M1030 461 L912 461 L912 635 L538 635 L538 673 L476 673 L476 723 L420 723" fill="none" stroke="#858585" stroke-width="1.1"><title>inventory_stock_movements.location_id → inventory_locations.location_id / inventory_movements_location_fk</title></path>
+<path d="M1360 461 L1416 461 L1416 497 L1500 497" fill="none" stroke="#858585" stroke-width="1.1"><title>inventory_stock_movements.performed_by_user_id → users.user_id / inventory_movements_user_fk</title></path>
+<path d="M420 913 L974 913 L974 739 L1404 739 L1404 201 L1500 201" fill="none" stroke="#858585" stroke-width="1.1"><title>inventory_stock_receipts.branch_id → branches.branch_id / inventory_receipts_branch_fk</title></path>
+<path d="M420 931 L934 931 L934 741 L1416 741 L1416 551 L1500 551" fill="none" stroke="#858585" stroke-width="1.1"><title>inventory_stock_receipts.received_by_user_id → users.user_id / inventory_receipts_received_by_fk</title></path>
+<path d="M890 689 L946 689 L946 687 L934 687 L934 201 L1030 201" fill="none" stroke="#858585" stroke-width="1.1"><title>inventory_stock_receipt_items.batch_id → inventory_batches.batch_id / inventory_receipt_items_batch_fk</title></path>
+<path d="M560 689 L464 689 L464 653 L443 653 L443 289 L476 289 L476 255 L420 255" fill="none" stroke="#858585" stroke-width="1.1"><title>inventory_stock_receipt_items.item_id → inventory_items.item_id / inventory_receipt_items_item_fk</title></path>
+<path d="M560 707 L476 707 L476 741 L420 741" fill="none" stroke="#858585" stroke-width="1.1"><title>inventory_stock_receipt_items.location_id → inventory_locations.location_id / inventory_receipt_items_location_fk</title></path>
+<path d="M560 725 L504 725 L504 729 L516 729 L516 949 L420 949" fill="none" stroke="#858585" stroke-width="1.1"><title>inventory_stock_receipt_items.receipt_id → inventory_stock_receipts.receipt_id / inventory_receipt_items_receipt_fk</title></path>
+<path d="M890 707 L986 707 L986 443 L890 443" fill="none" stroke="#858585" stroke-width="1.1"><title>inventory_stock_receipt_items.supplier_id → inventory_suppliers.supplier_id / inventory_receipt_items_supplier_fk</title></path>
+<path d="M1360 801 L1456 801 L1456 517 L1444 517 L1444 515 L1500 515" fill="none" stroke="#858585" stroke-width="1.1"><title>inventory_transfers.created_by_user_id → users.user_id / inventory_transfer_creator_fk</title></path>
+<path d="M1030 801 L912 801 L912 911 L538 911 L538 759 L420 759" fill="none" stroke="#858585" stroke-width="1.1"><title>inventory_transfers.from_location_id → inventory_locations.location_id / inventory_transfer_from_fk</title></path>
+<path d="M1360 819 L1477 819 L1477 535 L1444 535 L1444 533 L1500 533" fill="none" stroke="#858585" stroke-width="1.1"><title>inventory_transfers.received_by_user_id → users.user_id / inventory_transfer_receiver_fk</title></path>
+<path d="M1030 819 L913 819 L913 915 L464 915 L464 779 L476 779 L476 777 L420 777" fill="none" stroke="#858585" stroke-width="1.1"><title>inventory_transfers.to_location_id → inventory_locations.location_id / inventory_transfer_to_fk</title></path>
+<path d="M420 1191 L476 1191 L476 1001 L464 1001 L464 929 L913 929 L913 705 L934 705 L934 673 L913 673 L913 237 L1030 237" fill="none" stroke="#858585" stroke-width="1.1"><title>inventory_transfer_items.source_batch_id → inventory_batches.batch_id / inventory_transfer_items_batch_fk</title></path>
+<path d="M420 1209 L516 1209 L516 949 L538 949 L538 897 L443 897 L443 793 L464 793 L464 689 L443 689 L443 667 L476 667 L476 309 L420 309" fill="none" stroke="#858585" stroke-width="1.1"><title>inventory_transfer_items.item_id → inventory_items.item_id / inventory_transfer_items_item_fk</title></path>
+<path d="M420 1227 L476 1227 L476 1233 L974 1233 L974 837 L1030 837" fill="none" stroke="#858585" stroke-width="1.1"><title>inventory_transfer_items.inventory_transfer_id → inventory_transfers.inventory_transfer_id / inventory_transfer_items_transfer_fk</title></path>
+<path d="M1360 1095 L1416 1095 L1416 743 L1382 743 L1382 459 L1456 459 L1456 371 L1444 371 L1444 315 L1500 315" fill="none" stroke="#858585" stroke-width="1.1"><title>service_materials.service_id → service_catalog.service_id / service_materials_ibfk_1</title></path>
+<path d="M1030 1095 L974 1095 L974 1079 L1007 1079 L1007 817 L986 817 L986 785 L1007 785 L1007 617 L442 617 L442 307 L476 307 L476 291 L420 291" fill="none" stroke="#858585" stroke-width="1.1"><title>service_materials.item_id → inventory_items.item_id / service_materials_ibfk_2</title></path>
+<g data-class="inventory_items"><title>InventoryItem</title>
+<rect x="90" y="135" width="330" height="422" fill="#ffffff" stroke="#767676" stroke-width="1.2"/>
+<line x1="90" y1="165" x2="420" y2="165" stroke="#767676" stroke-width="1"/>
+<line x1="90" y1="497" x2="420" y2="497" stroke="#767676" stroke-width="1"/>
+<text x="255" y="155" font-family="Arial,sans-serif" font-size="14" fill="#202020" text-anchor="middle" font-weight="600">InventoryItem</text>
+<text x="102" y="182" font-family="Arial,sans-serif" font-size="12" fill="#202020" >+ itemId: int</text>
+<text x="102" y="198" font-family="Arial,sans-serif" font-size="12" fill="#202020" >+ itemName: string</text>
+<text x="102" y="214" font-family="Arial,sans-serif" font-size="12" fill="#202020" >+ genericName: string?</text>
+<text x="102" y="230" font-family="Arial,sans-serif" font-size="12" fill="#202020" >+ sku: string</text>
+<text x="102" y="246" font-family="Arial,sans-serif" font-size="12" fill="#202020" >+ barcode: string?</text>
+<text x="102" y="262" font-family="Arial,sans-serif" font-size="12" fill="#202020" >+ description: string?</text>
+<text x="102" y="278" font-family="Arial,sans-serif" font-size="12" fill="#202020" >+ category: string</text>
+<text x="102" y="294" font-family="Arial,sans-serif" font-size="12" fill="#202020" >+ brand: string?</text>
+<text x="102" y="310" font-family="Arial,sans-serif" font-size="12" fill="#202020" >+ unit: string</text>
+<text x="102" y="326" font-family="Arial,sans-serif" font-size="12" fill="#202020" >+ reorderLevel: int?</text>
+<text x="102" y="342" font-family="Arial,sans-serif" font-size="12" fill="#202020" >+ unitCost: decimal</text>
+<text x="102" y="358" font-family="Arial,sans-serif" font-size="12" fill="#202020" >+ sellingPrice: decimal?</text>
+<text x="102" y="374" font-family="Arial,sans-serif" font-size="12" fill="#202020" >+ expiryWarningDays: int?</text>
+<text x="102" y="390" font-family="Arial,sans-serif" font-size="12" fill="#202020" >+ profileImagePath: string?</text>
+<text x="102" y="406" font-family="Arial,sans-serif" font-size="12" fill="#202020" >+ status: string?</text>
+<text x="102" y="422" font-family="Arial,sans-serif" font-size="12" fill="#202020" >+ createdByUserId: int</text>
+<text x="102" y="438" font-family="Arial,sans-serif" font-size="12" fill="#202020" >+ createdByName: string</text>
+<text x="102" y="454" font-family="Arial,sans-serif" font-size="12" fill="#202020" >+ createdAt: datetime</text>
+<text x="102" y="470" font-family="Arial,sans-serif" font-size="12" fill="#202020" >+ updatedAt: datetime</text>
+<text x="102" y="486" font-family="Arial,sans-serif" font-size="12" fill="#202020" >+ locationId: int</text>
+<text x="102" y="514" font-family="Arial,sans-serif" font-size="12" fill="#202020" >+ createItem()</text>
+<text x="102" y="530" font-family="Arial,sans-serif" font-size="12" fill="#202020" >+ updateItem()</text>
+<text x="102" y="546" font-family="Arial,sans-serif" font-size="12" fill="#202020" >+ stockOut()</text>
+</g>
+<g data-class="inventory_branch_items"><title>InventoryBranchItem</title>
+<rect x="560" y="135" width="330" height="214" fill="#ffffff" stroke="#767676" stroke-width="1.2"/>
+<line x1="560" y1="165" x2="890" y2="165" stroke="#767676" stroke-width="1"/>
+<line x1="560" y1="321" x2="890" y2="321" stroke="#767676" stroke-width="1"/>
+<text x="725" y="155" font-family="Arial,sans-serif" font-size="14" fill="#202020" text-anchor="middle" font-weight="600">InventoryBranchItem</text>
+<text x="572" y="182" font-family="Arial,sans-serif" font-size="12" fill="#202020" >+ branchId: int</text>
+<text x="572" y="198" font-family="Arial,sans-serif" font-size="12" fill="#202020" >+ itemId: int</text>
+<text x="572" y="214" font-family="Arial,sans-serif" font-size="12" fill="#202020" >+ primaryLocationId: int</text>
+<text x="572" y="230" font-family="Arial,sans-serif" font-size="12" fill="#202020" >+ status: string</text>
+<text x="572" y="246" font-family="Arial,sans-serif" font-size="12" fill="#202020" >+ removedAt: datetime?</text>
+<text x="572" y="262" font-family="Arial,sans-serif" font-size="12" fill="#202020" >+ removedByUserId: int?</text>
+<text x="572" y="278" font-family="Arial,sans-serif" font-size="12" fill="#202020" >+ removalReason: string?</text>
+<text x="572" y="294" font-family="Arial,sans-serif" font-size="12" fill="#202020" >+ createdAt: datetime</text>
+<text x="572" y="310" font-family="Arial,sans-serif" font-size="12" fill="#202020" >+ updatedAt: datetime</text>
+<text x="572" y="338" font-family="Arial,sans-serif" font-size="12" fill="#202020" >+ removeFromClinic()</text>
+</g>
+<g data-class="inventory_batches"><title>InventoryBatch</title>
+<rect x="1030" y="135" width="330" height="214" fill="#ffffff" stroke="#767676" stroke-width="1.2"/>
+<line x1="1030" y1="165" x2="1360" y2="165" stroke="#767676" stroke-width="1"/>
+<line x1="1030" y1="321" x2="1360" y2="321" stroke="#767676" stroke-width="1"/>
+<text x="1195" y="155" font-family="Arial,sans-serif" font-size="14" fill="#202020" text-anchor="middle" font-weight="600">InventoryBatch</text>
+<text x="1042" y="182" font-family="Arial,sans-serif" font-size="12" fill="#202020" >+ batchId: int</text>
+<text x="1042" y="198" font-family="Arial,sans-serif" font-size="12" fill="#202020" >+ itemId: int</text>
+<text x="1042" y="214" font-family="Arial,sans-serif" font-size="12" fill="#202020" >+ batchNumber: string</text>
+<text x="1042" y="230" font-family="Arial,sans-serif" font-size="12" fill="#202020" >+ quantity: int</text>
+<text x="1042" y="246" font-family="Arial,sans-serif" font-size="12" fill="#202020" >+ manufacturingDate: date?</text>
+<text x="1042" y="262" font-family="Arial,sans-serif" font-size="12" fill="#202020" >+ expiryDate: date?</text>
+<text x="1042" y="278" font-family="Arial,sans-serif" font-size="12" fill="#202020" >+ unitCost: decimal</text>
+<text x="1042" y="294" font-family="Arial,sans-serif" font-size="12" fill="#202020" >+ createdAt: datetime</text>
+<text x="1042" y="310" font-family="Arial,sans-serif" font-size="12" fill="#202020" >+ locationId: int</text>
+<text x="1042" y="338" font-family="Arial,sans-serif" font-size="12" fill="#202020" >+ viewRecord()</text>
+</g>
+<g data-class="inventory_locations"><title>InventoryLocation</title>
+<rect x="90" y="621" width="330" height="198" fill="#ffffff" stroke="#767676" stroke-width="1.2"/>
+<line x1="90" y1="651" x2="420" y2="651" stroke="#767676" stroke-width="1"/>
+<line x1="90" y1="791" x2="420" y2="791" stroke="#767676" stroke-width="1"/>
+<text x="255" y="641" font-family="Arial,sans-serif" font-size="14" fill="#202020" text-anchor="middle" font-weight="600">InventoryLocation</text>
+<text x="102" y="668" font-family="Arial,sans-serif" font-size="12" fill="#202020" >+ locationId: int</text>
+<text x="102" y="684" font-family="Arial,sans-serif" font-size="12" fill="#202020" >+ branchId: int</text>
+<text x="102" y="700" font-family="Arial,sans-serif" font-size="12" fill="#202020" >+ locationName: string</text>
+<text x="102" y="716" font-family="Arial,sans-serif" font-size="12" fill="#202020" >+ locationType: string?</text>
+<text x="102" y="732" font-family="Arial,sans-serif" font-size="12" fill="#202020" >+ address: string?</text>
+<text x="102" y="748" font-family="Arial,sans-serif" font-size="12" fill="#202020" >+ status: string?</text>
+<text x="102" y="764" font-family="Arial,sans-serif" font-size="12" fill="#202020" >+ createdAt: datetime</text>
+<text x="102" y="780" font-family="Arial,sans-serif" font-size="12" fill="#202020" >+ storageArea: string</text>
+<text x="102" y="808" font-family="Arial,sans-serif" font-size="12" fill="#202020" >+ viewRecord()</text>
+</g>
+<g data-class="inventory_suppliers"><title>InventorySupplier</title>
+<rect x="560" y="413" width="330" height="182" fill="#ffffff" stroke="#767676" stroke-width="1.2"/>
+<line x1="560" y1="443" x2="890" y2="443" stroke="#767676" stroke-width="1"/>
+<line x1="560" y1="567" x2="890" y2="567" stroke="#767676" stroke-width="1"/>
+<text x="725" y="433" font-family="Arial,sans-serif" font-size="14" fill="#202020" text-anchor="middle" font-weight="600">InventorySupplier</text>
+<text x="572" y="460" font-family="Arial,sans-serif" font-size="12" fill="#202020" >+ supplierId: int</text>
+<text x="572" y="476" font-family="Arial,sans-serif" font-size="12" fill="#202020" >+ supplierName: string</text>
+<text x="572" y="492" font-family="Arial,sans-serif" font-size="12" fill="#202020" >+ contactNumber: string?</text>
+<text x="572" y="508" font-family="Arial,sans-serif" font-size="12" fill="#202020" >+ email: string?</text>
+<text x="572" y="524" font-family="Arial,sans-serif" font-size="12" fill="#202020" >+ address: string?</text>
+<text x="572" y="540" font-family="Arial,sans-serif" font-size="12" fill="#202020" >+ status: string?</text>
+<text x="572" y="556" font-family="Arial,sans-serif" font-size="12" fill="#202020" >+ createdAt: datetime</text>
+<text x="572" y="584" font-family="Arial,sans-serif" font-size="12" fill="#202020" >+ viewRecord()</text>
+</g>
+<g data-class="inventory_stock_movements"><title>InventoryStockMovement</title>
+<rect x="1030" y="413" width="330" height="294" fill="#ffffff" stroke="#767676" stroke-width="1.2"/>
+<line x1="1030" y1="443" x2="1360" y2="443" stroke="#767676" stroke-width="1"/>
+<line x1="1030" y1="679" x2="1360" y2="679" stroke="#767676" stroke-width="1"/>
+<text x="1195" y="433" font-family="Arial,sans-serif" font-size="14" fill="#202020" text-anchor="middle" font-weight="600">InventoryStockMovement</text>
+<text x="1042" y="460" font-family="Arial,sans-serif" font-size="12" fill="#202020" >+ movementId: int</text>
+<text x="1042" y="476" font-family="Arial,sans-serif" font-size="12" fill="#202020" >+ itemId: int</text>
+<text x="1042" y="492" font-family="Arial,sans-serif" font-size="12" fill="#202020" >+ batchId: int?</text>
+<text x="1042" y="508" font-family="Arial,sans-serif" font-size="12" fill="#202020" >+ locationId: int?</text>
+<text x="1042" y="524" font-family="Arial,sans-serif" font-size="12" fill="#202020" >+ movementType: string</text>
+<text x="1042" y="540" font-family="Arial,sans-serif" font-size="12" fill="#202020" >+ quantityChange: int</text>
+<text x="1042" y="556" font-family="Arial,sans-serif" font-size="12" fill="#202020" >+ quantityBefore: int</text>
+<text x="1042" y="572" font-family="Arial,sans-serif" font-size="12" fill="#202020" >+ quantityAfter: int</text>
+<text x="1042" y="588" font-family="Arial,sans-serif" font-size="12" fill="#202020" >+ referenceType: string?</text>
+<text x="1042" y="604" font-family="Arial,sans-serif" font-size="12" fill="#202020" >+ referenceId: int?</text>
+<text x="1042" y="620" font-family="Arial,sans-serif" font-size="12" fill="#202020" >+ remarks: string?</text>
+<text x="1042" y="636" font-family="Arial,sans-serif" font-size="12" fill="#202020" >+ performedByUserId: int</text>
+<text x="1042" y="652" font-family="Arial,sans-serif" font-size="12" fill="#202020" >+ performedByName: string</text>
+<text x="1042" y="668" font-family="Arial,sans-serif" font-size="12" fill="#202020" >+ createdAt: datetime</text>
+<text x="1042" y="696" font-family="Arial,sans-serif" font-size="12" fill="#202020" >+ viewRecord()</text>
+</g>
+<g data-class="inventory_stock_receipts"><title>InventoryStockReceipt</title>
+<rect x="90" y="883" width="330" height="214" fill="#ffffff" stroke="#767676" stroke-width="1.2"/>
+<line x1="90" y1="913" x2="420" y2="913" stroke="#767676" stroke-width="1"/>
+<line x1="90" y1="1069" x2="420" y2="1069" stroke="#767676" stroke-width="1"/>
+<text x="255" y="903" font-family="Arial,sans-serif" font-size="14" fill="#202020" text-anchor="middle" font-weight="600">InventoryStockReceipt</text>
+<text x="102" y="930" font-family="Arial,sans-serif" font-size="12" fill="#202020" >+ receiptId: int</text>
+<text x="102" y="946" font-family="Arial,sans-serif" font-size="12" fill="#202020" >+ branchId: int</text>
+<text x="102" y="962" font-family="Arial,sans-serif" font-size="12" fill="#202020" >+ receivingDate: date</text>
+<text x="102" y="978" font-family="Arial,sans-serif" font-size="12" fill="#202020" >+ deliveryNoteNumber: string?</text>
+<text x="102" y="994" font-family="Arial,sans-serif" font-size="12" fill="#202020" >+ proofImagePath: string?</text>
+<text x="102" y="1010" font-family="Arial,sans-serif" font-size="12" fill="#202020" >+ notes: string?</text>
+<text x="102" y="1026" font-family="Arial,sans-serif" font-size="12" fill="#202020" >+ receivedByUserId: int</text>
+<text x="102" y="1042" font-family="Arial,sans-serif" font-size="12" fill="#202020" >+ receivedByName: string</text>
+<text x="102" y="1058" font-family="Arial,sans-serif" font-size="12" fill="#202020" >+ createdAt: datetime</text>
+<text x="102" y="1086" font-family="Arial,sans-serif" font-size="12" fill="#202020" >+ receiveStock()</text>
+</g>
+<g data-class="inventory_stock_receipt_items"><title>InventoryStockReceiptItem</title>
+<rect x="560" y="659" width="330" height="230" fill="#ffffff" stroke="#767676" stroke-width="1.2"/>
+<line x1="560" y1="689" x2="890" y2="689" stroke="#767676" stroke-width="1"/>
+<line x1="560" y1="861" x2="890" y2="861" stroke="#767676" stroke-width="1"/>
+<text x="725" y="679" font-family="Arial,sans-serif" font-size="14" fill="#202020" text-anchor="middle" font-weight="600">InventoryStockReceiptItem</text>
+<text x="572" y="706" font-family="Arial,sans-serif" font-size="12" fill="#202020" >+ receiptItemId: int</text>
+<text x="572" y="722" font-family="Arial,sans-serif" font-size="12" fill="#202020" >+ receiptId: int</text>
+<text x="572" y="738" font-family="Arial,sans-serif" font-size="12" fill="#202020" >+ itemId: int</text>
+<text x="572" y="754" font-family="Arial,sans-serif" font-size="12" fill="#202020" >+ supplierId: int</text>
+<text x="572" y="770" font-family="Arial,sans-serif" font-size="12" fill="#202020" >+ batchId: int?</text>
+<text x="572" y="786" font-family="Arial,sans-serif" font-size="12" fill="#202020" >+ batchNumber: string</text>
+<text x="572" y="802" font-family="Arial,sans-serif" font-size="12" fill="#202020" >+ quantityReceived: int</text>
+<text x="572" y="818" font-family="Arial,sans-serif" font-size="12" fill="#202020" >+ expiryDate: date?</text>
+<text x="572" y="834" font-family="Arial,sans-serif" font-size="12" fill="#202020" >+ unitCost: decimal</text>
+<text x="572" y="850" font-family="Arial,sans-serif" font-size="12" fill="#202020" >+ locationId: int</text>
+<text x="572" y="878" font-family="Arial,sans-serif" font-size="12" fill="#202020" >+ recordReceivedItem()</text>
+</g>
+<g data-class="inventory_transfers"><title>InventoryTransfer</title>
+<rect x="1030" y="771" width="330" height="230" fill="#ffffff" stroke="#767676" stroke-width="1.2"/>
+<line x1="1030" y1="801" x2="1360" y2="801" stroke="#767676" stroke-width="1"/>
+<line x1="1030" y1="973" x2="1360" y2="973" stroke="#767676" stroke-width="1"/>
+<text x="1195" y="791" font-family="Arial,sans-serif" font-size="14" fill="#202020" text-anchor="middle" font-weight="600">InventoryTransfer</text>
+<text x="1042" y="818" font-family="Arial,sans-serif" font-size="12" fill="#202020" >+ inventoryTransferId: int</text>
+<text x="1042" y="834" font-family="Arial,sans-serif" font-size="12" fill="#202020" >+ transferNumber: string</text>
+<text x="1042" y="850" font-family="Arial,sans-serif" font-size="12" fill="#202020" >+ fromLocationId: int</text>
+<text x="1042" y="866" font-family="Arial,sans-serif" font-size="12" fill="#202020" >+ toLocationId: int</text>
+<text x="1042" y="882" font-family="Arial,sans-serif" font-size="12" fill="#202020" >+ status: string</text>
+<text x="1042" y="898" font-family="Arial,sans-serif" font-size="12" fill="#202020" >+ notes: string?</text>
+<text x="1042" y="914" font-family="Arial,sans-serif" font-size="12" fill="#202020" >+ createdByUserId: int</text>
+<text x="1042" y="930" font-family="Arial,sans-serif" font-size="12" fill="#202020" >+ receivedByUserId: int?</text>
+<text x="1042" y="946" font-family="Arial,sans-serif" font-size="12" fill="#202020" >+ createdAt: datetime</text>
+<text x="1042" y="962" font-family="Arial,sans-serif" font-size="12" fill="#202020" >+ receivedAt: datetime?</text>
+<text x="1042" y="990" font-family="Arial,sans-serif" font-size="12" fill="#202020" >+ transferStock()</text>
+</g>
+<g data-class="inventory_transfer_items"><title>InventoryTransferItem</title>
+<rect x="90" y="1161" width="330" height="166" fill="#ffffff" stroke="#767676" stroke-width="1.2"/>
+<line x1="90" y1="1191" x2="420" y2="1191" stroke="#767676" stroke-width="1"/>
+<line x1="90" y1="1299" x2="420" y2="1299" stroke="#767676" stroke-width="1"/>
+<text x="255" y="1181" font-family="Arial,sans-serif" font-size="14" fill="#202020" text-anchor="middle" font-weight="600">InventoryTransferItem</text>
+<text x="102" y="1208" font-family="Arial,sans-serif" font-size="12" fill="#202020" >+ inventoryTransferItemId: int</text>
+<text x="102" y="1224" font-family="Arial,sans-serif" font-size="12" fill="#202020" >+ inventoryTransferId: int</text>
+<text x="102" y="1240" font-family="Arial,sans-serif" font-size="12" fill="#202020" >+ itemId: int</text>
+<text x="102" y="1256" font-family="Arial,sans-serif" font-size="12" fill="#202020" >+ sourceBatchId: int</text>
+<text x="102" y="1272" font-family="Arial,sans-serif" font-size="12" fill="#202020" >+ quantity: int</text>
+<text x="102" y="1288" font-family="Arial,sans-serif" font-size="12" fill="#202020" >+ createdAt: datetime</text>
+<text x="102" y="1316" font-family="Arial,sans-serif" font-size="12" fill="#202020" >+ recordTransferItem()</text>
+</g>
+<g data-class="inventory_action_audit"><title>InventoryAudit</title>
+<rect x="560" y="953" width="330" height="258" fill="#ffffff" stroke="#767676" stroke-width="1.2"/>
+<line x1="560" y1="983" x2="890" y2="983" stroke="#767676" stroke-width="1"/>
+<line x1="560" y1="1187" x2="890" y2="1187" stroke="#767676" stroke-width="1"/>
+<text x="725" y="973" font-family="Arial,sans-serif" font-size="14" fill="#202020" text-anchor="middle" font-weight="600">InventoryAudit</text>
+<text x="572" y="1000" font-family="Arial,sans-serif" font-size="12" fill="#202020" >+ inventoryAuditId: int</text>
+<text x="572" y="1016" font-family="Arial,sans-serif" font-size="12" fill="#202020" >+ actionType: string</text>
+<text x="572" y="1032" font-family="Arial,sans-serif" font-size="12" fill="#202020" >+ itemId: int?</text>
+<text x="572" y="1048" font-family="Arial,sans-serif" font-size="12" fill="#202020" >+ batchId: int?</text>
+<text x="572" y="1064" font-family="Arial,sans-serif" font-size="12" fill="#202020" >+ locationId: int?</text>
+<text x="572" y="1080" font-family="Arial,sans-serif" font-size="12" fill="#202020" >+ reason: string?</text>
+<text x="572" y="1096" font-family="Arial,sans-serif" font-size="12" fill="#202020" >+ beforeStateJson: string?</text>
+<text x="572" y="1112" font-family="Arial,sans-serif" font-size="12" fill="#202020" >+ afterStateJson: string?</text>
+<text x="572" y="1128" font-family="Arial,sans-serif" font-size="12" fill="#202020" >+ performedByUserId: int</text>
+<text x="572" y="1144" font-family="Arial,sans-serif" font-size="12" fill="#202020" >+ performedByName: string</text>
+<text x="572" y="1160" font-family="Arial,sans-serif" font-size="12" fill="#202020" >+ responsibilityConfirmedAt: datetime</text>
+<text x="572" y="1176" font-family="Arial,sans-serif" font-size="12" fill="#202020" >+ createdAt: datetime</text>
+</g>
+<g data-class="service_materials"><title>ServiceMaterial</title>
+<rect x="1030" y="1065" width="330" height="198" fill="#ffffff" stroke="#767676" stroke-width="1.2"/>
+<line x1="1030" y1="1095" x2="1360" y2="1095" stroke="#767676" stroke-width="1"/>
+<line x1="1030" y1="1235" x2="1360" y2="1235" stroke="#767676" stroke-width="1"/>
+<text x="1195" y="1085" font-family="Arial,sans-serif" font-size="14" fill="#202020" text-anchor="middle" font-weight="600">ServiceMaterial</text>
+<text x="1042" y="1112" font-family="Arial,sans-serif" font-size="12" fill="#202020" >+ serviceMaterialId: int</text>
+<text x="1042" y="1128" font-family="Arial,sans-serif" font-size="12" fill="#202020" >+ serviceId: int</text>
+<text x="1042" y="1144" font-family="Arial,sans-serif" font-size="12" fill="#202020" >+ itemId: int?</text>
+<text x="1042" y="1160" font-family="Arial,sans-serif" font-size="12" fill="#202020" >+ materialName: string</text>
+<text x="1042" y="1176" font-family="Arial,sans-serif" font-size="12" fill="#202020" >+ qtyUsed: decimal</text>
+<text x="1042" y="1192" font-family="Arial,sans-serif" font-size="12" fill="#202020" >+ billablePolicy: string?</text>
+<text x="1042" y="1208" font-family="Arial,sans-serif" font-size="12" fill="#202020" >+ createdAt: datetime</text>
+<text x="1042" y="1224" font-family="Arial,sans-serif" font-size="12" fill="#202020" >+ updatedAt: datetime</text>
+<text x="1042" y="1252" font-family="Arial,sans-serif" font-size="12" fill="#202020" >+ updateMaterials()</text>
+</g>
+<g data-class="branches"><title>Branch / full definition on sheet 3</title>
+<rect x="1500" y="135" width="330" height="86" fill="#ffffff" stroke="#767676" stroke-width="1.2"/>
+<line x1="1500" y1="165" x2="1830" y2="165" stroke="#767676" stroke-width="1"/>
+<line x1="1500" y1="193" x2="1830" y2="193" stroke="#767676" stroke-width="1"/>
+<text x="1665" y="155" font-family="Arial,sans-serif" font-size="14" fill="#202020" text-anchor="middle" font-weight="600">Branch</text>
+<text x="1512" y="182" font-family="Arial,sans-serif" font-size="12" fill="#202020" >+ branchId: int</text>
+</g>
+<g data-class="service_catalog"><title>ServiceCatalog / full definition on sheet 9</title>
+<rect x="1500" y="285" width="330" height="82" fill="#ffffff" stroke="#767676" stroke-width="1.2"/>
+<line x1="1500" y1="315" x2="1830" y2="315" stroke="#767676" stroke-width="1"/>
+<line x1="1500" y1="343" x2="1830" y2="343" stroke="#767676" stroke-width="1"/>
+<text x="1665" y="305" font-family="Arial,sans-serif" font-size="14" fill="#202020" text-anchor="middle" font-weight="600">ServiceCatalog</text>
+<text x="1512" y="332" font-family="Arial,sans-serif" font-size="12" fill="#202020" >+ serviceId: int</text>
+</g>
+<g data-class="users"><title>User / full definition on sheet 2</title>
+<rect x="1500" y="431" width="330" height="158" fill="#ffffff" stroke="#767676" stroke-width="1.2"/>
+<line x1="1500" y1="461" x2="1830" y2="461" stroke="#767676" stroke-width="1"/>
+<line x1="1500" y1="489" x2="1830" y2="489" stroke="#767676" stroke-width="1"/>
+<text x="1665" y="451" font-family="Arial,sans-serif" font-size="14" fill="#202020" text-anchor="middle" font-weight="600">User</text>
+<text x="1512" y="478" font-family="Arial,sans-serif" font-size="12" fill="#202020" >+ userId: int</text>
+</g>
+<text x="902" y="978" font-family="Consolas,monospace" font-size="11.5" fill="#202020" data-relationship="domain-inventory-edge-0" data-endpoint="start">0..*</text>
+<text x="988" y="214" font-family="Consolas,monospace" font-size="11.5" fill="#202020" data-relationship="domain-inventory-edge-0" data-endpoint="end">0..1</text>
+<text x="518" y="978" font-family="Consolas,monospace" font-size="11.5" fill="#202020" data-relationship="domain-inventory-edge-1" data-endpoint="start">0..*</text>
+<text x="432" y="268" font-family="Consolas,monospace" font-size="11.5" fill="#202020" data-relationship="domain-inventory-edge-1" data-endpoint="end">0..1</text>
+<text x="518" y="996" font-family="Consolas,monospace" font-size="11.5" fill="#202020" data-relationship="domain-inventory-edge-2" data-endpoint="start">0..*</text>
+<text x="432" y="790" font-family="Consolas,monospace" font-size="11.5" fill="#202020" data-relationship="domain-inventory-edge-2" data-endpoint="end">0..1</text>
+<text x="902" y="996" font-family="Consolas,monospace" font-size="11.5" fill="#202020" data-relationship="domain-inventory-edge-3" data-endpoint="start">0..*</text>
+<text x="1479" y="564" font-family="Consolas,monospace" font-size="11.5" fill="#202020" data-relationship="domain-inventory-edge-3" data-endpoint="end">1</text>
+<text x="988" y="160" font-family="Consolas,monospace" font-size="11.5" fill="#202020" data-relationship="domain-inventory-edge-4" data-endpoint="start">0..*</text>
+<text x="432" y="160" font-family="Consolas,monospace" font-size="11.5" fill="#202020" data-relationship="domain-inventory-edge-4" data-endpoint="end">1</text>
+<text x="988" y="178" font-family="Consolas,monospace" font-size="11.5" fill="#202020" data-relationship="domain-inventory-edge-5" data-endpoint="start">0..*</text>
+<text x="432" y="682" font-family="Consolas,monospace" font-size="11.5" fill="#202020" data-relationship="domain-inventory-edge-5" data-endpoint="end">1</text>
+<text x="902" y="160" font-family="Consolas,monospace" font-size="11.5" fill="#202020" data-relationship="domain-inventory-edge-6" data-endpoint="start">0..*</text>
+<text x="1479" y="160" font-family="Consolas,monospace" font-size="11.5" fill="#202020" data-relationship="domain-inventory-edge-6" data-endpoint="end">1</text>
+<text x="518" y="160" font-family="Consolas,monospace" font-size="11.5" fill="#202020" data-relationship="domain-inventory-edge-7" data-endpoint="start">0..*</text>
+<text x="432" y="178" font-family="Consolas,monospace" font-size="11.5" fill="#202020" data-relationship="domain-inventory-edge-7" data-endpoint="end">1</text>
+<text x="518" y="178" font-family="Consolas,monospace" font-size="11.5" fill="#202020" data-relationship="domain-inventory-edge-8" data-endpoint="start">0..*</text>
+<text x="432" y="700" font-family="Consolas,monospace" font-size="11.5" fill="#202020" data-relationship="domain-inventory-edge-8" data-endpoint="end">1</text>
+<text x="902" y="178" font-family="Consolas,monospace" font-size="11.5" fill="#202020" data-relationship="domain-inventory-edge-9" data-endpoint="start">0..*</text>
+<text x="1458" y="474" font-family="Consolas,monospace" font-size="11.5" fill="#202020" data-relationship="domain-inventory-edge-9" data-endpoint="end">0..1</text>
+<text x="432" y="214" font-family="Consolas,monospace" font-size="11.5" fill="#202020" data-relationship="domain-inventory-edge-10" data-endpoint="start">0..*</text>
+<text x="1479" y="456" font-family="Consolas,monospace" font-size="11.5" fill="#202020" data-relationship="domain-inventory-edge-10" data-endpoint="end">1</text>
+<text x="432" y="232" font-family="Consolas,monospace" font-size="11.5" fill="#202020" data-relationship="domain-inventory-edge-11" data-endpoint="start">0..*</text>
+<text x="432" y="646" font-family="Consolas,monospace" font-size="11.5" fill="#202020" data-relationship="domain-inventory-edge-11" data-endpoint="end">1</text>
+<text x="432" y="664" font-family="Consolas,monospace" font-size="11.5" fill="#202020" data-relationship="domain-inventory-edge-12" data-endpoint="start">0..*</text>
+<text x="1479" y="178" font-family="Consolas,monospace" font-size="11.5" fill="#202020" data-relationship="domain-inventory-edge-12" data-endpoint="end">1</text>
+<text x="1372" y="438" font-family="Consolas,monospace" font-size="11.5" fill="#202020" data-relationship="domain-inventory-edge-13" data-endpoint="start">0..*</text>
+<text x="1372" y="160" font-family="Consolas,monospace" font-size="11.5" fill="#202020" data-relationship="domain-inventory-edge-13" data-endpoint="end">0..1</text>
+<text x="988" y="438" font-family="Consolas,monospace" font-size="11.5" fill="#202020" data-relationship="domain-inventory-edge-14" data-endpoint="start">0..*</text>
+<text x="432" y="196" font-family="Consolas,monospace" font-size="11.5" fill="#202020" data-relationship="domain-inventory-edge-14" data-endpoint="end">1</text>
+<text x="988" y="456" font-family="Consolas,monospace" font-size="11.5" fill="#202020" data-relationship="domain-inventory-edge-15" data-endpoint="start">0..*</text>
+<text x="432" y="718" font-family="Consolas,monospace" font-size="11.5" fill="#202020" data-relationship="domain-inventory-edge-15" data-endpoint="end">0..1</text>
+<text x="1372" y="456" font-family="Consolas,monospace" font-size="11.5" fill="#202020" data-relationship="domain-inventory-edge-16" data-endpoint="start">0..*</text>
+<text x="1479" y="492" font-family="Consolas,monospace" font-size="11.5" fill="#202020" data-relationship="domain-inventory-edge-16" data-endpoint="end">1</text>
+<text x="432" y="908" font-family="Consolas,monospace" font-size="11.5" fill="#202020" data-relationship="domain-inventory-edge-17" data-endpoint="start">0..*</text>
+<text x="1479" y="196" font-family="Consolas,monospace" font-size="11.5" fill="#202020" data-relationship="domain-inventory-edge-17" data-endpoint="end">1</text>
+<text x="432" y="926" font-family="Consolas,monospace" font-size="11.5" fill="#202020" data-relationship="domain-inventory-edge-18" data-endpoint="start">0..*</text>
+<text x="1479" y="546" font-family="Consolas,monospace" font-size="11.5" fill="#202020" data-relationship="domain-inventory-edge-18" data-endpoint="end">1</text>
+<text x="902" y="684" font-family="Consolas,monospace" font-size="11.5" fill="#202020" data-relationship="domain-inventory-edge-19" data-endpoint="start">0..*</text>
+<text x="988" y="196" font-family="Consolas,monospace" font-size="11.5" fill="#202020" data-relationship="domain-inventory-edge-19" data-endpoint="end">0..1</text>
+<text x="518" y="684" font-family="Consolas,monospace" font-size="11.5" fill="#202020" data-relationship="domain-inventory-edge-20" data-endpoint="start">0..*</text>
+<text x="432" y="250" font-family="Consolas,monospace" font-size="11.5" fill="#202020" data-relationship="domain-inventory-edge-20" data-endpoint="end">1</text>
+<text x="518" y="702" font-family="Consolas,monospace" font-size="11.5" fill="#202020" data-relationship="domain-inventory-edge-21" data-endpoint="start">0..*</text>
+<text x="432" y="736" font-family="Consolas,monospace" font-size="11.5" fill="#202020" data-relationship="domain-inventory-edge-21" data-endpoint="end">1</text>
+<text x="518" y="720" font-family="Consolas,monospace" font-size="11.5" fill="#202020" data-relationship="domain-inventory-edge-22" data-endpoint="start">0..*</text>
+<text x="432" y="944" font-family="Consolas,monospace" font-size="11.5" fill="#202020" data-relationship="domain-inventory-edge-22" data-endpoint="end">1</text>
+<text x="902" y="702" font-family="Consolas,monospace" font-size="11.5" fill="#202020" data-relationship="domain-inventory-edge-23" data-endpoint="start">0..*</text>
+<text x="902" y="438" font-family="Consolas,monospace" font-size="11.5" fill="#202020" data-relationship="domain-inventory-edge-23" data-endpoint="end">1</text>
+<text x="1372" y="796" font-family="Consolas,monospace" font-size="11.5" fill="#202020" data-relationship="domain-inventory-edge-24" data-endpoint="start">0..*</text>
+<text x="1479" y="510" font-family="Consolas,monospace" font-size="11.5" fill="#202020" data-relationship="domain-inventory-edge-24" data-endpoint="end">1</text>
+<text x="988" y="796" font-family="Consolas,monospace" font-size="11.5" fill="#202020" data-relationship="domain-inventory-edge-25" data-endpoint="start">0..*</text>
+<text x="432" y="754" font-family="Consolas,monospace" font-size="11.5" fill="#202020" data-relationship="domain-inventory-edge-25" data-endpoint="end">1</text>
+<text x="1372" y="814" font-family="Consolas,monospace" font-size="11.5" fill="#202020" data-relationship="domain-inventory-edge-26" data-endpoint="start">0..*</text>
+<text x="1458" y="528" font-family="Consolas,monospace" font-size="11.5" fill="#202020" data-relationship="domain-inventory-edge-26" data-endpoint="end">0..1</text>
+<text x="988" y="814" font-family="Consolas,monospace" font-size="11.5" fill="#202020" data-relationship="domain-inventory-edge-27" data-endpoint="start">0..*</text>
+<text x="432" y="772" font-family="Consolas,monospace" font-size="11.5" fill="#202020" data-relationship="domain-inventory-edge-27" data-endpoint="end">1</text>
+<text x="432" y="1186" font-family="Consolas,monospace" font-size="11.5" fill="#202020" data-relationship="domain-inventory-edge-28" data-endpoint="start">0..*</text>
+<text x="1009" y="232" font-family="Consolas,monospace" font-size="11.5" fill="#202020" data-relationship="domain-inventory-edge-28" data-endpoint="end">1</text>
+<text x="432" y="1204" font-family="Consolas,monospace" font-size="11.5" fill="#202020" data-relationship="domain-inventory-edge-29" data-endpoint="start">0..*</text>
+<text x="432" y="304" font-family="Consolas,monospace" font-size="11.5" fill="#202020" data-relationship="domain-inventory-edge-29" data-endpoint="end">1</text>
+<text x="432" y="1222" font-family="Consolas,monospace" font-size="11.5" fill="#202020" data-relationship="domain-inventory-edge-30" data-endpoint="start">0..*</text>
+<text x="1009" y="832" font-family="Consolas,monospace" font-size="11.5" fill="#202020" data-relationship="domain-inventory-edge-30" data-endpoint="end">1</text>
+<text x="1372" y="1090" font-family="Consolas,monospace" font-size="11.5" fill="#202020" data-relationship="domain-inventory-edge-31" data-endpoint="start">0..*</text>
+<text x="1479" y="310" font-family="Consolas,monospace" font-size="11.5" fill="#202020" data-relationship="domain-inventory-edge-31" data-endpoint="end">1</text>
+<text x="988" y="1090" font-family="Consolas,monospace" font-size="11.5" fill="#202020" data-relationship="domain-inventory-edge-32" data-endpoint="start">0..*</text>
+<text x="432" y="286" font-family="Consolas,monospace" font-size="11.5" fill="#202020" data-relationship="domain-inventory-edge-32" data-endpoint="end">0..1</text>
+</svg>

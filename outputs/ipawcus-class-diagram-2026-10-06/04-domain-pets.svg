@@ -1,0 +1,323 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1920" height="1919" viewBox="0 0 1920 1919" role="img" aria-labelledby="title desc">
+<title id="title">iPawcus — Pets and medical records</title>
+<desc id="desc">Domain UML class diagram: names, typed attributes, operations, and relationships. Every label is above its own relationship line near the class. Lines avoid all class boxes. Supporting pages include the complete domain model.</desc>
+<defs><marker id="dependency" markerWidth="9" markerHeight="9" refX="8" refY="4.5" orient="auto" markerUnits="userSpaceOnUse"><path d="M0 0 L8 4.5 L0 9" fill="none" stroke="#858585" stroke-width="1.1"/></marker></defs>
+<rect width="100%" height="100%" fill="#ffffff"/>
+<text x="90" y="40" font-family="Arial,sans-serif" font-size="25" fill="#202020" >iPawcus — Pets and medical records</text>
+<text x="90" y="68" font-family="Arial,sans-serif" font-size="13" fill="#202020" >Classes show attributes and operations. Solid: association · dashed: logical association · dashed arrow: dependency.</text>
+<text x="90" y="91" font-family="Arial,sans-serif" font-size="12" fill="#202020" >1 required · 0..1 optional · 0..* zero-to-many · ? nullable · source and operation mappings in DOMAIN-REFERENCE.md.</text>
+<path d="M1030 491 L974 491 L974 355 L476 355 L476 201 L420 201" fill="none" stroke="#858585" stroke-width="1.1"><title>history_before_registration.pet_id → pets_information.pet_id / history_before_registration_ibfk_1</title></path>
+<path d="M420 669 L476 669 L476 633 L1444 633 L1444 329 L1500 329" fill="none" stroke="#858585" stroke-width="1.1"><title>pet_allergies.created_by_user_id → users.user_id / pet_allergies_created_by_fk</title></path>
+<path d="M420 651 L504 651 L504 219 L420 219" fill="none" stroke="#858585" stroke-width="1.1"><title>pet_allergies.pet_id → pets_information.pet_id / pet_allergies_ibfk_1</title></path>
+<path d="M420 687 L538 687 L538 635 L1382 635 L1382 347 L1500 347" fill="none" stroke="#858585" stroke-width="1.1"><title>pet_allergies.updated_by_user_id → users.user_id / pet_allergies_updated_by_fk</title></path>
+<path d="M420 705 L516 705 L516 637 L1456 637 L1456 367 L1444 367 L1444 365 L1500 365" fill="none" stroke="#858585" stroke-width="1.1"><title>pet_allergies.verified_by_user_id → users.user_id / pet_allergies_verified_by_fk</title></path>
+<path d="M560 995 L464 995 L464 257 L476 257 L476 255 L420 255" fill="none" stroke="#858585" stroke-width="1.1"><title>pet_medical_certificates.pet_id → pets_information.pet_id / pet_medical_certificate_pet_fk</title></path>
+<path d="M560 1013 L504 1013 L504 1135 L420 1135" fill="none" stroke="#858585" stroke-width="1.1"><title>pet_medical_certificates.request_id → pet_record_update_requests.request_id / pet_medical_certificate_request_fk</title></path>
+<path d="M890 995 L946 995 L946 419 L1444 419 L1444 401 L1500 401" fill="none" stroke="#858585" stroke-width="1.1"><title>pet_medical_certificates.veterinarian_user_id → users.user_id / pet_medical_certificate_vet_fk</title></path>
+<path d="M1030 689 L974 689 L974 649 L516 649 L516 237 L420 237" fill="none" stroke="#858585" stroke-width="1.1"><title>pet_medical_record_groups.pet_id → pets_information.pet_id / pet_medical_record_groups_pet_fk</title></path>
+<path d="M420 1527 L974 1527 L974 707 L1030 707" fill="none" stroke="#858585" stroke-width="1.1"><title>pet_medical_record_group_items.group_id → pet_medical_record_groups.group_id / pet_medical_record_group_items_group_fk</title></path>
+<path d="M890 165 L946 165 L946 113 L1444 113 L1444 311 L1500 311" fill="none" stroke="#858585" stroke-width="1.1"><title>pet_ownership.user_id → users.user_id / pet_ownership_ibfk_1</title></path>
+<path d="M560 165 L420 165" fill="none" stroke="#858585" stroke-width="1.1"><title>pet_ownership.pet_id → pets_information.pet_id / pet_ownership_ibfk_2</title></path>
+<path d="M420 1009 L476 1009 L476 923 L986 923 L986 108 L1382 108 L1382 165 L1500 165" fill="none" stroke="#858585" stroke-width="1.1"><title>pet_record_update_requests.branch_id → branches.branch_id / record_requests_branch_fk</title></path>
+<path d="M420 1045 L516 1045 L516 937 L934 937 L934 421 L1444 421 L1444 419 L1500 419" fill="none" stroke="#858585" stroke-width="1.1"><title>pet_record_update_requests.assigned_veterinarian_user_id → users.user_id / record_update_assigned_vet_fk</title></path>
+<path d="M420 1063 L476 1063 L476 1009 L504 1009 L504 651 L912 651 L912 437 L1500 437" fill="none" stroke="#858585" stroke-width="1.1"><title>pet_record_update_requests.completed_by_user_id → users.user_id / record_update_completed_by_fk</title></path>
+<path d="M420 1081 L476 1081 L476 1063 L464 1063 L464 943 L1477 943 L1477 471 L1444 471 L1444 455 L1500 455" fill="none" stroke="#858585" stroke-width="1.1"><title>pet_record_update_requests.owner_user_id → users.user_id / record_update_owner_fk</title></path>
+<path d="M420 1027 L476 1027 L476 635 L443 635 L443 295 L476 295 L476 273 L420 273" fill="none" stroke="#858585" stroke-width="1.1"><title>pet_record_update_requests.pet_id → pets_information.pet_id / record_update_pet_fk</title></path>
+<path d="M420 1099 L476 1099 L476 1313 L1478 1313 L1478 475 L1444 475 L1444 473 L1500 473" fill="none" stroke="#858585" stroke-width="1.1"><title>pet_record_update_requests.reviewed_by_user_id → users.user_id / record_update_reviewed_by_fk</title></path>
+<path d="M890 705 L974 705 L974 475 L1008 475 L1008 419 L1382 419 L1382 383 L1500 383" fill="none" stroke="#858585" stroke-width="1.1"><title>pet_record_update_request_events.actor_user_id → users.user_id / record_update_event_actor_fk</title></path>
+<path d="M560 705 L504 705 L504 1013 L538 1013 L538 1117 L420 1117" fill="none" stroke="#858585" stroke-width="1.1"><title>pet_record_update_request_events.request_id → pet_record_update_requests.request_id / record_update_event_request_fk</title></path>
+<path d="M560 427 L442 427 L442 271 L443 271 L443 199 L476 199 L476 183 L420 183" fill="none" stroke="#858585" stroke-width="1.1"><title>pet_vaccinations.pet_id → pets_information.pet_id / pet_vaccinations_ibfk_1</title></path>
+<g data-class="pets_information"><title>Pet</title>
+<rect x="90" y="135" width="330" height="422" fill="#ffffff" stroke="#767676" stroke-width="1.2"/>
+<line x1="90" y1="165" x2="420" y2="165" stroke="#767676" stroke-width="1"/>
+<line x1="90" y1="481" x2="420" y2="481" stroke="#767676" stroke-width="1"/>
+<text x="255" y="155" font-family="Arial,sans-serif" font-size="14" fill="#202020" text-anchor="middle" font-weight="600">Pet</text>
+<text x="102" y="182" font-family="Arial,sans-serif" font-size="12" fill="#202020" >+ petId: int</text>
+<text x="102" y="198" font-family="Arial,sans-serif" font-size="12" fill="#202020" >+ petName: string</text>
+<text x="102" y="214" font-family="Arial,sans-serif" font-size="12" fill="#202020" >+ species: string</text>
+<text x="102" y="230" font-family="Arial,sans-serif" font-size="12" fill="#202020" >+ breed: string</text>
+<text x="102" y="246" font-family="Arial,sans-serif" font-size="12" fill="#202020" >+ birthDate: date</text>
+<text x="102" y="262" font-family="Arial,sans-serif" font-size="12" fill="#202020" >+ status: string</text>
+<text x="102" y="278" font-family="Arial,sans-serif" font-size="12" fill="#202020" >+ gender: string</text>
+<text x="102" y="294" font-family="Arial,sans-serif" font-size="12" fill="#202020" >+ weight: decimal</text>
+<text x="102" y="310" font-family="Arial,sans-serif" font-size="12" fill="#202020" >+ petMicrochip: int?</text>
+<text x="102" y="326" font-family="Arial,sans-serif" font-size="12" fill="#202020" >+ petTempOwner: string?</text>
+<text x="102" y="342" font-family="Arial,sans-serif" font-size="12" fill="#202020" >+ petAllergies: string?</text>
+<text x="102" y="358" font-family="Arial,sans-serif" font-size="12" fill="#202020" >+ petColorMarking: string?</text>
+<text x="102" y="374" font-family="Arial,sans-serif" font-size="12" fill="#202020" >+ sharableId: string?</text>
+<text x="102" y="390" font-family="Arial,sans-serif" font-size="12" fill="#202020" >+ petAge: string?</text>
+<text x="102" y="406" font-family="Arial,sans-serif" font-size="12" fill="#202020" >+ setpetImageUrl: string?</text>
+<text x="102" y="422" font-family="Arial,sans-serif" font-size="12" fill="#202020" >+ isArchived: bool</text>
+<text x="102" y="438" font-family="Arial,sans-serif" font-size="12" fill="#202020" >+ archivedAt: datetime?</text>
+<text x="102" y="454" font-family="Arial,sans-serif" font-size="12" fill="#202020" >+ archivedByUserId: int?</text>
+<text x="102" y="470" font-family="Arial,sans-serif" font-size="12" fill="#202020" >+ archiveReason: string?</text>
+<text x="102" y="498" font-family="Arial,sans-serif" font-size="12" fill="#202020" >+ registerPet()</text>
+<text x="102" y="514" font-family="Arial,sans-serif" font-size="12" fill="#202020" >+ updateDetails()</text>
+<text x="102" y="530" font-family="Arial,sans-serif" font-size="12" fill="#202020" >+ updateStatus()</text>
+<text x="102" y="546" font-family="Arial,sans-serif" font-size="12" fill="#202020" >+ viewMedicalHistory()</text>
+</g>
+<g data-class="pet_ownership"><title>PetOwnership</title>
+<rect x="560" y="135" width="330" height="198" fill="#ffffff" stroke="#767676" stroke-width="1.2"/>
+<line x1="560" y1="165" x2="890" y2="165" stroke="#767676" stroke-width="1"/>
+<line x1="560" y1="273" x2="890" y2="273" stroke="#767676" stroke-width="1"/>
+<text x="725" y="155" font-family="Arial,sans-serif" font-size="14" fill="#202020" text-anchor="middle" font-weight="600">PetOwnership</text>
+<text x="572" y="182" font-family="Arial,sans-serif" font-size="12" fill="#202020" >+ linkId: int</text>
+<text x="572" y="198" font-family="Arial,sans-serif" font-size="12" fill="#202020" >+ userId: int?</text>
+<text x="572" y="214" font-family="Arial,sans-serif" font-size="12" fill="#202020" >+ petId: int?</text>
+<text x="572" y="230" font-family="Arial,sans-serif" font-size="12" fill="#202020" >+ relationship: string?</text>
+<text x="572" y="246" font-family="Arial,sans-serif" font-size="12" fill="#202020" >+ isPrimary: bool?</text>
+<text x="572" y="262" font-family="Arial,sans-serif" font-size="12" fill="#202020" >+ linkedAt: datetime</text>
+<text x="572" y="290" font-family="Arial,sans-serif" font-size="12" fill="#202020" >+ linkPet()</text>
+<text x="572" y="306" font-family="Arial,sans-serif" font-size="12" fill="#202020" >+ requestCoParent()</text>
+<text x="572" y="322" font-family="Arial,sans-serif" font-size="12" fill="#202020" >+ removeOwnership()</text>
+</g>
+<g data-class="pet_coparent_requests"><title>PetCoparentRequest</title>
+<rect x="1030" y="135" width="330" height="262" fill="#ffffff" stroke="#767676" stroke-width="1.2"/>
+<line x1="1030" y1="165" x2="1360" y2="165" stroke="#767676" stroke-width="1"/>
+<line x1="1030" y1="353" x2="1360" y2="353" stroke="#767676" stroke-width="1"/>
+<text x="1195" y="155" font-family="Arial,sans-serif" font-size="14" fill="#202020" text-anchor="middle" font-weight="600">PetCoparentRequest</text>
+<text x="1042" y="182" font-family="Arial,sans-serif" font-size="12" fill="#202020" >+ requestId: int</text>
+<text x="1042" y="198" font-family="Arial,sans-serif" font-size="12" fill="#202020" >+ petId: int</text>
+<text x="1042" y="214" font-family="Arial,sans-serif" font-size="12" fill="#202020" >+ requesterUserId: int</text>
+<text x="1042" y="230" font-family="Arial,sans-serif" font-size="12" fill="#202020" >+ primaryOwnerUserId: int</text>
+<text x="1042" y="246" font-family="Arial,sans-serif" font-size="12" fill="#202020" >+ status: string</text>
+<text x="1042" y="262" font-family="Arial,sans-serif" font-size="12" fill="#202020" >+ requestToken: string</text>
+<text x="1042" y="278" font-family="Arial,sans-serif" font-size="12" fill="#202020" >+ requesterMessage: string?</text>
+<text x="1042" y="294" font-family="Arial,sans-serif" font-size="12" fill="#202020" >+ decisionNote: string?</text>
+<text x="1042" y="310" font-family="Arial,sans-serif" font-size="12" fill="#202020" >+ createdAt: datetime</text>
+<text x="1042" y="326" font-family="Arial,sans-serif" font-size="12" fill="#202020" >+ updatedAt: datetime</text>
+<text x="1042" y="342" font-family="Arial,sans-serif" font-size="12" fill="#202020" >+ decidedAt: datetime?</text>
+<text x="1042" y="370" font-family="Arial,sans-serif" font-size="12" fill="#202020" >+ viewRequest()</text>
+<text x="1042" y="386" font-family="Arial,sans-serif" font-size="12" fill="#202020" >+ decideRequest()</text>
+</g>
+<g data-class="pet_allergies"><title>PetAllergy</title>
+<rect x="90" y="621" width="330" height="294" fill="#ffffff" stroke="#767676" stroke-width="1.2"/>
+<line x1="90" y1="651" x2="420" y2="651" stroke="#767676" stroke-width="1"/>
+<line x1="90" y1="871" x2="420" y2="871" stroke="#767676" stroke-width="1"/>
+<text x="255" y="641" font-family="Arial,sans-serif" font-size="14" fill="#202020" text-anchor="middle" font-weight="600">PetAllergy</text>
+<text x="102" y="668" font-family="Arial,sans-serif" font-size="12" fill="#202020" >+ allergyId: int</text>
+<text x="102" y="684" font-family="Arial,sans-serif" font-size="12" fill="#202020" >+ petId: int</text>
+<text x="102" y="700" font-family="Arial,sans-serif" font-size="12" fill="#202020" >+ allergen: string</text>
+<text x="102" y="716" font-family="Arial,sans-serif" font-size="12" fill="#202020" >+ severity: string?</text>
+<text x="102" y="732" font-family="Arial,sans-serif" font-size="12" fill="#202020" >+ reaction: string?</text>
+<text x="102" y="748" font-family="Arial,sans-serif" font-size="12" fill="#202020" >+ source: string</text>
+<text x="102" y="764" font-family="Arial,sans-serif" font-size="12" fill="#202020" >+ verificationStatus: string</text>
+<text x="102" y="780" font-family="Arial,sans-serif" font-size="12" fill="#202020" >+ createdByUserId: int?</text>
+<text x="102" y="796" font-family="Arial,sans-serif" font-size="12" fill="#202020" >+ updatedByUserId: int?</text>
+<text x="102" y="812" font-family="Arial,sans-serif" font-size="12" fill="#202020" >+ verifiedByUserId: int?</text>
+<text x="102" y="828" font-family="Arial,sans-serif" font-size="12" fill="#202020" >+ verifiedAt: datetime?</text>
+<text x="102" y="844" font-family="Arial,sans-serif" font-size="12" fill="#202020" >+ createdAt: datetime</text>
+<text x="102" y="860" font-family="Arial,sans-serif" font-size="12" fill="#202020" >+ updatedAt: datetime</text>
+<text x="102" y="888" font-family="Arial,sans-serif" font-size="12" fill="#202020" >+ saveAllergy()</text>
+<text x="102" y="904" font-family="Arial,sans-serif" font-size="12" fill="#202020" >+ viewAllergies()</text>
+</g>
+<g data-class="pet_vaccinations"><title>PetVaccination</title>
+<rect x="560" y="397" width="330" height="214" fill="#ffffff" stroke="#767676" stroke-width="1.2"/>
+<line x1="560" y1="427" x2="890" y2="427" stroke="#767676" stroke-width="1"/>
+<line x1="560" y1="567" x2="890" y2="567" stroke="#767676" stroke-width="1"/>
+<text x="725" y="417" font-family="Arial,sans-serif" font-size="14" fill="#202020" text-anchor="middle" font-weight="600">PetVaccination</text>
+<text x="572" y="444" font-family="Arial,sans-serif" font-size="12" fill="#202020" >+ vaccinationId: int</text>
+<text x="572" y="460" font-family="Arial,sans-serif" font-size="12" fill="#202020" >+ petId: int</text>
+<text x="572" y="476" font-family="Arial,sans-serif" font-size="12" fill="#202020" >+ vaccineName: string</text>
+<text x="572" y="492" font-family="Arial,sans-serif" font-size="12" fill="#202020" >+ vaccinationDate: date</text>
+<text x="572" y="508" font-family="Arial,sans-serif" font-size="12" fill="#202020" >+ nextDueDate: date</text>
+<text x="572" y="524" font-family="Arial,sans-serif" font-size="12" fill="#202020" >+ applicator: string?</text>
+<text x="572" y="540" font-family="Arial,sans-serif" font-size="12" fill="#202020" >+ status: string?</text>
+<text x="572" y="556" font-family="Arial,sans-serif" font-size="12" fill="#202020" >+ createdAt: datetime</text>
+<text x="572" y="584" font-family="Arial,sans-serif" font-size="12" fill="#202020" >+ recordVaccination()</text>
+<text x="572" y="600" font-family="Arial,sans-serif" font-size="12" fill="#202020" >+ viewHistory()</text>
+</g>
+<g data-class="history_before_registration"><title>PetPriorHistory</title>
+<rect x="1030" y="461" width="330" height="134" fill="#ffffff" stroke="#767676" stroke-width="1.2"/>
+<line x1="1030" y1="491" x2="1360" y2="491" stroke="#767676" stroke-width="1"/>
+<line x1="1030" y1="567" x2="1360" y2="567" stroke="#767676" stroke-width="1"/>
+<text x="1195" y="481" font-family="Arial,sans-serif" font-size="14" fill="#202020" text-anchor="middle" font-weight="600">PetPriorHistory</text>
+<text x="1042" y="508" font-family="Arial,sans-serif" font-size="12" fill="#202020" >+ currentMedication: string?</text>
+<text x="1042" y="524" font-family="Arial,sans-serif" font-size="12" fill="#202020" >+ veterinarianNotes: string?</text>
+<text x="1042" y="540" font-family="Arial,sans-serif" font-size="12" fill="#202020" >+ petId: int?</text>
+<text x="1042" y="556" font-family="Arial,sans-serif" font-size="12" fill="#202020" >+ lastVisitDate: date?</text>
+<text x="1042" y="584" font-family="Arial,sans-serif" font-size="12" fill="#202020" >+ viewRecord()</text>
+</g>
+<g data-class="pet_record_update_requests"><title>PetRecordUpdateRequest</title>
+<rect x="90" y="979" width="330" height="454" fill="#ffffff" stroke="#767676" stroke-width="1.2"/>
+<line x1="90" y1="1009" x2="420" y2="1009" stroke="#767676" stroke-width="1"/>
+<line x1="90" y1="1389" x2="420" y2="1389" stroke="#767676" stroke-width="1"/>
+<text x="255" y="999" font-family="Arial,sans-serif" font-size="14" fill="#202020" text-anchor="middle" font-weight="600">PetRecordUpdateRequest</text>
+<text x="102" y="1026" font-family="Arial,sans-serif" font-size="12" fill="#202020" >+ requestId: int</text>
+<text x="102" y="1042" font-family="Arial,sans-serif" font-size="12" fill="#202020" >+ requestNumber: string</text>
+<text x="102" y="1058" font-family="Arial,sans-serif" font-size="12" fill="#202020" >+ branchId: int</text>
+<text x="102" y="1074" font-family="Arial,sans-serif" font-size="12" fill="#202020" >+ petId: int</text>
+<text x="102" y="1090" font-family="Arial,sans-serif" font-size="12" fill="#202020" >+ ownerUserId: int?</text>
+<text x="102" y="1106" font-family="Arial,sans-serif" font-size="12" fill="#202020" >+ requestedChanges: string?</text>
+<text x="102" y="1122" font-family="Arial,sans-serif" font-size="12" fill="#202020" >+ paymentMethod: string</text>
+<text x="102" y="1138" font-family="Arial,sans-serif" font-size="12" fill="#202020" >+ paymentAmount: decimal</text>
+<text x="102" y="1154" font-family="Arial,sans-serif" font-size="12" fill="#202020" >+ paymentStatus: string</text>
+<text x="102" y="1170" font-family="Arial,sans-serif" font-size="12" fill="#202020" >+ paymentProofUrl: string?</text>
+<text x="102" y="1186" font-family="Arial,sans-serif" font-size="12" fill="#202020" >+ paymentReference: string?</text>
+<text x="102" y="1202" font-family="Arial,sans-serif" font-size="12" fill="#202020" >+ status: string</text>
+<text x="102" y="1218" font-family="Arial,sans-serif" font-size="12" fill="#202020" >+ adminNotes: string?</text>
+<text x="102" y="1234" font-family="Arial,sans-serif" font-size="12" fill="#202020" >+ veterinarianNotes: string?</text>
+<text x="102" y="1250" font-family="Arial,sans-serif" font-size="12" fill="#202020" >+ assignedVeterinarianUserId: int?</text>
+<text x="102" y="1266" font-family="Arial,sans-serif" font-size="12" fill="#202020" >+ reviewedByUserId: int?</text>
+<text x="102" y="1282" font-family="Arial,sans-serif" font-size="12" fill="#202020" >+ completedByUserId: int?</text>
+<text x="102" y="1298" font-family="Arial,sans-serif" font-size="12" fill="#202020" >+ reviewedAt: datetime?</text>
+<text x="102" y="1314" font-family="Arial,sans-serif" font-size="12" fill="#202020" >+ completedAt: datetime?</text>
+<text x="102" y="1330" font-family="Arial,sans-serif" font-size="12" fill="#202020" >+ baselineSnapshotHash: string?</text>
+<text x="102" y="1346" font-family="Arial,sans-serif" font-size="12" fill="#202020" >+ completedSnapshotHash: string?</text>
+<text x="102" y="1362" font-family="Arial,sans-serif" font-size="12" fill="#202020" >+ createdAt: datetime</text>
+<text x="102" y="1378" font-family="Arial,sans-serif" font-size="12" fill="#202020" >+ updatedAt: datetime</text>
+<text x="102" y="1406" font-family="Arial,sans-serif" font-size="12" fill="#202020" >+ createRequest()</text>
+<text x="102" y="1422" font-family="Arial,sans-serif" font-size="12" fill="#202020" >+ updateRequest()</text>
+</g>
+<g data-class="pet_record_update_request_events"><title>PetRecordUpdateRequestEvent</title>
+<rect x="560" y="675" width="330" height="226" fill="#ffffff" stroke="#767676" stroke-width="1.2"/>
+<line x1="560" y1="705" x2="890" y2="705" stroke="#767676" stroke-width="1"/>
+<line x1="560" y1="877" x2="890" y2="877" stroke="#767676" stroke-width="1"/>
+<text x="725" y="695" font-family="Arial,sans-serif" font-size="14" fill="#202020" text-anchor="middle" font-weight="600">PetRecordUpdateRequestEvent</text>
+<text x="572" y="722" font-family="Arial,sans-serif" font-size="12" fill="#202020" >+ eventId: int</text>
+<text x="572" y="738" font-family="Arial,sans-serif" font-size="12" fill="#202020" >+ requestId: int</text>
+<text x="572" y="754" font-family="Arial,sans-serif" font-size="12" fill="#202020" >+ eventType: string</text>
+<text x="572" y="770" font-family="Arial,sans-serif" font-size="12" fill="#202020" >+ fromStatus: string?</text>
+<text x="572" y="786" font-family="Arial,sans-serif" font-size="12" fill="#202020" >+ toStatus: string?</text>
+<text x="572" y="802" font-family="Arial,sans-serif" font-size="12" fill="#202020" >+ fromPaymentStatus: string?</text>
+<text x="572" y="818" font-family="Arial,sans-serif" font-size="12" fill="#202020" >+ toPaymentStatus: string?</text>
+<text x="572" y="834" font-family="Arial,sans-serif" font-size="12" fill="#202020" >+ actorUserId: int?</text>
+<text x="572" y="850" font-family="Arial,sans-serif" font-size="12" fill="#202020" >+ note: string?</text>
+<text x="572" y="866" font-family="Arial,sans-serif" font-size="12" fill="#202020" >+ createdAt: datetime</text>
+</g>
+<g data-class="pet_medical_record_groups"><title>MedicalRecordGroup</title>
+<rect x="1030" y="659" width="330" height="262" fill="#ffffff" stroke="#767676" stroke-width="1.2"/>
+<line x1="1030" y1="689" x2="1360" y2="689" stroke="#767676" stroke-width="1"/>
+<line x1="1030" y1="861" x2="1360" y2="861" stroke="#767676" stroke-width="1"/>
+<text x="1195" y="679" font-family="Arial,sans-serif" font-size="14" fill="#202020" text-anchor="middle" font-weight="600">MedicalRecordGroup</text>
+<text x="1042" y="706" font-family="Arial,sans-serif" font-size="12" fill="#202020" >+ groupId: int</text>
+<text x="1042" y="722" font-family="Arial,sans-serif" font-size="12" fill="#202020" >+ petId: int</text>
+<text x="1042" y="738" font-family="Arial,sans-serif" font-size="12" fill="#202020" >+ title: string</text>
+<text x="1042" y="754" font-family="Arial,sans-serif" font-size="12" fill="#202020" >+ summary: string?</text>
+<text x="1042" y="770" font-family="Arial,sans-serif" font-size="12" fill="#202020" >+ visibleToOwner: bool</text>
+<text x="1042" y="786" font-family="Arial,sans-serif" font-size="12" fill="#202020" >+ sortOrder: int</text>
+<text x="1042" y="802" font-family="Arial,sans-serif" font-size="12" fill="#202020" >+ createdByUserId: int?</text>
+<text x="1042" y="818" font-family="Arial,sans-serif" font-size="12" fill="#202020" >+ updatedByUserId: int?</text>
+<text x="1042" y="834" font-family="Arial,sans-serif" font-size="12" fill="#202020" >+ createdAt: datetime</text>
+<text x="1042" y="850" font-family="Arial,sans-serif" font-size="12" fill="#202020" >+ updatedAt: datetime</text>
+<text x="1042" y="878" font-family="Arial,sans-serif" font-size="12" fill="#202020" >+ createGroup()</text>
+<text x="1042" y="894" font-family="Arial,sans-serif" font-size="12" fill="#202020" >+ updateGroup()</text>
+<text x="1042" y="910" font-family="Arial,sans-serif" font-size="12" fill="#202020" >+ deleteGroup()</text>
+</g>
+<g data-class="pet_medical_record_group_items"><title>MedicalRecordItem</title>
+<rect x="90" y="1497" width="330" height="342" fill="#ffffff" stroke="#767676" stroke-width="1.2"/>
+<line x1="90" y1="1527" x2="420" y2="1527" stroke="#767676" stroke-width="1"/>
+<line x1="90" y1="1779" x2="420" y2="1779" stroke="#767676" stroke-width="1"/>
+<text x="255" y="1517" font-family="Arial,sans-serif" font-size="14" fill="#202020" text-anchor="middle" font-weight="600">MedicalRecordItem</text>
+<text x="102" y="1544" font-family="Arial,sans-serif" font-size="12" fill="#202020" >+ itemId: int</text>
+<text x="102" y="1560" font-family="Arial,sans-serif" font-size="12" fill="#202020" >+ groupId: int</text>
+<text x="102" y="1576" font-family="Arial,sans-serif" font-size="12" fill="#202020" >+ sourceType: string</text>
+<text x="102" y="1592" font-family="Arial,sans-serif" font-size="12" fill="#202020" >+ sourceId: int?</text>
+<text x="102" y="1608" font-family="Arial,sans-serif" font-size="12" fill="#202020" >+ title: string</text>
+<text x="102" y="1624" font-family="Arial,sans-serif" font-size="12" fill="#202020" >+ summary: string?</text>
+<text x="102" y="1640" font-family="Arial,sans-serif" font-size="12" fill="#202020" >+ revisionNotes: string?</text>
+<text x="102" y="1656" font-family="Arial,sans-serif" font-size="12" fill="#202020" >+ serviceDate: datetime?</text>
+<text x="102" y="1672" font-family="Arial,sans-serif" font-size="12" fill="#202020" >+ sortOrder: int</text>
+<text x="102" y="1688" font-family="Arial,sans-serif" font-size="12" fill="#202020" >+ sourceSnapshot: string?</text>
+<text x="102" y="1704" font-family="Arial,sans-serif" font-size="12" fill="#202020" >+ revisionSnapshot: string?</text>
+<text x="102" y="1720" font-family="Arial,sans-serif" font-size="12" fill="#202020" >+ addedByUserId: int?</text>
+<text x="102" y="1736" font-family="Arial,sans-serif" font-size="12" fill="#202020" >+ updatedByUserId: int?</text>
+<text x="102" y="1752" font-family="Arial,sans-serif" font-size="12" fill="#202020" >+ createdAt: datetime</text>
+<text x="102" y="1768" font-family="Arial,sans-serif" font-size="12" fill="#202020" >+ updatedAt: datetime</text>
+<text x="102" y="1796" font-family="Arial,sans-serif" font-size="12" fill="#202020" >+ addItem()</text>
+<text x="102" y="1812" font-family="Arial,sans-serif" font-size="12" fill="#202020" >+ updateItem()</text>
+<text x="102" y="1828" font-family="Arial,sans-serif" font-size="12" fill="#202020" >+ removeItem()</text>
+</g>
+<g data-class="pet_medical_certificates"><title>PetMedicalCertificate</title>
+<rect x="560" y="965" width="330" height="326" fill="#ffffff" stroke="#767676" stroke-width="1.2"/>
+<line x1="560" y1="995" x2="890" y2="995" stroke="#767676" stroke-width="1"/>
+<line x1="560" y1="1247" x2="890" y2="1247" stroke="#767676" stroke-width="1"/>
+<text x="725" y="985" font-family="Arial,sans-serif" font-size="14" fill="#202020" text-anchor="middle" font-weight="600">PetMedicalCertificate</text>
+<text x="572" y="1012" font-family="Arial,sans-serif" font-size="12" fill="#202020" >+ certificateId: int</text>
+<text x="572" y="1028" font-family="Arial,sans-serif" font-size="12" fill="#202020" >+ certificateNumber: string</text>
+<text x="572" y="1044" font-family="Arial,sans-serif" font-size="12" fill="#202020" >+ petId: int</text>
+<text x="572" y="1060" font-family="Arial,sans-serif" font-size="12" fill="#202020" >+ requestId: int?</text>
+<text x="572" y="1076" font-family="Arial,sans-serif" font-size="12" fill="#202020" >+ veterinarianUserId: int</text>
+<text x="572" y="1092" font-family="Arial,sans-serif" font-size="12" fill="#202020" >+ branchId: int?</text>
+<text x="572" y="1108" font-family="Arial,sans-serif" font-size="12" fill="#202020" >+ examinationDate: date</text>
+<text x="572" y="1124" font-family="Arial,sans-serif" font-size="12" fill="#202020" >+ validUntil: date</text>
+<text x="572" y="1140" font-family="Arial,sans-serif" font-size="12" fill="#202020" >+ clinicalFindings: string?</text>
+<text x="572" y="1156" font-family="Arial,sans-serif" font-size="12" fill="#202020" >+ certificationStatement: string</text>
+<text x="572" y="1172" font-family="Arial,sans-serif" font-size="12" fill="#202020" >+ signaturePath: string</text>
+<text x="572" y="1188" font-family="Arial,sans-serif" font-size="12" fill="#202020" >+ status: string</text>
+<text x="572" y="1204" font-family="Arial,sans-serif" font-size="12" fill="#202020" >+ ownerViewedAt: datetime?</text>
+<text x="572" y="1220" font-family="Arial,sans-serif" font-size="12" fill="#202020" >+ createdAt: datetime</text>
+<text x="572" y="1236" font-family="Arial,sans-serif" font-size="12" fill="#202020" >+ updatedAt: datetime</text>
+<text x="572" y="1264" font-family="Arial,sans-serif" font-size="12" fill="#202020" >+ issueCertificate()</text>
+<text x="572" y="1280" font-family="Arial,sans-serif" font-size="12" fill="#202020" >+ markViewed()</text>
+</g>
+<g data-class="pet_catalog_options"><title>PetCatalogOption</title>
+<rect x="1030" y="985" width="330" height="166" fill="#ffffff" stroke="#767676" stroke-width="1.2"/>
+<line x1="1030" y1="1015" x2="1360" y2="1015" stroke="#767676" stroke-width="1"/>
+<line x1="1030" y1="1123" x2="1360" y2="1123" stroke="#767676" stroke-width="1"/>
+<text x="1195" y="1005" font-family="Arial,sans-serif" font-size="14" fill="#202020" text-anchor="middle" font-weight="600">PetCatalogOption</text>
+<text x="1042" y="1032" font-family="Arial,sans-serif" font-size="12" fill="#202020" >+ optionId: int</text>
+<text x="1042" y="1048" font-family="Arial,sans-serif" font-size="12" fill="#202020" >+ species: string</text>
+<text x="1042" y="1064" font-family="Arial,sans-serif" font-size="12" fill="#202020" >+ breed: string</text>
+<text x="1042" y="1080" font-family="Arial,sans-serif" font-size="12" fill="#202020" >+ approvedByUserId: int?</text>
+<text x="1042" y="1096" font-family="Arial,sans-serif" font-size="12" fill="#202020" >+ createdAt: datetime</text>
+<text x="1042" y="1112" font-family="Arial,sans-serif" font-size="12" fill="#202020" >+ updatedAt: datetime</text>
+<text x="1042" y="1140" font-family="Arial,sans-serif" font-size="12" fill="#202020" >+ listOptions()</text>
+</g>
+<g data-class="branches"><title>Branch / full definition on sheet 3</title>
+<rect x="1500" y="135" width="330" height="82" fill="#ffffff" stroke="#767676" stroke-width="1.2"/>
+<line x1="1500" y1="165" x2="1830" y2="165" stroke="#767676" stroke-width="1"/>
+<line x1="1500" y1="193" x2="1830" y2="193" stroke="#767676" stroke-width="1"/>
+<text x="1665" y="155" font-family="Arial,sans-serif" font-size="14" fill="#202020" text-anchor="middle" font-weight="600">Branch</text>
+<text x="1512" y="182" font-family="Arial,sans-serif" font-size="12" fill="#202020" >+ branchId: int</text>
+</g>
+<g data-class="users"><title>User / full definition on sheet 2</title>
+<rect x="1500" y="281" width="330" height="212" fill="#ffffff" stroke="#767676" stroke-width="1.2"/>
+<line x1="1500" y1="311" x2="1830" y2="311" stroke="#767676" stroke-width="1"/>
+<line x1="1500" y1="339" x2="1830" y2="339" stroke="#767676" stroke-width="1"/>
+<text x="1665" y="301" font-family="Arial,sans-serif" font-size="14" fill="#202020" text-anchor="middle" font-weight="600">User</text>
+<text x="1512" y="328" font-family="Arial,sans-serif" font-size="12" fill="#202020" >+ userId: int</text>
+</g>
+<text x="988" y="486" font-family="Consolas,monospace" font-size="11.5" fill="#202020" data-relationship="domain-pets-edge-0" data-endpoint="start">0..*</text>
+<text x="432" y="196" font-family="Consolas,monospace" font-size="11.5" fill="#202020" data-relationship="domain-pets-edge-0" data-endpoint="end">0..1</text>
+<text x="432" y="664" font-family="Consolas,monospace" font-size="11.5" fill="#202020" data-relationship="domain-pets-edge-1" data-endpoint="start">0..*</text>
+<text x="1458" y="324" font-family="Consolas,monospace" font-size="11.5" fill="#202020" data-relationship="domain-pets-edge-1" data-endpoint="end">0..1</text>
+<text x="432" y="646" font-family="Consolas,monospace" font-size="11.5" fill="#202020" data-relationship="domain-pets-edge-2" data-endpoint="start">0..*</text>
+<text x="432" y="214" font-family="Consolas,monospace" font-size="11.5" fill="#202020" data-relationship="domain-pets-edge-2" data-endpoint="end">1</text>
+<text x="432" y="682" font-family="Consolas,monospace" font-size="11.5" fill="#202020" data-relationship="domain-pets-edge-3" data-endpoint="start">0..*</text>
+<text x="1458" y="342" font-family="Consolas,monospace" font-size="11.5" fill="#202020" data-relationship="domain-pets-edge-3" data-endpoint="end">0..1</text>
+<text x="432" y="700" font-family="Consolas,monospace" font-size="11.5" fill="#202020" data-relationship="domain-pets-edge-4" data-endpoint="start">0..*</text>
+<text x="1458" y="360" font-family="Consolas,monospace" font-size="11.5" fill="#202020" data-relationship="domain-pets-edge-4" data-endpoint="end">0..1</text>
+<text x="518" y="990" font-family="Consolas,monospace" font-size="11.5" fill="#202020" data-relationship="domain-pets-edge-5" data-endpoint="start">0..*</text>
+<text x="432" y="250" font-family="Consolas,monospace" font-size="11.5" fill="#202020" data-relationship="domain-pets-edge-5" data-endpoint="end">1</text>
+<text x="518" y="1008" font-family="Consolas,monospace" font-size="11.5" fill="#202020" data-relationship="domain-pets-edge-6" data-endpoint="start">0..*</text>
+<text x="432" y="1130" font-family="Consolas,monospace" font-size="11.5" fill="#202020" data-relationship="domain-pets-edge-6" data-endpoint="end">0..1</text>
+<text x="902" y="990" font-family="Consolas,monospace" font-size="11.5" fill="#202020" data-relationship="domain-pets-edge-7" data-endpoint="start">0..*</text>
+<text x="1479" y="396" font-family="Consolas,monospace" font-size="11.5" fill="#202020" data-relationship="domain-pets-edge-7" data-endpoint="end">1</text>
+<text x="988" y="684" font-family="Consolas,monospace" font-size="11.5" fill="#202020" data-relationship="domain-pets-edge-8" data-endpoint="start">0..*</text>
+<text x="432" y="232" font-family="Consolas,monospace" font-size="11.5" fill="#202020" data-relationship="domain-pets-edge-8" data-endpoint="end">1</text>
+<text x="432" y="1522" font-family="Consolas,monospace" font-size="11.5" fill="#202020" data-relationship="domain-pets-edge-9" data-endpoint="start">0..*</text>
+<text x="1009" y="702" font-family="Consolas,monospace" font-size="11.5" fill="#202020" data-relationship="domain-pets-edge-9" data-endpoint="end">1</text>
+<text x="902" y="160" font-family="Consolas,monospace" font-size="11.5" fill="#202020" data-relationship="domain-pets-edge-10" data-endpoint="start">0..*</text>
+<text x="1458" y="306" font-family="Consolas,monospace" font-size="11.5" fill="#202020" data-relationship="domain-pets-edge-10" data-endpoint="end">0..1</text>
+<text x="518" y="160" font-family="Consolas,monospace" font-size="11.5" fill="#202020" data-relationship="domain-pets-edge-11" data-endpoint="start">0..*</text>
+<text x="432" y="160" font-family="Consolas,monospace" font-size="11.5" fill="#202020" data-relationship="domain-pets-edge-11" data-endpoint="end">0..1</text>
+<text x="432" y="1004" font-family="Consolas,monospace" font-size="11.5" fill="#202020" data-relationship="domain-pets-edge-12" data-endpoint="start">0..*</text>
+<text x="1479" y="160" font-family="Consolas,monospace" font-size="11.5" fill="#202020" data-relationship="domain-pets-edge-12" data-endpoint="end">1</text>
+<text x="432" y="1040" font-family="Consolas,monospace" font-size="11.5" fill="#202020" data-relationship="domain-pets-edge-13" data-endpoint="start">0..*</text>
+<text x="1458" y="414" font-family="Consolas,monospace" font-size="11.5" fill="#202020" data-relationship="domain-pets-edge-13" data-endpoint="end">0..1</text>
+<text x="432" y="1058" font-family="Consolas,monospace" font-size="11.5" fill="#202020" data-relationship="domain-pets-edge-14" data-endpoint="start">0..*</text>
+<text x="1458" y="432" font-family="Consolas,monospace" font-size="11.5" fill="#202020" data-relationship="domain-pets-edge-14" data-endpoint="end">0..1</text>
+<text x="432" y="1076" font-family="Consolas,monospace" font-size="11.5" fill="#202020" data-relationship="domain-pets-edge-15" data-endpoint="start">0..*</text>
+<text x="1458" y="450" font-family="Consolas,monospace" font-size="11.5" fill="#202020" data-relationship="domain-pets-edge-15" data-endpoint="end">0..1</text>
+<text x="432" y="1022" font-family="Consolas,monospace" font-size="11.5" fill="#202020" data-relationship="domain-pets-edge-16" data-endpoint="start">0..*</text>
+<text x="432" y="268" font-family="Consolas,monospace" font-size="11.5" fill="#202020" data-relationship="domain-pets-edge-16" data-endpoint="end">1</text>
+<text x="432" y="1094" font-family="Consolas,monospace" font-size="11.5" fill="#202020" data-relationship="domain-pets-edge-17" data-endpoint="start">0..*</text>
+<text x="1458" y="468" font-family="Consolas,monospace" font-size="11.5" fill="#202020" data-relationship="domain-pets-edge-17" data-endpoint="end">0..1</text>
+<text x="902" y="700" font-family="Consolas,monospace" font-size="11.5" fill="#202020" data-relationship="domain-pets-edge-18" data-endpoint="start">0..*</text>
+<text x="1458" y="378" font-family="Consolas,monospace" font-size="11.5" fill="#202020" data-relationship="domain-pets-edge-18" data-endpoint="end">0..1</text>
+<text x="518" y="700" font-family="Consolas,monospace" font-size="11.5" fill="#202020" data-relationship="domain-pets-edge-19" data-endpoint="start">0..*</text>
+<text x="432" y="1112" font-family="Consolas,monospace" font-size="11.5" fill="#202020" data-relationship="domain-pets-edge-19" data-endpoint="end">1</text>
+<text x="518" y="422" font-family="Consolas,monospace" font-size="11.5" fill="#202020" data-relationship="domain-pets-edge-20" data-endpoint="start">0..*</text>
+<text x="432" y="178" font-family="Consolas,monospace" font-size="11.5" fill="#202020" data-relationship="domain-pets-edge-20" data-endpoint="end">1</text>
+</svg>

@@ -1,0 +1,137 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1940" height="1246" viewBox="0 0 1940 1246" role="img" aria-labelledby="title desc">
+<title id="title">iPawcus / Identity and access</title><desc id="desc">UML entity class diagram. Relationship lines avoid all unrelated class boxes. Source: iPawcus_ERD_Schema.sql.</desc>
+<defs><marker id="arrow" markerWidth="9" markerHeight="9" refX="8" refY="4.5" orient="auto" markerUnits="userSpaceOnUse"><path d="M0 0 L8 4.5 L0 9" fill="none" stroke="#8793a3" stroke-width="1.4"/></marker></defs>
+<rect width="100%" height="100%" fill="#ffffff"/>
+<text x="110" y="45" font-family="Arial,sans-serif" font-size="26" font-weight="600" fill="#2d3748">iPawcus / Identity and access</text>
+<text x="110" y="76" font-family="Arial,sans-serif" font-size="14" fill="#596579">Complete attributes for this module; reference boxes link to other pages.</text>
+<text x="110" y="100" font-family="Arial,sans-serif" font-size="13" fill="#596579">1 required · 0..1 optional · 0..* zero-to-many · ? nullable · PK primary key · FK foreign key · UK unique key</text>
+<path d="M450 534 L506 534 L506 448 L1008 448 L1008 456 L1434 456 L1434 212 L1490 212" fill="none" stroke="#8793a3" stroke-width="1.2" stroke-linejoin="round" marker-end="url(#arrow)"><title>users.preferred_branch_id → branches.branch_id [users_preferred_branch_fk]</title></path>
+<path d="M570 228 L506 228 L506 212 L450 212" fill="none" stroke="#8793a3" stroke-width="1.2" stroke-linejoin="round" marker-end="url(#arrow)"><title>admin_profiles.user_id → users.user_id [admin_profiles_ibfk_1]</title></path>
+<path d="M1030 228 L974 228 L974 128 L514 128 L514 230 L450 230" fill="none" stroke="#8793a3" stroke-width="1.2" stroke-linejoin="round" marker-end="url(#arrow)"><title>veterinarian_profiles.user_id → users.user_id [veterinarian_profiles_ibfk_1]</title></path>
+<path d="M450 746 L514 746 L514 248 L450 248" fill="none" stroke="#8793a3" stroke-width="1.2" stroke-linejoin="round" marker-end="url(#arrow)"><title>user_auth_identities.user_id → users.user_id [fk_user_auth_identity_user]</title></path>
+<path d="M570 832 L494 832 L494 402 L506 402 L506 266 L450 266" fill="none" stroke="#8793a3" stroke-width="1.2" stroke-linejoin="round" marker-end="url(#arrow)"><title>email_otp_tokens.user_id → users.user_id [email_otp_user_fk]</title></path>
+<g id="users"><rect x="110" y="150" width="340" height="428" fill="#ffffff" stroke="#c4cbd4" stroke-width="1.2"/><line x1="110" y1="198" x2="450" y2="198" stroke="#c4cbd4"/><text x="126" y="173" font-family="Arial,sans-serif" font-size="17" font-weight="600" fill="#2d3748">User</text><text x="126" y="190" font-family="Arial,sans-serif" font-size="11.5" fill="#596579">users</text>
+<text x="124" y="214" font-family="Consolas,monospace" font-size="12" fill="#2d3748">+ user_id: int(11) [PK]</text>
+<text x="124" y="232" font-family="Consolas,monospace" font-size="12" fill="#2d3748">+ first_Name: varchar(100) ?</text>
+<text x="124" y="250" font-family="Consolas,monospace" font-size="12" fill="#2d3748">+ last_Name: varchar(100)</text>
+<text x="124" y="268" font-family="Consolas,monospace" font-size="12" fill="#2d3748">+ mail_Address: varchar(200) [UK]</text>
+<text x="124" y="286" font-family="Consolas,monospace" font-size="12" fill="#2d3748">+ email_verified_at: datetime ?</text>
+<text x="124" y="304" font-family="Consolas,monospace" font-size="12" fill="#2d3748">+ personal_Address: varchar(250)</text>
+<text x="124" y="322" font-family="Consolas,monospace" font-size="12" fill="#2d3748">+ user_password: varchar(250) ?</text>
+<text x="124" y="340" font-family="Consolas,monospace" font-size="12" fill="#2d3748">+ password_changed_at: datetime ?</text>
+<text x="124" y="358" font-family="Consolas,monospace" font-size="12" fill="#2d3748">+ emergencyNumber: varchar(100) ?</text>
+<text x="124" y="376" font-family="Consolas,monospace" font-size="12" fill="#2d3748">+ phoneNumber: varchar(100) ?</text>
+<text x="124" y="394" font-family="Consolas,monospace" font-size="12" fill="#2d3748">+ role: varchar(100) ?</text>
+<text x="124" y="412" font-family="Consolas,monospace" font-size="12" fill="#2d3748">+ account_status: enum</text>
+<text x="124" y="430" font-family="Consolas,monospace" font-size="12" fill="#2d3748">+ deactivated_at: datetime ?</text>
+<text x="124" y="448" font-family="Consolas,monospace" font-size="12" fill="#2d3748">+ deactivation_reason: text ?</text>
+<text x="124" y="466" font-family="Consolas,monospace" font-size="12" fill="#2d3748">+ created_at: timestamp</text>
+<text x="124" y="484" font-family="Consolas,monospace" font-size="12" fill="#2d3748">+ last_seen_at: datetime ?</text>
+<text x="124" y="502" font-family="Consolas,monospace" font-size="12" fill="#2d3748">+ setProfilePic_url: varchar(250) ?</text>
+<text x="124" y="520" font-family="Consolas,monospace" font-size="12" fill="#2d3748">+ birthdate: date ?</text>
+<text x="124" y="538" font-family="Consolas,monospace" font-size="12" fill="#2d3748">+ preferred_branch_id: int(11) ? [FK]</text>
+<text x="124" y="556" font-family="Consolas,monospace" font-size="12" fill="#2d3748">+ activity_log_file: varchar(255) ?</text>
+</g>
+<g id="admin_profiles"><rect x="570" y="150" width="340" height="230" fill="#ffffff" stroke="#c4cbd4" stroke-width="1.2"/><line x1="570" y1="198" x2="910" y2="198" stroke="#c4cbd4"/><text x="586" y="173" font-family="Arial,sans-serif" font-size="17" font-weight="600" fill="#2d3748">AdminProfile</text><text x="586" y="190" font-family="Arial,sans-serif" font-size="11.5" fill="#596579">admin_profiles</text>
+<text x="584" y="214" font-family="Consolas,monospace" font-size="12" fill="#2d3748">+ id: int(11) [PK]</text>
+<text x="584" y="232" font-family="Consolas,monospace" font-size="12" fill="#2d3748">+ user_id: int(11) [FK]</text>
+<text x="584" y="250" font-family="Consolas,monospace" font-size="12" fill="#2d3748">+ employee_id: varchar(50) ? [UK]</text>
+<text x="584" y="268" font-family="Consolas,monospace" font-size="12" fill="#2d3748">+ hire_date: date ?</text>
+<text x="584" y="286" font-family="Consolas,monospace" font-size="12" fill="#2d3748">+ employment_status: enum ?</text>
+<text x="584" y="304" font-family="Consolas,monospace" font-size="12" fill="#2d3748">+ created_at: timestamp</text>
+<text x="584" y="322" font-family="Consolas,monospace" font-size="12" fill="#2d3748">+ postionn: varchar(250) ?</text>
+<text x="584" y="340" font-family="Consolas,monospace" font-size="12" fill="#2d3748">+ is_active: tinyint(1) ?</text>
+<text x="584" y="358" font-family="Consolas,monospace" font-size="12" fill="#2d3748">+ years_of_experience: int(11) ?</text>
+</g>
+<g id="veterinarian_profiles"><rect x="1030" y="150" width="340" height="284" fill="#ffffff" stroke="#c4cbd4" stroke-width="1.2"/><line x1="1030" y1="198" x2="1370" y2="198" stroke="#c4cbd4"/><text x="1046" y="173" font-family="Arial,sans-serif" font-size="17" font-weight="600" fill="#2d3748">VeterinarianProfile</text><text x="1046" y="190" font-family="Arial,sans-serif" font-size="11.5" fill="#596579">veterinarian_profiles</text>
+<text x="1044" y="214" font-family="Consolas,monospace" font-size="12" fill="#2d3748">+ id: int(11) [PK]</text>
+<text x="1044" y="232" font-family="Consolas,monospace" font-size="12" fill="#2d3748">+ user_id: int(11) [FK]</text>
+<text x="1044" y="250" font-family="Consolas,monospace" font-size="12" fill="#2d3748">+ veterinarian_id: varchar(50) ? [UK]</text>
+<text x="1044" y="268" font-family="Consolas,monospace" font-size="12" fill="#2d3748">+ prc_license_number: varchar(50) ?</text>
+<text x="1044" y="286" font-family="Consolas,monospace" font-size="12" fill="#2d3748">+ specialization: text ?</text>
+<text x="1044" y="304" font-family="Consolas,monospace" font-size="12" fill="#2d3748">+ consultation_rate: decimal(10,2) ?</text>
+<text x="1044" y="322" font-family="Consolas,monospace" font-size="12" fill="#2d3748">+ years_of_experience: int(11) ?</text>
+<text x="1044" y="340" font-family="Consolas,monospace" font-size="12" fill="#2d3748">+ hire_date: date ?</text>
+<text x="1044" y="358" font-family="Consolas,monospace" font-size="12" fill="#2d3748">+ is_accepting_patients: tinyint(1) ?</text>
+<text x="1044" y="376" font-family="Consolas,monospace" font-size="12" fill="#2d3748">+ is_active: tinyint(1) ?</text>
+<text x="1044" y="394" font-family="Consolas,monospace" font-size="12" fill="#2d3748">+ created_at: timestamp</text>
+<text x="1044" y="412" font-family="Consolas,monospace" font-size="12" fill="#2d3748">+ experience_history: longtext ?</text>
+</g>
+<g id="user_auth_identities"><rect x="110" y="668" width="340" height="194" fill="#ffffff" stroke="#c4cbd4" stroke-width="1.2"/><line x1="110" y1="716" x2="450" y2="716" stroke="#c4cbd4"/><text x="126" y="691" font-family="Arial,sans-serif" font-size="17" font-weight="600" fill="#2d3748">UserAuthIdentity</text><text x="126" y="708" font-family="Arial,sans-serif" font-size="11.5" fill="#596579">user_auth_identities</text>
+<text x="124" y="732" font-family="Consolas,monospace" font-size="12" fill="#2d3748">+ identity_id: bigint(20) [PK]</text>
+<text x="124" y="750" font-family="Consolas,monospace" font-size="12" fill="#2d3748">+ user_id: int(11) [FK]</text>
+<text x="124" y="768" font-family="Consolas,monospace" font-size="12" fill="#2d3748">+ provider: varchar(30)</text>
+<text x="124" y="786" font-family="Consolas,monospace" font-size="12" fill="#2d3748">+ provider_subject: varchar(255)</text>
+<text x="124" y="804" font-family="Consolas,monospace" font-size="12" fill="#2d3748">+ provider_email: varchar(200) ?</text>
+<text x="124" y="822" font-family="Consolas,monospace" font-size="12" fill="#2d3748">+ linked_at: datetime</text>
+<text x="124" y="840" font-family="Consolas,monospace" font-size="12" fill="#2d3748">+ last_login_at: datetime ?</text>
+</g>
+<g id="admin_feature_permissions"><rect x="570" y="470" width="340" height="194" fill="#ffffff" stroke="#c4cbd4" stroke-width="1.2"/><line x1="570" y1="518" x2="910" y2="518" stroke="#c4cbd4"/><text x="586" y="493" font-family="Arial,sans-serif" font-size="17" font-weight="600" fill="#2d3748">AdminFeaturePermission</text><text x="586" y="510" font-family="Arial,sans-serif" font-size="11.5" fill="#596579">admin_feature_permissions</text>
+<text x="584" y="534" font-family="Consolas,monospace" font-size="12" fill="#2d3748">+ permission_id: bigint(20) [PK]</text>
+<text x="584" y="552" font-family="Consolas,monospace" font-size="12" fill="#2d3748">+ user_id: int(11)</text>
+<text x="584" y="570" font-family="Consolas,monospace" font-size="12" fill="#2d3748">+ feature_key: varchar(64)</text>
+<text x="584" y="588" font-family="Consolas,monospace" font-size="12" fill="#2d3748">+ is_allowed: tinyint(1)</text>
+<text x="584" y="606" font-family="Consolas,monospace" font-size="12" fill="#2d3748">+ updated_by_user_id: int(11) ?</text>
+<text x="584" y="624" font-family="Consolas,monospace" font-size="12" fill="#2d3748">+ created_at: timestamp</text>
+<text x="584" y="642" font-family="Consolas,monospace" font-size="12" fill="#2d3748">+ updated_at: timestamp</text>
+</g>
+<g id="admin_feature_permission_audit"><rect x="1030" y="524" width="340" height="176" fill="#ffffff" stroke="#c4cbd4" stroke-width="1.2"/><line x1="1030" y1="572" x2="1370" y2="572" stroke="#c4cbd4"/><text x="1046" y="547" font-family="Arial,sans-serif" font-size="17" font-weight="600" fill="#2d3748">AdminFeaturePermissionAudit</text><text x="1046" y="564" font-family="Arial,sans-serif" font-size="11.5" fill="#596579">admin_feature_permission_audit</text>
+<text x="1044" y="588" font-family="Consolas,monospace" font-size="12" fill="#2d3748">+ audit_id: bigint(20) [PK]</text>
+<text x="1044" y="606" font-family="Consolas,monospace" font-size="12" fill="#2d3748">+ target_user_id: int(11)</text>
+<text x="1044" y="624" font-family="Consolas,monospace" font-size="12" fill="#2d3748">+ changed_by_user_id: int(11)</text>
+<text x="1044" y="642" font-family="Consolas,monospace" font-size="12" fill="#2d3748">+ previous_permissions: json ?</text>
+<text x="1044" y="660" font-family="Consolas,monospace" font-size="12" fill="#2d3748">+ new_permissions: json</text>
+<text x="1044" y="678" font-family="Consolas,monospace" font-size="12" fill="#2d3748">+ created_at: timestamp</text>
+</g>
+<g id="api_access_tokens"><rect x="110" y="952" width="340" height="194" fill="#ffffff" stroke="#c4cbd4" stroke-width="1.2"/><line x1="110" y1="1000" x2="450" y2="1000" stroke="#c4cbd4"/><text x="126" y="975" font-family="Arial,sans-serif" font-size="17" font-weight="600" fill="#2d3748">ApiAccessToken</text><text x="126" y="992" font-family="Arial,sans-serif" font-size="11.5" fill="#596579">api_access_tokens</text>
+<text x="124" y="1016" font-family="Consolas,monospace" font-size="12" fill="#2d3748">+ token_id: int(11) [PK]</text>
+<text x="124" y="1034" font-family="Consolas,monospace" font-size="12" fill="#2d3748">+ user_id: int(11)</text>
+<text x="124" y="1052" font-family="Consolas,monospace" font-size="12" fill="#2d3748">+ token_hash: char(64) [UK]</text>
+<text x="124" y="1070" font-family="Consolas,monospace" font-size="12" fill="#2d3748">+ created_at: datetime</text>
+<text x="124" y="1088" font-family="Consolas,monospace" font-size="12" fill="#2d3748">+ expires_at: datetime</text>
+<text x="124" y="1106" font-family="Consolas,monospace" font-size="12" fill="#2d3748">+ last_used_at: datetime ?</text>
+<text x="124" y="1124" font-family="Consolas,monospace" font-size="12" fill="#2d3748">+ revoked_at: datetime ?</text>
+</g>
+<g id="email_otp_tokens"><rect x="570" y="754" width="340" height="320" fill="#ffffff" stroke="#c4cbd4" stroke-width="1.2"/><line x1="570" y1="802" x2="910" y2="802" stroke="#c4cbd4"/><text x="586" y="777" font-family="Arial,sans-serif" font-size="17" font-weight="600" fill="#2d3748">EmailOtpToken</text><text x="586" y="794" font-family="Arial,sans-serif" font-size="11.5" fill="#596579">email_otp_tokens</text>
+<text x="584" y="818" font-family="Consolas,monospace" font-size="12" fill="#2d3748">+ otp_id: int(11) [PK]</text>
+<text x="584" y="836" font-family="Consolas,monospace" font-size="12" fill="#2d3748">+ user_id: int(11) ? [FK]</text>
+<text x="584" y="854" font-family="Consolas,monospace" font-size="12" fill="#2d3748">+ email: varchar(200)</text>
+<text x="584" y="872" font-family="Consolas,monospace" font-size="12" fill="#2d3748">+ purpose: enum</text>
+<text x="584" y="890" font-family="Consolas,monospace" font-size="12" fill="#2d3748">+ token_hash: char(64)</text>
+<text x="584" y="908" font-family="Consolas,monospace" font-size="12" fill="#2d3748">+ expires_at: datetime</text>
+<text x="584" y="926" font-family="Consolas,monospace" font-size="12" fill="#2d3748">+ used_at: datetime ?</text>
+<text x="584" y="944" font-family="Consolas,monospace" font-size="12" fill="#2d3748">+ attempt_count: int(11)</text>
+<text x="584" y="962" font-family="Consolas,monospace" font-size="12" fill="#2d3748">+ max_attempts: int(11)</text>
+<text x="584" y="980" font-family="Consolas,monospace" font-size="12" fill="#2d3748">+ last_sent_at: datetime ?</text>
+<text x="584" y="998" font-family="Consolas,monospace" font-size="12" fill="#2d3748">+ request_ip: varchar(45) ?</text>
+<text x="584" y="1016" font-family="Consolas,monospace" font-size="12" fill="#2d3748">+ user_agent: varchar(255) ?</text>
+<text x="584" y="1034" font-family="Consolas,monospace" font-size="12" fill="#2d3748">+ created_at: timestamp</text>
+<text x="584" y="1052" font-family="Consolas,monospace" font-size="12" fill="#2d3748">+ updated_at: timestamp</text>
+</g>
+<g id="google_auth_onboarding_tokens"><rect x="1030" y="790" width="340" height="248" fill="#ffffff" stroke="#c4cbd4" stroke-width="1.2"/><line x1="1030" y1="838" x2="1370" y2="838" stroke="#c4cbd4"/><text x="1046" y="813" font-family="Arial,sans-serif" font-size="17" font-weight="600" fill="#2d3748">GoogleAuthOnboardingToken</text><text x="1046" y="830" font-family="Arial,sans-serif" font-size="11.5" fill="#596579">google_auth_onboarding_tokens</text>
+<text x="1044" y="854" font-family="Consolas,monospace" font-size="12" fill="#2d3748">+ onboarding_id: bigint(20) [PK]</text>
+<text x="1044" y="872" font-family="Consolas,monospace" font-size="12" fill="#2d3748">+ token_hash: char(64) [UK]</text>
+<text x="1044" y="890" font-family="Consolas,monospace" font-size="12" fill="#2d3748">+ provider_subject: varchar(255) [UK]</text>
+<text x="1044" y="908" font-family="Consolas,monospace" font-size="12" fill="#2d3748">+ email: varchar(200)</text>
+<text x="1044" y="926" font-family="Consolas,monospace" font-size="12" fill="#2d3748">+ first_name: varchar(100) ?</text>
+<text x="1044" y="944" font-family="Consolas,monospace" font-size="12" fill="#2d3748">+ last_name: varchar(100) ?</text>
+<text x="1044" y="962" font-family="Consolas,monospace" font-size="12" fill="#2d3748">+ picture_url: varchar(500) ?</text>
+<text x="1044" y="980" font-family="Consolas,monospace" font-size="12" fill="#2d3748">+ expires_at: datetime</text>
+<text x="1044" y="998" font-family="Consolas,monospace" font-size="12" fill="#2d3748">+ consumed_at: datetime ?</text>
+<text x="1044" y="1016" font-family="Consolas,monospace" font-size="12" fill="#2d3748">+ created_at: datetime</text>
+</g>
+<g id="branches"><rect x="1490" y="150" width="340" height="94" fill="#f8fafc" stroke="#c4cbd4" stroke-width="1.2" stroke-dasharray="5 4"/><line x1="1490" y1="198" x2="1830" y2="198" stroke="#c4cbd4"/><text x="1506" y="173" font-family="Arial,sans-serif" font-size="17" font-weight="600" fill="#2d3748">Branch</text><text x="1506" y="190" font-family="Arial,sans-serif" font-size="11.5" fill="#596579">branches · reference / page 02</text>
+<text x="1504" y="214" font-family="Consolas,monospace" font-size="12" fill="#2d3748">+ branch_id: int(11) [PK]</text>
+<text x="1504" y="232" font-family="Arial,sans-serif" font-size="11.5" fill="#596579">Full class on page 02</text>
+</g>
+<text x="462" y="529" font-family="Consolas,monospace" font-size="11.5" fill="#596579" data-relationship="identity-edge-0" data-endpoint="start">0..*</text>
+<text x="1448" y="207" font-family="Consolas,monospace" font-size="11.5" fill="#596579" data-relationship="identity-edge-0" data-endpoint="end">0..1</text>
+<text x="528" y="223" font-family="Consolas,monospace" font-size="11.5" fill="#596579" data-relationship="identity-edge-1" data-endpoint="start">0..*</text>
+<text x="462" y="207" font-family="Consolas,monospace" font-size="11.5" fill="#596579" data-relationship="identity-edge-1" data-endpoint="end">1</text>
+<text x="988" y="223" font-family="Consolas,monospace" font-size="11.5" fill="#596579" data-relationship="identity-edge-2" data-endpoint="start">0..*</text>
+<text x="462" y="225" font-family="Consolas,monospace" font-size="11.5" fill="#596579" data-relationship="identity-edge-2" data-endpoint="end">1</text>
+<text x="462" y="741" font-family="Consolas,monospace" font-size="11.5" fill="#596579" data-relationship="identity-edge-3" data-endpoint="start">0..*</text>
+<text x="462" y="243" font-family="Consolas,monospace" font-size="11.5" fill="#596579" data-relationship="identity-edge-3" data-endpoint="end">1</text>
+<text x="528" y="827" font-family="Consolas,monospace" font-size="11.5" fill="#596579" data-relationship="identity-edge-4" data-endpoint="start">0..*</text>
+<text x="462" y="261" font-family="Consolas,monospace" font-size="11.5" fill="#596579" data-relationship="identity-edge-4" data-endpoint="end">0..1</text>
+</svg>

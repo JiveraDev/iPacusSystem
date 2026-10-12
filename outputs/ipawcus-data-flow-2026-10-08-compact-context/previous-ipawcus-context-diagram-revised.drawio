@@ -1,0 +1,442 @@
+<mxfile host="app.diagrams.net" compressed="false">
+  <diagram id="00-context" name="Revised Context Diagram">
+    <mxGraphModel dx="2290" dy="1283" grid="1" gridSize="10" guides="1" tooltips="1" connect="1" arrows="1" fold="1" page="1" pageScale="1" pageWidth="1880" pageHeight="1200" background="#ffffff" math="0" shadow="0">
+      <root>
+        <mxCell id="0" />
+        <mxCell id="1" parent="0" />
+        <mxCell id="title" parent="1" style="text;html=0;whiteSpace=wrap;align=center;verticalAlign=middle;fillColor=none;strokeColor=none;fontFamily=Arial;fontSize=16;fontColor=#000000;align=left;fontSize=24;" value="iPawcus — Revised Context Diagram" vertex="1">
+          <mxGeometry height="34" width="1760" x="60" y="12" as="geometry" />
+        </mxCell>
+        <mxCell id="note" parent="1" style="text;html=0;whiteSpace=wrap;align=center;verticalAlign=middle;fillColor=none;strokeColor=none;fontFamily=Arial;fontSize=16;fontColor=#000000;align=left;fontSize=14;" value="IN: User → System. OUT: System → User. Each role appears once; internal data stores are not shown." vertex="1">
+          <mxGeometry height="28" width="1760" x="60" y="47" as="geometry" />
+        </mxCell>
+        <object label="" tooltip="0&#xa;src/services/accountService.js&#xa;src/services/userLogin.js&#xa;src/services/profileService.js&#xa;php/branch_helpers.php" id="00-context-p-0">
+          <mxCell parent="1" style="rounded=1;arcSize=10;absoluteArcSize=1;html=0;whiteSpace=wrap;align=center;verticalAlign=middle;fontSize=16;fontFamily=Arial;fontColor=#000000;fillColor=#ffffff;strokeColor=#000000;strokeWidth=1.2;shadow=0;" vertex="1">
+            <mxGeometry height="260" width="310" x="790" y="520" as="geometry" />
+          </mxCell>
+        </object>
+        <mxCell id="00-context-p-0-number" parent="00-context-p-0" style="text;html=0;whiteSpace=wrap;align=center;verticalAlign=middle;fillColor=none;strokeColor=none;fontFamily=Arial;fontSize=16;fontColor=#000000;fontStyle=1;" value="0" vertex="1">
+          <mxGeometry height="28" width="310" as="geometry" />
+        </mxCell>
+        <mxCell id="00-context-p-0-divider" parent="00-context-p-0" style="line;strokeColor=#000000;strokeWidth=1.2;" vertex="1">
+          <mxGeometry width="310" y="28" as="geometry" />
+        </mxCell>
+        <mxCell id="00-context-p-0-name" parent="00-context-p-0" style="text;html=0;whiteSpace=wrap;align=center;verticalAlign=middle;fillColor=none;strokeColor=none;fontFamily=Arial;fontSize=16;fontColor=#000000;" value="iPawcus: A Web-Based&#xa;Veterinary Management&#xa;System with Online Booking&#xa;and Pet Record Management&#xa;for Vetfocus Care&#xa;Animal Clinic" vertex="1">
+          <mxGeometry height="232" width="310" y="28" as="geometry" />
+        </mxCell>
+        <object label="Super Admin&#xa;(Clinic Owner)" tooltip="super" id="00-context-ref-super">
+          <mxCell parent="1" style="rounded=0;html=0;whiteSpace=wrap;align=center;verticalAlign=middle;fontSize=19.5;fontFamily=Arial;fontColor=#000000;fillColor=#ffffff;strokeColor=#000000;strokeWidth=1.2;shadow=0;fontStyle=1;" vertex="1">
+            <mxGeometry height="130" width="230" x="283" y="370" as="geometry" />
+          </mxCell>
+        </object>
+        <object label="Admin&#xa;(Nurse / Staff)" tooltip="admin" id="00-context-ref-admin">
+          <mxCell parent="1" style="rounded=0;html=0;whiteSpace=wrap;align=center;verticalAlign=middle;fontSize=19.5;fontFamily=Arial;fontColor=#000000;fillColor=#ffffff;strokeColor=#000000;strokeWidth=1.2;shadow=0;fontStyle=1;" vertex="1">
+            <mxGeometry height="130" width="230" x="60" y="1010" as="geometry" />
+          </mxCell>
+        </object>
+        <object label="Veterinarian" tooltip="vet" id="00-context-ref-vet">
+          <mxCell parent="1" style="rounded=0;html=0;whiteSpace=wrap;align=center;verticalAlign=middle;fontSize=19.5;fontFamily=Arial;fontColor=#000000;fillColor=#ffffff;strokeColor=#000000;strokeWidth=1.2;shadow=0;fontStyle=1;" vertex="1">
+            <mxGeometry height="130" width="230" x="1590" y="150" as="geometry" />
+          </mxCell>
+        </object>
+        <object label="Pet Owner" tooltip="owner" id="00-context-ref-owner">
+          <mxCell parent="1" style="rounded=0;html=0;whiteSpace=wrap;align=center;verticalAlign=middle;fontSize=19.5;fontFamily=Arial;fontColor=#000000;fillColor=#ffffff;strokeColor=#000000;strokeWidth=1.2;shadow=0;fontStyle=1;" vertex="1">
+            <mxGeometry height="130" width="230" x="1590" y="1010" as="geometry" />
+          </mxCell>
+        </object>
+        <object label="" tooltip="super → 0: Account, role and clinic assignments" id="00-context-flow-super-0">
+          <mxCell edge="1" parent="1" source="00-context-ref-super" style="edgeStyle=none;html=0;rounded=0;endArrow=classic;endFill=1;endSize=7;strokeColor=#000000;strokeWidth=1.2;exitX=1;exitY=0.27692307692307694;exitPerimeter=0;entryX=0.3032258064516129;entryY=0;entryPerimeter=0;" target="00-context-p-0">
+            <mxGeometry relative="1" x="-0.0062" as="geometry">
+              <Array as="points">
+                <mxPoint x="884" y="406" />
+              </Array>
+            </mxGeometry>
+          </mxCell>
+        </object>
+        <mxCell id="00-context-flow-super-0-label" connectable="0" parent="00-context-flow-super-0" style="edgeLabel;html=0;align=left;verticalAlign=middle;spacing=0;fontFamily=Arial;fontSize=16;fontColor=#000000;fillColor=none;strokeColor=none;resizable=0;" value="Account, role and clinic assignments" vertex="1">
+          <mxGeometry height="19" relative="1" width="265" x="-1" as="geometry">
+            <mxPoint x="12" y="-24" as="offset" />
+          </mxGeometry>
+        </mxCell>
+        <object label="" tooltip="super → 0: Clinic, access and payment settings" id="00-context-flow-super-1">
+          <mxCell edge="1" parent="1" source="00-context-ref-super" style="edgeStyle=none;html=0;rounded=0;endArrow=classic;endFill=1;endSize=7;strokeColor=#000000;strokeWidth=1.2;exitX=1;exitY=0.5692307692307692;exitPerimeter=0;entryX=0.1935483870967742;entryY=0;entryPerimeter=0;" target="00-context-p-0">
+            <mxGeometry relative="1" as="geometry">
+              <Array as="points">
+                <mxPoint x="849.49" y="444" />
+              </Array>
+            </mxGeometry>
+          </mxCell>
+        </object>
+        <mxCell id="00-context-flow-super-1-label" connectable="0" parent="00-context-flow-super-1" style="edgeLabel;html=0;align=left;verticalAlign=middle;spacing=0;fontFamily=Arial;fontSize=16;fontColor=#000000;fillColor=none;strokeColor=none;resizable=0;" value="Clinic, access and payment settings" vertex="1">
+          <mxGeometry height="19" relative="1" width="260" x="-1" as="geometry">
+            <mxPoint x="12" y="-24" as="offset" />
+          </mxGeometry>
+        </mxCell>
+        <object label="" tooltip="super → 0: Report, media and backup requests" id="00-context-flow-super-2">
+          <mxCell edge="1" parent="1" source="00-context-ref-super" style="edgeStyle=none;html=0;rounded=0;endArrow=classic;endFill=1;endSize=7;strokeColor=#000000;strokeWidth=1.2;exitX=1;exitY=0.8615384615384616;exitPerimeter=0;entryX=0.08387096774193549;entryY=0;entryPerimeter=0;" target="00-context-p-0">
+            <mxGeometry relative="1" as="geometry">
+              <Array as="points">
+                <mxPoint x="816" y="480" />
+              </Array>
+            </mxGeometry>
+          </mxCell>
+        </object>
+        <mxCell id="00-context-flow-super-2-label" connectable="0" parent="00-context-flow-super-2" style="edgeLabel;html=0;align=left;verticalAlign=middle;spacing=0;fontFamily=Arial;fontSize=16;fontColor=#000000;fillColor=none;strokeColor=none;resizable=0;" value="Report, media and backup requests" vertex="1">
+          <mxGeometry height="19" relative="1" width="260" x="-1" as="geometry">
+            <mxPoint x="12" y="-24" as="offset" />
+          </mxGeometry>
+        </mxCell>
+        <object label="" tooltip="0 → super: Account and configuration status" id="00-context-flow-super-3">
+          <mxCell edge="1" parent="1" source="00-context-p-0" style="edgeStyle=none;html=0;rounded=0;endArrow=classic;endFill=1;endSize=7;strokeColor=#000000;strokeWidth=1.2;exitX=0;exitY=0.16923076923076924;exitPerimeter=0;entryX=0.48695652173913045;entryY=1;entryPerimeter=0;" target="00-context-ref-super">
+            <mxGeometry relative="1" as="geometry">
+              <Array as="points">
+                <mxPoint x="390" y="564" />
+              </Array>
+            </mxGeometry>
+          </mxCell>
+        </object>
+        <mxCell id="00-context-flow-super-3-label" connectable="0" parent="00-context-flow-super-3" style="edgeLabel;html=0;align=left;verticalAlign=middle;spacing=0;fontFamily=Arial;fontSize=16;fontColor=#000000;fillColor=none;strokeColor=none;resizable=0;" value="Account and configuration status" vertex="1">
+          <mxGeometry height="19" relative="1" width="238" x="-1" as="geometry">
+            <mxPoint x="-258" y="-24" as="offset" />
+          </mxGeometry>
+        </mxCell>
+        <object label="" tooltip="0 → super: Reports, media and staff history" id="00-context-flow-super-4">
+          <mxCell edge="1" parent="1" source="00-context-p-0" style="edgeStyle=none;html=0;rounded=0;endArrow=classic;endFill=1;endSize=7;strokeColor=#000000;strokeWidth=1.2;exitX=0;exitY=0.27692307692307694;exitPerimeter=0;entryX=0.33043478260869563;entryY=1;entryPerimeter=0;" target="00-context-ref-super">
+            <mxGeometry relative="1" x="0.0173" as="geometry">
+              <Array as="points">
+                <mxPoint x="359" y="590" />
+              </Array>
+            </mxGeometry>
+          </mxCell>
+        </object>
+        <mxCell id="00-context-flow-super-4-label" connectable="0" parent="00-context-flow-super-4" style="edgeLabel;html=0;align=left;verticalAlign=middle;spacing=0;fontFamily=Arial;fontSize=16;fontColor=#000000;fillColor=none;strokeColor=none;resizable=0;" value="Reports, media and staff history" vertex="1">
+          <mxGeometry height="19" relative="1" width="232" x="-1" as="geometry">
+            <mxPoint x="-252" y="-24" as="offset" />
+          </mxGeometry>
+        </mxCell>
+        <object label="" tooltip="0 → super: Backup files and download status" id="00-context-flow-super-5">
+          <mxCell edge="1" parent="1" source="00-context-p-0" style="edgeStyle=none;html=0;rounded=0;endArrow=classic;endFill=1;endSize=7;strokeColor=#000000;strokeWidth=1.2;exitX=0;exitY=0.38461538461538464;exitPerimeter=0;entryX=0.17391304347826086;entryY=1;entryPerimeter=0;" target="00-context-ref-super">
+            <mxGeometry relative="1" as="geometry">
+              <Array as="points">
+                <mxPoint x="320" y="620" />
+              </Array>
+            </mxGeometry>
+          </mxCell>
+        </object>
+        <mxCell id="00-context-flow-super-5-label" connectable="0" parent="00-context-flow-super-5" style="edgeLabel;html=0;align=left;verticalAlign=middle;spacing=0;fontFamily=Arial;fontSize=16;fontColor=#000000;fillColor=none;strokeColor=none;resizable=0;" value="Backup files and download status" vertex="1">
+          <mxGeometry height="19" relative="1" width="243" x="-1" as="geometry">
+            <mxPoint x="-263" y="-24" as="offset" />
+          </mxGeometry>
+        </mxCell>
+        <object label="" tooltip="admin → 0: Pet, booking and queue details" id="00-context-flow-admin-0">
+          <mxCell edge="1" parent="1" source="00-context-ref-admin" style="edgeStyle=none;html=0;rounded=0;endArrow=classic;endFill=1;endSize=7;strokeColor=#000000;strokeWidth=1.2;exitX=0.20869565217391303;exitY=0;exitPerimeter=0;entryX=0;entryY=0.5230769230769231;entryPerimeter=0;" target="00-context-p-0">
+            <mxGeometry relative="1" as="geometry">
+              <Array as="points">
+                <mxPoint x="108" y="656" />
+              </Array>
+            </mxGeometry>
+          </mxCell>
+        </object>
+        <mxCell id="00-context-flow-admin-0-label" connectable="0" parent="00-context-flow-admin-0" style="edgeLabel;html=0;align=left;verticalAlign=middle;spacing=0;fontFamily=Arial;fontSize=16;fontColor=#000000;fillColor=none;strokeColor=none;resizable=0;" value="Pet, booking and queue details" vertex="1">
+          <mxGeometry height="19" relative="1" width="226" x="-1" as="geometry">
+            <mxPoint x="436" y="-378" as="offset" />
+          </mxGeometry>
+        </mxCell>
+        <object label="" tooltip="admin → 0: Exam findings, images and vet assignment" id="00-context-flow-admin-1">
+          <mxCell edge="1" parent="1" source="00-context-ref-admin" style="edgeStyle=none;html=0;rounded=0;endArrow=classic;endFill=1;endSize=7;strokeColor=#000000;strokeWidth=1.2;exitX=0.3826086956521739;exitY=0;exitPerimeter=0;entryX=0;entryY=0.6307692307692307;entryPerimeter=0;" target="00-context-p-0">
+            <mxGeometry relative="1" as="geometry">
+              <Array as="points">
+                <mxPoint x="148" y="684" />
+              </Array>
+            </mxGeometry>
+          </mxCell>
+        </object>
+        <mxCell id="00-context-flow-admin-1-label" connectable="0" parent="00-context-flow-admin-1" style="edgeLabel;html=0;align=left;verticalAlign=middle;spacing=0;fontFamily=Arial;fontSize=16;fontColor=#000000;fillColor=none;strokeColor=none;resizable=0;" value="Exam findings, images and vet assignment" vertex="1">
+          <mxGeometry height="19" relative="1" width="311" x="-1" as="geometry">
+            <mxPoint x="311" y="-350" as="offset" />
+          </mxGeometry>
+        </mxCell>
+        <object label="" tooltip="admin → 0: Signed consent records" id="00-context-flow-admin-2">
+          <mxCell edge="1" parent="1" source="00-context-ref-admin" style="edgeStyle=none;html=0;rounded=0;endArrow=classic;endFill=1;endSize=7;strokeColor=#000000;strokeWidth=1.2;exitX=0.5565217391304348;exitY=0;exitPerimeter=0;entryX=0;entryY=0.7384615384615385;entryPerimeter=0;" target="00-context-p-0">
+            <mxGeometry relative="1" as="geometry">
+              <Array as="points">
+                <mxPoint x="188" y="712" />
+              </Array>
+            </mxGeometry>
+          </mxCell>
+        </object>
+        <mxCell id="00-context-flow-admin-2-label" connectable="0" parent="00-context-flow-admin-2" style="edgeLabel;html=0;align=left;verticalAlign=middle;spacing=0;fontFamily=Arial;fontSize=16;fontColor=#000000;fillColor=none;strokeColor=none;resizable=0;" value="Signed consent records" vertex="1">
+          <mxGeometry height="19" relative="1" width="174" x="-1" as="geometry">
+            <mxPoint x="408" y="-322" as="offset" />
+          </mxGeometry>
+        </mxCell>
+        <object label="" tooltip="admin → 0: Care, stock, billing and refund entries" id="00-context-flow-admin-3">
+          <mxCell edge="1" parent="1" source="00-context-ref-admin" style="edgeStyle=none;html=0;rounded=0;endArrow=classic;endFill=1;endSize=7;strokeColor=#000000;strokeWidth=1.2;exitX=0.7304347826086957;exitY=0;exitPerimeter=0;entryX=0;entryY=0.8461538461538461;entryPerimeter=0;" target="00-context-p-0">
+            <mxGeometry relative="1" as="geometry">
+              <Array as="points">
+                <mxPoint x="228" y="740" />
+              </Array>
+            </mxGeometry>
+          </mxCell>
+        </object>
+        <mxCell id="00-context-flow-admin-3-label" connectable="0" parent="00-context-flow-admin-3" style="edgeLabel;html=0;align=left;verticalAlign=middle;spacing=0;fontFamily=Arial;fontSize=16;fontColor=#000000;fillColor=none;strokeColor=none;resizable=0;" value="Care, stock, billing and refund entries" vertex="1">
+          <mxGeometry height="19" relative="1" width="271" x="-1" as="geometry">
+            <mxPoint x="271" y="-294" as="offset" />
+          </mxGeometry>
+        </mxCell>
+        <object label="" tooltip="0 → admin: Booking, queue and examination status" id="00-context-flow-admin-4">
+          <mxCell edge="1" parent="1" source="00-context-p-0" style="edgeStyle=none;html=0;rounded=0;endArrow=classic;endFill=1;endSize=7;strokeColor=#000000;strokeWidth=1.2;exitX=0.08387096774193549;exitY=1;exitPerimeter=0;entryX=1;entryY=0.23076923076923078;entryPerimeter=0;" target="00-context-ref-admin">
+            <mxGeometry relative="1" as="geometry">
+              <Array as="points">
+                <mxPoint x="816" y="1040" />
+              </Array>
+            </mxGeometry>
+          </mxCell>
+        </object>
+        <mxCell id="00-context-flow-admin-4-label" connectable="0" parent="00-context-flow-admin-4" style="edgeLabel;html=0;align=left;verticalAlign=middle;spacing=0;fontFamily=Arial;fontSize=16;fontColor=#000000;fillColor=none;strokeColor=none;resizable=0;" value="Booking, queue and examination status" vertex="1">
+          <mxGeometry height="19" relative="1" width="287" x="-1" as="geometry">
+            <mxPoint x="-514" y="236" as="offset" />
+          </mxGeometry>
+        </mxCell>
+        <object label="" tooltip="0 → admin: Patient records and signed documents" id="00-context-flow-admin-5">
+          <mxCell edge="1" parent="1" source="00-context-p-0" style="edgeStyle=none;html=0;rounded=0;endArrow=classic;endFill=1;endSize=7;strokeColor=#000000;strokeWidth=1.2;exitX=0.1935483870967742;exitY=1;exitPerimeter=0;entryX=1;entryY=0.5230769230769231;entryPerimeter=0;" target="00-context-ref-admin">
+            <mxGeometry relative="1" as="geometry">
+              <Array as="points">
+                <mxPoint x="850" y="1078" />
+              </Array>
+            </mxGeometry>
+          </mxCell>
+        </object>
+        <mxCell id="00-context-flow-admin-5-label" connectable="0" parent="00-context-flow-admin-5" style="edgeLabel;html=0;align=left;verticalAlign=middle;spacing=0;fontFamily=Arial;fontSize=16;fontColor=#000000;fillColor=none;strokeColor=none;resizable=0;" value="Patient records and signed documents" vertex="1">
+          <mxGeometry height="19" relative="1" width="280" x="-1" as="geometry">
+            <mxPoint x="-548" y="274" as="offset" />
+          </mxGeometry>
+        </mxCell>
+        <object label="" tooltip="0 → admin: Care, stock, invoices and payment status" id="00-context-flow-admin-6">
+          <mxCell edge="1" parent="1" source="00-context-p-0" style="edgeStyle=none;html=0;rounded=0;endArrow=classic;endFill=1;endSize=7;strokeColor=#000000;strokeWidth=1.2;exitX=0.3032258064516129;exitY=1;exitPerimeter=0;entryX=1;entryY=0.8153846153846154;entryPerimeter=0;" target="00-context-ref-admin">
+            <mxGeometry relative="1" as="geometry">
+              <Array as="points">
+                <mxPoint x="884" y="1116" />
+              </Array>
+            </mxGeometry>
+          </mxCell>
+        </object>
+        <mxCell id="00-context-flow-admin-6-label" connectable="0" parent="00-context-flow-admin-6" style="edgeLabel;html=0;align=left;verticalAlign=middle;spacing=0;fontFamily=Arial;fontSize=16;fontColor=#000000;fillColor=none;strokeColor=none;resizable=0;" value="Care, stock, invoices and payment status" vertex="1">
+          <mxGeometry height="19" relative="1" width="298" x="-1" as="geometry">
+            <mxPoint x="-582" y="312" as="offset" />
+          </mxGeometry>
+        </mxCell>
+        <object label="" tooltip="vet → 0: Clinic acceptance and online availability" id="00-context-flow-vet-0">
+          <mxCell edge="1" parent="1" source="00-context-ref-vet" style="edgeStyle=none;html=0;rounded=0;endArrow=classic;endFill=1;endSize=7;strokeColor=#000000;strokeWidth=1.2;exitX=0.2391304347826087;exitY=1;exitPerimeter=0;entryX=1;entryY=0.16923076923076924;entryPerimeter=0;" target="00-context-p-0">
+            <mxGeometry relative="1" as="geometry">
+              <Array as="points">
+                <mxPoint x="1645" y="564" />
+              </Array>
+            </mxGeometry>
+          </mxCell>
+        </object>
+        <mxCell id="00-context-flow-vet-0-label" connectable="0" parent="00-context-flow-vet-0" style="edgeLabel;html=0;align=left;verticalAlign=middle;spacing=0;fontFamily=Arial;fontSize=16;fontColor=#000000;fillColor=none;strokeColor=none;resizable=0;" value="Clinic acceptance and online availability" vertex="1">
+          <mxGeometry height="19" relative="1" width="288" x="-1" as="geometry">
+            <mxPoint x="-525" y="260" as="offset" />
+          </mxGeometry>
+        </mxCell>
+        <object label="" tooltip="vet → 0: Diagnosis, lab and consultation records" id="00-context-flow-vet-1">
+          <mxCell edge="1" parent="1" source="00-context-ref-vet" style="edgeStyle=none;html=0;rounded=0;endArrow=classic;endFill=1;endSize=7;strokeColor=#000000;strokeWidth=1.2;exitX=0.4217391304347826;exitY=1;exitPerimeter=0;entryX=1;entryY=0.27692307692307694;entryPerimeter=0;" target="00-context-p-0">
+            <mxGeometry relative="1" as="geometry">
+              <Array as="points">
+                <mxPoint x="1687" y="592" />
+              </Array>
+            </mxGeometry>
+          </mxCell>
+        </object>
+        <mxCell id="00-context-flow-vet-1-label" connectable="0" parent="00-context-flow-vet-1" style="edgeLabel;html=0;align=left;verticalAlign=middle;spacing=0;fontFamily=Arial;fontSize=16;fontColor=#000000;fillColor=none;strokeColor=none;resizable=0;" value="Diagnosis, lab and consultation records" vertex="1">
+          <mxGeometry height="19" relative="1" width="286" x="-1" as="geometry">
+            <mxPoint x="-567" y="288" as="offset" />
+          </mxGeometry>
+        </mxCell>
+        <object label="" tooltip="vet → 0: Prescription changes and additional consent" id="00-context-flow-vet-2">
+          <mxCell edge="1" parent="1" source="00-context-ref-vet" style="edgeStyle=none;html=0;rounded=0;endArrow=classic;endFill=1;endSize=7;strokeColor=#000000;strokeWidth=1.2;exitX=0.6043478260869565;exitY=1;exitPerimeter=0;entryX=1;entryY=0.38461538461538464;entryPerimeter=0;" target="00-context-p-0">
+            <mxGeometry relative="1" as="geometry">
+              <Array as="points">
+                <mxPoint x="1729" y="620" />
+              </Array>
+            </mxGeometry>
+          </mxCell>
+        </object>
+        <mxCell id="00-context-flow-vet-2-label" connectable="0" parent="00-context-flow-vet-2" style="edgeLabel;html=0;align=left;verticalAlign=middle;spacing=0;fontFamily=Arial;fontSize=16;fontColor=#000000;fillColor=none;strokeColor=none;resizable=0;" value="Prescription changes and additional consent" vertex="1">
+          <mxGeometry height="19" relative="1" width="321" x="-1" as="geometry">
+            <mxPoint x="-609" y="316" as="offset" />
+          </mxGeometry>
+        </mxCell>
+        <object label="" tooltip="vet → 0: Task updates and presence status" id="00-context-flow-vet-3">
+          <mxCell edge="1" parent="1" source="00-context-ref-vet" style="edgeStyle=none;html=0;rounded=0;endArrow=classic;endFill=1;endSize=7;strokeColor=#000000;strokeWidth=1.2;exitX=0.7869565217391304;exitY=1;exitPerimeter=0;entryX=1;entryY=0.49230769230769234;entryPerimeter=0;" target="00-context-p-0">
+            <mxGeometry relative="1" as="geometry">
+              <Array as="points">
+                <mxPoint x="1771" y="648" />
+              </Array>
+            </mxGeometry>
+          </mxCell>
+        </object>
+        <mxCell id="00-context-flow-vet-3-label" connectable="0" parent="00-context-flow-vet-3" style="edgeLabel;html=0;align=left;verticalAlign=middle;spacing=0;fontFamily=Arial;fontSize=16;fontColor=#000000;fillColor=none;strokeColor=none;resizable=0;" value="Task updates and presence status" vertex="1">
+          <mxGeometry height="19" relative="1" width="251" x="-1" as="geometry">
+            <mxPoint x="-651" y="344" as="offset" />
+          </mxGeometry>
+        </mxCell>
+        <object label="" tooltip="0 → vet: Assigned patients, exam and medical records" id="00-context-flow-vet-4">
+          <mxCell edge="1" parent="1" source="00-context-p-0" style="edgeStyle=none;html=0;rounded=0;endArrow=classic;endFill=1;endSize=7;strokeColor=#000000;strokeWidth=1.2;exitX=0.4838709677419355;exitY=0;exitPerimeter=0;entryX=0;entryY=0.27692307692307694;entryPerimeter=0;" target="00-context-ref-vet">
+            <mxGeometry relative="1" as="geometry">
+              <Array as="points">
+                <mxPoint x="940" y="186" />
+              </Array>
+            </mxGeometry>
+          </mxCell>
+        </object>
+        <mxCell id="00-context-flow-vet-4-label" connectable="0" parent="00-context-flow-vet-4" style="edgeLabel;html=0;align=left;verticalAlign=middle;spacing=0;fontFamily=Arial;fontSize=16;fontColor=#000000;fillColor=none;strokeColor=none;resizable=0;" value="Assigned patients, exam and medical records" vertex="1">
+          <mxGeometry height="19" relative="1" width="330" x="-1" as="geometry">
+            <mxPoint x="300" y="-358" as="offset" />
+          </mxGeometry>
+        </mxCell>
+        <object label="" tooltip="0 → vet: Bookings and online consultation details" id="00-context-flow-vet-5">
+          <mxCell edge="1" parent="1" source="00-context-p-0" style="edgeStyle=none;html=0;rounded=0;endArrow=classic;endFill=1;endSize=7;strokeColor=#000000;strokeWidth=1.2;exitX=0.6193548387096774;exitY=0;exitPerimeter=0;entryX=0;entryY=0.5692307692307692;entryPerimeter=0;" target="00-context-ref-vet">
+            <mxGeometry relative="1" as="geometry">
+              <Array as="points">
+                <mxPoint x="982" y="224" />
+              </Array>
+            </mxGeometry>
+          </mxCell>
+        </object>
+        <mxCell id="00-context-flow-vet-5-label" connectable="0" parent="00-context-flow-vet-5" style="edgeLabel;html=0;align=left;verticalAlign=middle;spacing=0;fontFamily=Arial;fontSize=16;fontColor=#000000;fillColor=none;strokeColor=none;resizable=0;" value="Bookings and online consultation details" vertex="1">
+          <mxGeometry height="19" relative="1" width="291" x="-1" as="geometry">
+            <mxPoint x="297" y="-320" as="offset" />
+          </mxGeometry>
+        </mxCell>
+        <object label="" tooltip="0 → vet: Task calendar and treatment reminders" id="00-context-flow-vet-6">
+          <mxCell edge="1" parent="1" source="00-context-p-0" style="edgeStyle=none;html=0;rounded=0;endArrow=classic;endFill=1;endSize=7;strokeColor=#000000;strokeWidth=1.2;exitX=0.7548387096774194;exitY=0;exitPerimeter=0;entryX=0;entryY=0.8615384615384616;entryPerimeter=0;" target="00-context-ref-vet">
+            <mxGeometry relative="1" as="geometry">
+              <Array as="points">
+                <mxPoint x="1024" y="262" />
+              </Array>
+            </mxGeometry>
+          </mxCell>
+        </object>
+        <mxCell id="00-context-flow-vet-6-label" connectable="0" parent="00-context-flow-vet-6" style="edgeLabel;html=0;align=left;verticalAlign=middle;spacing=0;fontFamily=Arial;fontSize=16;fontColor=#000000;fillColor=none;strokeColor=none;resizable=0;" value="Task calendar and treatment reminders" vertex="1">
+          <mxGeometry height="19" relative="1" width="287" x="-1" as="geometry">
+            <mxPoint x="259" y="-282" as="offset" />
+          </mxGeometry>
+        </mxCell>
+        <object label="" tooltip="owner → 0: Account, pet and ownership details" id="00-context-flow-owner-0">
+          <mxCell edge="1" parent="1" source="00-context-ref-owner" style="edgeStyle=none;html=0;rounded=0;endArrow=classic;endFill=1;endSize=7;strokeColor=#000000;strokeWidth=1.2;exitX=0;exitY=0.13076923076923078;exitPerimeter=0;entryX=0.864516129032258;entryY=1;entryPerimeter=0;" target="00-context-p-0">
+            <mxGeometry relative="1" as="geometry">
+              <Array as="points">
+                <mxPoint x="1058" y="1027" />
+              </Array>
+            </mxGeometry>
+          </mxCell>
+        </object>
+        <mxCell id="00-context-flow-owner-0-label" connectable="0" parent="00-context-flow-owner-0" style="edgeLabel;html=0;align=left;verticalAlign=middle;spacing=0;fontFamily=Arial;fontSize=16;fontColor=#000000;fillColor=none;strokeColor=none;resizable=0;" value="Account, pet and ownership details" vertex="1">
+          <mxGeometry height="19" relative="1" width="254" x="-1" as="geometry">
+            <mxPoint x="-274" y="-24" as="offset" />
+          </mxGeometry>
+        </mxCell>
+        <object label="" tooltip="owner → 0: Booking, queue and change requests" id="00-context-flow-owner-1">
+          <mxCell edge="1" parent="1" source="00-context-ref-owner" style="edgeStyle=none;html=0;rounded=0;endArrow=classic;endFill=1;endSize=7;strokeColor=#000000;strokeWidth=1.2;exitX=0;exitY=0.3923076923076923;exitPerimeter=0;entryX=0.7483870967741936;entryY=1;entryPerimeter=0;" target="00-context-p-0">
+            <mxGeometry relative="1" as="geometry">
+              <Array as="points">
+                <mxPoint x="1022" y="1061" />
+              </Array>
+            </mxGeometry>
+          </mxCell>
+        </object>
+        <mxCell id="00-context-flow-owner-1-label" connectable="0" parent="00-context-flow-owner-1" style="edgeLabel;html=0;align=left;verticalAlign=middle;spacing=0;fontFamily=Arial;fontSize=16;fontColor=#000000;fillColor=none;strokeColor=none;resizable=0;" value="Booking, queue and change requests" vertex="1">
+          <mxGeometry height="19" relative="1" width="272" x="-1" as="geometry">
+            <mxPoint x="-292" y="-24" as="offset" />
+          </mxGeometry>
+        </mxCell>
+        <object label="" tooltip="owner → 0: Payment proof and consent signatures" id="00-context-flow-owner-2">
+          <mxCell edge="1" parent="1" source="00-context-ref-owner" style="edgeStyle=none;html=0;rounded=0;endArrow=classic;endFill=1;endSize=7;strokeColor=#000000;strokeWidth=1.2;exitX=0;exitY=0.6538461538461539;exitPerimeter=0;entryX=0.632258064516129;entryY=1;entryPerimeter=0;" target="00-context-p-0">
+            <mxGeometry relative="1" as="geometry">
+              <Array as="points">
+                <mxPoint x="986" y="1095" />
+              </Array>
+            </mxGeometry>
+          </mxCell>
+        </object>
+        <mxCell id="00-context-flow-owner-2-label" connectable="0" parent="00-context-flow-owner-2" style="edgeLabel;html=0;align=left;verticalAlign=middle;spacing=0;fontFamily=Arial;fontSize=16;fontColor=#000000;fillColor=none;strokeColor=none;resizable=0;" value="Payment proof and consent signatures" vertex="1">
+          <mxGeometry height="19" relative="1" width="281" x="-1" as="geometry">
+            <mxPoint x="-301" y="-24" as="offset" />
+          </mxGeometry>
+        </mxCell>
+        <object label="" tooltip="owner → 0: Item start dates and completion updates" id="00-context-flow-owner-3">
+          <mxCell edge="1" parent="1" source="00-context-ref-owner" style="edgeStyle=none;html=0;rounded=0;endArrow=classic;endFill=1;endSize=7;strokeColor=#000000;strokeWidth=1.2;exitX=0;exitY=0.9153846153846154;exitPerimeter=0;entryX=0.5161290322580645;entryY=1;entryPerimeter=0;" target="00-context-p-0">
+            <mxGeometry relative="1" as="geometry">
+              <Array as="points">
+                <mxPoint x="950" y="1129" />
+              </Array>
+            </mxGeometry>
+          </mxCell>
+        </object>
+        <mxCell id="00-context-flow-owner-3-label" connectable="0" parent="00-context-flow-owner-3" style="edgeLabel;html=0;align=left;verticalAlign=middle;spacing=0;fontFamily=Arial;fontSize=16;fontColor=#000000;fillColor=none;strokeColor=none;resizable=0;" value="Item start dates and completion updates" vertex="1">
+          <mxGeometry height="19" relative="1" width="292" x="-1" as="geometry">
+            <mxPoint x="-312" y="-24" as="offset" />
+          </mxGeometry>
+        </mxCell>
+        <object label="" tooltip="0 → owner: Account, pet and booking status" id="00-context-flow-owner-4">
+          <mxCell edge="1" parent="1" source="00-context-p-0" style="edgeStyle=none;html=0;rounded=0;endArrow=classic;endFill=1;endSize=7;strokeColor=#000000;strokeWidth=1.2;exitX=1;exitY=0.6461538461538462;exitPerimeter=0;entryX=0.7869565217391304;entryY=0;entryPerimeter=0;" target="00-context-ref-owner">
+            <mxGeometry relative="1" as="geometry">
+              <Array as="points">
+                <mxPoint x="1771" y="688" />
+              </Array>
+            </mxGeometry>
+          </mxCell>
+        </object>
+        <mxCell id="00-context-flow-owner-4-label" connectable="0" parent="00-context-flow-owner-4" style="edgeLabel;html=0;align=left;verticalAlign=middle;spacing=0;fontFamily=Arial;fontSize=16;fontColor=#000000;fillColor=none;strokeColor=none;resizable=0;" value="Account, pet and booking status" vertex="1">
+          <mxGeometry height="19" relative="1" width="234" x="-1" as="geometry">
+            <mxPoint x="20" y="-24" as="offset" />
+          </mxGeometry>
+        </mxCell>
+        <object label="" tooltip="0 → owner: Medical records and current prescriptions" id="00-context-flow-owner-5">
+          <mxCell edge="1" parent="1" source="00-context-p-0" style="edgeStyle=none;html=0;rounded=0;endArrow=classic;endFill=1;endSize=7;strokeColor=#000000;strokeWidth=1.2;exitX=1;exitY=0.7538461538461538;exitPerimeter=0;entryX=0.6043478260869565;entryY=0;entryPerimeter=0;" target="00-context-ref-owner">
+            <mxGeometry relative="1" as="geometry">
+              <Array as="points">
+                <mxPoint x="1729" y="716" />
+              </Array>
+            </mxGeometry>
+          </mxCell>
+        </object>
+        <mxCell id="00-context-flow-owner-5-label" connectable="0" parent="00-context-flow-owner-5" style="edgeLabel;html=0;align=left;verticalAlign=middle;spacing=0;fontFamily=Arial;fontSize=16;fontColor=#000000;fillColor=none;strokeColor=none;resizable=0;" value="Medical records and current prescriptions" vertex="1">
+          <mxGeometry height="19" relative="1" width="301" x="-1" as="geometry">
+            <mxPoint x="20" y="-24" as="offset" />
+          </mxGeometry>
+        </mxCell>
+        <object label="" tooltip="0 → owner: Invoices, payment and consent documents" id="00-context-flow-owner-6">
+          <mxCell edge="1" parent="1" source="00-context-p-0" style="edgeStyle=none;html=0;rounded=0;endArrow=classic;endFill=1;endSize=7;strokeColor=#000000;strokeWidth=1.2;exitX=1;exitY=0.8615384615384616;exitPerimeter=0;entryX=0.4217391304347826;entryY=0;entryPerimeter=0;" target="00-context-ref-owner">
+            <mxGeometry relative="1" as="geometry">
+              <Array as="points">
+                <mxPoint x="1687" y="744" />
+              </Array>
+            </mxGeometry>
+          </mxCell>
+        </object>
+        <mxCell id="00-context-flow-owner-6-label" connectable="0" parent="00-context-flow-owner-6" style="edgeLabel;html=0;align=left;verticalAlign=middle;spacing=0;fontFamily=Arial;fontSize=16;fontColor=#000000;fillColor=none;strokeColor=none;resizable=0;" value="Invoices, payment and consent documents" vertex="1">
+          <mxGeometry height="19" relative="1" width="310" x="-1" as="geometry">
+            <mxPoint x="20" y="-24" as="offset" />
+          </mxGeometry>
+        </mxCell>
+        <object label="" tooltip="0 → owner: Dated checklists, calendars and reminders" id="00-context-flow-owner-7">
+          <mxCell edge="1" parent="1" source="00-context-p-0" style="edgeStyle=none;html=0;rounded=0;endArrow=classic;endFill=1;endSize=7;strokeColor=#000000;strokeWidth=1.2;exitX=1;exitY=0.9692307692307692;exitPerimeter=0;entryX=0.2391304347826087;entryY=0;entryPerimeter=0;" target="00-context-ref-owner">
+            <mxGeometry relative="1" as="geometry">
+              <Array as="points">
+                <mxPoint x="1645" y="772" />
+              </Array>
+            </mxGeometry>
+          </mxCell>
+        </object>
+        <mxCell id="00-context-flow-owner-7-label" connectable="0" parent="00-context-flow-owner-7" style="edgeLabel;html=0;align=left;verticalAlign=middle;spacing=0;fontFamily=Arial;fontSize=16;fontColor=#000000;fillColor=none;strokeColor=none;resizable=0;" value="Dated checklists, calendars and reminders" vertex="1">
+          <mxGeometry height="19" relative="1" width="308" x="-1" as="geometry">
+            <mxPoint x="20" y="-24" as="offset" />
+          </mxGeometry>
+        </mxCell>
+      </root>
+    </mxGraphModel>
+  </diagram>
+</mxfile>

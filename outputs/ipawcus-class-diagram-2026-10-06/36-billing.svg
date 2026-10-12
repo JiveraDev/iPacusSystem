@@ -1,0 +1,449 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="2600" height="5604" viewBox="0 0 2600 5604" role="img" aria-labelledby="title desc">
+<title id="title">iPawcus / Visits, POS and payment methods</title>
+<desc id="desc">Application modules and verified database references. Original SQL entity definitions are on pages 01 to 09. Dashed dependencies are not foreign keys.</desc>
+<defs><marker id="arrow" markerWidth="9" markerHeight="9" refX="8" refY="4.5" orient="auto" markerUnits="userSpaceOnUse"><path d="M0 0 L8 4.5 L0 9" fill="none" stroke="#8793a3" stroke-width="1.2"/></marker><marker id="inheritance" markerWidth="11" markerHeight="11" refX="10" refY="5" orient="auto" markerUnits="userSpaceOnUse"><path d="M0 0 L10 5 L0 10 Z" fill="#ffffff" stroke="#8793a3" stroke-width="1.2"/></marker></defs>
+<rect width="100%" height="100%" fill="#ffffff"/>
+<text x="80" y="44" font-family="Arial,sans-serif" font-size="25" fill="#2d3748">iPawcus / Visits, POS and payment methods</text>
+<text x="80" y="73" font-family="Arial,sans-serif" font-size="14" fill="#596579">React / service / PHP / entity reference · arrows show source-code dependencies; no invented OO inheritance.</text>
+<text x="80" y="100" font-family="Arial,sans-serif" font-size="13" fill="#596579">Dashed: dependency. Solid: migration FK or real class inheritance. Full source evidence accompanies detailed links.</text>
+<text x="80" y="143" font-family="Arial,sans-serif" font-size="14" fill="#596579">UI and system views</text>
+<text x="740" y="143" font-family="Arial,sans-serif" font-size="14" fill="#596579">JavaScript services</text>
+<text x="1400" y="143" font-family="Arial,sans-serif" font-size="14" fill="#596579">PHP backend modules</text>
+<text x="2080" y="143" font-family="Arial,sans-serif" font-size="14" fill="#596579">Database references</text>
+<path d="M500 210 L610 210 L610 668 L740 668" fill="none" stroke="#8793a3" stroke-width="1.2" stroke-dasharray="5 4" marker-end="url(#arrow)"><title>src/components/AdminDashboardsComponent/POSmanagement.jsx → src/services/inventoryApi.js / uses</title></path>
+<path d="M500 232 L630 232 L630 843 L740 843" fill="none" stroke="#8793a3" stroke-width="1.2" stroke-dasharray="5 4" marker-end="url(#arrow)"><title>src/components/AdminDashboardsComponent/POSmanagement.jsx → src/services/bookingService.js / uses</title></path>
+<path d="M500 254 L610 254 L610 257 L545 257 L545 1018 L740 1018" fill="none" stroke="#8793a3" stroke-width="1.2" stroke-dasharray="5 4" marker-end="url(#arrow)"><title>src/components/AdminDashboardsComponent/POSmanagement.jsx → src/services/serviceCatalogService.js / uses</title></path>
+<path d="M500 276 L718 276 L718 1189 L630 1189 L630 1193 L740 1193" fill="none" stroke="#8793a3" stroke-width="1.2" stroke-dasharray="5 4" marker-end="url(#arrow)"><title>src/components/AdminDashboardsComponent/POSmanagement.jsx → src/services/uploadService.js / uses</title></path>
+<path d="M500 298 L610 298 L610 319 L522 319 L522 421 L740 421" fill="none" stroke="#8793a3" stroke-width="1.2" stroke-dasharray="5 4" marker-end="url(#arrow)"><title>src/components/AdminDashboardsComponent/POSmanagement.jsx → src/services/visitBillingService.js / uses</title></path>
+<path d="M500 320 L610 320 L610 530 L522 530 L522 1368 L740 1368" fill="none" stroke="#8793a3" stroke-width="1.2" stroke-dasharray="5 4" marker-end="url(#arrow)"><title>src/components/AdminDashboardsComponent/POSmanagement.jsx → src/services/branchService.js / uses</title></path>
+<path d="M500 509 L610 509 L610 1215 L740 1215" fill="none" stroke="#8793a3" stroke-width="1.2" stroke-dasharray="5 4" marker-end="url(#arrow)"><title>src/components/SuperAdminDashboardComponent/PaymentMethodsManagement.jsx → src/services/uploadService.js / uses</title></path>
+<path d="M500 531 L630 531 L630 210 L740 210" fill="none" stroke="#8793a3" stroke-width="1.2" stroke-dasharray="5 4" marker-end="url(#arrow)"><title>src/components/SuperAdminDashboardComponent/PaymentMethodsManagement.jsx → src/services/paymentMethodService.js / uses</title></path>
+<path d="M1160 210 L1400 210" fill="none" stroke="#8793a3" stroke-width="1.2" stroke-dasharray="5 4" marker-end="url(#arrow)"><title>src/services/paymentMethodService.js → php/payment_methods.php / HTTP</title></path>
+<path d="M1160 421 L1270 421 L1270 529 L1400 529" fill="none" stroke="#8793a3" stroke-width="1.2" stroke-dasharray="5 4" marker-end="url(#arrow)"><title>src/services/visitBillingService.js → php/visit_billing.php / HTTP</title></path>
+<path d="M1840 210 L1950 210 L1950 1339 L1840 1339" fill="none" stroke="#8793a3" stroke-width="1.2" stroke-dasharray="5 4" marker-end="url(#arrow)"><title>php/payment_methods.php → php/auth_otp_helpers.php / includes</title></path>
+<path d="M1840 232 L1970 232 L1970 1514 L1840 1514" fill="none" stroke="#8793a3" stroke-width="1.2" stroke-dasharray="5 4" marker-end="url(#arrow)"><title>php/payment_methods.php → php/notification_helpers.php / includes</title></path>
+<path d="M1840 254 L1950 254 L1950 257 L1913 257 L1913 1678 L1950 1678 L1950 1689 L1840 1689" fill="none" stroke="#8793a3" stroke-width="1.2" stroke-dasharray="5 4" marker-end="url(#arrow)"><title>php/payment_methods.php → php/payment_method_helpers.php / includes</title></path>
+<path d="M1840 276 L1970 276 L1970 210 L2080 210" fill="none" stroke="#8793a3" stroke-width="1.2" stroke-dasharray="5 4" marker-end="url(#arrow)"><title>php/payment_methods.php → db:payment_methods / SQL</title></path>
+<path d="M1840 298 L1950 298 L1950 301 L1878 301 L1878 403 L2080 403" fill="none" stroke="#8793a3" stroke-width="1.2" stroke-dasharray="5 4" marker-end="url(#arrow)"><title>php/payment_methods.php → db:users / SQL</title></path>
+<path d="M1840 320 L2058 320 L2058 595 L1970 595 L1970 596 L2080 596" fill="none" stroke="#8793a3" stroke-width="1.2" stroke-dasharray="5 4" marker-end="url(#arrow)"><title>php/payment_methods.php → db:booking_payment_submissions / SQL</title></path>
+<path d="M1840 342 L1950 342 L1950 345 L1862 345 L1862 510 L2058 510 L2058 781 L1970 781 L1970 789 L2080 789" fill="none" stroke="#8793a3" stroke-width="1.2" stroke-dasharray="5 4" marker-end="url(#arrow)"><title>php/payment_methods.php → db:email_otp_tokens / SQL</title></path>
+<path d="M1840 529 L1950 529 L1950 616 L1878 616 L1878 1514 L1950 1514 L1950 1536 L1840 1536" fill="none" stroke="#8793a3" stroke-width="1.2" stroke-dasharray="5 4" marker-end="url(#arrow)"><title>php/visit_billing.php → php/notification_helpers.php / includes</title></path>
+<path d="M1840 551 L1970 551 L1970 774 L2058 774 L2058 1864 L1840 1864" fill="none" stroke="#8793a3" stroke-width="1.2" stroke-dasharray="5 4" marker-end="url(#arrow)"><title>php/visit_billing.php → php/branch_helpers.php / includes</title></path>
+<path d="M1840 573 L1970 573 L1970 534 L2542 534 L2542 1885 L1950 1885 L1950 2039 L1840 2039" fill="none" stroke="#8793a3" stroke-width="1.2" stroke-dasharray="5 4" marker-end="url(#arrow)"><title>php/visit_billing.php → php/booking_payment_helpers.php / includes</title></path>
+<path d="M1840 595 L1950 595 L1950 594 L1913 594 L1913 532 L2570 532 L2570 2078 L1950 2078 L1950 2214 L1840 2214" fill="none" stroke="#8793a3" stroke-width="1.2" stroke-dasharray="5 4" marker-end="url(#arrow)"><title>php/visit_billing.php → php/runtime_media.php / includes</title></path>
+<path d="M1840 617 L1950 617 L1950 606 L1913 606 L1913 467 L1378 467 L1378 2327 L1950 2327 L1950 2389 L1840 2389" fill="none" stroke="#8793a3" stroke-width="1.2" stroke-dasharray="5 4" marker-end="url(#arrow)"><title>php/visit_billing.php → php/grooming_helpers.php / includes</title></path>
+<path d="M1840 639 L1950 639 L1950 982 L2080 982" fill="none" stroke="#8793a3" stroke-width="1.2" stroke-dasharray="5 4" marker-end="url(#arrow)"><title>php/visit_billing.php → db:bookings / SQL</title></path>
+<path d="M1840 661 L1950 661 L1950 664 L1913 664 L1913 1175 L2080 1175" fill="none" stroke="#8793a3" stroke-width="1.2" stroke-dasharray="5 4" marker-end="url(#arrow)"><title>php/visit_billing.php → db:queues / SQL</title></path>
+<path d="M1840 683 L1950 683 L1950 686 L1878 686 L1878 1188 L1862 1188 L1862 1368 L2080 1368" fill="none" stroke="#8793a3" stroke-width="1.2" stroke-dasharray="5 4" marker-end="url(#arrow)"><title>php/visit_billing.php → db:visits / SQL</title></path>
+<path d="M1840 705 L2058 705 L2058 1339 L1950 1339 L1950 1561 L2080 1561" fill="none" stroke="#8793a3" stroke-width="1.2" stroke-dasharray="5 4" marker-end="url(#arrow)"><title>php/visit_billing.php → db:visit_invoice_documents / SQL</title></path>
+<path d="M1840 727 L2058 727 L2058 550 L1970 550 L1970 425 L2080 425" fill="none" stroke="#8793a3" stroke-width="1.2" stroke-dasharray="5 4" marker-end="url(#arrow)"><title>php/visit_billing.php → db:users / SQL</title></path>
+<path d="M1840 749 L1970 749 L1970 1754 L2080 1754" fill="none" stroke="#8793a3" stroke-width="1.2" stroke-dasharray="5 4" marker-end="url(#arrow)"><title>php/visit_billing.php → db:pets_information / SQL</title></path>
+<path d="M1840 771 L1950 771 L1950 1339 L1862 1339 L1862 1947 L2080 1947" fill="none" stroke="#8793a3" stroke-width="1.2" stroke-dasharray="5 4" marker-end="url(#arrow)"><title>php/visit_billing.php → db:pet_ownership / SQL</title></path>
+<path d="M1840 793 L1950 793 L1950 796 L1878 796 L1878 2140 L2080 2140" fill="none" stroke="#8793a3" stroke-width="1.2" stroke-dasharray="5 4" marker-end="url(#arrow)"><title>php/visit_billing.php → db:vet_diagnoses / SQL</title></path>
+<path d="M1840 815 L1950 815 L1950 818 L1913 818 L1913 2333 L2080 2333" fill="none" stroke="#8793a3" stroke-width="1.2" stroke-dasharray="5 4" marker-end="url(#arrow)"><title>php/visit_billing.php → db:visit_payments / SQL</title></path>
+<path d="M1840 837 L2058 837 L2058 906 L2542 906 L2542 1692 L1970 1692 L1970 2526 L2080 2526" fill="none" stroke="#8793a3" stroke-width="1.2" stroke-dasharray="5 4" marker-end="url(#arrow)"><title>php/visit_billing.php → db:visit_payment_refunds / SQL</title></path>
+<path d="M1840 859 L1970 859 L1970 920 L2570 920 L2570 1689 L2058 1689 L2058 2657 L1970 2657 L1970 2719 L2080 2719" fill="none" stroke="#8793a3" stroke-width="1.2" stroke-dasharray="5 4" marker-end="url(#arrow)"><title>php/visit_billing.php → db:grooming_jobs / SQL</title></path>
+<path d="M1840 881 L1970 881 L1970 1306 L1950 1306 L1950 2912 L2080 2912" fill="none" stroke="#8793a3" stroke-width="1.2" stroke-dasharray="5 4" marker-end="url(#arrow)"><title>php/visit_billing.php → db:visit_charges / SQL</title></path>
+<path d="M1840 903 L2058 903 L2058 1189 L1862 1189 L1862 3105 L2080 3105" fill="none" stroke="#8793a3" stroke-width="1.2" stroke-dasharray="5 4" marker-end="url(#arrow)"><title>php/visit_billing.php → db:inventory_items / SQL</title></path>
+<path d="M1840 925 L1950 925 L1950 1306 L1878 1306 L1878 3298 L2080 3298" fill="none" stroke="#8793a3" stroke-width="1.2" stroke-dasharray="5 4" marker-end="url(#arrow)"><title>php/visit_billing.php → db:inventory_batches / SQL</title></path>
+<path d="M1840 947 L2058 947 L2058 1689 L1913 1689 L1913 3491 L2080 3491" fill="none" stroke="#8793a3" stroke-width="1.2" stroke-dasharray="5 4" marker-end="url(#arrow)"><title>php/visit_billing.php → db:inventory_locations / SQL</title></path>
+<path d="M1840 969 L1950 969 L1950 972 L1913 972 L1913 1263 L1290 1263 L1290 3684 L2080 3684" fill="none" stroke="#8793a3" stroke-width="1.2" stroke-dasharray="5 4" marker-end="url(#arrow)"><title>php/visit_billing.php → db:inventory_branch_items / SQL</title></path>
+<path d="M1840 991 L1970 991 L1970 3895 L2080 3895" fill="none" stroke="#8793a3" stroke-width="1.2" stroke-dasharray="5 4" marker-end="url(#arrow)"><title>php/visit_billing.php → db:inventory_stock_movements / SQL</title></path>
+<path d="M1840 1013 L1950 1013 L1950 1166 L1862 1166 L1862 1170 L1878 1170 L1878 1277 L1270 1277 L1270 4088 L2080 4088" fill="none" stroke="#8793a3" stroke-width="1.2" stroke-dasharray="5 4" marker-end="url(#arrow)"><title>php/visit_billing.php → db:service_materials / SQL</title></path>
+<path d="M1840 1035 L1950 1035 L1950 1056 L1862 1056 L1862 1060 L1878 1060 L1878 1188 L1862 1188 L1862 1263 L1205 1263 L1205 4281 L2080 4281" fill="none" stroke="#8793a3" stroke-width="1.2" stroke-dasharray="5 4" marker-end="url(#arrow)"><title>php/visit_billing.php → db:boarding_material_usages / SQL</title></path>
+<path d="M1840 1057 L1950 1057 L1950 1099 L2542 1099 L2542 4412 L1970 4412 L1970 4474 L2080 4474" fill="none" stroke="#8793a3" stroke-width="1.2" stroke-dasharray="5 4" marker-end="url(#arrow)"><title>php/visit_billing.php → db:boarding_assignments / SQL</title></path>
+<path d="M1840 1079 L2058 1079 L2058 1099 L2570 1099 L2570 4605 L1970 4605 L1970 4667 L2080 4667" fill="none" stroke="#8793a3" stroke-width="1.2" stroke-dasharray="5 4" marker-end="url(#arrow)"><title>php/visit_billing.php → db:service_catalog / SQL</title></path>
+<path d="M1840 1101 L1950 1101 L1950 1277 L1182 1277 L1182 4860 L2080 4860" fill="none" stroke="#8793a3" stroke-width="1.2" stroke-dasharray="5 4" marker-end="url(#arrow)"><title>php/visit_billing.php → db:special_service_booking_items / SQL</title></path>
+<path d="M1840 1123 L1950 1123 L1950 1126 L1913 1126 L1913 1561 L1950 1561 L1950 1871 L2058 1871 L2058 4991 L1970 4991 L1970 5053 L2080 5053" fill="none" stroke="#8793a3" stroke-width="1.2" stroke-dasharray="5 4" marker-end="url(#arrow)"><title>php/visit_billing.php → db:special_service_catalog / SQL</title></path>
+<path d="M1840 1145 L1950 1145 L1950 1188 L1862 1188 L1862 2488 L1849 2488 L1849 5246 L2080 5246" fill="none" stroke="#8793a3" stroke-width="1.2" stroke-dasharray="5 4" marker-end="url(#arrow)"><title>php/visit_billing.php → db:online_consultations / SQL</title></path>
+<path d="M1840 1167 L1950 1167 L1950 1170 L1878 1170 L1878 1263 L1378 1263 L1378 1467 L1169 1467 L1169 5439 L2080 5439" fill="none" stroke="#8793a3" stroke-width="1.2" stroke-dasharray="5 4" marker-end="url(#arrow)"><title>php/visit_billing.php → db:branches / SQL</title></path>
+<path d="M1840 1189 L1950 1189 L1950 1263 L1290 1263 L1290 453 L1878 453 L1878 509 L1950 509 L1950 618 L2080 618" fill="none" stroke="#8793a3" stroke-width="1.2" stroke-dasharray="5 4" marker-end="url(#arrow)"><title>php/visit_billing.php → db:booking_payment_submissions / SQL</title></path>
+<g data-node="src/components/AdminDashboardsComponent/POSmanagement.jsx"><rect x="80" y="170" width="420" height="241" fill="#ffffff" stroke="#c4cbd4" stroke-width="1.2"/><line x1="80" y1="225" x2="500" y2="225" stroke="#c4cbd4"/>
+<text x="94" y="193" font-family="Arial,sans-serif" font-size="16" fill="#2d3748">POSmanagement</text>
+<text x="94" y="212" font-family="Arial,sans-serif" font-size="11.5" fill="#596579">«React component»</text>
+<text x="94" y="248" font-family="Consolas,monospace" font-size="12" fill="#2d3748">- inventory: state</text>
+<text x="94" y="266" font-family="Consolas,monospace" font-size="12" fill="#2d3748">- serviceCatalog: state</text>
+<text x="94" y="284" font-family="Consolas,monospace" font-size="12" fill="#2d3748">- visitBills: state</text>
+<text x="94" y="302" font-family="Consolas,monospace" font-size="12" fill="#2d3748">+ ServicePOS()</text>
+<text x="94" y="320" font-family="Consolas,monospace" font-size="12" fill="#2d3748">+ handleVisitChange()</text>
+<text x="94" y="338" font-family="Consolas,monospace" font-size="12" fill="#2d3748">+ printReceipt()</text>
+<text x="94" y="356" font-family="Consolas,monospace" font-size="12" fill="#2d3748">+ handlePointerMove()</text>
+<text x="94" y="383" font-family="Arial,sans-serif" font-size="11.5" fill="#596579">src/components/AdminDashboardsComponent/POSmanagemen</text>
+<text x="94" y="399" font-family="Arial,sans-serif" font-size="11.5" fill="#596579">  t.jsx:1297</text>
+</g>
+<g data-node="src/components/SuperAdminDashboardComponent/PaymentMethodsManagement.jsx"><rect x="80" y="469" width="420" height="223" fill="#ffffff" stroke="#c4cbd4" stroke-width="1.2"/><line x1="80" y1="524" x2="500" y2="524" stroke="#c4cbd4"/>
+<text x="94" y="492" font-family="Arial,sans-serif" font-size="16" fill="#2d3748">PaymentMethodsManagement</text>
+<text x="94" y="511" font-family="Arial,sans-serif" font-size="11.5" fill="#596579">«React component»</text>
+<text x="94" y="547" font-family="Consolas,monospace" font-size="12" fill="#2d3748">- methods: state</text>
+<text x="94" y="565" font-family="Consolas,monospace" font-size="12" fill="#2d3748">- filter: state</text>
+<text x="94" y="583" font-family="Consolas,monospace" font-size="12" fill="#2d3748">- searchQuery: state</text>
+<text x="94" y="601" font-family="Consolas,monospace" font-size="12" fill="#2d3748">+ PaymentMethodsManagement()</text>
+<text x="94" y="619" font-family="Consolas,monospace" font-size="12" fill="#2d3748">+ loadMethods()</text>
+<text x="94" y="637" font-family="Consolas,monospace" font-size="12" fill="#2d3748">+ saveMethods()</text>
+<text x="94" y="664" font-family="Arial,sans-serif" font-size="11.5" fill="#596579">src/components/SuperAdminDashboardComponent/PaymentM</text>
+<text x="94" y="680" font-family="Arial,sans-serif" font-size="11.5" fill="#596579">  ethodsManagement.jsx:165</text>
+</g>
+<g data-node="src/services/paymentMethodService.js"><rect x="740" y="170" width="420" height="153" fill="#ffffff" stroke="#c4cbd4" stroke-width="1.2"/><line x1="740" y1="225" x2="1160" y2="225" stroke="#c4cbd4"/>
+<text x="754" y="193" font-family="Arial,sans-serif" font-size="16" fill="#2d3748">paymentMethodService</text>
+<text x="754" y="212" font-family="Arial,sans-serif" font-size="11.5" fill="#596579">«JS service module»</text>
+<text x="754" y="248" font-family="Consolas,monospace" font-size="12" fill="#2d3748">+ fetchPaymentMethods()</text>
+<text x="754" y="266" font-family="Consolas,monospace" font-size="12" fill="#2d3748">+ requestPaymentMethodsOtp()</text>
+<text x="754" y="284" font-family="Consolas,monospace" font-size="12" fill="#2d3748">+ updatePaymentMethods()</text>
+<text x="754" y="311" font-family="Arial,sans-serif" font-size="11.5" fill="#596579">src/services/paymentMethodService.js:15</text>
+</g>
+<g data-node="src/services/visitBillingService.js"><rect x="740" y="381" width="420" height="189" fill="#ffffff" stroke="#c4cbd4" stroke-width="1.2"/><line x1="740" y1="436" x2="1160" y2="436" stroke="#c4cbd4"/>
+<text x="754" y="404" font-family="Arial,sans-serif" font-size="16" fill="#2d3748">visitBillingService</text>
+<text x="754" y="423" font-family="Arial,sans-serif" font-size="11.5" fill="#596579">«JS service module»</text>
+<text x="754" y="459" font-family="Consolas,monospace" font-size="12" fill="#2d3748">+ fetchVisits()</text>
+<text x="754" y="477" font-family="Consolas,monospace" font-size="12" fill="#2d3748">+ createVisit()</text>
+<text x="754" y="495" font-family="Consolas,monospace" font-size="12" fill="#2d3748">+ saveVisitCharges()</text>
+<text x="754" y="513" font-family="Consolas,monospace" font-size="12" fill="#2d3748">+ postVisitPayment()</text>
+<text x="754" y="531" font-family="Consolas,monospace" font-size="12" fill="#2d3748">+ postVisitRefund()</text>
+<text x="754" y="558" font-family="Arial,sans-serif" font-size="11.5" fill="#596579">src/services/visitBillingService.js:3</text>
+</g>
+<g data-node="php/payment_methods.php"><rect x="1400" y="170" width="440" height="261" fill="#ffffff" stroke="#c4cbd4" stroke-width="1.2"/><line x1="1400" y1="225" x2="1840" y2="225" stroke="#c4cbd4"/>
+<text x="1414" y="193" font-family="Arial,sans-serif" font-size="16" fill="#2d3748">PaymentMethods</text>
+<text x="1414" y="212" font-family="Arial,sans-serif" font-size="11.5" fill="#596579">«PHP module»</text>
+<text x="1414" y="248" font-family="Consolas,monospace" font-size="12" fill="#2d3748">+ __construct()</text>
+<text x="1414" y="266" font-family="Consolas,monospace" font-size="12" fill="#2d3748">+ payment_methods_input()</text>
+<text x="1414" y="284" font-family="Consolas,monospace" font-size="12" fill="#2d3748">+ payment_methods_error()</text>
+<text x="1414" y="302" font-family="Consolas,monospace" font-size="12" fill="#2d3748">+ payment_methods_is_list()</text>
+<text x="1414" y="320" font-family="Consolas,monospace" font-size="12" fill="#2d3748">+ payment_methods_throw()</text>
+<text x="1414" y="338" font-family="Consolas,monospace" font-size="12" fill="#2d3748">+ payment_methods_column_type()</text>
+<text x="1414" y="356" font-family="Consolas,monospace" font-size="12" fill="#2d3748">+ payment_methods_table_exists()</text>
+<text x="1414" y="374" font-family="Consolas,monospace" font-size="12" fill="#2d3748">+ payment_methods_column_exists()</text>
+<text x="1414" y="392" font-family="Consolas,monospace" font-size="12" fill="#2d3748">+ 21 more operations [source index]</text>
+<text x="1414" y="419" font-family="Arial,sans-serif" font-size="11.5" fill="#596579">php/payment_methods.php:14</text>
+</g>
+<g data-node="php/visit_billing.php"><rect x="1400" y="489" width="440" height="752" fill="#ffffff" stroke="#c4cbd4" stroke-width="1.2"/><line x1="1400" y1="544" x2="1840" y2="544" stroke="#c4cbd4"/>
+<text x="1414" y="512" font-family="Arial,sans-serif" font-size="16" fill="#2d3748">VisitBilling</text>
+<text x="1414" y="531" font-family="Arial,sans-serif" font-size="11.5" fill="#596579">«PHP module»</text>
+<text x="1414" y="567" font-family="Consolas,monospace" font-size="12" fill="#2d3748">+ visit_billing_input()</text>
+<text x="1414" y="585" font-family="Consolas,monospace" font-size="12" fill="#2d3748">+ visit_billing_table_exists()</text>
+<text x="1414" y="603" font-family="Consolas,monospace" font-size="12" fill="#2d3748">+ visit_billing_column_exists()</text>
+<text x="1414" y="621" font-family="Consolas,monospace" font-size="12" fill="#2d3748">+ visit_billing_api_user()</text>
+<text x="1414" y="639" font-family="Consolas,monospace" font-size="12" fill="#2d3748">+ visit_billing_assert_branch_access()</text>
+<text x="1414" y="657" font-family="Consolas,monospace" font-size="12" fill="#2d3748">+ visit_billing_resolve_branch_id()</text>
+<text x="1414" y="675" font-family="Consolas,monospace" font-size="12" fill="#2d3748">+ visit_billing_single_column_unique_index_exists()</text>
+<text x="1414" y="693" font-family="Consolas,monospace" font-size="12" fill="#2d3748">+ visit_billing_foreign_key_exists()</text>
+<text x="1414" y="711" font-family="Consolas,monospace" font-size="12" fill="#2d3748">+ 64 more operations [source index]</text>
+<text x="1414" y="1229" font-family="Arial,sans-serif" font-size="11.5" fill="#596579">php/visit_billing.php:11</text>
+</g>
+<g data-node="src/services/inventoryApi.js"><rect x="740" y="628" width="420" height="117" fill="#f8fafc" stroke="#c4cbd4" stroke-width="1.2" stroke-dasharray="5 4"/><line x1="740" y1="683" x2="1160" y2="683" stroke="#c4cbd4"/>
+<text x="754" y="651" font-family="Arial,sans-serif" font-size="16" fill="#2d3748">inventoryApi</text>
+<text x="754" y="670" font-family="Arial,sans-serif" font-size="11.5" fill="#596579">«JS service module» / page 34</text>
+<text x="754" y="706" font-family="Consolas,monospace" font-size="12" fill="#2d3748">Definition / page 34</text>
+<text x="754" y="733" font-family="Arial,sans-serif" font-size="11.5" fill="#596579">src/services/inventoryApi.js:18</text>
+</g>
+<g data-node="src/services/bookingService.js"><rect x="740" y="803" width="420" height="117" fill="#f8fafc" stroke="#c4cbd4" stroke-width="1.2" stroke-dasharray="5 4"/><line x1="740" y1="858" x2="1160" y2="858" stroke="#c4cbd4"/>
+<text x="754" y="826" font-family="Arial,sans-serif" font-size="16" fill="#2d3748">bookingService</text>
+<text x="754" y="845" font-family="Arial,sans-serif" font-size="11.5" fill="#596579">«JS service module» / page 22</text>
+<text x="754" y="881" font-family="Consolas,monospace" font-size="12" fill="#2d3748">Definition / page 22</text>
+<text x="754" y="908" font-family="Arial,sans-serif" font-size="11.5" fill="#596579">src/services/bookingService.js:14</text>
+</g>
+<g data-node="src/services/serviceCatalogService.js"><rect x="740" y="978" width="420" height="117" fill="#f8fafc" stroke="#c4cbd4" stroke-width="1.2" stroke-dasharray="5 4"/><line x1="740" y1="1033" x2="1160" y2="1033" stroke="#c4cbd4"/>
+<text x="754" y="1001" font-family="Arial,sans-serif" font-size="16" fill="#2d3748">serviceCatalogService</text>
+<text x="754" y="1020" font-family="Arial,sans-serif" font-size="11.5" fill="#596579">«JS service module» / page 37</text>
+<text x="754" y="1056" font-family="Consolas,monospace" font-size="12" fill="#2d3748">Definition / page 37</text>
+<text x="754" y="1083" font-family="Arial,sans-serif" font-size="11.5" fill="#596579">src/services/serviceCatalogService.js:3</text>
+</g>
+<g data-node="src/services/uploadService.js"><rect x="740" y="1153" width="420" height="117" fill="#f8fafc" stroke="#c4cbd4" stroke-width="1.2" stroke-dasharray="5 4"/><line x1="740" y1="1208" x2="1160" y2="1208" stroke="#c4cbd4"/>
+<text x="754" y="1176" font-family="Arial,sans-serif" font-size="16" fill="#2d3748">uploadService</text>
+<text x="754" y="1195" font-family="Arial,sans-serif" font-size="11.5" fill="#596579">«JS service module» / page 41</text>
+<text x="754" y="1231" font-family="Consolas,monospace" font-size="12" fill="#2d3748">Definition / page 41</text>
+<text x="754" y="1258" font-family="Arial,sans-serif" font-size="11.5" fill="#596579">src/services/uploadService.js:3</text>
+</g>
+<g data-node="src/services/branchService.js"><rect x="740" y="1328" width="420" height="117" fill="#f8fafc" stroke="#c4cbd4" stroke-width="1.2" stroke-dasharray="5 4"/><line x1="740" y1="1383" x2="1160" y2="1383" stroke="#c4cbd4"/>
+<text x="754" y="1351" font-family="Arial,sans-serif" font-size="16" fill="#2d3748">branchService</text>
+<text x="754" y="1370" font-family="Arial,sans-serif" font-size="11.5" fill="#596579">«JS service module» / page 17</text>
+<text x="754" y="1406" font-family="Consolas,monospace" font-size="12" fill="#2d3748">Definition / page 17</text>
+<text x="754" y="1433" font-family="Arial,sans-serif" font-size="11.5" fill="#596579">src/services/branchService.js:13</text>
+</g>
+<g data-node="php/auth_otp_helpers.php"><rect x="1400" y="1299" width="440" height="117" fill="#f8fafc" stroke="#c4cbd4" stroke-width="1.2" stroke-dasharray="5 4"/><line x1="1400" y1="1354" x2="1840" y2="1354" stroke="#c4cbd4"/>
+<text x="1414" y="1322" font-family="Arial,sans-serif" font-size="16" fill="#2d3748">AuthOtpHelpers</text>
+<text x="1414" y="1341" font-family="Arial,sans-serif" font-size="11.5" fill="#596579">«PHP module» / page 13</text>
+<text x="1414" y="1377" font-family="Consolas,monospace" font-size="12" fill="#2d3748">Definition / page 13</text>
+<text x="1414" y="1404" font-family="Arial,sans-serif" font-size="11.5" fill="#596579">php/auth_otp_helpers.php:10</text>
+</g>
+<g data-node="php/notification_helpers.php"><rect x="1400" y="1474" width="440" height="117" fill="#f8fafc" stroke="#c4cbd4" stroke-width="1.2" stroke-dasharray="5 4"/><line x1="1400" y1="1529" x2="1840" y2="1529" stroke="#c4cbd4"/>
+<text x="1414" y="1497" font-family="Arial,sans-serif" font-size="16" fill="#2d3748">NotificationHelpers</text>
+<text x="1414" y="1516" font-family="Arial,sans-serif" font-size="11.5" fill="#596579">«PHP module» / page 38</text>
+<text x="1414" y="1552" font-family="Consolas,monospace" font-size="12" fill="#2d3748">Definition / page 38</text>
+<text x="1414" y="1579" font-family="Arial,sans-serif" font-size="11.5" fill="#596579">php/notification_helpers.php:10</text>
+</g>
+<g data-node="php/payment_method_helpers.php"><rect x="1400" y="1649" width="440" height="117" fill="#f8fafc" stroke="#c4cbd4" stroke-width="1.2" stroke-dasharray="5 4"/><line x1="1400" y1="1704" x2="1840" y2="1704" stroke="#c4cbd4"/>
+<text x="1414" y="1672" font-family="Arial,sans-serif" font-size="16" fill="#2d3748">PaymentMethodHelpers</text>
+<text x="1414" y="1691" font-family="Arial,sans-serif" font-size="11.5" fill="#596579">«PHP module» / page 11</text>
+<text x="1414" y="1727" font-family="Consolas,monospace" font-size="12" fill="#2d3748">Definition / page 11</text>
+<text x="1414" y="1754" font-family="Arial,sans-serif" font-size="11.5" fill="#596579">php/payment_method_helpers.php:3</text>
+</g>
+<g data-node="db:payment_methods"><rect x="2080" y="170" width="440" height="135" fill="#f8fafc" stroke="#c4cbd4" stroke-width="1.2" stroke-dasharray="5 4"/><line x1="2080" y1="225" x2="2520" y2="225" stroke="#c4cbd4"/>
+<text x="2094" y="193" font-family="Arial,sans-serif" font-size="16" fill="#2d3748">PaymentMethod</text>
+<text x="2094" y="212" font-family="Arial,sans-serif" font-size="11.5" fill="#596579">«entity» payment_methods</text>
+<text x="2094" y="248" font-family="Consolas,monospace" font-size="12" fill="#2d3748">+ method_key: varchar [PK]</text>
+<text x="2094" y="266" font-family="Consolas,monospace" font-size="12" fill="#2d3748">Full SQL attributes / DB page 08</text>
+<text x="2094" y="293" font-family="Arial,sans-serif" font-size="11.5" fill="#596579">iPawcus_ERD_Schema.sql</text>
+</g>
+<g data-node="db:users"><rect x="2080" y="363" width="440" height="135" fill="#f8fafc" stroke="#c4cbd4" stroke-width="1.2" stroke-dasharray="5 4"/><line x1="2080" y1="418" x2="2520" y2="418" stroke="#c4cbd4"/>
+<text x="2094" y="386" font-family="Arial,sans-serif" font-size="16" fill="#2d3748">User</text>
+<text x="2094" y="405" font-family="Arial,sans-serif" font-size="11.5" fill="#596579">«entity» users</text>
+<text x="2094" y="441" font-family="Consolas,monospace" font-size="12" fill="#2d3748">+ user_id: int [PK]</text>
+<text x="2094" y="459" font-family="Consolas,monospace" font-size="12" fill="#2d3748">Full SQL attributes / DB page 01</text>
+<text x="2094" y="486" font-family="Arial,sans-serif" font-size="11.5" fill="#596579">iPawcus_ERD_Schema.sql</text>
+</g>
+<g data-node="db:booking_payment_submissions"><rect x="2080" y="556" width="440" height="135" fill="#f8fafc" stroke="#c4cbd4" stroke-width="1.2" stroke-dasharray="5 4"/><line x1="2080" y1="611" x2="2520" y2="611" stroke="#c4cbd4"/>
+<text x="2094" y="579" font-family="Arial,sans-serif" font-size="16" fill="#2d3748">BookingPaymentSubmission</text>
+<text x="2094" y="598" font-family="Arial,sans-serif" font-size="11.5" fill="#596579">«entity» booking_payment_submissions</text>
+<text x="2094" y="634" font-family="Consolas,monospace" font-size="12" fill="#2d3748">+ submission_id: int [PK]</text>
+<text x="2094" y="652" font-family="Consolas,monospace" font-size="12" fill="#2d3748">Full SQL attributes / DB page 08</text>
+<text x="2094" y="679" font-family="Arial,sans-serif" font-size="11.5" fill="#596579">iPawcus_ERD_Schema.sql</text>
+</g>
+<g data-node="db:email_otp_tokens"><rect x="2080" y="749" width="440" height="135" fill="#f8fafc" stroke="#c4cbd4" stroke-width="1.2" stroke-dasharray="5 4"/><line x1="2080" y1="804" x2="2520" y2="804" stroke="#c4cbd4"/>
+<text x="2094" y="772" font-family="Arial,sans-serif" font-size="16" fill="#2d3748">EmailOtpToken</text>
+<text x="2094" y="791" font-family="Arial,sans-serif" font-size="11.5" fill="#596579">«entity» email_otp_tokens</text>
+<text x="2094" y="827" font-family="Consolas,monospace" font-size="12" fill="#2d3748">+ otp_id: int [PK]</text>
+<text x="2094" y="845" font-family="Consolas,monospace" font-size="12" fill="#2d3748">Full SQL attributes / DB page 01</text>
+<text x="2094" y="872" font-family="Arial,sans-serif" font-size="11.5" fill="#596579">iPawcus_ERD_Schema.sql</text>
+</g>
+<g data-node="php/branch_helpers.php"><rect x="1400" y="1824" width="440" height="117" fill="#f8fafc" stroke="#c4cbd4" stroke-width="1.2" stroke-dasharray="5 4"/><line x1="1400" y1="1879" x2="1840" y2="1879" stroke="#c4cbd4"/>
+<text x="1414" y="1847" font-family="Arial,sans-serif" font-size="16" fill="#2d3748">BranchHelpers</text>
+<text x="1414" y="1866" font-family="Arial,sans-serif" font-size="11.5" fill="#596579">«PHP module» / page 17</text>
+<text x="1414" y="1902" font-family="Consolas,monospace" font-size="12" fill="#2d3748">Definition / page 17</text>
+<text x="1414" y="1929" font-family="Arial,sans-serif" font-size="11.5" fill="#596579">php/branch_helpers.php:3</text>
+</g>
+<g data-node="php/booking_payment_helpers.php"><rect x="1400" y="1999" width="440" height="117" fill="#f8fafc" stroke="#c4cbd4" stroke-width="1.2" stroke-dasharray="5 4"/><line x1="1400" y1="2054" x2="1840" y2="2054" stroke="#c4cbd4"/>
+<text x="1414" y="2022" font-family="Arial,sans-serif" font-size="16" fill="#2d3748">BookingPaymentHelpers</text>
+<text x="1414" y="2041" font-family="Arial,sans-serif" font-size="11.5" fill="#596579">«PHP module» / page 22</text>
+<text x="1414" y="2077" font-family="Consolas,monospace" font-size="12" fill="#2d3748">Definition / page 22</text>
+<text x="1414" y="2104" font-family="Arial,sans-serif" font-size="11.5" fill="#596579">php/booking_payment_helpers.php:4</text>
+</g>
+<g data-node="php/runtime_media.php"><rect x="1400" y="2174" width="440" height="117" fill="#f8fafc" stroke="#c4cbd4" stroke-width="1.2" stroke-dasharray="5 4"/><line x1="1400" y1="2229" x2="1840" y2="2229" stroke="#c4cbd4"/>
+<text x="1414" y="2197" font-family="Arial,sans-serif" font-size="16" fill="#2d3748">RuntimeMedia</text>
+<text x="1414" y="2216" font-family="Arial,sans-serif" font-size="11.5" fill="#596579">«PHP module» / page 41</text>
+<text x="1414" y="2252" font-family="Consolas,monospace" font-size="12" fill="#2d3748">Definition / page 41</text>
+<text x="1414" y="2279" font-family="Arial,sans-serif" font-size="11.5" fill="#596579">php/runtime_media.php:18</text>
+</g>
+<g data-node="php/grooming_helpers.php"><rect x="1400" y="2349" width="440" height="117" fill="#f8fafc" stroke="#c4cbd4" stroke-width="1.2" stroke-dasharray="5 4"/><line x1="1400" y1="2404" x2="1840" y2="2404" stroke="#c4cbd4"/>
+<text x="1414" y="2372" font-family="Arial,sans-serif" font-size="16" fill="#2d3748">GroomingHelpers</text>
+<text x="1414" y="2391" font-family="Arial,sans-serif" font-size="11.5" fill="#596579">«PHP module» / page 32</text>
+<text x="1414" y="2427" font-family="Consolas,monospace" font-size="12" fill="#2d3748">Definition / page 32</text>
+<text x="1414" y="2454" font-family="Arial,sans-serif" font-size="11.5" fill="#596579">php/grooming_helpers.php:6</text>
+</g>
+<g data-node="db:bookings"><rect x="2080" y="942" width="440" height="135" fill="#f8fafc" stroke="#c4cbd4" stroke-width="1.2" stroke-dasharray="5 4"/><line x1="2080" y1="997" x2="2520" y2="997" stroke="#c4cbd4"/>
+<text x="2094" y="965" font-family="Arial,sans-serif" font-size="16" fill="#2d3748">Booking</text>
+<text x="2094" y="984" font-family="Arial,sans-serif" font-size="11.5" fill="#596579">«entity» bookings</text>
+<text x="2094" y="1020" font-family="Consolas,monospace" font-size="12" fill="#2d3748">+ booking_id: int [PK]</text>
+<text x="2094" y="1038" font-family="Consolas,monospace" font-size="12" fill="#2d3748">Full SQL attributes / DB page 04</text>
+<text x="2094" y="1065" font-family="Arial,sans-serif" font-size="11.5" fill="#596579">iPawcus_ERD_Schema.sql</text>
+</g>
+<g data-node="db:queues"><rect x="2080" y="1135" width="440" height="135" fill="#f8fafc" stroke="#c4cbd4" stroke-width="1.2" stroke-dasharray="5 4"/><line x1="2080" y1="1190" x2="2520" y2="1190" stroke="#c4cbd4"/>
+<text x="2094" y="1158" font-family="Arial,sans-serif" font-size="16" fill="#2d3748">Queue</text>
+<text x="2094" y="1177" font-family="Arial,sans-serif" font-size="11.5" fill="#596579">«entity» queues</text>
+<text x="2094" y="1213" font-family="Consolas,monospace" font-size="12" fill="#2d3748">+ queue_id: int [PK]</text>
+<text x="2094" y="1231" font-family="Consolas,monospace" font-size="12" fill="#2d3748">Full SQL attributes / DB page 04</text>
+<text x="2094" y="1258" font-family="Arial,sans-serif" font-size="11.5" fill="#596579">iPawcus_ERD_Schema.sql</text>
+</g>
+<g data-node="db:visits"><rect x="2080" y="1328" width="440" height="135" fill="#f8fafc" stroke="#c4cbd4" stroke-width="1.2" stroke-dasharray="5 4"/><line x1="2080" y1="1383" x2="2520" y2="1383" stroke="#c4cbd4"/>
+<text x="2094" y="1351" font-family="Arial,sans-serif" font-size="16" fill="#2d3748">Visit</text>
+<text x="2094" y="1370" font-family="Arial,sans-serif" font-size="11.5" fill="#596579">«entity» visits</text>
+<text x="2094" y="1406" font-family="Consolas,monospace" font-size="12" fill="#2d3748">+ visit_id: int [PK]</text>
+<text x="2094" y="1424" font-family="Consolas,monospace" font-size="12" fill="#2d3748">Full SQL attributes / DB page 08</text>
+<text x="2094" y="1451" font-family="Arial,sans-serif" font-size="11.5" fill="#596579">iPawcus_ERD_Schema.sql</text>
+</g>
+<g data-node="db:visit_invoice_documents"><rect x="2080" y="1521" width="440" height="135" fill="#f8fafc" stroke="#c4cbd4" stroke-width="1.2" stroke-dasharray="5 4"/><line x1="2080" y1="1576" x2="2520" y2="1576" stroke="#c4cbd4"/>
+<text x="2094" y="1544" font-family="Arial,sans-serif" font-size="16" fill="#2d3748">VisitInvoiceDocument</text>
+<text x="2094" y="1563" font-family="Arial,sans-serif" font-size="11.5" fill="#596579">«entity» visit_invoice_documents</text>
+<text x="2094" y="1599" font-family="Consolas,monospace" font-size="12" fill="#2d3748">+ invoice_document_id: int [PK]</text>
+<text x="2094" y="1617" font-family="Consolas,monospace" font-size="12" fill="#2d3748">Full SQL attributes / DB page 08</text>
+<text x="2094" y="1644" font-family="Arial,sans-serif" font-size="11.5" fill="#596579">iPawcus_ERD_Schema.sql</text>
+</g>
+<g data-node="db:pets_information"><rect x="2080" y="1714" width="440" height="135" fill="#f8fafc" stroke="#c4cbd4" stroke-width="1.2" stroke-dasharray="5 4"/><line x1="2080" y1="1769" x2="2520" y2="1769" stroke="#c4cbd4"/>
+<text x="2094" y="1737" font-family="Arial,sans-serif" font-size="16" fill="#2d3748">Pet</text>
+<text x="2094" y="1756" font-family="Arial,sans-serif" font-size="11.5" fill="#596579">«entity» pets_information</text>
+<text x="2094" y="1792" font-family="Consolas,monospace" font-size="12" fill="#2d3748">+ pet_id: int [PK]</text>
+<text x="2094" y="1810" font-family="Consolas,monospace" font-size="12" fill="#2d3748">Full SQL attributes / DB page 03</text>
+<text x="2094" y="1837" font-family="Arial,sans-serif" font-size="11.5" fill="#596579">iPawcus_ERD_Schema.sql</text>
+</g>
+<g data-node="db:pet_ownership"><rect x="2080" y="1907" width="440" height="135" fill="#f8fafc" stroke="#c4cbd4" stroke-width="1.2" stroke-dasharray="5 4"/><line x1="2080" y1="1962" x2="2520" y2="1962" stroke="#c4cbd4"/>
+<text x="2094" y="1930" font-family="Arial,sans-serif" font-size="16" fill="#2d3748">PetOwnership</text>
+<text x="2094" y="1949" font-family="Arial,sans-serif" font-size="11.5" fill="#596579">«entity» pet_ownership</text>
+<text x="2094" y="1985" font-family="Consolas,monospace" font-size="12" fill="#2d3748">+ link_id: int [PK]</text>
+<text x="2094" y="2003" font-family="Consolas,monospace" font-size="12" fill="#2d3748">Full SQL attributes / DB page 03</text>
+<text x="2094" y="2030" font-family="Arial,sans-serif" font-size="11.5" fill="#596579">iPawcus_ERD_Schema.sql</text>
+</g>
+<g data-node="db:vet_diagnoses"><rect x="2080" y="2100" width="440" height="135" fill="#f8fafc" stroke="#c4cbd4" stroke-width="1.2" stroke-dasharray="5 4"/><line x1="2080" y1="2155" x2="2520" y2="2155" stroke="#c4cbd4"/>
+<text x="2094" y="2123" font-family="Arial,sans-serif" font-size="16" fill="#2d3748">VetDiagnosis</text>
+<text x="2094" y="2142" font-family="Arial,sans-serif" font-size="11.5" fill="#596579">«entity» vet_diagnoses</text>
+<text x="2094" y="2178" font-family="Consolas,monospace" font-size="12" fill="#2d3748">+ diagnosis_id: int [PK]</text>
+<text x="2094" y="2196" font-family="Consolas,monospace" font-size="12" fill="#2d3748">Full SQL attributes / DB page 04</text>
+<text x="2094" y="2223" font-family="Arial,sans-serif" font-size="11.5" fill="#596579">iPawcus_ERD_Schema.sql</text>
+</g>
+<g data-node="db:visit_payments"><rect x="2080" y="2293" width="440" height="135" fill="#f8fafc" stroke="#c4cbd4" stroke-width="1.2" stroke-dasharray="5 4"/><line x1="2080" y1="2348" x2="2520" y2="2348" stroke="#c4cbd4"/>
+<text x="2094" y="2316" font-family="Arial,sans-serif" font-size="16" fill="#2d3748">VisitPayment</text>
+<text x="2094" y="2335" font-family="Arial,sans-serif" font-size="11.5" fill="#596579">«entity» visit_payments</text>
+<text x="2094" y="2371" font-family="Consolas,monospace" font-size="12" fill="#2d3748">+ payment_id: int [PK]</text>
+<text x="2094" y="2389" font-family="Consolas,monospace" font-size="12" fill="#2d3748">Full SQL attributes / DB page 08</text>
+<text x="2094" y="2416" font-family="Arial,sans-serif" font-size="11.5" fill="#596579">iPawcus_ERD_Schema.sql</text>
+</g>
+<g data-node="db:visit_payment_refunds"><rect x="2080" y="2486" width="440" height="135" fill="#f8fafc" stroke="#c4cbd4" stroke-width="1.2" stroke-dasharray="5 4"/><line x1="2080" y1="2541" x2="2520" y2="2541" stroke="#c4cbd4"/>
+<text x="2094" y="2509" font-family="Arial,sans-serif" font-size="16" fill="#2d3748">VisitPaymentRefund</text>
+<text x="2094" y="2528" font-family="Arial,sans-serif" font-size="11.5" fill="#596579">«entity» visit_payment_refunds</text>
+<text x="2094" y="2564" font-family="Consolas,monospace" font-size="12" fill="#2d3748">+ refund_id: int [PK]</text>
+<text x="2094" y="2582" font-family="Consolas,monospace" font-size="12" fill="#2d3748">Full SQL attributes / DB page 08</text>
+<text x="2094" y="2609" font-family="Arial,sans-serif" font-size="11.5" fill="#596579">iPawcus_ERD_Schema.sql</text>
+</g>
+<g data-node="db:grooming_jobs"><rect x="2080" y="2679" width="440" height="135" fill="#f8fafc" stroke="#c4cbd4" stroke-width="1.2" stroke-dasharray="5 4"/><line x1="2080" y1="2734" x2="2520" y2="2734" stroke="#c4cbd4"/>
+<text x="2094" y="2702" font-family="Arial,sans-serif" font-size="16" fill="#2d3748">GroomingJob</text>
+<text x="2094" y="2721" font-family="Arial,sans-serif" font-size="11.5" fill="#596579">«entity» grooming_jobs</text>
+<text x="2094" y="2757" font-family="Consolas,monospace" font-size="12" fill="#2d3748">+ booking_id: int [PK]</text>
+<text x="2094" y="2775" font-family="Consolas,monospace" font-size="12" fill="#2d3748">Full SQL attributes / DB page 06</text>
+<text x="2094" y="2802" font-family="Arial,sans-serif" font-size="11.5" fill="#596579">iPawcus_ERD_Schema.sql</text>
+</g>
+<g data-node="db:visit_charges"><rect x="2080" y="2872" width="440" height="135" fill="#f8fafc" stroke="#c4cbd4" stroke-width="1.2" stroke-dasharray="5 4"/><line x1="2080" y1="2927" x2="2520" y2="2927" stroke="#c4cbd4"/>
+<text x="2094" y="2895" font-family="Arial,sans-serif" font-size="16" fill="#2d3748">VisitCharge</text>
+<text x="2094" y="2914" font-family="Arial,sans-serif" font-size="11.5" fill="#596579">«entity» visit_charges</text>
+<text x="2094" y="2950" font-family="Consolas,monospace" font-size="12" fill="#2d3748">+ charge_id: int [PK]</text>
+<text x="2094" y="2968" font-family="Consolas,monospace" font-size="12" fill="#2d3748">Full SQL attributes / DB page 08</text>
+<text x="2094" y="2995" font-family="Arial,sans-serif" font-size="11.5" fill="#596579">iPawcus_ERD_Schema.sql</text>
+</g>
+<g data-node="db:inventory_items"><rect x="2080" y="3065" width="440" height="135" fill="#f8fafc" stroke="#c4cbd4" stroke-width="1.2" stroke-dasharray="5 4"/><line x1="2080" y1="3120" x2="2520" y2="3120" stroke="#c4cbd4"/>
+<text x="2094" y="3088" font-family="Arial,sans-serif" font-size="16" fill="#2d3748">InventoryItem</text>
+<text x="2094" y="3107" font-family="Arial,sans-serif" font-size="11.5" fill="#596579">«entity» inventory_items</text>
+<text x="2094" y="3143" font-family="Consolas,monospace" font-size="12" fill="#2d3748">+ item_id: int [PK]</text>
+<text x="2094" y="3161" font-family="Consolas,monospace" font-size="12" fill="#2d3748">Full SQL attributes / DB page 07</text>
+<text x="2094" y="3188" font-family="Arial,sans-serif" font-size="11.5" fill="#596579">iPawcus_ERD_Schema.sql</text>
+</g>
+<g data-node="db:inventory_batches"><rect x="2080" y="3258" width="440" height="135" fill="#f8fafc" stroke="#c4cbd4" stroke-width="1.2" stroke-dasharray="5 4"/><line x1="2080" y1="3313" x2="2520" y2="3313" stroke="#c4cbd4"/>
+<text x="2094" y="3281" font-family="Arial,sans-serif" font-size="16" fill="#2d3748">InventoryBatch</text>
+<text x="2094" y="3300" font-family="Arial,sans-serif" font-size="11.5" fill="#596579">«entity» inventory_batches</text>
+<text x="2094" y="3336" font-family="Consolas,monospace" font-size="12" fill="#2d3748">+ batch_id: int [PK]</text>
+<text x="2094" y="3354" font-family="Consolas,monospace" font-size="12" fill="#2d3748">Full SQL attributes / DB page 07</text>
+<text x="2094" y="3381" font-family="Arial,sans-serif" font-size="11.5" fill="#596579">iPawcus_ERD_Schema.sql</text>
+</g>
+<g data-node="db:inventory_locations"><rect x="2080" y="3451" width="440" height="135" fill="#f8fafc" stroke="#c4cbd4" stroke-width="1.2" stroke-dasharray="5 4"/><line x1="2080" y1="3506" x2="2520" y2="3506" stroke="#c4cbd4"/>
+<text x="2094" y="3474" font-family="Arial,sans-serif" font-size="16" fill="#2d3748">InventoryLocation</text>
+<text x="2094" y="3493" font-family="Arial,sans-serif" font-size="11.5" fill="#596579">«entity» inventory_locations</text>
+<text x="2094" y="3529" font-family="Consolas,monospace" font-size="12" fill="#2d3748">+ location_id: int [PK]</text>
+<text x="2094" y="3547" font-family="Consolas,monospace" font-size="12" fill="#2d3748">Full SQL attributes / DB page 07</text>
+<text x="2094" y="3574" font-family="Arial,sans-serif" font-size="11.5" fill="#596579">iPawcus_ERD_Schema.sql</text>
+</g>
+<g data-node="db:inventory_branch_items"><rect x="2080" y="3644" width="440" height="153" fill="#f8fafc" stroke="#c4cbd4" stroke-width="1.2" stroke-dasharray="5 4"/><line x1="2080" y1="3699" x2="2520" y2="3699" stroke="#c4cbd4"/>
+<text x="2094" y="3667" font-family="Arial,sans-serif" font-size="16" fill="#2d3748">InventoryBranchItem</text>
+<text x="2094" y="3686" font-family="Arial,sans-serif" font-size="11.5" fill="#596579">«entity» inventory_branch_items</text>
+<text x="2094" y="3722" font-family="Consolas,monospace" font-size="12" fill="#2d3748">+ branch_id: int [PK]</text>
+<text x="2094" y="3740" font-family="Consolas,monospace" font-size="12" fill="#2d3748">+ item_id: int [PK]</text>
+<text x="2094" y="3758" font-family="Consolas,monospace" font-size="12" fill="#2d3748">Full SQL attributes / DB page 07</text>
+<text x="2094" y="3785" font-family="Arial,sans-serif" font-size="11.5" fill="#596579">iPawcus_ERD_Schema.sql</text>
+</g>
+<g data-node="db:inventory_stock_movements"><rect x="2080" y="3855" width="440" height="135" fill="#f8fafc" stroke="#c4cbd4" stroke-width="1.2" stroke-dasharray="5 4"/><line x1="2080" y1="3910" x2="2520" y2="3910" stroke="#c4cbd4"/>
+<text x="2094" y="3878" font-family="Arial,sans-serif" font-size="16" fill="#2d3748">InventoryStockMovement</text>
+<text x="2094" y="3897" font-family="Arial,sans-serif" font-size="11.5" fill="#596579">«entity» inventory_stock_movements</text>
+<text x="2094" y="3933" font-family="Consolas,monospace" font-size="12" fill="#2d3748">+ movement_id: int [PK]</text>
+<text x="2094" y="3951" font-family="Consolas,monospace" font-size="12" fill="#2d3748">Full SQL attributes / DB page 07</text>
+<text x="2094" y="3978" font-family="Arial,sans-serif" font-size="11.5" fill="#596579">iPawcus_ERD_Schema.sql</text>
+</g>
+<g data-node="db:service_materials"><rect x="2080" y="4048" width="440" height="135" fill="#f8fafc" stroke="#c4cbd4" stroke-width="1.2" stroke-dasharray="5 4"/><line x1="2080" y1="4103" x2="2520" y2="4103" stroke="#c4cbd4"/>
+<text x="2094" y="4071" font-family="Arial,sans-serif" font-size="16" fill="#2d3748">ServiceMaterial</text>
+<text x="2094" y="4090" font-family="Arial,sans-serif" font-size="11.5" fill="#596579">«entity» service_materials</text>
+<text x="2094" y="4126" font-family="Consolas,monospace" font-size="12" fill="#2d3748">+ service_material_id: int [PK]</text>
+<text x="2094" y="4144" font-family="Consolas,monospace" font-size="12" fill="#2d3748">Full SQL attributes / DB page 07</text>
+<text x="2094" y="4171" font-family="Arial,sans-serif" font-size="11.5" fill="#596579">iPawcus_ERD_Schema.sql</text>
+</g>
+<g data-node="db:boarding_material_usages"><rect x="2080" y="4241" width="440" height="135" fill="#f8fafc" stroke="#c4cbd4" stroke-width="1.2" stroke-dasharray="5 4"/><line x1="2080" y1="4296" x2="2520" y2="4296" stroke="#c4cbd4"/>
+<text x="2094" y="4264" font-family="Arial,sans-serif" font-size="16" fill="#2d3748">BoardingMaterialUsage</text>
+<text x="2094" y="4283" font-family="Arial,sans-serif" font-size="11.5" fill="#596579">«entity» boarding_material_usages</text>
+<text x="2094" y="4319" font-family="Consolas,monospace" font-size="12" fill="#2d3748">+ usage_id: int [PK]</text>
+<text x="2094" y="4337" font-family="Consolas,monospace" font-size="12" fill="#2d3748">Full SQL attributes / DB page 06</text>
+<text x="2094" y="4364" font-family="Arial,sans-serif" font-size="11.5" fill="#596579">iPawcus_ERD_Schema.sql</text>
+</g>
+<g data-node="db:boarding_assignments"><rect x="2080" y="4434" width="440" height="135" fill="#f8fafc" stroke="#c4cbd4" stroke-width="1.2" stroke-dasharray="5 4"/><line x1="2080" y1="4489" x2="2520" y2="4489" stroke="#c4cbd4"/>
+<text x="2094" y="4457" font-family="Arial,sans-serif" font-size="16" fill="#2d3748">BoardingAssignment</text>
+<text x="2094" y="4476" font-family="Arial,sans-serif" font-size="11.5" fill="#596579">«entity» boarding_assignments</text>
+<text x="2094" y="4512" font-family="Consolas,monospace" font-size="12" fill="#2d3748">+ assignment_id: int [PK]</text>
+<text x="2094" y="4530" font-family="Consolas,monospace" font-size="12" fill="#2d3748">Full SQL attributes / DB page 06</text>
+<text x="2094" y="4557" font-family="Arial,sans-serif" font-size="11.5" fill="#596579">iPawcus_ERD_Schema.sql</text>
+</g>
+<g data-node="db:service_catalog"><rect x="2080" y="4627" width="440" height="135" fill="#f8fafc" stroke="#c4cbd4" stroke-width="1.2" stroke-dasharray="5 4"/><line x1="2080" y1="4682" x2="2520" y2="4682" stroke="#c4cbd4"/>
+<text x="2094" y="4650" font-family="Arial,sans-serif" font-size="16" fill="#2d3748">ServiceCatalog</text>
+<text x="2094" y="4669" font-family="Arial,sans-serif" font-size="11.5" fill="#596579">«entity» service_catalog</text>
+<text x="2094" y="4705" font-family="Consolas,monospace" font-size="12" fill="#2d3748">+ service_id: int [PK]</text>
+<text x="2094" y="4723" font-family="Consolas,monospace" font-size="12" fill="#2d3748">Full SQL attributes / DB page 08</text>
+<text x="2094" y="4750" font-family="Arial,sans-serif" font-size="11.5" fill="#596579">iPawcus_ERD_Schema.sql</text>
+</g>
+<g data-node="db:special_service_booking_items"><rect x="2080" y="4820" width="440" height="135" fill="#f8fafc" stroke="#c4cbd4" stroke-width="1.2" stroke-dasharray="5 4"/><line x1="2080" y1="4875" x2="2520" y2="4875" stroke="#c4cbd4"/>
+<text x="2094" y="4843" font-family="Arial,sans-serif" font-size="16" fill="#2d3748">SpecialServiceBookingItem</text>
+<text x="2094" y="4862" font-family="Arial,sans-serif" font-size="11.5" fill="#596579">«entity» special_service_booking_items</text>
+<text x="2094" y="4898" font-family="Consolas,monospace" font-size="12" fill="#2d3748">+ booking_special_service_id: int [PK]</text>
+<text x="2094" y="4916" font-family="Consolas,monospace" font-size="12" fill="#2d3748">Full SQL attributes / DB page 08</text>
+<text x="2094" y="4943" font-family="Arial,sans-serif" font-size="11.5" fill="#596579">iPawcus_ERD_Schema.sql</text>
+</g>
+<g data-node="db:special_service_catalog"><rect x="2080" y="5013" width="440" height="135" fill="#f8fafc" stroke="#c4cbd4" stroke-width="1.2" stroke-dasharray="5 4"/><line x1="2080" y1="5068" x2="2520" y2="5068" stroke="#c4cbd4"/>
+<text x="2094" y="5036" font-family="Arial,sans-serif" font-size="16" fill="#2d3748">SpecialServiceCatalog</text>
+<text x="2094" y="5055" font-family="Arial,sans-serif" font-size="11.5" fill="#596579">«entity» special_service_catalog</text>
+<text x="2094" y="5091" font-family="Consolas,monospace" font-size="12" fill="#2d3748">+ special_service_id: int [PK]</text>
+<text x="2094" y="5109" font-family="Consolas,monospace" font-size="12" fill="#2d3748">Full SQL attributes / DB page 08</text>
+<text x="2094" y="5136" font-family="Arial,sans-serif" font-size="11.5" fill="#596579">iPawcus_ERD_Schema.sql</text>
+</g>
+<g data-node="db:online_consultations"><rect x="2080" y="5206" width="440" height="135" fill="#f8fafc" stroke="#c4cbd4" stroke-width="1.2" stroke-dasharray="5 4"/><line x1="2080" y1="5261" x2="2520" y2="5261" stroke="#c4cbd4"/>
+<text x="2094" y="5229" font-family="Arial,sans-serif" font-size="16" fill="#2d3748">OnlineConsultation</text>
+<text x="2094" y="5248" font-family="Arial,sans-serif" font-size="11.5" fill="#596579">«entity» online_consultations</text>
+<text x="2094" y="5284" font-family="Consolas,monospace" font-size="12" fill="#2d3748">+ online_consultation_id: int [PK]</text>
+<text x="2094" y="5302" font-family="Consolas,monospace" font-size="12" fill="#2d3748">Full SQL attributes / DB page 05</text>
+<text x="2094" y="5329" font-family="Arial,sans-serif" font-size="11.5" fill="#596579">iPawcus_ERD_Schema.sql</text>
+</g>
+<g data-node="db:branches"><rect x="2080" y="5399" width="440" height="135" fill="#f8fafc" stroke="#c4cbd4" stroke-width="1.2" stroke-dasharray="5 4"/><line x1="2080" y1="5454" x2="2520" y2="5454" stroke="#c4cbd4"/>
+<text x="2094" y="5422" font-family="Arial,sans-serif" font-size="16" fill="#2d3748">Branch</text>
+<text x="2094" y="5441" font-family="Arial,sans-serif" font-size="11.5" fill="#596579">«entity» branches</text>
+<text x="2094" y="5477" font-family="Consolas,monospace" font-size="12" fill="#2d3748">+ branch_id: int [PK]</text>
+<text x="2094" y="5495" font-family="Consolas,monospace" font-size="12" fill="#2d3748">Full SQL attributes / DB page 02</text>
+<text x="2094" y="5522" font-family="Arial,sans-serif" font-size="11.5" fill="#596579">iPawcus_ERD_Schema.sql</text>
+</g>
+<text x="512" y="204" font-family="Consolas,monospace" font-size="11.5" fill="#596579">uses</text>
+<text x="512" y="226" font-family="Consolas,monospace" font-size="11.5" fill="#596579">uses</text>
+<text x="512" y="248" font-family="Consolas,monospace" font-size="11.5" fill="#596579">uses</text>
+<text x="512" y="270" font-family="Consolas,monospace" font-size="11.5" fill="#596579">uses</text>
+<text x="512" y="292" font-family="Consolas,monospace" font-size="11.5" fill="#596579">uses</text>
+<text x="512" y="314" font-family="Consolas,monospace" font-size="11.5" fill="#596579">uses</text>
+<text x="512" y="503" font-family="Consolas,monospace" font-size="11.5" fill="#596579">uses</text>
+<text x="512" y="525" font-family="Consolas,monospace" font-size="11.5" fill="#596579">uses</text>
+<text x="1172" y="204" font-family="Consolas,monospace" font-size="11.5" fill="#596579">HTTP</text>
+<text x="1172" y="415" font-family="Consolas,monospace" font-size="11.5" fill="#596579">HTTP</text>
+<text x="1852" y="204" font-family="Consolas,monospace" font-size="11.5" fill="#596579">includes</text>
+<text x="1852" y="226" font-family="Consolas,monospace" font-size="11.5" fill="#596579">includes</text>
+<text x="1852" y="248" font-family="Consolas,monospace" font-size="11.5" fill="#596579">includes</text>
+<text x="1852" y="270" font-family="Consolas,monospace" font-size="11.5" fill="#596579">SQL</text>
+<text x="1852" y="292" font-family="Consolas,monospace" font-size="11.5" fill="#596579">SQL</text>
+<text x="1852" y="314" font-family="Consolas,monospace" font-size="11.5" fill="#596579">SQL</text>
+<text x="1852" y="336" font-family="Consolas,monospace" font-size="11.5" fill="#596579">SQL</text>
+<text x="1852" y="523" font-family="Consolas,monospace" font-size="11.5" fill="#596579">includes</text>
+<text x="1852" y="545" font-family="Consolas,monospace" font-size="11.5" fill="#596579">includes</text>
+<text x="1852" y="567" font-family="Consolas,monospace" font-size="11.5" fill="#596579">includes</text>
+<text x="1852" y="589" font-family="Consolas,monospace" font-size="11.5" fill="#596579">includes</text>
+<text x="1852" y="611" font-family="Consolas,monospace" font-size="11.5" fill="#596579">includes</text>
+<text x="1852" y="633" font-family="Consolas,monospace" font-size="11.5" fill="#596579">SQL</text>
+<text x="1852" y="655" font-family="Consolas,monospace" font-size="11.5" fill="#596579">SQL</text>
+<text x="1852" y="677" font-family="Consolas,monospace" font-size="11.5" fill="#596579">SQL</text>
+<text x="1852" y="699" font-family="Consolas,monospace" font-size="11.5" fill="#596579">SQL</text>
+<text x="1852" y="721" font-family="Consolas,monospace" font-size="11.5" fill="#596579">SQL</text>
+<text x="1852" y="743" font-family="Consolas,monospace" font-size="11.5" fill="#596579">SQL</text>
+<text x="1852" y="765" font-family="Consolas,monospace" font-size="11.5" fill="#596579">SQL</text>
+<text x="1852" y="787" font-family="Consolas,monospace" font-size="11.5" fill="#596579">SQL</text>
+<text x="1852" y="809" font-family="Consolas,monospace" font-size="11.5" fill="#596579">SQL</text>
+<text x="1852" y="831" font-family="Consolas,monospace" font-size="11.5" fill="#596579">SQL</text>
+<text x="1852" y="853" font-family="Consolas,monospace" font-size="11.5" fill="#596579">SQL</text>
+<text x="1852" y="875" font-family="Consolas,monospace" font-size="11.5" fill="#596579">SQL</text>
+<text x="1852" y="897" font-family="Consolas,monospace" font-size="11.5" fill="#596579">SQL</text>
+<text x="1852" y="919" font-family="Consolas,monospace" font-size="11.5" fill="#596579">SQL</text>
+<text x="1852" y="941" font-family="Consolas,monospace" font-size="11.5" fill="#596579">SQL</text>
+<text x="1852" y="963" font-family="Consolas,monospace" font-size="11.5" fill="#596579">SQL</text>
+<text x="1852" y="985" font-family="Consolas,monospace" font-size="11.5" fill="#596579">SQL</text>
+<text x="1852" y="1007" font-family="Consolas,monospace" font-size="11.5" fill="#596579">SQL</text>
+<text x="1852" y="1029" font-family="Consolas,monospace" font-size="11.5" fill="#596579">SQL</text>
+<text x="1852" y="1051" font-family="Consolas,monospace" font-size="11.5" fill="#596579">SQL</text>
+<text x="1852" y="1073" font-family="Consolas,monospace" font-size="11.5" fill="#596579">SQL</text>
+<text x="1852" y="1095" font-family="Consolas,monospace" font-size="11.5" fill="#596579">SQL</text>
+<text x="1852" y="1117" font-family="Consolas,monospace" font-size="11.5" fill="#596579">SQL</text>
+<text x="1852" y="1139" font-family="Consolas,monospace" font-size="11.5" fill="#596579">SQL</text>
+<text x="1852" y="1161" font-family="Consolas,monospace" font-size="11.5" fill="#596579">SQL</text>
+<text x="1852" y="1183" font-family="Consolas,monospace" font-size="11.5" fill="#596579">SQL</text>
+</svg>

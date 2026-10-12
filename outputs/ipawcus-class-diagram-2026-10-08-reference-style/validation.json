@@ -1,0 +1,15 @@
+{
+  "pages": 11,
+  "class_boxes": 245,
+  "relationships": 495,
+  "content_fitted_boxes": 245,
+  "text_overflows": 0,
+  "box_intersections": 0,
+  "label_intersections": 0,
+  "core_classes": 35,
+  "complete_classes": 91,
+  "source_backed_operations": 174,
+  "original_content_preserved": true,
+  "application_modified": false,
+  "database_modified": false
+}

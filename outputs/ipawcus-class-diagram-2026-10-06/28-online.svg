@@ -1,0 +1,243 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="2600" height="1890" viewBox="0 0 2600 1890" role="img" aria-labelledby="title desc">
+<title id="title">iPawcus / Online consultation and call diagnosis</title>
+<desc id="desc">Application modules and verified database references. Original SQL entity definitions are on pages 01 to 09. Dashed dependencies are not foreign keys.</desc>
+<defs><marker id="arrow" markerWidth="9" markerHeight="9" refX="8" refY="4.5" orient="auto" markerUnits="userSpaceOnUse"><path d="M0 0 L8 4.5 L0 9" fill="none" stroke="#8793a3" stroke-width="1.2"/></marker><marker id="inheritance" markerWidth="11" markerHeight="11" refX="10" refY="5" orient="auto" markerUnits="userSpaceOnUse"><path d="M0 0 L10 5 L0 10 Z" fill="#ffffff" stroke="#8793a3" stroke-width="1.2"/></marker></defs>
+<rect width="100%" height="100%" fill="#ffffff"/>
+<text x="80" y="44" font-family="Arial,sans-serif" font-size="25" fill="#2d3748">iPawcus / Online consultation and call diagnosis</text>
+<text x="80" y="73" font-family="Arial,sans-serif" font-size="14" fill="#596579">React / service / PHP / entity reference · arrows show source-code dependencies; no invented OO inheritance.</text>
+<text x="80" y="100" font-family="Arial,sans-serif" font-size="13" fill="#596579">Dashed: dependency. Solid: migration FK or real class inheritance. Full source evidence accompanies detailed links.</text>
+<text x="80" y="143" font-family="Arial,sans-serif" font-size="14" fill="#596579">UI and system views</text>
+<text x="740" y="143" font-family="Arial,sans-serif" font-size="14" fill="#596579">JavaScript services</text>
+<text x="1400" y="143" font-family="Arial,sans-serif" font-size="14" fill="#596579">PHP backend modules</text>
+<text x="2080" y="143" font-family="Arial,sans-serif" font-size="14" fill="#596579">Database references</text>
+<path d="M500 210 L740 210" fill="none" stroke="#8793a3" stroke-width="1.2" stroke-dasharray="5 4" marker-end="url(#arrow)"><title>src/components/PetOwnerDashboard/VideoConsultation.jsx → src/services/onlineConsultationService.js / uses</title></path>
+<path d="M500 491 L610 491 L610 232 L740 232" fill="none" stroke="#8793a3" stroke-width="1.2" stroke-dasharray="5 4" marker-end="url(#arrow)"><title>src/components/VetrinarianComponents/ApprovedOnlineConsultation.jsx → src/services/onlineConsultationService.js / uses</title></path>
+<path d="M500 754 L630 754 L630 254 L740 254" fill="none" stroke="#8793a3" stroke-width="1.2" stroke-dasharray="5 4" marker-end="url(#arrow)"><title>src/components/VetrinarianComponents/VetOnlineConsultDiagnosis.jsx → src/services/onlineConsultationService.js / uses</title></path>
+<path d="M500 1408 L610 1408 L610 475 L740 475" fill="none" stroke="#8793a3" stroke-width="1.2" stroke-dasharray="5 4" marker-end="url(#arrow)"><title>src/components/shared/VetOnlineAvailabilityPanel.jsx → src/services/vetScheduleService.js / uses</title></path>
+<path d="M1160 210 L1270 210 L1270 529 L1400 529" fill="none" stroke="#8793a3" stroke-width="1.2" stroke-dasharray="5 4" marker-end="url(#arrow)"><title>src/services/onlineConsultationService.js → php/online_consultations.php / HTTP</title></path>
+<path d="M1840 210 L2080 210" fill="none" stroke="#8793a3" stroke-width="1.2" stroke-dasharray="5 4" marker-end="url(#arrow)"><title>php/online_consultation_helpers.php → db:online_consultations / SQL</title></path>
+<path d="M1840 232 L1950 232 L1950 403 L2080 403" fill="none" stroke="#8793a3" stroke-width="1.2" stroke-dasharray="5 4" marker-end="url(#arrow)"><title>php/online_consultation_helpers.php → db:online_consultation_reschedules / SQL</title></path>
+<path d="M1840 254 L1970 254 L1970 596 L2080 596" fill="none" stroke="#8793a3" stroke-width="1.2" stroke-dasharray="5 4" marker-end="url(#arrow)"><title>php/online_consultation_helpers.php → db:users / SQL</title></path>
+<path d="M1840 276 L1950 276 L1950 789 L2080 789" fill="none" stroke="#8793a3" stroke-width="1.2" stroke-dasharray="5 4" marker-end="url(#arrow)"><title>php/online_consultation_helpers.php → db:bookings / SQL</title></path>
+<path d="M1840 529 L2058 529 L2058 298 L1840 298" fill="none" stroke="#8793a3" stroke-width="1.2" stroke-dasharray="5 4" marker-end="url(#arrow)"><title>php/online_consultations.php → php/online_consultation_helpers.php / includes</title></path>
+<path d="M1840 551 L1950 551 L1950 554 L1913 554 L1913 837 L1950 837 L1950 899 L1840 899" fill="none" stroke="#8793a3" stroke-width="1.2" stroke-dasharray="5 4" marker-end="url(#arrow)"><title>php/online_consultations.php → php/notification_helpers.php / includes</title></path>
+<path d="M1840 573 L1970 573 L1970 1074 L1840 1074" fill="none" stroke="#8793a3" stroke-width="1.2" stroke-dasharray="5 4" marker-end="url(#arrow)"><title>php/online_consultations.php → php/clinical_record_helpers.php / includes</title></path>
+<path d="M1840 595 L2058 595 L2058 1249 L1840 1249" fill="none" stroke="#8793a3" stroke-width="1.2" stroke-dasharray="5 4" marker-end="url(#arrow)"><title>php/online_consultations.php → php/booking_queue_helpers.php / includes</title></path>
+<path d="M1840 617 L1950 617 L1950 638 L1878 638 L1878 1408 L1950 1408 L1950 1424 L1840 1424" fill="none" stroke="#8793a3" stroke-width="1.2" stroke-dasharray="5 4" marker-end="url(#arrow)"><title>php/online_consultations.php → php/prescription_helpers.php / includes</title></path>
+<path d="M1840 639 L1950 639 L1950 1599 L1840 1599" fill="none" stroke="#8793a3" stroke-width="1.2" stroke-dasharray="5 4" marker-end="url(#arrow)"><title>php/online_consultations.php → php/visit_billing.php / includes</title></path>
+<path d="M1840 661 L1970 661 L1970 811 L2080 811" fill="none" stroke="#8793a3" stroke-width="1.2" stroke-dasharray="5 4" marker-end="url(#arrow)"><title>php/online_consultations.php → db:bookings / SQL</title></path>
+<path d="M1840 683 L1950 683 L1950 682 L1913 682 L1913 232 L2080 232" fill="none" stroke="#8793a3" stroke-width="1.2" stroke-dasharray="5 4" marker-end="url(#arrow)"><title>php/online_consultations.php → db:online_consultations / SQL</title></path>
+<path d="M1840 705 L1950 705 L1950 708 L1913 708 L1913 982 L2080 982" fill="none" stroke="#8793a3" stroke-width="1.2" stroke-dasharray="5 4" marker-end="url(#arrow)"><title>php/online_consultations.php → db:online_consultation_diagnoses / SQL</title></path>
+<path d="M1840 727 L1950 727 L1950 748 L1862 748 L1862 1175 L2080 1175" fill="none" stroke="#8793a3" stroke-width="1.2" stroke-dasharray="5 4" marker-end="url(#arrow)"><title>php/online_consultations.php → db:pets_information / SQL</title></path>
+<path d="M1840 749 L2058 749 L2058 620 L1970 620 L1970 618 L2080 618" fill="none" stroke="#8793a3" stroke-width="1.2" stroke-dasharray="5 4" marker-end="url(#arrow)"><title>php/online_consultations.php → db:users / SQL</title></path>
+<g data-node="src/components/PetOwnerDashboard/VideoConsultation.jsx"><rect x="80" y="170" width="420" height="223" fill="#ffffff" stroke="#c4cbd4" stroke-width="1.2"/><line x1="80" y1="225" x2="500" y2="225" stroke="#c4cbd4"/>
+<text x="94" y="193" font-family="Arial,sans-serif" font-size="16" fill="#2d3748">VideoConsultation</text>
+<text x="94" y="212" font-family="Arial,sans-serif" font-size="11.5" fill="#596579">«React component»</text>
+<text x="94" y="248" font-family="Consolas,monospace" font-size="12" fill="#2d3748">- consultation: state</text>
+<text x="94" y="266" font-family="Consolas,monospace" font-size="12" fill="#2d3748">- isLoading: state</text>
+<text x="94" y="284" font-family="Consolas,monospace" font-size="12" fill="#2d3748">+ VideoConsultation()</text>
+<text x="94" y="302" font-family="Consolas,monospace" font-size="12" fill="#2d3748">+ fetchConsultation()</text>
+<text x="94" y="320" font-family="Consolas,monospace" font-size="12" fill="#2d3748">+ handleEndCall()</text>
+<text x="94" y="338" font-family="Consolas,monospace" font-size="12" fill="#2d3748">+ handleBack()</text>
+<text x="94" y="365" font-family="Arial,sans-serif" font-size="11.5" fill="#596579">src/components/PetOwnerDashboard/VideoConsultation.j</text>
+<text x="94" y="381" font-family="Arial,sans-serif" font-size="11.5" fill="#596579">  sx:21</text>
+</g>
+<g data-node="src/components/VetrinarianComponents/ApprovedOnlineConsultation.jsx"><rect x="80" y="451" width="420" height="205" fill="#ffffff" stroke="#c4cbd4" stroke-width="1.2"/><line x1="80" y1="506" x2="500" y2="506" stroke="#c4cbd4"/>
+<text x="94" y="474" font-family="Arial,sans-serif" font-size="16" fill="#2d3748">ApprovedOnlineConsultation</text>
+<text x="94" y="493" font-family="Arial,sans-serif" font-size="11.5" fill="#596579">«React component»</text>
+<text x="94" y="529" font-family="Consolas,monospace" font-size="12" fill="#2d3748">- consultations: state</text>
+<text x="94" y="547" font-family="Consolas,monospace" font-size="12" fill="#2d3748">- isLoading: state</text>
+<text x="94" y="565" font-family="Consolas,monospace" font-size="12" fill="#2d3748">- actionId: state</text>
+<text x="94" y="583" font-family="Consolas,monospace" font-size="12" fill="#2d3748">+ ApprovedOnlineConsultation()</text>
+<text x="94" y="601" font-family="Consolas,monospace" font-size="12" fill="#2d3748">+ startConsultation()</text>
+<text x="94" y="628" font-family="Arial,sans-serif" font-size="11.5" fill="#596579">src/components/VetrinarianComponents/ApprovedOnlineC</text>
+<text x="94" y="644" font-family="Arial,sans-serif" font-size="11.5" fill="#596579">  onsultation.jsx:178</text>
+</g>
+<g data-node="src/components/VetrinarianComponents/VetOnlineConsultDiagnosis.jsx"><rect x="80" y="714" width="420" height="295" fill="#ffffff" stroke="#c4cbd4" stroke-width="1.2"/><line x1="80" y1="769" x2="500" y2="769" stroke="#c4cbd4"/>
+<text x="94" y="737" font-family="Arial,sans-serif" font-size="16" fill="#2d3748">VetOnlineConsultDiagnosis</text>
+<text x="94" y="756" font-family="Arial,sans-serif" font-size="11.5" fill="#596579">«React component»</text>
+<text x="94" y="792" font-family="Consolas,monospace" font-size="12" fill="#2d3748">- consultation: state</text>
+<text x="94" y="810" font-family="Consolas,monospace" font-size="12" fill="#2d3748">- isLoading: state</text>
+<text x="94" y="828" font-family="Consolas,monospace" font-size="12" fill="#2d3748">- isSaving: state</text>
+<text x="94" y="846" font-family="Consolas,monospace" font-size="12" fill="#2d3748">+ VetOnlineConsultDiagnosis()</text>
+<text x="94" y="864" font-family="Consolas,monospace" font-size="12" fill="#2d3748">+ handleCapturePetOwner()</text>
+<text x="94" y="882" font-family="Consolas,monospace" font-size="12" fill="#2d3748">+ loadConsultation()</text>
+<text x="94" y="900" font-family="Consolas,monospace" font-size="12" fill="#2d3748">+ startConsultation()</text>
+<text x="94" y="918" font-family="Consolas,monospace" font-size="12" fill="#2d3748">+ saveDiagnosis()</text>
+<text x="94" y="936" font-family="Consolas,monospace" font-size="12" fill="#2d3748">+ handleBackToConsults()</text>
+<text x="94" y="954" font-family="Consolas,monospace" font-size="12" fill="#2d3748">+ handleOpenCall()</text>
+<text x="94" y="981" font-family="Arial,sans-serif" font-size="11.5" fill="#596579">src/components/VetrinarianComponents/VetOnlineConsul</text>
+<text x="94" y="997" font-family="Arial,sans-serif" font-size="11.5" fill="#596579">  tDiagnosis.jsx:146</text>
+</g>
+<g data-node="src/components/shared/JaaSMeeting.jsx"><rect x="80" y="1067" width="420" height="243" fill="#ffffff" stroke="#c4cbd4" stroke-width="1.2"/><line x1="80" y1="1122" x2="500" y2="1122" stroke="#c4cbd4"/>
+<text x="94" y="1090" font-family="Arial,sans-serif" font-size="16" fill="#2d3748">JaaSMeeting</text>
+<text x="94" y="1109" font-family="Arial,sans-serif" font-size="11.5" fill="#596579">«React component»</text>
+<text x="94" y="1145" font-family="Consolas,monospace" font-size="12" fill="#2d3748">- loadAttempt: state</text>
+<text x="94" y="1163" font-family="Consolas,monospace" font-size="12" fill="#2d3748">- status: state</text>
+<text x="94" y="1181" font-family="Consolas,monospace" font-size="12" fill="#2d3748">- errorMessage: state</text>
+<text x="94" y="1199" font-family="Consolas,monospace" font-size="12" fill="#2d3748">+ loadJaaSExternalApi()</text>
+<text x="94" y="1217" font-family="Consolas,monospace" font-size="12" fill="#2d3748">+ handleLoad()</text>
+<text x="94" y="1235" font-family="Consolas,monospace" font-size="12" fill="#2d3748">+ handleError()</text>
+<text x="94" y="1253" font-family="Consolas,monospace" font-size="12" fill="#2d3748">+ handleConferenceLeft()</text>
+<text x="94" y="1271" font-family="Consolas,monospace" font-size="12" fill="#2d3748">+ handleConferenceJoined()</text>
+<text x="94" y="1298" font-family="Arial,sans-serif" font-size="11.5" fill="#596579">src/components/shared/JaaSMeeting.jsx:1</text>
+</g>
+<g data-node="src/components/shared/VetOnlineAvailabilityPanel.jsx"><rect x="80" y="1368" width="420" height="223" fill="#ffffff" stroke="#c4cbd4" stroke-width="1.2"/><line x1="80" y1="1423" x2="500" y2="1423" stroke="#c4cbd4"/>
+<text x="94" y="1391" font-family="Arial,sans-serif" font-size="16" fill="#2d3748">VetOnlineAvailabilityPanel</text>
+<text x="94" y="1410" font-family="Arial,sans-serif" font-size="11.5" fill="#596579">«React component»</text>
+<text x="94" y="1446" font-family="Consolas,monospace" font-size="12" fill="#2d3748">- availability: state</text>
+<text x="94" y="1464" font-family="Consolas,monospace" font-size="12" fill="#2d3748">- saved: state</text>
+<text x="94" y="1482" font-family="Consolas,monospace" font-size="12" fill="#2d3748">- isLoading: state</text>
+<text x="94" y="1500" font-family="Consolas,monospace" font-size="12" fill="#2d3748">+ VetOnlineAvailabilityPanel()</text>
+<text x="94" y="1518" font-family="Consolas,monospace" font-size="12" fill="#2d3748">+ startEditing()</text>
+<text x="94" y="1536" font-family="Consolas,monospace" font-size="12" fill="#2d3748">+ save()</text>
+<text x="94" y="1563" font-family="Arial,sans-serif" font-size="11.5" fill="#596579">src/components/shared/VetOnlineAvailabilityPanel.jsx</text>
+<text x="94" y="1579" font-family="Arial,sans-serif" font-size="11.5" fill="#596579">  :32</text>
+</g>
+<g data-node="src/context/VideoCallProvider.jsx"><rect x="80" y="1649" width="420" height="171" fill="#ffffff" stroke="#c4cbd4" stroke-width="1.2"/><line x1="80" y1="1704" x2="500" y2="1704" stroke="#c4cbd4"/>
+<text x="94" y="1672" font-family="Arial,sans-serif" font-size="16" fill="#2d3748">VideoCallProvider</text>
+<text x="94" y="1691" font-family="Arial,sans-serif" font-size="11.5" fill="#596579">«React component»</text>
+<text x="94" y="1727" font-family="Consolas,monospace" font-size="12" fill="#2d3748">- callState: state</text>
+<text x="94" y="1745" font-family="Consolas,monospace" font-size="12" fill="#2d3748">- dockRect: state</text>
+<text x="94" y="1763" font-family="Consolas,monospace" font-size="12" fill="#2d3748">+ VideoCallProvider()</text>
+<text x="94" y="1781" font-family="Consolas,monospace" font-size="12" fill="#2d3748">+ useVideoCall()</text>
+<text x="94" y="1808" font-family="Arial,sans-serif" font-size="11.5" fill="#596579">src/context/VideoCallProvider.jsx:72</text>
+</g>
+<g data-node="src/services/onlineConsultationService.js"><rect x="740" y="170" width="420" height="207" fill="#ffffff" stroke="#c4cbd4" stroke-width="1.2"/><line x1="740" y1="225" x2="1160" y2="225" stroke="#c4cbd4"/>
+<text x="754" y="193" font-family="Arial,sans-serif" font-size="16" fill="#2d3748">onlineConsultationService</text>
+<text x="754" y="212" font-family="Arial,sans-serif" font-size="11.5" fill="#596579">«JS service module»</text>
+<text x="754" y="248" font-family="Consolas,monospace" font-size="12" fill="#2d3748">+ fetchOnlineConsultations()</text>
+<text x="754" y="266" font-family="Consolas,monospace" font-size="12" fill="#2d3748">+ fetchOnlineConsultation()</text>
+<text x="754" y="284" font-family="Consolas,monospace" font-size="12" fill="#2d3748">+ startOnlineConsultation()</text>
+<text x="754" y="302" font-family="Consolas,monospace" font-size="12" fill="#2d3748">+ joinOnlineConsultation()</text>
+<text x="754" y="320" font-family="Consolas,monospace" font-size="12" fill="#2d3748">+ endOnlineConsultation()</text>
+<text x="754" y="338" font-family="Consolas,monospace" font-size="12" fill="#2d3748">+ submitOnlineConsultationDiagnosis()</text>
+<text x="754" y="365" font-family="Arial,sans-serif" font-size="11.5" fill="#596579">src/services/onlineConsultationService.js:3</text>
+</g>
+<g data-node="php/online_consultation_helpers.php"><rect x="1400" y="170" width="440" height="261" fill="#ffffff" stroke="#c4cbd4" stroke-width="1.2"/><line x1="1400" y1="225" x2="1840" y2="225" stroke="#c4cbd4"/>
+<text x="1414" y="193" font-family="Arial,sans-serif" font-size="16" fill="#2d3748">OnlineConsultationHelpers</text>
+<text x="1414" y="212" font-family="Arial,sans-serif" font-size="11.5" fill="#596579">«PHP module»</text>
+<text x="1414" y="248" font-family="Consolas,monospace" font-size="12" fill="#2d3748">+ onlineConsultationTableExists()</text>
+<text x="1414" y="266" font-family="Consolas,monospace" font-size="12" fill="#2d3748">+ buildOnlineConsultationDateTime()</text>
+<text x="1414" y="284" font-family="Consolas,monospace" font-size="12" fill="#2d3748">+ fetchOnlineConsultationRow()</text>
+<text x="1414" y="302" font-family="Consolas,monospace" font-size="12" fill="#2d3748">+ fetchOnlineConsultationByBooking()</text>
+<text x="1414" y="320" font-family="Consolas,monospace" font-size="12" fill="#2d3748">+ fetchOnlineConsultationRescheduleHistoryMap()</text>
+<text x="1414" y="338" font-family="Consolas,monospace" font-size="12" fill="#2d3748">+ fetchOnlineConsultationRescheduleHistory()</text>
+<text x="1414" y="356" font-family="Consolas,monospace" font-size="12" fill="#2d3748">+ onlineConsultationWithReschedules()</text>
+<text x="1414" y="374" font-family="Consolas,monospace" font-size="12" fill="#2d3748">+ getJitsiBaseUrl()</text>
+<text x="1414" y="392" font-family="Consolas,monospace" font-size="12" fill="#2d3748">+ 11 more operations [source index]</text>
+<text x="1414" y="419" font-family="Arial,sans-serif" font-size="11.5" fill="#596579">php/online_consultation_helpers.php:3</text>
+</g>
+<g data-node="php/online_consultations.php"><rect x="1400" y="489" width="440" height="312" fill="#ffffff" stroke="#c4cbd4" stroke-width="1.2"/><line x1="1400" y1="544" x2="1840" y2="544" stroke="#c4cbd4"/>
+<text x="1414" y="512" font-family="Arial,sans-serif" font-size="16" fill="#2d3748">OnlineConsultations</text>
+<text x="1414" y="531" font-family="Arial,sans-serif" font-size="11.5" fill="#596579">«PHP module»</text>
+<text x="1414" y="567" font-family="Consolas,monospace" font-size="12" fill="#2d3748">+ getJsonInput()</text>
+<text x="1414" y="585" font-family="Consolas,monospace" font-size="12" fill="#2d3748">+ onlineConsultationNullableText()</text>
+<text x="1414" y="603" font-family="Consolas,monospace" font-size="12" fill="#2d3748">+ onlineConsultationCleanJsonValue()</text>
+<text x="1414" y="621" font-family="Consolas,monospace" font-size="12" fill="#2d3748">+ normalizeNullableJson()</text>
+<text x="1414" y="639" font-family="Consolas,monospace" font-size="12" fill="#2d3748">+ onlineConsultationDecodeJson()</text>
+<text x="1414" y="657" font-family="Consolas,monospace" font-size="12" fill="#2d3748">+ onlineConsultationImagePaths()</text>
+<text x="1414" y="675" font-family="Consolas,monospace" font-size="12" fill="#2d3748">+ ensureMissingConfirmedOnlineConsultations()</text>
+<text x="1414" y="693" font-family="Consolas,monospace" font-size="12" fill="#2d3748">+ formatOnlineConsultation()</text>
+<text x="1414" y="711" font-family="Consolas,monospace" font-size="12" fill="#2d3748">+ 8 more operations [source index]</text>
+<text x="1414" y="789" font-family="Arial,sans-serif" font-size="11.5" fill="#596579">php/online_consultations.php:20</text>
+</g>
+<g data-node="src/services/vetScheduleService.js"><rect x="740" y="435" width="420" height="117" fill="#f8fafc" stroke="#c4cbd4" stroke-width="1.2" stroke-dasharray="5 4"/><line x1="740" y1="490" x2="1160" y2="490" stroke="#c4cbd4"/>
+<text x="754" y="458" font-family="Arial,sans-serif" font-size="16" fill="#2d3748">vetScheduleService</text>
+<text x="754" y="477" font-family="Arial,sans-serif" font-size="11.5" fill="#596579">«JS service module» / page 17</text>
+<text x="754" y="513" font-family="Consolas,monospace" font-size="12" fill="#2d3748">Definition / page 17</text>
+<text x="754" y="540" font-family="Arial,sans-serif" font-size="11.5" fill="#596579">src/services/vetScheduleService.js:3</text>
+</g>
+<g data-node="db:online_consultations"><rect x="2080" y="170" width="440" height="135" fill="#f8fafc" stroke="#c4cbd4" stroke-width="1.2" stroke-dasharray="5 4"/><line x1="2080" y1="225" x2="2520" y2="225" stroke="#c4cbd4"/>
+<text x="2094" y="193" font-family="Arial,sans-serif" font-size="16" fill="#2d3748">OnlineConsultation</text>
+<text x="2094" y="212" font-family="Arial,sans-serif" font-size="11.5" fill="#596579">«entity» online_consultations</text>
+<text x="2094" y="248" font-family="Consolas,monospace" font-size="12" fill="#2d3748">+ online_consultation_id: int [PK]</text>
+<text x="2094" y="266" font-family="Consolas,monospace" font-size="12" fill="#2d3748">Full SQL attributes / DB page 05</text>
+<text x="2094" y="293" font-family="Arial,sans-serif" font-size="11.5" fill="#596579">iPawcus_ERD_Schema.sql</text>
+</g>
+<g data-node="db:online_consultation_reschedules"><rect x="2080" y="363" width="440" height="135" fill="#f8fafc" stroke="#c4cbd4" stroke-width="1.2" stroke-dasharray="5 4"/><line x1="2080" y1="418" x2="2520" y2="418" stroke="#c4cbd4"/>
+<text x="2094" y="386" font-family="Arial,sans-serif" font-size="16" fill="#2d3748">OnlineConsultationReschedule</text>
+<text x="2094" y="405" font-family="Arial,sans-serif" font-size="11.5" fill="#596579">«entity» online_consultation_reschedules</text>
+<text x="2094" y="441" font-family="Consolas,monospace" font-size="12" fill="#2d3748">+ reschedule_id: int [PK]</text>
+<text x="2094" y="459" font-family="Consolas,monospace" font-size="12" fill="#2d3748">Full SQL attributes / DB page 05</text>
+<text x="2094" y="486" font-family="Arial,sans-serif" font-size="11.5" fill="#596579">iPawcus_ERD_Schema.sql</text>
+</g>
+<g data-node="db:users"><rect x="2080" y="556" width="440" height="135" fill="#f8fafc" stroke="#c4cbd4" stroke-width="1.2" stroke-dasharray="5 4"/><line x1="2080" y1="611" x2="2520" y2="611" stroke="#c4cbd4"/>
+<text x="2094" y="579" font-family="Arial,sans-serif" font-size="16" fill="#2d3748">User</text>
+<text x="2094" y="598" font-family="Arial,sans-serif" font-size="11.5" fill="#596579">«entity» users</text>
+<text x="2094" y="634" font-family="Consolas,monospace" font-size="12" fill="#2d3748">+ user_id: int [PK]</text>
+<text x="2094" y="652" font-family="Consolas,monospace" font-size="12" fill="#2d3748">Full SQL attributes / DB page 01</text>
+<text x="2094" y="679" font-family="Arial,sans-serif" font-size="11.5" fill="#596579">iPawcus_ERD_Schema.sql</text>
+</g>
+<g data-node="db:bookings"><rect x="2080" y="749" width="440" height="135" fill="#f8fafc" stroke="#c4cbd4" stroke-width="1.2" stroke-dasharray="5 4"/><line x1="2080" y1="804" x2="2520" y2="804" stroke="#c4cbd4"/>
+<text x="2094" y="772" font-family="Arial,sans-serif" font-size="16" fill="#2d3748">Booking</text>
+<text x="2094" y="791" font-family="Arial,sans-serif" font-size="11.5" fill="#596579">«entity» bookings</text>
+<text x="2094" y="827" font-family="Consolas,monospace" font-size="12" fill="#2d3748">+ booking_id: int [PK]</text>
+<text x="2094" y="845" font-family="Consolas,monospace" font-size="12" fill="#2d3748">Full SQL attributes / DB page 04</text>
+<text x="2094" y="872" font-family="Arial,sans-serif" font-size="11.5" fill="#596579">iPawcus_ERD_Schema.sql</text>
+</g>
+<g data-node="php/notification_helpers.php"><rect x="1400" y="859" width="440" height="117" fill="#f8fafc" stroke="#c4cbd4" stroke-width="1.2" stroke-dasharray="5 4"/><line x1="1400" y1="914" x2="1840" y2="914" stroke="#c4cbd4"/>
+<text x="1414" y="882" font-family="Arial,sans-serif" font-size="16" fill="#2d3748">NotificationHelpers</text>
+<text x="1414" y="901" font-family="Arial,sans-serif" font-size="11.5" fill="#596579">«PHP module» / page 38</text>
+<text x="1414" y="937" font-family="Consolas,monospace" font-size="12" fill="#2d3748">Definition / page 38</text>
+<text x="1414" y="964" font-family="Arial,sans-serif" font-size="11.5" fill="#596579">php/notification_helpers.php:10</text>
+</g>
+<g data-node="php/clinical_record_helpers.php"><rect x="1400" y="1034" width="440" height="117" fill="#f8fafc" stroke="#c4cbd4" stroke-width="1.2" stroke-dasharray="5 4"/><line x1="1400" y1="1089" x2="1840" y2="1089" stroke="#c4cbd4"/>
+<text x="1414" y="1057" font-family="Arial,sans-serif" font-size="16" fill="#2d3748">ClinicalRecordHelpers</text>
+<text x="1414" y="1076" font-family="Arial,sans-serif" font-size="11.5" fill="#596579">«PHP module» / page 27</text>
+<text x="1414" y="1112" font-family="Consolas,monospace" font-size="12" fill="#2d3748">Definition / page 27</text>
+<text x="1414" y="1139" font-family="Arial,sans-serif" font-size="11.5" fill="#596579">php/clinical_record_helpers.php:3</text>
+</g>
+<g data-node="php/booking_queue_helpers.php"><rect x="1400" y="1209" width="440" height="117" fill="#f8fafc" stroke="#c4cbd4" stroke-width="1.2" stroke-dasharray="5 4"/><line x1="1400" y1="1264" x2="1840" y2="1264" stroke="#c4cbd4"/>
+<text x="1414" y="1232" font-family="Arial,sans-serif" font-size="16" fill="#2d3748">BookingQueueHelpers</text>
+<text x="1414" y="1251" font-family="Arial,sans-serif" font-size="11.5" fill="#596579">«PHP module» / page 25</text>
+<text x="1414" y="1287" font-family="Consolas,monospace" font-size="12" fill="#2d3748">Definition / page 25</text>
+<text x="1414" y="1314" font-family="Arial,sans-serif" font-size="11.5" fill="#596579">php/booking_queue_helpers.php:3</text>
+</g>
+<g data-node="php/prescription_helpers.php"><rect x="1400" y="1384" width="440" height="117" fill="#f8fafc" stroke="#c4cbd4" stroke-width="1.2" stroke-dasharray="5 4"/><line x1="1400" y1="1439" x2="1840" y2="1439" stroke="#c4cbd4"/>
+<text x="1414" y="1407" font-family="Arial,sans-serif" font-size="16" fill="#2d3748">PrescriptionHelpers</text>
+<text x="1414" y="1426" font-family="Arial,sans-serif" font-size="11.5" fill="#596579">«PHP module» / page 29</text>
+<text x="1414" y="1462" font-family="Consolas,monospace" font-size="12" fill="#2d3748">Definition / page 29</text>
+<text x="1414" y="1489" font-family="Arial,sans-serif" font-size="11.5" fill="#596579">php/prescription_helpers.php:3</text>
+</g>
+<g data-node="php/visit_billing.php"><rect x="1400" y="1559" width="440" height="117" fill="#f8fafc" stroke="#c4cbd4" stroke-width="1.2" stroke-dasharray="5 4"/><line x1="1400" y1="1614" x2="1840" y2="1614" stroke="#c4cbd4"/>
+<text x="1414" y="1582" font-family="Arial,sans-serif" font-size="16" fill="#2d3748">VisitBilling</text>
+<text x="1414" y="1601" font-family="Arial,sans-serif" font-size="11.5" fill="#596579">«PHP module» / page 36</text>
+<text x="1414" y="1637" font-family="Consolas,monospace" font-size="12" fill="#2d3748">Definition / page 36</text>
+<text x="1414" y="1664" font-family="Arial,sans-serif" font-size="11.5" fill="#596579">php/visit_billing.php:11</text>
+</g>
+<g data-node="db:online_consultation_diagnoses"><rect x="2080" y="942" width="440" height="135" fill="#f8fafc" stroke="#c4cbd4" stroke-width="1.2" stroke-dasharray="5 4"/><line x1="2080" y1="997" x2="2520" y2="997" stroke="#c4cbd4"/>
+<text x="2094" y="965" font-family="Arial,sans-serif" font-size="16" fill="#2d3748">OnlineConsultationDiagnosis</text>
+<text x="2094" y="984" font-family="Arial,sans-serif" font-size="11.5" fill="#596579">«entity» online_consultation_diagnoses</text>
+<text x="2094" y="1020" font-family="Consolas,monospace" font-size="12" fill="#2d3748">+ diagnosis_id: int [PK]</text>
+<text x="2094" y="1038" font-family="Consolas,monospace" font-size="12" fill="#2d3748">Full SQL attributes / DB page 05</text>
+<text x="2094" y="1065" font-family="Arial,sans-serif" font-size="11.5" fill="#596579">iPawcus_ERD_Schema.sql</text>
+</g>
+<g data-node="db:pets_information"><rect x="2080" y="1135" width="440" height="135" fill="#f8fafc" stroke="#c4cbd4" stroke-width="1.2" stroke-dasharray="5 4"/><line x1="2080" y1="1190" x2="2520" y2="1190" stroke="#c4cbd4"/>
+<text x="2094" y="1158" font-family="Arial,sans-serif" font-size="16" fill="#2d3748">Pet</text>
+<text x="2094" y="1177" font-family="Arial,sans-serif" font-size="11.5" fill="#596579">«entity» pets_information</text>
+<text x="2094" y="1213" font-family="Consolas,monospace" font-size="12" fill="#2d3748">+ pet_id: int [PK]</text>
+<text x="2094" y="1231" font-family="Consolas,monospace" font-size="12" fill="#2d3748">Full SQL attributes / DB page 03</text>
+<text x="2094" y="1258" font-family="Arial,sans-serif" font-size="11.5" fill="#596579">iPawcus_ERD_Schema.sql</text>
+</g>
+<text x="512" y="204" font-family="Consolas,monospace" font-size="11.5" fill="#596579">uses</text>
+<text x="512" y="485" font-family="Consolas,monospace" font-size="11.5" fill="#596579">uses</text>
+<text x="512" y="748" font-family="Consolas,monospace" font-size="11.5" fill="#596579">uses</text>
+<text x="512" y="1402" font-family="Consolas,monospace" font-size="11.5" fill="#596579">uses</text>
+<text x="1172" y="204" font-family="Consolas,monospace" font-size="11.5" fill="#596579">HTTP</text>
+<text x="1852" y="204" font-family="Consolas,monospace" font-size="11.5" fill="#596579">SQL</text>
+<text x="1852" y="226" font-family="Consolas,monospace" font-size="11.5" fill="#596579">SQL</text>
+<text x="1852" y="248" font-family="Consolas,monospace" font-size="11.5" fill="#596579">SQL</text>
+<text x="1852" y="270" font-family="Consolas,monospace" font-size="11.5" fill="#596579">SQL</text>
+<text x="1852" y="523" font-family="Consolas,monospace" font-size="11.5" fill="#596579">includes</text>
+<text x="1852" y="545" font-family="Consolas,monospace" font-size="11.5" fill="#596579">includes</text>
+<text x="1852" y="567" font-family="Consolas,monospace" font-size="11.5" fill="#596579">includes</text>
+<text x="1852" y="589" font-family="Consolas,monospace" font-size="11.5" fill="#596579">includes</text>
+<text x="1852" y="611" font-family="Consolas,monospace" font-size="11.5" fill="#596579">includes</text>
+<text x="1852" y="633" font-family="Consolas,monospace" font-size="11.5" fill="#596579">includes</text>
+<text x="1852" y="655" font-family="Consolas,monospace" font-size="11.5" fill="#596579">SQL</text>
+<text x="1852" y="677" font-family="Consolas,monospace" font-size="11.5" fill="#596579">SQL</text>
+<text x="1852" y="699" font-family="Consolas,monospace" font-size="11.5" fill="#596579">SQL</text>
+<text x="1852" y="721" font-family="Consolas,monospace" font-size="11.5" fill="#596579">SQL</text>
+<text x="1852" y="743" font-family="Consolas,monospace" font-size="11.5" fill="#596579">SQL</text>
+</svg>

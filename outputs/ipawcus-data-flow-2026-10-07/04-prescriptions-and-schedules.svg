@@ -1,0 +1,101 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1742" height="952" viewBox="0 0 1742 952" role="img" aria-labelledby="title desc">
+<title id="title">3.0 — Prescriptions and Schedules</title><desc id="desc">Plain black-and-white logical data-flow diagram with roles, numbered processes, open-ended data stores and labeled data arrows.</desc>
+<defs><marker id="arrow" markerWidth="8" markerHeight="8" refX="7" refY="4" orient="auto" markerUnits="userSpaceOnUse"><path d="M0 0 L7 4 L0 8 Z" fill="#000000"/></marker></defs>
+<rect width="100%" height="100%" fill="#ffffff"/>
+<text x="60" y="34" font-family="Arial,sans-serif" font-size="22" fill="#000000">3.0 — Prescriptions and Schedules</text>
+<text x="60" y="64" font-family="Arial,sans-serif" font-size="12" fill="#000000">Expansion of process 3.0. Each user role and each data store appears once.</text>
+<path d="M715 181 L248 181 L248 128 L230 128" fill="none" stroke="#000000" stroke-width="1.2" marker-end="url(#arrow)"><title>New or updated prescription</title></path>
+<text x="504" y="173" font-family="Arial,sans-serif" font-size="12" fill="#000000">New or updated prescription</text>
+<path d="M1468 172 L1360 172 L1360 153 L960 153" fill="none" stroke="#000000" stroke-width="1.2" marker-end="url(#arrow)"><title>Clinic or online prescription</title></path>
+<text x="1025" y="145" font-family="Arial,sans-serif" font-size="12" fill="#000000">Clinic or online prescription</text>
+<path d="M1468 244 L1367 244 L1367 181 L960 181" fill="none" stroke="#000000" stroke-width="1.2" marker-end="url(#arrow)"><title>Existing pet prescription</title></path>
+<text x="1025" y="173" font-family="Arial,sans-serif" font-size="12" fill="#000000">Existing pet prescription</text>
+<path d="M960 209 L1374 209 L1374 262 L1468 262" fill="none" stroke="#000000" stroke-width="1.2" marker-end="url(#arrow)"><title>New or replacement plan</title></path>
+<text x="1025" y="201" font-family="Arial,sans-serif" font-size="12" fill="#000000">New or replacement plan</text>
+<path d="M230 146 L255 146 L255 335 L715 335" fill="none" stroke="#000000" stroke-width="1.2" marker-end="url(#arrow)"><title>Selected items and start dates</title></path>
+<text x="483" y="327" font-family="Arial,sans-serif" font-size="12" fill="#000000">Selected items and start dates</text>
+<path d="M715 363 L262 363 L262 164 L230 164" fill="none" stroke="#000000" stroke-width="1.2" marker-end="url(#arrow)"><title>Activated medication items</title></path>
+<text x="511" y="355" font-family="Arial,sans-serif" font-size="12" fill="#000000">Activated medication items</text>
+<path d="M1468 280 L1381 280 L1381 335 L960 335" fill="none" stroke="#000000" stroke-width="1.2" marker-end="url(#arrow)"><title>Pending medication items</title></path>
+<text x="1025" y="327" font-family="Arial,sans-serif" font-size="12" fill="#000000">Pending medication items</text>
+<path d="M960 363 L1388 363 L1388 298 L1468 298" fill="none" stroke="#000000" stroke-width="1.2" marker-end="url(#arrow)"><title>Per-item start dates and rules</title></path>
+<text x="1025" y="355" font-family="Arial,sans-serif" font-size="12" fill="#000000">Per-item start dates and rules</text>
+<path d="M715 517 L269 517 L269 182 L230 182" fill="none" stroke="#000000" stroke-width="1.2" marker-end="url(#arrow)"><title>Calendar and todo checklist</title></path>
+<text x="504" y="509" font-family="Arial,sans-serif" font-size="12" fill="#000000">Calendar and todo checklist</text>
+<path d="M1468 316 L1395 316 L1395 503 L960 503" fill="none" stroke="#000000" stroke-width="1.2" marker-end="url(#arrow)"><title>Dates, frequency and duration</title></path>
+<text x="1025" y="495" font-family="Arial,sans-serif" font-size="12" fill="#000000">Dates, frequency and duration</text>
+<path d="M960 531 L1402 531 L1402 334 L1468 334" fill="none" stroke="#000000" stroke-width="1.2" marker-end="url(#arrow)"><title>Dated medication occurrences</title></path>
+<text x="1025" y="523" font-family="Arial,sans-serif" font-size="12" fill="#000000">Dated medication occurrences</text>
+<path d="M230 200 L276 200 L276 657 L715 657" fill="none" stroke="#000000" stroke-width="1.2" marker-end="url(#arrow)"><title>Done or skipped occurrences</title></path>
+<text x="504" y="649" font-family="Arial,sans-serif" font-size="12" fill="#000000">Done or skipped occurrences</text>
+<path d="M230 685 L283 685 L283 685 L715 685" fill="none" stroke="#000000" stroke-width="1.2" marker-end="url(#arrow)"><title>Prescription amendments</title></path>
+<text x="532" y="677" font-family="Arial,sans-serif" font-size="12" fill="#000000">Prescription amendments</text>
+<path d="M715 713 L290 713 L290 218 L230 218" fill="none" stroke="#000000" stroke-width="1.2" marker-end="url(#arrow)"><title>Updated checklist</title></path>
+<text x="574" y="705" font-family="Arial,sans-serif" font-size="12" fill="#000000">Updated checklist</text>
+<path d="M1468 352 L1409 352 L1409 671 L960 671" fill="none" stroke="#000000" stroke-width="1.2" marker-end="url(#arrow)"><title>Current plans and occurrences</title></path>
+<text x="1025" y="663" font-family="Arial,sans-serif" font-size="12" fill="#000000">Current plans and occurrences</text>
+<path d="M960 699 L1416 699 L1416 370 L1468 370" fill="none" stroke="#000000" stroke-width="1.2" marker-end="url(#arrow)"><title>Completion and replacement records</title></path>
+<text x="1025" y="691" font-family="Arial,sans-serif" font-size="12" fill="#000000">Completion and replacement records</text>
+<path d="M715 853 L297 853 L297 236 L230 236" fill="none" stroke="#000000" stroke-width="1.2" marker-end="url(#arrow)"><title>Medication alerts and task links</title></path>
+<text x="469" y="845" font-family="Arial,sans-serif" font-size="12" fill="#000000">Medication alerts and task links</text>
+<path d="M1468 388 L1423 388 L1423 839 L960 839" fill="none" stroke="#000000" stroke-width="1.2" marker-end="url(#arrow)"><title>New plans, due items and preferences</title></path>
+<text x="1025" y="831" font-family="Arial,sans-serif" font-size="12" fill="#000000">New plans, due items and preferences</text>
+<path d="M960 867 L1430 867 L1430 406 L1468 406" fill="none" stroke="#000000" stroke-width="1.2" marker-end="url(#arrow)"><title>Notification delivery status</title></path>
+<text x="1025" y="859" font-family="Arial,sans-serif" font-size="12" fill="#000000">Notification delivery status</text>
+<g data-node="04-prescriptions-and-schedules-p-3.1"><title>3.1</title>
+<rect x="715" y="112" width="245" height="112" rx="11" fill="#ffffff" stroke="#000000" stroke-width="1.2"/>
+<line x1="715" y1="138" x2="960" y2="138" stroke="#000000" stroke-width="1.2"/>
+<text x="837.5" y="130" font-family="Arial,sans-serif" font-size="14" fill="#000000" text-anchor="middle" font-weight="600">3.1</text>
+<text x="837.5" y="177.5" font-family="Arial,sans-serif" font-size="14" fill="#000000" text-anchor="middle">Synchronize Latest</text>
+<text x="837.5" y="194.5" font-family="Arial,sans-serif" font-size="14" fill="#000000" text-anchor="middle">Pet Prescription</text>
+</g>
+<g data-node="04-prescriptions-and-schedules-p-3.2"><title>3.2</title>
+<rect x="715" y="280" width="245" height="112" rx="11" fill="#ffffff" stroke="#000000" stroke-width="1.2"/>
+<line x1="715" y1="306" x2="960" y2="306" stroke="#000000" stroke-width="1.2"/>
+<text x="837.5" y="298" font-family="Arial,sans-serif" font-size="14" fill="#000000" text-anchor="middle" font-weight="600">3.2</text>
+<text x="837.5" y="345.5" font-family="Arial,sans-serif" font-size="14" fill="#000000" text-anchor="middle">Start Medication</text>
+<text x="837.5" y="362.5" font-family="Arial,sans-serif" font-size="14" fill="#000000" text-anchor="middle">Items</text>
+</g>
+<g data-node="04-prescriptions-and-schedules-p-3.3"><title>3.3</title>
+<rect x="715" y="448" width="245" height="112" rx="11" fill="#ffffff" stroke="#000000" stroke-width="1.2"/>
+<line x1="715" y1="474" x2="960" y2="474" stroke="#000000" stroke-width="1.2"/>
+<text x="837.5" y="466" font-family="Arial,sans-serif" font-size="14" fill="#000000" text-anchor="middle" font-weight="600">3.3</text>
+<text x="837.5" y="513.5" font-family="Arial,sans-serif" font-size="14" fill="#000000" text-anchor="middle">Generate Dated</text>
+<text x="837.5" y="530.5" font-family="Arial,sans-serif" font-size="14" fill="#000000" text-anchor="middle">Occurrences</text>
+</g>
+<g data-node="04-prescriptions-and-schedules-p-3.4"><title>3.4</title>
+<rect x="715" y="616" width="245" height="112" rx="11" fill="#ffffff" stroke="#000000" stroke-width="1.2"/>
+<line x1="715" y1="642" x2="960" y2="642" stroke="#000000" stroke-width="1.2"/>
+<text x="837.5" y="634" font-family="Arial,sans-serif" font-size="14" fill="#000000" text-anchor="middle" font-weight="600">3.4</text>
+<text x="837.5" y="681.5" font-family="Arial,sans-serif" font-size="14" fill="#000000" text-anchor="middle">Record Completion</text>
+<text x="837.5" y="698.5" font-family="Arial,sans-serif" font-size="14" fill="#000000" text-anchor="middle">and Amend Plans</text>
+</g>
+<g data-node="04-prescriptions-and-schedules-p-3.5"><title>3.5</title>
+<rect x="715" y="784" width="245" height="112" rx="11" fill="#ffffff" stroke="#000000" stroke-width="1.2"/>
+<line x1="715" y1="810" x2="960" y2="810" stroke="#000000" stroke-width="1.2"/>
+<text x="837.5" y="802" font-family="Arial,sans-serif" font-size="14" fill="#000000" text-anchor="middle" font-weight="600">3.5</text>
+<text x="837.5" y="849.5" font-family="Arial,sans-serif" font-size="14" fill="#000000" text-anchor="middle">Deliver Schedule</text>
+<text x="837.5" y="866.5" font-family="Arial,sans-serif" font-size="14" fill="#000000" text-anchor="middle">Notifications</text>
+</g>
+<g data-node="04-prescriptions-and-schedules-ref-owner"><title>owner</title>
+<rect x="60" y="112" width="170" height="140" rx="0" fill="#ffffff" stroke="#000000" stroke-width="1.2"/>
+<text x="145" y="187" font-family="Arial,sans-serif" font-size="14" fill="#000000" text-anchor="middle" font-weight="600">Pet Owner</text>
+</g>
+<g data-node="04-prescriptions-and-schedules-ref-vet"><title>vet</title>
+<rect x="60" y="651" width="170" height="68" rx="0" fill="#ffffff" stroke="#000000" stroke-width="1.2"/>
+<text x="145" y="690" font-family="Arial,sans-serif" font-size="14" fill="#000000" text-anchor="middle" font-weight="600">Veterinarian</text>
+</g>
+<g data-node="04-prescriptions-and-schedules-ref-process-2.0"><title>process:2.0</title>
+<rect x="1468" y="112" width="230" height="96" rx="11" fill="#ffffff" stroke="#000000" stroke-width="1.2"/>
+<line x1="1468" y1="136" x2="1698" y2="136" stroke="#000000" stroke-width="1.2"/>
+<text x="1583" y="130" font-family="Arial,sans-serif" font-size="14" fill="#000000" text-anchor="middle" font-weight="600">2.0</text>
+<text x="1583" y="168.5" font-family="Arial,sans-serif" font-size="14" fill="#000000" text-anchor="middle">Manage Bookings</text>
+<text x="1583" y="185.5" font-family="Arial,sans-serif" font-size="14" fill="#000000" text-anchor="middle">and Clinical Care</text>
+</g>
+<g data-node="04-prescriptions-and-schedules-ref-D3"><title>D3</title>
+<path d="M1698 228 H1468 V422 H1698 M1508 228 V422" fill="#ffffff" stroke="#000000" stroke-width="1.2"/>
+<text x="1488" y="330" font-family="Arial,sans-serif" font-size="14" fill="#000000" text-anchor="middle">D3</text>
+<text x="1603" y="321.5" font-family="Arial,sans-serif" font-size="14" fill="#000000" text-anchor="middle">Prescription and</text>
+<text x="1603" y="338.5" font-family="Arial,sans-serif" font-size="14" fill="#000000" text-anchor="middle">Task Records</text>
+</g>
+</svg>

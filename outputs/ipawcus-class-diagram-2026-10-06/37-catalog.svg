@@ -1,0 +1,251 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="2600" height="1919" viewBox="0 0 2600 1919" role="img" aria-labelledby="title desc">
+<title id="title">iPawcus / Service catalog and special services</title>
+<desc id="desc">Application modules and verified database references. Original SQL entity definitions are on pages 01 to 09. Dashed dependencies are not foreign keys.</desc>
+<defs><marker id="arrow" markerWidth="9" markerHeight="9" refX="8" refY="4.5" orient="auto" markerUnits="userSpaceOnUse"><path d="M0 0 L8 4.5 L0 9" fill="none" stroke="#8793a3" stroke-width="1.2"/></marker><marker id="inheritance" markerWidth="11" markerHeight="11" refX="10" refY="5" orient="auto" markerUnits="userSpaceOnUse"><path d="M0 0 L10 5 L0 10 Z" fill="#ffffff" stroke="#8793a3" stroke-width="1.2"/></marker></defs>
+<rect width="100%" height="100%" fill="#ffffff"/>
+<text x="80" y="44" font-family="Arial,sans-serif" font-size="25" fill="#2d3748">iPawcus / Service catalog and special services</text>
+<text x="80" y="73" font-family="Arial,sans-serif" font-size="14" fill="#596579">React / service / PHP / entity reference · arrows show source-code dependencies; no invented OO inheritance.</text>
+<text x="80" y="100" font-family="Arial,sans-serif" font-size="13" fill="#596579">Dashed: dependency. Solid: migration FK or real class inheritance. Full source evidence accompanies detailed links.</text>
+<text x="80" y="143" font-family="Arial,sans-serif" font-size="14" fill="#596579">UI and system views</text>
+<text x="740" y="143" font-family="Arial,sans-serif" font-size="14" fill="#596579">JavaScript services</text>
+<text x="1400" y="143" font-family="Arial,sans-serif" font-size="14" fill="#596579">PHP backend modules</text>
+<text x="2080" y="143" font-family="Arial,sans-serif" font-size="14" fill="#596579">Database references</text>
+<path d="M500 210 L610 210 L610 704 L740 704" fill="none" stroke="#8793a3" stroke-width="1.2" stroke-dasharray="5 4" marker-end="url(#arrow)"><title>src/components/AdminDashboardsComponent/ServiceCatalogManagement.jsx → src/services/inventoryApi.js / uses</title></path>
+<path d="M500 232 L630 232 L630 210 L740 210" fill="none" stroke="#8793a3" stroke-width="1.2" stroke-dasharray="5 4" marker-end="url(#arrow)"><title>src/components/AdminDashboardsComponent/ServiceCatalogManagement.jsx → src/services/serviceCatalogService.js / uses</title></path>
+<path d="M500 1262 L610 1262 L610 879 L740 879" fill="none" stroke="#8793a3" stroke-width="1.2" stroke-dasharray="5 4" marker-end="url(#arrow)"><title>src/components/PetOwnerDashboard/SpecialServices.jsx → src/services/bookingService.js / uses</title></path>
+<path d="M500 1284 L630 1284 L630 1054 L740 1054" fill="none" stroke="#8793a3" stroke-width="1.2" stroke-dasharray="5 4" marker-end="url(#arrow)"><title>src/components/PetOwnerDashboard/SpecialServices.jsx → src/services/petService.js / uses</title></path>
+<path d="M500 1306 L610 1306 L610 1262 L545 1262 L545 493 L740 493" fill="none" stroke="#8793a3" stroke-width="1.2" stroke-dasharray="5 4" marker-end="url(#arrow)"><title>src/components/PetOwnerDashboard/SpecialServices.jsx → src/services/specialServicesService.js / uses</title></path>
+<path d="M1160 210 L1400 210" fill="none" stroke="#8793a3" stroke-width="1.2" stroke-dasharray="5 4" marker-end="url(#arrow)"><title>src/services/serviceCatalogService.js → php/service_catalog.php / HTTP</title></path>
+<path d="M1160 232 L1270 232 L1270 529 L1400 529" fill="none" stroke="#8793a3" stroke-width="1.2" stroke-dasharray="5 4" marker-end="url(#arrow)"><title>src/services/serviceCatalogService.js → php/service_display_settings.php / HTTP</title></path>
+<path d="M1160 493 L1290 493 L1290 722 L1400 722" fill="none" stroke="#8793a3" stroke-width="1.2" stroke-dasharray="5 4" marker-end="url(#arrow)"><title>src/services/specialServicesService.js → php/special_services.php / HTTP</title></path>
+<path d="M1840 210 L1950 210 L1950 1041 L1840 1041" fill="none" stroke="#8793a3" stroke-width="1.2" stroke-dasharray="5 4" marker-end="url(#arrow)"><title>php/service_catalog.php → php/notification_helpers.php / includes</title></path>
+<path d="M1840 232 L1970 232 L1970 210 L2080 210" fill="none" stroke="#8793a3" stroke-width="1.2" stroke-dasharray="5 4" marker-end="url(#arrow)"><title>php/service_catalog.php → db:service_catalog / SQL</title></path>
+<path d="M1840 254 L1970 254 L1970 403 L2080 403" fill="none" stroke="#8793a3" stroke-width="1.2" stroke-dasharray="5 4" marker-end="url(#arrow)"><title>php/service_catalog.php → db:users / SQL</title></path>
+<path d="M1840 276 L1970 276 L1970 596 L2080 596" fill="none" stroke="#8793a3" stroke-width="1.2" stroke-dasharray="5 4" marker-end="url(#arrow)"><title>php/service_catalog.php → db:service_materials / SQL</title></path>
+<path d="M1840 298 L1950 298 L1950 327 L1913 327 L1913 789 L2080 789" fill="none" stroke="#8793a3" stroke-width="1.2" stroke-dasharray="5 4" marker-end="url(#arrow)"><title>php/service_catalog.php → db:inventory_items / SQL</title></path>
+<path d="M1840 529 L1970 529 L1970 982 L2080 982" fill="none" stroke="#8793a3" stroke-width="1.2" stroke-dasharray="5 4" marker-end="url(#arrow)"><title>php/service_display_settings.php → db:service_display_settings / SQL</title></path>
+<path d="M1840 722 L1950 722 L1950 725 L1878 725 L1878 1175 L2080 1175" fill="none" stroke="#8793a3" stroke-width="1.2" stroke-dasharray="5 4" marker-end="url(#arrow)"><title>php/special_services.php → db:special_service_catalog / SQL</title></path>
+<path d="M1840 744 L2058 744 L2058 1306 L1970 1306 L1970 1368 L2080 1368" fill="none" stroke="#8793a3" stroke-width="1.2" stroke-dasharray="5 4" marker-end="url(#arrow)"><title>php/special_services.php → db:booking_pets / SQL</title></path>
+<path d="M1840 766 L1950 766 L1950 788 L1913 788 L1913 1561 L2080 1561" fill="none" stroke="#8793a3" stroke-width="1.2" stroke-dasharray="5 4" marker-end="url(#arrow)"><title>php/special_services.php → db:special_service_booking_items / SQL</title></path>
+<path d="M1840 788 L1950 788 L1950 809 L1862 809 L1862 1754 L2080 1754" fill="none" stroke="#8793a3" stroke-width="1.2" stroke-dasharray="5 4" marker-end="url(#arrow)"><title>php/special_services.php → db:bookings / SQL</title></path>
+<path d="M1840 810 L2058 810 L2058 431 L1970 431 L1970 425 L2080 425" fill="none" stroke="#8793a3" stroke-width="1.2" stroke-dasharray="5 4" marker-end="url(#arrow)"><title>php/special_services.php → db:users / SQL</title></path>
+<g data-node="src/components/AdminDashboardsComponent/ServiceCatalogManagement.jsx"><rect x="80" y="170" width="420" height="241" fill="#ffffff" stroke="#c4cbd4" stroke-width="1.2"/><line x1="80" y1="225" x2="500" y2="225" stroke="#c4cbd4"/>
+<text x="94" y="193" font-family="Arial,sans-serif" font-size="16" fill="#2d3748">ServiceCatalogManagement</text>
+<text x="94" y="212" font-family="Arial,sans-serif" font-size="11.5" fill="#596579">«React component»</text>
+<text x="94" y="248" font-family="Consolas,monospace" font-size="12" fill="#2d3748">- services: state</text>
+<text x="94" y="266" font-family="Consolas,monospace" font-size="12" fill="#2d3748">- inventoryItems: state</text>
+<text x="94" y="284" font-family="Consolas,monospace" font-size="12" fill="#2d3748">- selectedServiceId: state</text>
+<text x="94" y="302" font-family="Consolas,monospace" font-size="12" fill="#2d3748">+ ServiceCatalogManagement()</text>
+<text x="94" y="320" font-family="Consolas,monospace" font-size="12" fill="#2d3748">+ loadCatalog()</text>
+<text x="94" y="338" font-family="Consolas,monospace" font-size="12" fill="#2d3748">+ loadInventory()</text>
+<text x="94" y="356" font-family="Consolas,monospace" font-size="12" fill="#2d3748">+ saveService()</text>
+<text x="94" y="383" font-family="Arial,sans-serif" font-size="11.5" fill="#596579">src/components/AdminDashboardsComponent/ServiceCatal</text>
+<text x="94" y="399" font-family="Arial,sans-serif" font-size="11.5" fill="#596579">  ogManagement.jsx:102</text>
+</g>
+<g data-node="src/components/PetOwnerDashboard/ServiceContentEditor.jsx"><rect x="80" y="469" width="420" height="259" fill="#ffffff" stroke="#c4cbd4" stroke-width="1.2"/><line x1="80" y1="524" x2="500" y2="524" stroke="#c4cbd4"/>
+<text x="94" y="492" font-family="Arial,sans-serif" font-size="16" fill="#2d3748">ServiceContentEditor</text>
+<text x="94" y="511" font-family="Arial,sans-serif" font-size="11.5" fill="#596579">«React component»</text>
+<text x="94" y="547" font-family="Consolas,monospace" font-size="12" fill="#2d3748">- isEditing: state</text>
+<text x="94" y="565" font-family="Consolas,monospace" font-size="12" fill="#2d3748">- isSaving: state</text>
+<text x="94" y="583" font-family="Consolas,monospace" font-size="12" fill="#2d3748">- draft: state</text>
+<text x="94" y="601" font-family="Consolas,monospace" font-size="12" fill="#2d3748">+ ServiceProjectionEditor()</text>
+<text x="94" y="619" font-family="Consolas,monospace" font-size="12" fill="#2d3748">+ HomeServicesContentEditor()</text>
+<text x="94" y="637" font-family="Consolas,monospace" font-size="12" fill="#2d3748">+ PetHotelContentEditor()</text>
+<text x="94" y="655" font-family="Consolas,monospace" font-size="12" fill="#2d3748">+ startEditing()</text>
+<text x="94" y="673" font-family="Consolas,monospace" font-size="12" fill="#2d3748">+ saveChanges()</text>
+<text x="94" y="700" font-family="Arial,sans-serif" font-size="11.5" fill="#596579">src/components/PetOwnerDashboard/ServiceContentEdito</text>
+<text x="94" y="716" font-family="Arial,sans-serif" font-size="11.5" fill="#596579">  r.jsx:53</text>
+</g>
+<g data-node="src/components/PetOwnerDashboard/ServicePageLayout.jsx"><rect x="80" y="786" width="420" height="169" fill="#ffffff" stroke="#c4cbd4" stroke-width="1.2"/><line x1="80" y1="841" x2="500" y2="841" stroke="#c4cbd4"/>
+<text x="94" y="809" font-family="Arial,sans-serif" font-size="16" fill="#2d3748">ServicePageLayout</text>
+<text x="94" y="828" font-family="Arial,sans-serif" font-size="11.5" fill="#596579">«React component»</text>
+<text x="94" y="864" font-family="Consolas,monospace" font-size="12" fill="#2d3748">+ ServicePageShell()</text>
+<text x="94" y="882" font-family="Consolas,monospace" font-size="12" fill="#2d3748">+ ServicePageHeader()</text>
+<text x="94" y="900" font-family="Consolas,monospace" font-size="12" fill="#2d3748">+ ServiceSummaryCard()</text>
+<text x="94" y="927" font-family="Arial,sans-serif" font-size="11.5" fill="#596579">src/components/PetOwnerDashboard/ServicePageLayout.j</text>
+<text x="94" y="943" font-family="Arial,sans-serif" font-size="11.5" fill="#596579">  sx:8</text>
+</g>
+<g data-node="src/components/PetOwnerDashboard/ServiceProjectionDetails.jsx"><rect x="80" y="1013" width="420" height="151" fill="#ffffff" stroke="#c4cbd4" stroke-width="1.2"/><line x1="80" y1="1068" x2="500" y2="1068" stroke="#c4cbd4"/>
+<text x="94" y="1036" font-family="Arial,sans-serif" font-size="16" fill="#2d3748">ServiceProjectionDetails</text>
+<text x="94" y="1055" font-family="Arial,sans-serif" font-size="11.5" fill="#596579">«React component»</text>
+<text x="94" y="1091" font-family="Consolas,monospace" font-size="12" fill="#2d3748">+ ServiceProjectionDetails()</text>
+<text x="94" y="1109" font-family="Consolas,monospace" font-size="12" fill="#2d3748">+ ServiceProjectionNote()</text>
+<text x="94" y="1136" font-family="Arial,sans-serif" font-size="11.5" fill="#596579">src/components/PetOwnerDashboard/ServiceProjectionDe</text>
+<text x="94" y="1152" font-family="Arial,sans-serif" font-size="11.5" fill="#596579">  tails.jsx:4</text>
+</g>
+<g data-node="src/components/PetOwnerDashboard/SpecialServices.jsx"><rect x="80" y="1222" width="420" height="259" fill="#ffffff" stroke="#c4cbd4" stroke-width="1.2"/><line x1="80" y1="1277" x2="500" y2="1277" stroke="#c4cbd4"/>
+<text x="94" y="1245" font-family="Arial,sans-serif" font-size="16" fill="#2d3748">SpecialServices</text>
+<text x="94" y="1264" font-family="Arial,sans-serif" font-size="11.5" fill="#596579">«React component»</text>
+<text x="94" y="1300" font-family="Consolas,monospace" font-size="12" fill="#2d3748">- pets: state</text>
+<text x="94" y="1318" font-family="Consolas,monospace" font-size="12" fill="#2d3748">- services: state</text>
+<text x="94" y="1336" font-family="Consolas,monospace" font-size="12" fill="#2d3748">- selectedPetIds: state</text>
+<text x="94" y="1354" font-family="Consolas,monospace" font-size="12" fill="#2d3748">+ SpecialServices()</text>
+<text x="94" y="1372" font-family="Consolas,monospace" font-size="12" fill="#2d3748">+ handleSaveSpecialService()</text>
+<text x="94" y="1390" font-family="Consolas,monospace" font-size="12" fill="#2d3748">+ handleUpdateSpecialService()</text>
+<text x="94" y="1408" font-family="Consolas,monospace" font-size="12" fill="#2d3748">+ handleToggleServiceActive()</text>
+<text x="94" y="1426" font-family="Consolas,monospace" font-size="12" fill="#2d3748">+ handleSubmit()</text>
+<text x="94" y="1453" font-family="Arial,sans-serif" font-size="11.5" fill="#596579">src/components/PetOwnerDashboard/SpecialServices.jsx</text>
+<text x="94" y="1469" font-family="Arial,sans-serif" font-size="11.5" fill="#596579">  :283</text>
+</g>
+<g data-node="src/services/serviceCatalogService.js"><rect x="740" y="170" width="420" height="225" fill="#ffffff" stroke="#c4cbd4" stroke-width="1.2"/><line x1="740" y1="225" x2="1160" y2="225" stroke="#c4cbd4"/>
+<text x="754" y="193" font-family="Arial,sans-serif" font-size="16" fill="#2d3748">serviceCatalogService</text>
+<text x="754" y="212" font-family="Arial,sans-serif" font-size="11.5" fill="#596579">«JS service module»</text>
+<text x="754" y="248" font-family="Consolas,monospace" font-size="12" fill="#2d3748">+ fetchServiceCatalog()</text>
+<text x="754" y="266" font-family="Consolas,monospace" font-size="12" fill="#2d3748">+ saveServiceCatalogItem()</text>
+<text x="754" y="284" font-family="Consolas,monospace" font-size="12" fill="#2d3748">+ updateServiceCatalogMaterials()</text>
+<text x="754" y="302" font-family="Consolas,monospace" font-size="12" fill="#2d3748">+ deactivateServiceCatalogItem()</text>
+<text x="754" y="320" font-family="Consolas,monospace" font-size="12" fill="#2d3748">+ deleteServiceCatalogItem()</text>
+<text x="754" y="338" font-family="Consolas,monospace" font-size="12" fill="#2d3748">+ fetchServiceDisplaySettings()</text>
+<text x="754" y="356" font-family="Consolas,monospace" font-size="12" fill="#2d3748">+ saveServiceDisplaySettings()</text>
+<text x="754" y="383" font-family="Arial,sans-serif" font-size="11.5" fill="#596579">src/services/serviceCatalogService.js:3</text>
+</g>
+<g data-node="src/services/specialServicesService.js"><rect x="740" y="453" width="420" height="153" fill="#ffffff" stroke="#c4cbd4" stroke-width="1.2"/><line x1="740" y1="508" x2="1160" y2="508" stroke="#c4cbd4"/>
+<text x="754" y="476" font-family="Arial,sans-serif" font-size="16" fill="#2d3748">specialServicesService</text>
+<text x="754" y="495" font-family="Arial,sans-serif" font-size="11.5" fill="#596579">«JS service module»</text>
+<text x="754" y="531" font-family="Consolas,monospace" font-size="12" fill="#2d3748">+ fetchSpecialServices()</text>
+<text x="754" y="549" font-family="Consolas,monospace" font-size="12" fill="#2d3748">+ createSpecialService()</text>
+<text x="754" y="567" font-family="Consolas,monospace" font-size="12" fill="#2d3748">+ updateSpecialService()</text>
+<text x="754" y="594" font-family="Arial,sans-serif" font-size="11.5" fill="#596579">src/services/specialServicesService.js:3</text>
+</g>
+<g data-node="php/service_catalog.php"><rect x="1400" y="170" width="440" height="261" fill="#ffffff" stroke="#c4cbd4" stroke-width="1.2"/><line x1="1400" y1="225" x2="1840" y2="225" stroke="#c4cbd4"/>
+<text x="1414" y="193" font-family="Arial,sans-serif" font-size="16" fill="#2d3748">ServiceCatalog</text>
+<text x="1414" y="212" font-family="Arial,sans-serif" font-size="11.5" fill="#596579">«PHP module»</text>
+<text x="1414" y="248" font-family="Consolas,monospace" font-size="12" fill="#2d3748">+ service_catalog_input()</text>
+<text x="1414" y="266" font-family="Consolas,monospace" font-size="12" fill="#2d3748">+ service_catalog_table_exists()</text>
+<text x="1414" y="284" font-family="Consolas,monospace" font-size="12" fill="#2d3748">+ service_catalog_column_exists()</text>
+<text x="1414" y="302" font-family="Consolas,monospace" font-size="12" fill="#2d3748">+ service_catalog_schema_ready()</text>
+<text x="1414" y="320" font-family="Consolas,monospace" font-size="12" fill="#2d3748">+ service_catalog_table_readable()</text>
+<text x="1414" y="338" font-family="Consolas,monospace" font-size="12" fill="#2d3748">+ service_catalog_missing_message()</text>
+<text x="1414" y="356" font-family="Consolas,monospace" font-size="12" fill="#2d3748">+ service_catalog_text()</text>
+<text x="1414" y="374" font-family="Consolas,monospace" font-size="12" fill="#2d3748">+ service_catalog_nullable_text()</text>
+<text x="1414" y="392" font-family="Consolas,monospace" font-size="12" fill="#2d3748">+ 11 more operations [source index]</text>
+<text x="1414" y="419" font-family="Arial,sans-serif" font-size="11.5" fill="#596579">php/service_catalog.php:8</text>
+</g>
+<g data-node="php/service_display_settings.php"><rect x="1400" y="489" width="440" height="135" fill="#ffffff" stroke="#c4cbd4" stroke-width="1.2"/><line x1="1400" y1="544" x2="1840" y2="544" stroke="#c4cbd4"/>
+<text x="1414" y="512" font-family="Arial,sans-serif" font-size="16" fill="#2d3748">ServiceDisplaySettings</text>
+<text x="1414" y="531" font-family="Arial,sans-serif" font-size="11.5" fill="#596579">«PHP module»</text>
+<text x="1414" y="567" font-family="Consolas,monospace" font-size="12" fill="#2d3748">+ service_display_json()</text>
+<text x="1414" y="585" font-family="Consolas,monospace" font-size="12" fill="#2d3748">+ service_display_table_exists()</text>
+<text x="1414" y="612" font-family="Arial,sans-serif" font-size="11.5" fill="#596579">php/service_display_settings.php:9</text>
+</g>
+<g data-node="php/special_services.php"><rect x="1400" y="682" width="440" height="261" fill="#ffffff" stroke="#c4cbd4" stroke-width="1.2"/><line x1="1400" y1="737" x2="1840" y2="737" stroke="#c4cbd4"/>
+<text x="1414" y="705" font-family="Arial,sans-serif" font-size="16" fill="#2d3748">SpecialServices</text>
+<text x="1414" y="724" font-family="Arial,sans-serif" font-size="11.5" fill="#596579">«PHP module»</text>
+<text x="1414" y="760" font-family="Consolas,monospace" font-size="12" fill="#2d3748">+ tableExists()</text>
+<text x="1414" y="778" font-family="Consolas,monospace" font-size="12" fill="#2d3748">+ columnExists()</text>
+<text x="1414" y="796" font-family="Consolas,monospace" font-size="12" fill="#2d3748">+ specialServiceDateColumnsExist()</text>
+<text x="1414" y="814" font-family="Consolas,monospace" font-size="12" fill="#2d3748">+ specialServiceBasePriceColumnExists()</text>
+<text x="1414" y="832" font-family="Consolas,monospace" font-size="12" fill="#2d3748">+ specialServiceBasePricePayload()</text>
+<text x="1414" y="850" font-family="Consolas,monospace" font-size="12" fill="#2d3748">+ normalizeSpecialServiceBasePrice()</text>
+<text x="1414" y="868" font-family="Consolas,monospace" font-size="12" fill="#2d3748">+ normalizeServiceCode()</text>
+<text x="1414" y="886" font-family="Consolas,monospace" font-size="12" fill="#2d3748">+ generateUniqueServiceCode()</text>
+<text x="1414" y="904" font-family="Consolas,monospace" font-size="12" fill="#2d3748">+ 12 more operations [source index]</text>
+<text x="1414" y="931" font-family="Arial,sans-serif" font-size="11.5" fill="#596579">php/special_services.php:6</text>
+</g>
+<g data-node="src/services/inventoryApi.js"><rect x="740" y="664" width="420" height="117" fill="#f8fafc" stroke="#c4cbd4" stroke-width="1.2" stroke-dasharray="5 4"/><line x1="740" y1="719" x2="1160" y2="719" stroke="#c4cbd4"/>
+<text x="754" y="687" font-family="Arial,sans-serif" font-size="16" fill="#2d3748">inventoryApi</text>
+<text x="754" y="706" font-family="Arial,sans-serif" font-size="11.5" fill="#596579">«JS service module» / page 34</text>
+<text x="754" y="742" font-family="Consolas,monospace" font-size="12" fill="#2d3748">Definition / page 34</text>
+<text x="754" y="769" font-family="Arial,sans-serif" font-size="11.5" fill="#596579">src/services/inventoryApi.js:18</text>
+</g>
+<g data-node="src/services/bookingService.js"><rect x="740" y="839" width="420" height="117" fill="#f8fafc" stroke="#c4cbd4" stroke-width="1.2" stroke-dasharray="5 4"/><line x1="740" y1="894" x2="1160" y2="894" stroke="#c4cbd4"/>
+<text x="754" y="862" font-family="Arial,sans-serif" font-size="16" fill="#2d3748">bookingService</text>
+<text x="754" y="881" font-family="Arial,sans-serif" font-size="11.5" fill="#596579">«JS service module» / page 22</text>
+<text x="754" y="917" font-family="Consolas,monospace" font-size="12" fill="#2d3748">Definition / page 22</text>
+<text x="754" y="944" font-family="Arial,sans-serif" font-size="11.5" fill="#596579">src/services/bookingService.js:14</text>
+</g>
+<g data-node="src/services/petService.js"><rect x="740" y="1014" width="420" height="117" fill="#f8fafc" stroke="#c4cbd4" stroke-width="1.2" stroke-dasharray="5 4"/><line x1="740" y1="1069" x2="1160" y2="1069" stroke="#c4cbd4"/>
+<text x="754" y="1037" font-family="Arial,sans-serif" font-size="16" fill="#2d3748">petService</text>
+<text x="754" y="1056" font-family="Arial,sans-serif" font-size="11.5" fill="#596579">«JS service module» / page 20</text>
+<text x="754" y="1092" font-family="Consolas,monospace" font-size="12" fill="#2d3748">Definition / page 20</text>
+<text x="754" y="1119" font-family="Arial,sans-serif" font-size="11.5" fill="#596579">src/services/petService.js:3</text>
+</g>
+<g data-node="php/notification_helpers.php"><rect x="1400" y="1001" width="440" height="117" fill="#f8fafc" stroke="#c4cbd4" stroke-width="1.2" stroke-dasharray="5 4"/><line x1="1400" y1="1056" x2="1840" y2="1056" stroke="#c4cbd4"/>
+<text x="1414" y="1024" font-family="Arial,sans-serif" font-size="16" fill="#2d3748">NotificationHelpers</text>
+<text x="1414" y="1043" font-family="Arial,sans-serif" font-size="11.5" fill="#596579">«PHP module» / page 38</text>
+<text x="1414" y="1079" font-family="Consolas,monospace" font-size="12" fill="#2d3748">Definition / page 38</text>
+<text x="1414" y="1106" font-family="Arial,sans-serif" font-size="11.5" fill="#596579">php/notification_helpers.php:10</text>
+</g>
+<g data-node="db:service_catalog"><rect x="2080" y="170" width="440" height="135" fill="#f8fafc" stroke="#c4cbd4" stroke-width="1.2" stroke-dasharray="5 4"/><line x1="2080" y1="225" x2="2520" y2="225" stroke="#c4cbd4"/>
+<text x="2094" y="193" font-family="Arial,sans-serif" font-size="16" fill="#2d3748">ServiceCatalog</text>
+<text x="2094" y="212" font-family="Arial,sans-serif" font-size="11.5" fill="#596579">«entity» service_catalog</text>
+<text x="2094" y="248" font-family="Consolas,monospace" font-size="12" fill="#2d3748">+ service_id: int [PK]</text>
+<text x="2094" y="266" font-family="Consolas,monospace" font-size="12" fill="#2d3748">Full SQL attributes / DB page 08</text>
+<text x="2094" y="293" font-family="Arial,sans-serif" font-size="11.5" fill="#596579">iPawcus_ERD_Schema.sql</text>
+</g>
+<g data-node="db:users"><rect x="2080" y="363" width="440" height="135" fill="#f8fafc" stroke="#c4cbd4" stroke-width="1.2" stroke-dasharray="5 4"/><line x1="2080" y1="418" x2="2520" y2="418" stroke="#c4cbd4"/>
+<text x="2094" y="386" font-family="Arial,sans-serif" font-size="16" fill="#2d3748">User</text>
+<text x="2094" y="405" font-family="Arial,sans-serif" font-size="11.5" fill="#596579">«entity» users</text>
+<text x="2094" y="441" font-family="Consolas,monospace" font-size="12" fill="#2d3748">+ user_id: int [PK]</text>
+<text x="2094" y="459" font-family="Consolas,monospace" font-size="12" fill="#2d3748">Full SQL attributes / DB page 01</text>
+<text x="2094" y="486" font-family="Arial,sans-serif" font-size="11.5" fill="#596579">iPawcus_ERD_Schema.sql</text>
+</g>
+<g data-node="db:service_materials"><rect x="2080" y="556" width="440" height="135" fill="#f8fafc" stroke="#c4cbd4" stroke-width="1.2" stroke-dasharray="5 4"/><line x1="2080" y1="611" x2="2520" y2="611" stroke="#c4cbd4"/>
+<text x="2094" y="579" font-family="Arial,sans-serif" font-size="16" fill="#2d3748">ServiceMaterial</text>
+<text x="2094" y="598" font-family="Arial,sans-serif" font-size="11.5" fill="#596579">«entity» service_materials</text>
+<text x="2094" y="634" font-family="Consolas,monospace" font-size="12" fill="#2d3748">+ service_material_id: int [PK]</text>
+<text x="2094" y="652" font-family="Consolas,monospace" font-size="12" fill="#2d3748">Full SQL attributes / DB page 07</text>
+<text x="2094" y="679" font-family="Arial,sans-serif" font-size="11.5" fill="#596579">iPawcus_ERD_Schema.sql</text>
+</g>
+<g data-node="db:inventory_items"><rect x="2080" y="749" width="440" height="135" fill="#f8fafc" stroke="#c4cbd4" stroke-width="1.2" stroke-dasharray="5 4"/><line x1="2080" y1="804" x2="2520" y2="804" stroke="#c4cbd4"/>
+<text x="2094" y="772" font-family="Arial,sans-serif" font-size="16" fill="#2d3748">InventoryItem</text>
+<text x="2094" y="791" font-family="Arial,sans-serif" font-size="11.5" fill="#596579">«entity» inventory_items</text>
+<text x="2094" y="827" font-family="Consolas,monospace" font-size="12" fill="#2d3748">+ item_id: int [PK]</text>
+<text x="2094" y="845" font-family="Consolas,monospace" font-size="12" fill="#2d3748">Full SQL attributes / DB page 07</text>
+<text x="2094" y="872" font-family="Arial,sans-serif" font-size="11.5" fill="#596579">iPawcus_ERD_Schema.sql</text>
+</g>
+<g data-node="db:service_display_settings"><rect x="2080" y="942" width="440" height="135" fill="#f8fafc" stroke="#c4cbd4" stroke-width="1.2" stroke-dasharray="5 4"/><line x1="2080" y1="997" x2="2520" y2="997" stroke="#c4cbd4"/>
+<text x="2094" y="965" font-family="Arial,sans-serif" font-size="16" fill="#2d3748">ServiceDisplaySetting</text>
+<text x="2094" y="984" font-family="Arial,sans-serif" font-size="11.5" fill="#596579">«entity» service_display_settings</text>
+<text x="2094" y="1020" font-family="Consolas,monospace" font-size="12" fill="#2d3748">+ settings_key: varchar [PK]</text>
+<text x="2094" y="1038" font-family="Consolas,monospace" font-size="12" fill="#2d3748">Full SQL attributes / DB page 08</text>
+<text x="2094" y="1065" font-family="Arial,sans-serif" font-size="11.5" fill="#596579">iPawcus_ERD_Schema.sql</text>
+</g>
+<g data-node="db:special_service_catalog"><rect x="2080" y="1135" width="440" height="135" fill="#f8fafc" stroke="#c4cbd4" stroke-width="1.2" stroke-dasharray="5 4"/><line x1="2080" y1="1190" x2="2520" y2="1190" stroke="#c4cbd4"/>
+<text x="2094" y="1158" font-family="Arial,sans-serif" font-size="16" fill="#2d3748">SpecialServiceCatalog</text>
+<text x="2094" y="1177" font-family="Arial,sans-serif" font-size="11.5" fill="#596579">«entity» special_service_catalog</text>
+<text x="2094" y="1213" font-family="Consolas,monospace" font-size="12" fill="#2d3748">+ special_service_id: int [PK]</text>
+<text x="2094" y="1231" font-family="Consolas,monospace" font-size="12" fill="#2d3748">Full SQL attributes / DB page 08</text>
+<text x="2094" y="1258" font-family="Arial,sans-serif" font-size="11.5" fill="#596579">iPawcus_ERD_Schema.sql</text>
+</g>
+<g data-node="db:booking_pets"><rect x="2080" y="1328" width="440" height="135" fill="#f8fafc" stroke="#c4cbd4" stroke-width="1.2" stroke-dasharray="5 4"/><line x1="2080" y1="1383" x2="2520" y2="1383" stroke="#c4cbd4"/>
+<text x="2094" y="1351" font-family="Arial,sans-serif" font-size="16" fill="#2d3748">BookingPet</text>
+<text x="2094" y="1370" font-family="Arial,sans-serif" font-size="11.5" fill="#596579">«entity» booking_pets</text>
+<text x="2094" y="1406" font-family="Consolas,monospace" font-size="12" fill="#2d3748">+ booking_pet_id: int [PK]</text>
+<text x="2094" y="1424" font-family="Consolas,monospace" font-size="12" fill="#2d3748">Full SQL attributes / DB page 04</text>
+<text x="2094" y="1451" font-family="Arial,sans-serif" font-size="11.5" fill="#596579">iPawcus_ERD_Schema.sql</text>
+</g>
+<g data-node="db:special_service_booking_items"><rect x="2080" y="1521" width="440" height="135" fill="#f8fafc" stroke="#c4cbd4" stroke-width="1.2" stroke-dasharray="5 4"/><line x1="2080" y1="1576" x2="2520" y2="1576" stroke="#c4cbd4"/>
+<text x="2094" y="1544" font-family="Arial,sans-serif" font-size="16" fill="#2d3748">SpecialServiceBookingItem</text>
+<text x="2094" y="1563" font-family="Arial,sans-serif" font-size="11.5" fill="#596579">«entity» special_service_booking_items</text>
+<text x="2094" y="1599" font-family="Consolas,monospace" font-size="12" fill="#2d3748">+ booking_special_service_id: int [PK]</text>
+<text x="2094" y="1617" font-family="Consolas,monospace" font-size="12" fill="#2d3748">Full SQL attributes / DB page 08</text>
+<text x="2094" y="1644" font-family="Arial,sans-serif" font-size="11.5" fill="#596579">iPawcus_ERD_Schema.sql</text>
+</g>
+<g data-node="db:bookings"><rect x="2080" y="1714" width="440" height="135" fill="#f8fafc" stroke="#c4cbd4" stroke-width="1.2" stroke-dasharray="5 4"/><line x1="2080" y1="1769" x2="2520" y2="1769" stroke="#c4cbd4"/>
+<text x="2094" y="1737" font-family="Arial,sans-serif" font-size="16" fill="#2d3748">Booking</text>
+<text x="2094" y="1756" font-family="Arial,sans-serif" font-size="11.5" fill="#596579">«entity» bookings</text>
+<text x="2094" y="1792" font-family="Consolas,monospace" font-size="12" fill="#2d3748">+ booking_id: int [PK]</text>
+<text x="2094" y="1810" font-family="Consolas,monospace" font-size="12" fill="#2d3748">Full SQL attributes / DB page 04</text>
+<text x="2094" y="1837" font-family="Arial,sans-serif" font-size="11.5" fill="#596579">iPawcus_ERD_Schema.sql</text>
+</g>
+<text x="512" y="204" font-family="Consolas,monospace" font-size="11.5" fill="#596579">uses</text>
+<text x="512" y="226" font-family="Consolas,monospace" font-size="11.5" fill="#596579">uses</text>
+<text x="512" y="1256" font-family="Consolas,monospace" font-size="11.5" fill="#596579">uses</text>
+<text x="512" y="1278" font-family="Consolas,monospace" font-size="11.5" fill="#596579">uses</text>
+<text x="512" y="1300" font-family="Consolas,monospace" font-size="11.5" fill="#596579">uses</text>
+<text x="1172" y="204" font-family="Consolas,monospace" font-size="11.5" fill="#596579">HTTP</text>
+<text x="1172" y="226" font-family="Consolas,monospace" font-size="11.5" fill="#596579">HTTP</text>
+<text x="1172" y="487" font-family="Consolas,monospace" font-size="11.5" fill="#596579">HTTP</text>
+<text x="1852" y="204" font-family="Consolas,monospace" font-size="11.5" fill="#596579">includes</text>
+<text x="1852" y="226" font-family="Consolas,monospace" font-size="11.5" fill="#596579">SQL</text>
+<text x="1852" y="248" font-family="Consolas,monospace" font-size="11.5" fill="#596579">SQL</text>
+<text x="1852" y="270" font-family="Consolas,monospace" font-size="11.5" fill="#596579">SQL</text>
+<text x="1852" y="292" font-family="Consolas,monospace" font-size="11.5" fill="#596579">SQL</text>
+<text x="1852" y="523" font-family="Consolas,monospace" font-size="11.5" fill="#596579">SQL</text>
+<text x="1852" y="716" font-family="Consolas,monospace" font-size="11.5" fill="#596579">SQL</text>
+<text x="1852" y="738" font-family="Consolas,monospace" font-size="11.5" fill="#596579">SQL</text>
+<text x="1852" y="760" font-family="Consolas,monospace" font-size="11.5" fill="#596579">SQL</text>
+<text x="1852" y="782" font-family="Consolas,monospace" font-size="11.5" fill="#596579">SQL</text>
+<text x="1852" y="804" font-family="Consolas,monospace" font-size="11.5" fill="#596579">SQL</text>
+</svg>

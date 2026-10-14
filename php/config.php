@@ -108,4 +108,6 @@ if (!function_exists('loadEnv')) {
 }
 
 // Load from project root
-loadEnv(__DIR__ . '/../.env');
+if (getenv('IPAWCUS_SANDBOX') !== '1') {
+    loadEnv(__DIR__ . '/../.env');
+}

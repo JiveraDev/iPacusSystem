@@ -15,6 +15,8 @@ import { toast } from "../../reusecomponent/toast.jsx";
 import { openProtectedDocument } from "../../hooks/useConsentDocumentSource";
 import { calculateAge, formatDisplayDate } from "../../lib/date";
 import ProtectedImage from "../shared/ProtectedImage.jsx";
+import PetMedicalOverview from '../shared/PetMedicalOverview.jsx';
+import { useAutoRefresh } from '../../hooks/useAutoRefresh';
 import {
   PET_INPUT_LIMITS,
   isPetBreedText,
@@ -27,6 +29,7 @@ import {
 
 import { findPetService } from "../../services/findPet";
 import { fetchPetMedicalRecords, savePetMedicalRecord, updatePetDetails } from "../../services/petService";
+import '../shared/careWorkspace.css';
 import { uploadImageFile } from "../../services/uploadService";
 
 export default function PetProfileEdit() {
@@ -84,10 +87,9 @@ export default function PetProfileEdit() {
     }
   }, [petId]);
 
-  useEffect(() => {
-    async function fetchMedical() {
+  const fetchMedical = async ({ isAutoRefresh = false } = {}) => {
       if (!pet?.db_id) return;
-      setIsMedicalLoading(true);
+      if (!isAutoRefresh) setIsMedicalLoading(true);
       try {
         const data = await fetchPetMedicalRecords(petId);
         setVaccinations(data.vaccinations || []);
@@ -96,11 +98,10 @@ export default function PetProfileEdit() {
       } catch (error) {
         console.error("Failed to load medical records:", error);
       } finally {
-        setIsMedicalLoading(false);
+        if (!isAutoRefresh) setIsMedicalLoading(false);
       }
-    }
-    fetchMedical();
-  }, [pet?.db_id, petId]);
+  };
+  useAutoRefresh(fetchMedical, { enabled: Boolean(pet?.db_id), refreshKey: `admin-pet-medical:${petId}` });
 
   const handleInputChange = (e) => {
     const { name, value } = e.target;
@@ -258,7 +259,7 @@ export default function PetProfileEdit() {
   }
 
   return (
-    <div className="mx-auto max-w-5xl min-w-0 space-y-6 pb-12 animate-in fade-in duration-500">
+    <div className="care-workspace care-pet-information space-y-6 pb-12">
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <Button variant="ghost" onClick={() => navigate("/dashboard/pet-register")} className="w-fit hover:bg-slate-100">
           <ArrowLeft className="h-4 w-4 mr-2" />
@@ -269,7 +270,7 @@ export default function PetProfileEdit() {
           <code className="min-w-0 max-w-full truncate rounded-lg border border-slate-200 bg-white px-3 py-1 text-sm font-bold text-[#155dfc]">
             {pet.id}
           </code>
-          <Button variant="ghost" size="sm" onClick={copyToClipboard} className="h-8 w-8 p-0 hover:bg-white rounded-lg transition-colors">
+          <Button variant="ghost" size="sm" onClick={copyToClipboard} aria-label="Copy pet registration ID" className="h-8 w-8 p-0 hover:bg-white rounded-lg transition-colors">
             {copied ? <Check className="h-4 w-4 text-green-600" /> : <Copy className="h-4 w-4 text-slate-400" />}
           </Button>
         </div>
@@ -277,19 +278,16 @@ export default function PetProfileEdit() {
 
       {/* Main Profile Header */}
       <Card
-        petHover="always"
+        petHover={false}
         petKind={String(pet.species || '').toLowerCase().includes('cat') ? 'cat' : 'dog'}
         petAccent="blue"
         petPosition="top-right"
-        className="overflow-hidden border-none shadow-xl rounded-2xl bg-white"
+        className="care-profile-header overflow-hidden border-slate-200 bg-white dark:border-slate-700 dark:bg-slate-900"
       >
-        <div className="h-40 bg-gradient-to-r from-[#155dfc] via-blue-600 to-indigo-700 relative">
-            <div className="absolute inset-0 bg-white/5 backdrop-blur-[2px]" />
-        </div>
-        <CardContent className="relative px-4 pb-6 pt-0 sm:px-8 sm:pb-8">
-          <div className="-mt-16 flex flex-col items-center gap-6 md:flex-row md:items-end md:gap-8">
+        <CardContent className="p-4 sm:p-6">
+          <div className="flex flex-col items-start gap-5 md:flex-row md:items-center">
             <div className="relative">
-              <div className="h-32 w-32 overflow-hidden rounded-3xl border-[6px] border-white bg-slate-100 shadow-2xl ring-1 ring-slate-100 transition-all duration-300 group-hover:ring-blue-100 sm:h-40 sm:w-40">
+              <div className="h-24 w-24 overflow-hidden rounded-xl border border-slate-200 bg-slate-100 dark:border-slate-700 dark:bg-slate-800">
                 {pet.profileImage ? (
                     <ProtectedImage
                       src={pet.profileImage}
@@ -314,8 +312,8 @@ export default function PetProfileEdit() {
               {isEditMode ? (
                 <div className="space-y-4 max-w-sm">
                   <div className="space-y-1">
-                    <Label className="text-white sm:text-slate-900">Pet Name</Label>
-                    <Input name="petName" value={formData.petName} onChange={handleInputChange} restriction="pet-name" className="text-2xl font-bold h-12" />
+                    <Label htmlFor="pet-profile-name" className="text-slate-700 dark:text-slate-200">Pet name</Label>
+                    <Input id="pet-profile-name" name="petName" value={formData.petName} onChange={handleInputChange} restriction="pet-name" className="text-2xl font-bold h-12" />
                   </div>
                 </div>
               ) : (
@@ -380,7 +378,7 @@ export default function PetProfileEdit() {
                 <AlertCircle className="h-4 w-4 text-[#991b1b] dark:text-[#ef4444]" />
                 Critical Allergies
               </CardTitle>
-              <Button size="sm" variant="ghost" className="h-8 w-8 p-0" onClick={() => setShowAddAllergy(true)}>
+              <Button size="sm" variant="ghost" className="h-9 w-9 p-0" aria-label="Add an allergy" onClick={() => setShowAddAllergy(true)}>
                 <Plus className="h-4 w-4" />
               </Button>
             </CardHeader>
@@ -393,7 +391,8 @@ export default function PetProfileEdit() {
                     <Button 
                       onClick={() => handleDeleteAllergy(allergy.id)}
                       variant="ghost" 
-                      className="absolute top-2 right-2 h-7 w-7 p-0 text-slate-300 hover:text-red-500 opacity-0 group-hover:opacity-100"
+                      className="absolute top-2 right-2 h-9 w-9 p-0 text-slate-500 hover:text-red-600"
+                      aria-label={`Remove allergy ${allergy.allergen}`}
                     >
                       <Trash2 className="h-4 w-4" />
                     </Button>
@@ -420,14 +419,16 @@ export default function PetProfileEdit() {
         </div>
       </div>
 
+      <PetMedicalOverview key={petId} petId={petId} onOpenRecord={() => navigate(`/dashboard/my-pets/${petId}/medical-records`)} />
+
       {/* Dialogs */}
       <Dialog open={showAddVax} onOpenChange={setShowAddVax}>
         <DialogContent>
           <DialogHeader><DialogTitle>Add Vaccination Record</DialogTitle></DialogHeader>
           <div className="space-y-4 py-4">
             <div className="space-y-2">
-              <Label>Vaccine Name *</Label>
-              <Input value={newVax.name} onChange={e => setNewVax({...newVax, name: e.target.value})} placeholder="e.g. 5-in-1, Anti-Rabies" />
+              <Label htmlFor="pet-vaccination-name">Vaccine Name *</Label>
+              <Input id="pet-vaccination-name" value={newVax.name} onChange={e => setNewVax({...newVax, name: e.target.value})} placeholder="e.g. 5-in-1, Anti-Rabies" />
             </div>
             <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
               <div className="space-y-2">
@@ -440,16 +441,16 @@ export default function PetProfileEdit() {
               </div>
             </div>
             <div className="space-y-2">
-              <Label>Administrator / Veterinarian</Label>
-              <Input value={newVax.applicator} onChange={e => setNewVax({...newVax, applicator: e.target.value})} placeholder="Dr. Name" />
+              <Label htmlFor="pet-vaccination-veterinarian">Administrator / Veterinarian</Label>
+              <Input id="pet-vaccination-veterinarian" value={newVax.applicator} onChange={e => setNewVax({...newVax, applicator: e.target.value})} placeholder="Dr. Name" />
             </div>
             <div className="space-y-2">
-              <Label>Veterinarian License Number</Label>
-              <Input value={newVax.veterinarianLicense} onChange={e => setNewVax({...newVax, veterinarianLicense: e.target.value})} placeholder="PRC license number" />
+              <Label htmlFor="pet-vaccination-license">Veterinarian License Number</Label>
+              <Input id="pet-vaccination-license" value={newVax.veterinarianLicense} onChange={e => setNewVax({...newVax, veterinarianLicense: e.target.value})} placeholder="PRC license number" />
             </div>
             <div className="space-y-2">
-              <Label>Notes</Label>
-              <Input value={newVax.notes} onChange={e => setNewVax({...newVax, notes: e.target.value})} placeholder="Reaction or batch notes" />
+              <Label htmlFor="pet-vaccination-notes">Notes</Label>
+              <Input id="pet-vaccination-notes" value={newVax.notes} onChange={e => setNewVax({...newVax, notes: e.target.value})} placeholder="Reaction or batch notes" />
             </div>
           </div>
           <DialogFooter>
@@ -464,13 +465,13 @@ export default function PetProfileEdit() {
           <DialogHeader><DialogTitle>Add Allergy Record</DialogTitle></DialogHeader>
           <div className="space-y-4 py-4">
             <div className="space-y-2">
-              <Label>Allergen *</Label>
-              <Input value={newAllergy.allergen} onChange={e => setNewAllergy({...newAllergy, allergen: e.target.value})} placeholder="e.g. Chicken, Penicillin" />
+              <Label htmlFor="pet-allergy-allergen">Allergen *</Label>
+              <Input id="pet-allergy-allergen" value={newAllergy.allergen} onChange={e => setNewAllergy({...newAllergy, allergen: e.target.value})} placeholder="e.g. Chicken, Penicillin" />
             </div>
             <div className="space-y-2">
-              <Label>Severity</Label>
+              <Label htmlFor="pet-allergy-severity">Severity</Label>
               <Select value={newAllergy.severity} onValueChange={v => setNewAllergy({...newAllergy, severity: v})}>
-                <SelectTrigger><SelectValue /></SelectTrigger>
+                <SelectTrigger id="pet-allergy-severity"><SelectValue /></SelectTrigger>
                 <SelectContent>
                   <SelectItem value="Mild">Mild</SelectItem>
                   <SelectItem value="Moderate">Moderate</SelectItem>
@@ -637,17 +638,17 @@ function VaccinationCell({ label, value, strong = false, highlight = false }) {
 function BioField({ label, value, isEdit, name, onChange, type = "text", isSelect = false, options = [], onSelect, restriction, maxLength }) {
   return (
     <div className="flex flex-col gap-1.5 py-1">
-      <span className="text-[10px] font-black uppercase tracking-widest text-slate-400">{label}</span>
+      <Label htmlFor={isEdit ? `pet-profile-${name}` : undefined} className="text-[10px] font-semibold text-slate-500 dark:text-slate-400">{label}</Label>
       {isEdit ? (
         isSelect ? (
           <Select value={value} onValueChange={onSelect}>
-            <SelectTrigger className="h-9"><SelectValue /></SelectTrigger>
+            <SelectTrigger id={`pet-profile-${name}`} className="h-9"><SelectValue /></SelectTrigger>
             <SelectContent>
               {options.map(opt => <SelectItem key={options.indexOf(opt)} value={opt}>{opt}</SelectItem>)}
             </SelectContent>
           </Select>
         ) : (
-          <Input type={type} name={name} value={value || ""} onChange={onChange} restriction={restriction} maxLength={maxLength} className="h-9" />
+          <Input id={`pet-profile-${name}`} type={type} name={name} value={value || ""} onChange={onChange} restriction={restriction} maxLength={maxLength} className="h-9" />
         )
       ) : (
         <span className="min-w-0 break-words font-bold text-slate-900">

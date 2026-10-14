@@ -12,7 +12,7 @@ import { useDashboardUser, useNavigate } from '../dashboardRouter.jsx';
 import { fetchReportsDashboard, REPORT_QUICK_RANGES } from '../../services/reportService';
 import { formatPhpCurrency } from '../../lib/currency';
 import { formatReportDateLabel } from '../../lib/date';
-import DashboardPageHeader from '../shared/DashboardPageHeader';
+import DashboardPageHeader from '../shared/CarePageHeader.jsx';
 import ReportChartCard from './ReportChartCard';
 import ReportDateInput from './ReportDateInput';
 import ReportKpiCard from './ReportKpiCard';
@@ -461,7 +461,7 @@ export default function SuperAdminReportsDashboard() {
     }
 
     return (
-        <div ref={rootRef} className="mx-auto max-w-[1800px] space-y-4">
+        <div ref={rootRef} className="care-workspace care-reports space-y-5">
             <div className="report-motion-item">
                 <DashboardPageHeader
                     title="Reports Dashboard"
@@ -533,7 +533,7 @@ export default function SuperAdminReportsDashboard() {
                     <div
                         role="list"
                         aria-label="Report key metrics"
-                        className="report-motion-item grid min-w-0 grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4"
+                        className="report-motion-item grid min-w-0 grid-cols-2 gap-3 lg:grid-cols-3 xl:grid-cols-4"
                     >
                         {(dashboard?.kpis || [])
                             .filter(kpi => kpi.label !== 'Total Unpaid Balance')
@@ -577,7 +577,16 @@ export default function SuperAdminReportsDashboard() {
                         </Card>
                     ) : null}
 
-                    <div className="grid min-w-0 gap-4 lg:grid-cols-2">
+                    <div className="care-context-bar">
+                        <span>Clinic overview<strong>{selectedRangeLabel}</strong></span>
+                        <button type="button" onClick={() => attentionTables[0] && scrollToTarget(attentionTableTargetId(attentionTables[0].title))} disabled={!attentionTables.length}>
+                            <PackageSearch className="size-4" aria-hidden="true" />
+                            {openAttentionCount ? `${pluralize(openAttentionCount, 'item')} to review` : 'No items need review'}
+                            <ChevronRight className="size-4" aria-hidden="true" />
+                        </button>
+                    </div>
+
+                    <div className="care-report-charts grid min-w-0 gap-4 lg:grid-cols-2">
                         {charts.map((chartItem) => {
                             const targetId = chartTargetId(chartItem.id);
                             const chartKind = isPieChartItem(chartItem) ? 'Distribution' : 'Trend & performance';

@@ -1,1 +1,1 @@
-export { default } from '../assets/discard-front-page/ModernLandingPageContent.jsx';
+export { default } from '../components/LandingPageContent.jsx';

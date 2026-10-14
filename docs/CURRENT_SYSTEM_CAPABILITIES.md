@@ -2,6 +2,22 @@
 
 Reviewed from the active program source on September 16, 2026.
 
+## October 13, 2026 review addendum
+
+October 14: an isolated 88-table database sandbox is available from the user's latest export, with synthetic accounts for all four roles. Database-backed API smoke tests, service-catalog/grooming regressions and Google prerequisite checks pass there. Production state and full browser journeys remain unverified. [Run and test the sandbox](database_sandbox.md).
+
+See [the current audit](20261013_project_audit.md) for verified checks and four-role runtime scenarios. This is a source-backed capability reference; database and browser journeys were not certified in the October review.
+
+Google sign-in is connected through `GoogleContinueButton`, `googleAuthService`, `/auth/google`, `/auth/google/complete` and `/account/google`. A new identity completes a pet-owner profile. Existing password accounts must sign in and explicitly connect the matching Google email. Returning identities use the existing account role. Setup requires matching public/server client IDs, trusted origins, Composer dependencies and identity/onboarding/access-token schema. [Setup and test guide](google_integration_testing.md).
+
+Root configuration must be named `.env`. The October review copied the supplied local `env` settings to ignored `.env` and added local development origins. Local database readiness still failed. Onboarding expiry now uses the database clock; malformed credentials return 401. No database migration was applied.
+
+API handlers must be entered through `php/index.php`. Apache blocks direct handlers; the local PHP server uses a controller-only router because it ignores `.htaccess`. Account-directory responses exclude password hashes. Dashboard debug bypasses remain unchanged.
+
+Grooming completion is `scheduled -> checked_in -> in_progress -> ready`; verified full payment in POS controls `ready -> released`. Manual status edits cannot release a pet. The stale regression and guide were updated to reflect this rule. Database-backed payment/refund behavior still needs integration tests.
+
+`npm test` and `npm run check` expose existing frontend/PHP regressions. Logs live in ignored `tmp/project-audit/`; `npm run check:google` validates read-only local readiness.
+
 ## Contents
 
 - [1–4. Scope, architecture, roles, and authority](#1-purpose-and-reading-rules)
@@ -47,7 +63,7 @@ The program has meaningful defensive controls: hashed API tokens, prepared datab
 
 The most important current limitations are:
 
-- The proposed system-backup module is inactive and must not be presented as a working backup or restore capability.
+- Super Admin has a connected, configuration-dependent local backup download action. Automated retention and in-app restoration are not implemented; a clean-environment restore has not been verified by this audit. See section 30.1 and `BACKUP_RECOVERY.md`.
 - “Archived” is currently an administrative label. The login handler still creates a token for an archived account, and existing valid tokens are not invalidated by archive status.
 - The frontend route matcher is intentionally broad for several screens. PHP route and record checks remain the real security control.
 - PWA support caches the application shell only. It does not provide offline access to private clinic records, offline writes, or later data reconciliation.

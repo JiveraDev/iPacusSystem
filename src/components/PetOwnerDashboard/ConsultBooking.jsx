@@ -20,7 +20,8 @@ import UploadImagePreview from "../shared/UploadImagePreview.jsx";
 import BookingTimeSlotField from "../shared/BookingTimeSlotField.jsx";
 import { preferredVeterinarianNote, readBookingAvailabilitySelection, updatePreferredVeterinarianNote } from "../../lib/bookingAvailabilityNavigation.js";
 import { reportBookingFormErrors, standardAppointmentBookingErrors } from "../../lib/bookingFormValidation";
-import DashboardPageHeader from "../shared/DashboardPageHeader.jsx";
+import DashboardPageHeader from "../shared/CarePageHeader.jsx";
+import ConsultationProgress from '../shared/ConsultationProgress.jsx';
 import { PetBreedAutocomplete, PetSpeciesAutocomplete } from "../shared/PetCatalogAutocomplete.jsx";
 
 function toId(value) {
@@ -324,7 +325,7 @@ export default function ConsultBooking() {
   }
 
   return (
-    <div className="space-y-6 lg:space-y-8 max-w-3xl">
+    <div className="care-workspace care-consult-form space-y-6">
       <DashboardPageHeader
         icon={CalendarPlus}
         title="Book Online Consultation"
@@ -336,7 +337,8 @@ export default function ConsultBooking() {
         )}
       />
 
-      <Card>
+      <ConsultationProgress step={1} />
+      <Card petHover={false}>
         <CardHeader>
           <CardTitle>Consultation Details</CardTitle>
         </CardHeader>

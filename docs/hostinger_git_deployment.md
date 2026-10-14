@@ -118,6 +118,8 @@ The deployment script no longer supports including runtime media in Git. Keep re
 
 ### `.env`
 
+October 13 terminal verification: the production build succeeded, and `npm.cmd run deploy:hostinger:preview -- --skip-build` completed with exit code 0 after temporary-worktree permission was allowed. It staged the package, verified exclusions and executable worker configuration, and cleaned up. No fetch, commit, push or live Hostinger deployment occurred. PowerShell may display stderr npm notices as `NativeCommandError` when redirecting logs; direct execution confirmed success. Use `npm.cmd` if execution policy blocks `npm.ps1`.
+
 The updater does not copy or commit `.env`. Keep the production `.env` on Hostinger and edit it manually only when a production configuration value changes. Normal code deployments do not require a File Manager update.
 
 ### `.htaccess`
@@ -125,6 +127,8 @@ The updater does not copy or commit `.env`. Keep the production `.env` on Hostin
 The updater intentionally includes the repository root `.htaccess`, so React routing and same-domain API rewrite changes reach Hostinger automatically. No manual File Manager update is needed for this file after a normal deployment.
 
 The deployed `.htaccess` blocks HTTP access to `composer.json`, `composer.lock`, and `vendor/`. Composer still reads these files from disk during deployment.
+
+October 13 update: it also blocks `.env` variants, legacy `env`, `tmp/`, `scripts/`, `phpTestfiles/` and PHP handlers other than `php/index.php`. API clients must use the controller. Install Composer dependencies and apply the Google identity migration before enabling sign-in; see [Google setup](google_integration_testing.md). The local database readiness failure in [the audit](20261013_project_audit.md) does not establish production database status. Verify Apache restrictions on staging; the local router test does not exercise Apache.
 
 ## Connect the branch in Hostinger
 

@@ -1,0 +1,20 @@
+.prescription-editor { container-type: inline-size; min-width: 0; }
+.prescription-editor [data-slot='label'] { color: var(--theme-text-muted, #52647c); font-size: .75rem; font-weight: 600; line-height: 1.4; text-transform: none; letter-spacing: normal; }
+.prescription-medication-grid, .prescription-schedule-grid, .prescription-directions-grid { display: grid; grid-template-columns: minmax(0, 1fr); gap: .9rem; align-items: start; }
+.prescription-editor :is(input, textarea, [data-slot='select-trigger']) { min-width: 0; width: 100%; }
+.prescription-time-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 8rem), 1fr)); gap: .7rem; }
+.prescription-times { padding-block: .9rem; border-block: 1px solid var(--theme-border, #dfe5ed); }
+.prescription-editor-actions { display: flex; justify-content: flex-end; }
+.prescription-editor-actions > button { width: 100%; }
+@container (min-width: 20rem) {
+    .prescription-medication-grid, .prescription-schedule-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+    .prescription-medicine-field, .prescription-schedule-method { grid-column: 1 / -1; }
+    .prescription-editor-actions > button { width: auto; }
+}
+@container (min-width: 40rem) {
+    .prescription-medication-grid { grid-template-columns: repeat(4, minmax(0, 1fr)); }
+    .prescription-medicine-field { grid-column: span 2; }
+    .prescription-schedule-grid { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+    .prescription-schedule-method { grid-column: auto; }
+    .prescription-directions-grid { grid-template-columns: 12rem minmax(0, 1fr); }
+}

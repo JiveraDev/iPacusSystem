@@ -6,7 +6,7 @@ import { toast } from "../../reusecomponent/toast.jsx";
 import { formatDisplayDateTime } from "../../lib/date";
 import { joinOnlineConsultation } from "../../services/onlineConsultationService";
 import { useVideoCall } from "../../context/VideoCallProvider.jsx";
-import DashboardPageHeader from "../shared/DashboardPageHeader.jsx";
+import DashboardPageHeader from "../shared/CarePageHeader.jsx";
 
 const CLOSED_CONSULTATION_STATUSES = new Set(["completed", "cancelled", "canceled", "no_show", "no-show"]);
 
@@ -124,7 +124,7 @@ export default function VideoConsultation() {
   };
 
   return (
-    <div className="flex min-h-[calc(100dvh-7rem)] min-w-0 flex-col gap-4">
+    <div className="care-workspace flex min-h-[calc(100dvh-7rem)] min-w-0 flex-col gap-4">
       <DashboardPageHeader
         icon={Video}
         title="Online Consultation"
@@ -162,7 +162,7 @@ export default function VideoConsultation() {
       <div className="flex min-h-[34rem] flex-1 flex-col overflow-hidden rounded-xl border border-slate-200 bg-[#101828] dark:border-slate-800">
         <div className="flex shrink-0 items-center justify-between gap-3 border-b border-white/10 px-5 py-3 text-white">
           <div>
-            <p className="text-sm font-semibold">8x8 JaaS Meeting Room</p>
+            <p className="text-sm font-semibold">Private veterinary consultation</p>
             <p className="text-xs text-white/60">{consultation.meetingCode || "Private consultation room"}</p>
           </div>
           <span className="rounded-full bg-green-500/20 px-3 py-1 text-xs font-semibold text-green-100">Live</span>
@@ -196,7 +196,7 @@ export default function VideoConsultation() {
 
         <div className="flex shrink-0 items-center gap-2 border-t border-white/10 bg-black/20 px-5 py-3 text-sm text-white/70">
           <Video className="h-4 w-4 shrink-0" />
-          Video consultations are securely hosted through the clinic's 8x8 JaaS service.
+          Stay on this page, or minimize the call to keep using your dashboard.
         </div>
       </div>
     </div>

@@ -6,7 +6,7 @@ import { Label } from '../../ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../../ui/select';
 import { useDashboardUser, useNavigate } from '../dashboardRouter.jsx';
 import { generateReport, REPORT_QUICK_RANGES, REPORT_TYPES } from '../../services/reportService';
-import DashboardPageHeader from '../shared/DashboardPageHeader';
+import DashboardPageHeader from '../shared/CarePageHeader.jsx';
 import ReportDateInput from './ReportDateInput';
 import ReportPreview from './ReportPreview';
 import { fetchBranches, getBranchDisplayName } from '../../services/branchService';
@@ -330,7 +330,7 @@ export default function SuperAdminReportCenter() {
     }
 
     return (
-        <div className="report-center-page space-y-6">
+        <div className="care-workspace report-center-page space-y-6">
             <style>
                 {`@media print {
                     @page { size: A4 ${getReportOrientation(report)}; margin: 10mm; }

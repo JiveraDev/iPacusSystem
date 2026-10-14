@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from "react";
+import '../shared/careWorkspace.css';
 import { useNavigate, useParams } from "../dashboardRouter.jsx";
 import { Card, CardContent, CardHeader, CardTitle } from "../../ui/card";
 import { Button } from "../../ui/button";
@@ -28,6 +29,8 @@ import ProtectedImage from "../shared/ProtectedImage.jsx";
 import EditPetInformationDialog from "../shared/EditPetInformationDialog.jsx";
 import PetCertificateDialog from "../shared/PetCertificateDialog.jsx";
 import PrescriptionPlanPanel from "../shared/PrescriptionPlanPanel.jsx";
+import PetMedicalOverview from '../shared/PetMedicalOverview.jsx';
+import CarePageHeader from '../shared/CarePageHeader.jsx';
 import { canEditPetInformation } from "../../lib/petInformation";
 
 import { findPetService } from "../../services/findPet";
@@ -758,11 +761,13 @@ export default function PetProfile() {
   }
 
   return (
-    <div className="mx-auto max-w-6xl min-w-0 space-y-6 pb-24 animate-in fade-in duration-500 sm:pb-28">
-      <Button variant="ghost" onClick={() => navigate("/dashboard/my-pets")} className="w-fit hover:bg-slate-100 dark:text-slate-200 dark:hover:bg-slate-800">
-        <ArrowLeft className="mr-2 size-4" />
-        Back to {backTargetLabel}
-      </Button>
+    <div className="care-workspace care-pet-profile space-y-6 pb-6">
+      <CarePageHeader
+        title="Pet information"
+        description="Patient details, vaccination history, and medical records."
+        icon={PawPrint}
+        navigation={<Button variant="ghost" onClick={() => navigate('/dashboard/my-pets')} className="-ml-2 w-fit gap-2"><ArrowLeft className="size-4" aria-hidden="true" />Back to {backTargetLabel}</Button>}
+      />
 
       <PetIdentityCard
         pet={pet}
@@ -803,6 +808,8 @@ export default function PetProfile() {
         onOpenRegistrationCertificate={openRegistrationCertificate}
         onOpenMedicalCertificate={openMedicalCertificate}
       />
+
+      <PetMedicalOverview key={pet.db_id || petId} petId={pet.db_id || petId} ownerOnly={canRequestRecordUpdate} onOpenRecord={handlePrint} />
 
       <div className="hidden" aria-hidden="true">
         {/* Supporting pet details */}
@@ -1526,14 +1533,16 @@ function PetIdentityCard({ pet, copied, flipped, canEdit, canChangeOwner, queueR
   const vaccinations = Array.isArray(pet.vaccinations) ? pet.vaccinations : [];
   const ownerName = pet.hasOwnership
     ? (pet.primaryOwner?.name || pet.ownerName || 'Pet owner')
-    : (pet.tempOwnerName || 'Not assigned');
+    : (pet.tempOwnerName || pet.ownerName || 'Not assigned');
   const status = pet.status || 'Registered';
   const normalizedStatus = status.toLowerCase();
-  const statusClass = normalizedStatus === 'healthy'
+  const statusClass = ['healthy', 'active'].includes(normalizedStatus)
     ? 'bg-emerald-50 text-emerald-700 dark:bg-emerald-950/50 dark:text-emerald-300'
     : normalizedStatus === 'emergency'
       ? 'bg-red-50 text-red-700 dark:bg-red-950/50 dark:text-red-300'
-      : 'bg-amber-50 text-amber-700 dark:bg-amber-950/50 dark:text-amber-300';
+      : ['registered', 'inactive'].includes(normalizedStatus)
+        ? 'bg-slate-100 text-slate-600 dark:bg-slate-800 dark:text-slate-300'
+        : 'bg-amber-50 text-amber-700 dark:bg-amber-950/50 dark:text-amber-300';
   const details = [
     ['Species', pet.species || 'N/A'],
     ['Primary breed', pet.breed || 'N/A'],
@@ -1549,21 +1558,21 @@ function PetIdentityCard({ pet, copied, flipped, canEdit, canChangeOwner, queueR
     : [];
 
   return (
-    <section className="pet-id-entrance" aria-label={`${pet.name} pet identification card`}>
+    <section className="care-pet-identity pet-id-entrance" aria-label={`${pet.name} pet identification card`}>
       <div className="pet-id-flip-shell">
         <div className={`pet-id-flip-card ${flipped ? 'is-flipped' : ''}`}>
           <article
-            className={`pet-id-face pet-id-face--front min-h-[440px] overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-lg shadow-slate-950/10 dark:border-slate-700 dark:bg-slate-900 ${flipped ? 'pointer-events-none' : ''}`}
+            className={`pet-id-face pet-id-face--front overflow-hidden rounded-2xl border border-slate-200 bg-white dark:border-slate-700 dark:bg-slate-900 ${flipped ? 'pointer-events-none' : ''}`}
             aria-hidden={flipped}
           >
-            <div className="h-1.5 bg-[#155dfc]" />
+            <div className="h-1 bg-[#155dfc]" />
             <div className="flex flex-col gap-5 p-4 sm:p-6">
-              <header className="flex items-start justify-between gap-4 border-b border-slate-100 pb-4 dark:border-slate-800">
+              <header className="care-pet-card-toolbar flex flex-wrap items-start justify-between gap-4 border-b border-slate-100 pb-4 dark:border-slate-800">
                 <div className="flex min-w-0 items-center gap-3">
                   <img src={navigationLogo} alt="iPawcus logo" className="size-10 shrink-0 object-contain" />
                   <div className="min-w-0">
-                    <p className="text-lg font-black tracking-tight text-[#155dfc] dark:text-blue-300">iPawcus</p>
-                    <p className="mt-0.5 text-[9px] font-bold uppercase tracking-[0.08em] text-slate-500 dark:text-slate-400">VetFocus Care</p>
+                    <p className="text-sm font-semibold text-slate-900 dark:text-white">Patient profile</p>
+                    <p className="mt-0.5 text-xs text-slate-500 dark:text-slate-400">iPawcus · Vetfocus Care</p>
                   </div>
                 </div>
                 <div className="flex shrink-0 items-start justify-end gap-2">
@@ -1594,7 +1603,7 @@ function PetIdentityCard({ pet, copied, flipped, canEdit, canChangeOwner, queueR
                   </div>
               </header>
 
-              <div className="grid grid-cols-[104px_minmax(0,1fr)] items-stretch gap-4 sm:grid-cols-[140px_minmax(0,1fr)] sm:gap-5">
+              <div className="care-pet-card-body grid grid-cols-[104px_minmax(0,1fr)] items-start gap-4 sm:grid-cols-[160px_minmax(0,1fr)] sm:gap-6">
                 <div className="flex items-center justify-center sm:justify-start">
                   <div className="relative">
                     {hasNewMedicalCertificate ? (
@@ -1609,7 +1618,7 @@ function PetIdentityCard({ pet, copied, flipped, canEdit, canChangeOwner, queueR
                         <BadgeCheck className="size-5" aria-hidden="true" />
                       </button>
                     ) : null}
-                    <div className="size-24 overflow-hidden rounded-xl border border-slate-200 bg-slate-100 dark:border-slate-700 dark:bg-slate-800 sm:size-32">
+                    <div className="care-pet-portrait size-24 overflow-hidden rounded-xl border border-slate-200 bg-slate-100 dark:border-slate-700 dark:bg-slate-800 sm:size-40">
                       {pet.profileImage ? (
                         <ProtectedImage src={pet.profileImage} alt={pet.name} className="h-full w-full object-cover" fallbackClassName="h-full w-full" />
                       ) : (
@@ -1634,12 +1643,13 @@ function PetIdentityCard({ pet, copied, flipped, canEdit, canChangeOwner, queueR
                 </div>
 
                 <div className="min-w-0">
-                  <div className="flex h-full min-h-24 flex-wrap content-center items-center gap-2 rounded-xl border border-slate-200 bg-slate-50 px-4 py-3 dark:border-slate-700 dark:bg-slate-800 sm:min-h-32 sm:px-5">
-                    <span className="basis-full text-[10px] font-black uppercase tracking-[0.16em] text-slate-500 dark:text-slate-400">Pet profile</span>
-                    <h1 className="min-w-0 break-words text-xl font-black tracking-tight text-slate-950 dark:text-white sm:text-2xl">{pet.name}</h1>
+                  <div className="care-pet-name-block flex min-h-24 flex-wrap content-start items-center gap-2 pt-1 sm:min-h-40 sm:pt-2">
+                    <p className="basis-full text-xs font-medium text-slate-500 dark:text-slate-400">Registered patient</p>
+                    <h2 className="care-pet-name min-w-0 break-words text-2xl font-semibold tracking-tight text-slate-950 dark:text-white sm:text-4xl">{pet.name}</h2>
                     <span className={`inline-flex shrink-0 rounded-full px-2.5 py-1 text-[10px] font-black uppercase tracking-wide ${statusClass}`}>
                       {status}
                     </span>
+                    <p className="basis-full text-sm text-slate-500 dark:text-slate-400">{[pet.species, pet.breed].filter(Boolean).join(' · ') || 'Species and breed not recorded'}</p>
                     {hasMedicalCertificate ? (
                       <button
                         type="button"
@@ -1662,12 +1672,12 @@ function PetIdentityCard({ pet, copied, flipped, canEdit, canChangeOwner, queueR
                 </div>
 
                 <section className="col-span-2 min-w-0 border-t border-slate-100 pt-4 dark:border-slate-800" aria-labelledby="pet-personal-information-heading">
-                  <h2 id="pet-personal-information-heading" className="text-xs font-black uppercase tracking-[0.16em] text-slate-500 dark:text-slate-400">Personal information</h2>
+                  <h3 id="pet-personal-information-heading" className="text-sm font-semibold text-slate-900 dark:text-slate-100">Patient details</h3>
                   <dl className="mt-3 grid grid-cols-2 gap-x-5 gap-y-3 lg:grid-cols-4">
                     {details.map(([label, value]) => (
                       <div key={label} className="min-w-0">
-                        <dt className="text-[10px] font-black uppercase tracking-wide text-slate-400">{label}</dt>
-                        <dd className="mt-1 break-words text-sm font-bold text-slate-800 dark:text-slate-100">{value || 'N/A'}</dd>
+                        <dt className="text-xs text-slate-500 dark:text-slate-400">{label}</dt>
+                        <dd className="mt-1 break-words text-sm font-medium text-slate-800 dark:text-slate-100">{value || 'N/A'}</dd>
                       </div>
                     ))}
                   </dl>

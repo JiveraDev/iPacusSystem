@@ -1,6 +1,6 @@
-  <Files ".env">
+  <FilesMatch "^(?:\.env(?:\..*)?|env)$">
       Require all denied
-  </Files>
+  </FilesMatch>
 
   <FilesMatch "^composer\.(json|lock)$">
       Require all denied
@@ -18,6 +18,10 @@
       RewriteEngine On
 
       RewriteRule ^vendor(?:/|$) - [F,L]
+      RewriteRule ^tmp(?:/|$) - [F,L]
+      RewriteRule ^(?:scripts|phpTestfiles)(?:/|$) - [F,L,NC]
+      # Endpoint authorization runs through the front controller only.
+      RewriteRule ^php/(?!index\.php(?:/|$)) - [F,L,NC]
       RewriteRule ^php/ - [L]
       RewriteRule ^api/?(.*)$ php/index.php/api/$1 [QSA,L]
 

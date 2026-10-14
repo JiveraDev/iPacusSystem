@@ -65,6 +65,7 @@ if (await localApiIsHealthy()) {
         '-d', 'post_max_size=10M',
         '-S', 'localhost:8000',
         '-t', projectRoot,
+        path.join(projectRoot, 'scripts', 'local-api-router.php'),
     ]);
 }
 

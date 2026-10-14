@@ -154,9 +154,19 @@ function googleAuthVerifyCredential(string $credential): array
 
     googleAuthRequireLibrary();
     $client = new Google\Client(['client_id' => $clientId]);
-    $payload = $client->verifyIdToken($credential);
+    try {
+        $payload = $client->verifyIdToken($credential);
+    } catch (UnexpectedValueException $error) {
+        // Malformed and not-yet-valid JWTs are authentication failures.
+        // Network and installation errors still reach the endpoint error handler.
+        $payload = false;
+    }
 
-    if (!is_array($payload)) {
+    if (!is_array($payload)
+        || ($payload['aud'] ?? null) !== $clientId
+        || !is_numeric($payload['exp'] ?? null)
+        || (int)$payload['exp'] <= time()
+        || !in_array($payload['iss'] ?? null, ['accounts.google.com', 'https://accounts.google.com'], true)) {
         googleAuthJsonResponse(401, [
             'message' => 'Google could not verify this sign-in. Please try again.',
             'code' => 'GOOGLE_CREDENTIAL_INVALID',
@@ -299,14 +309,10 @@ function googleAuthCreateOnboardingToken(PDO $pdo, array $profile): string
 {
     $token = bin2hex(random_bytes(32));
     $tokenHash = hash('sha256', $token);
-    $expiresAt = (new DateTimeImmutable('now'))
-        ->modify('+' . GOOGLE_AUTH_ONBOARDING_TTL_MINUTES . ' minutes')
-        ->format('Y-m-d H:i:s');
-
     $stmt = $pdo->prepare("
         INSERT INTO google_auth_onboarding_tokens
             (token_hash, provider_subject, email, first_name, last_name, picture_url, expires_at, consumed_at, created_at)
-        VALUES (?, ?, ?, ?, ?, ?, ?, NULL, NOW())
+        VALUES (?, ?, ?, ?, ?, ?, DATE_ADD(NOW(), INTERVAL ? MINUTE), NULL, NOW())
         ON DUPLICATE KEY UPDATE
             token_hash = VALUES(token_hash),
             email = VALUES(email),
@@ -324,7 +330,7 @@ function googleAuthCreateOnboardingToken(PDO $pdo, array $profile): string
         $profile['firstName'],
         $profile['lastName'],
         $profile['pictureUrl'],
-        $expiresAt,
+        GOOGLE_AUTH_ONBOARDING_TTL_MINUTES,
     ]);
 
     return $token;

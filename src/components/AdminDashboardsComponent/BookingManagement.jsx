@@ -49,7 +49,7 @@ import BookingDateInput from '../shared/BookingDateInput.jsx';
 import BookingTimeSlotField from '../shared/BookingTimeSlotField.jsx';
 import { assignedBranchId, isBranchSelectionLocked, storedDashboardUser } from '../../lib/branchAccess.js';
 import { isValidTransactionNumber, normalizeTransactionNumber, TRANSACTION_NUMBER_LENGTH, TRANSACTION_NUMBER_MESSAGE } from '../../lib/transactionNumber.js';
-import DashboardPageHeader from '../shared/DashboardPageHeader.jsx';
+import DashboardPageHeader from '../shared/CarePageHeader.jsx';
 import { PET_INPUT_LIMITS, isPetBreedText, isPetMarkingsText, isPetNameText, isPetSpeciesText, isPetWeightText } from '../../lib/petInputValidation.js';
 import { PetBreedAutocomplete, PetSpeciesAutocomplete } from '../shared/PetCatalogAutocomplete.jsx';
 
@@ -1578,7 +1578,7 @@ export default function BookingsManagement() {
     }, [currentPage, totalPages]);
 
     return (
-        <div className="w-full space-y-6">
+        <div className="care-workspace w-full space-y-6">
             <DashboardPageHeader
                 icon={CalendarClock}
                 title="Bookings Management"

@@ -1,5 +1,7 @@
 # iPawcus Local Backup Download
 
+October 13, 2026 audit note: `/system-backups` and the Super Admin profile download action are connected in source. Runtime export, cleanup and clean-environment restoration were not verified because local database readiness failed. This is configuration-dependent functionality, not a certified recovery process. See [the current audit](20261013_project_audit.md).
+
 > The custom iPawcus backup feature creates complete downloads for the Super Admin's personal computer. It does not retain backup ZIPs in the domain or Hostinger account. Hostinger's hosting backup remains the server-side recovery mechanism.
 
 ## What the download contains

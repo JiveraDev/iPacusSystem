@@ -1,203 +1,56 @@
-# iPawcus - Pet Electronic Medical R1ecord (EMR) & Management System
+# iPawcus clinic and pet-owner portal
 
-iPawcus is a comprehensive management system designed for veterinary clinics and pet owners. It facilitates pet registration, medical record management, appointment bookings, and real-time queue tracking.
+Updated: 2026-10-14.
 
-## 🚀 Tech Stack
+React 19, Vite 8, Tailwind CSS and PHP/MySQL support pet owners, administrators, veterinarians and super administrators. Features include pets and shared ownership, appointments, queues, clinical records, prescriptions, grooming, boarding, billing, inventory, consent, notifications and reporting.
 
-- **Frontend:** React 19, Vite, Tailwind CSS, Lucide Icons
-- **Backend:** PHP 8.x
-- **Database:** MySQL
-- **State Management:** React Hooks & LocalStorage
-- **Authentication:** Custom JWT-like session management (Token-based)
+## Start locally
 
-## 🏗️ Core Features
+1. Install JavaScript dependencies with `npm install` and PHP dependencies with `composer install`.
+2. Configure the ignored root `.env`. PHP loads this exact filename; a file named `env` is not loaded. `.env.example.production` lists settings; supply your own values.
+3. Start the local MySQL database and apply migrations appropriate to your database version. See [the SQL runbook](docs/deployed_server_sql_runbook.md). Review migration/seed effects before running them.
+4. Run `npm run dev`. This launches PHP at port 8000 and Vite at port 5173. `.env.development` selects the local API.
 
-### 🔐 Authentication & Role-Based Access
-- **Multi-Role Support:** Specific dashboards for Pet Owners, Administrators, and Super Admins.
-- **Secure Login:** Password hashing using `password_verify` in PHP.
-- **Protected Routes:** Automatic redirection for unauthenticated users.
+In Windows PowerShell, use `npm.cmd` when execution policy blocks `npm.ps1`. `IPAWCUS_PHP_BINARY` selects a PHP executable for the development launcher and full check runner.
 
-### 🐾 Pet Management
-- **Centralized Registry:** Clinics can register pets with detailed profiles including species, breed, microchip, and allergies.
-- **Ownership Linking:** Securely link pets to owner accounts using unique sharable IDs.
-- **Medical History:** Track pet status and history before and after registration.
+`npm run server` aliases `npm run php:dev` for the PHP API alone. Its obsolete reference to a missing Node server was corrected during the repeat audit.
 
-### 📅 Booking & Appointments
-- **Service Variety:** Support for Consultations, Vaccinations, Grooming, Surgery, and more.
-- **Home Services:** Option to book veterinary visits at home.
-- **Payment Verification:** Integrated payment proof upload for booking confirmations.
+## Run with an isolated test database
 
-### 🚶 Queue Management
-- **Real-time Tracking:** Monitor pet status in the clinic queue (Waiting, In-Progress, Completed).
-- **Priority System:** Handle urgent cases with a priority-based queue.
+The latest supplied schema has been installed in a separate sandbox with 88 tables and synthetic users. Run `npm.cmd run sandbox` and open `http://127.0.0.1:5183/`. Use `owner@sandbox.invalid`, `admin@sandbox.invalid`, `vet@sandbox.invalid` or `superadmin@sandbox.invalid`, password `Sandbox-Test-2026!`. See [sandbox setup, isolation and tests](docs/database_sandbox.md). Stop with Ctrl+C or `npm.cmd run sandbox:stop`. The original `.env` and database are unchanged.
 
-### 📄 Document Management
-- **Consent Forms:** Manage and store digital consent files for various procedures.
-- **Media Uploads:** Secure storage for pet profile images, booking concerns, and signatures.
+## Verification commands
 
-## 📁 Project Structure
-
-```text
-├── php/                        # PHP Backend API scripts
-│   ├── config.php              # Database configuration
-│   ├── db.php                  # PDO database connection
-│   ├── login.php               # Authentication logic
-│   └── ...                     # Feature-specific API endpoints
-├── src/
-│   ├── components/
-│   │   ├── AdminDashboards/    # Admin-specific views
-│   │   ├── PetOwnerDashboard/  # Owner-specific views
-│   │   └── SuperAdminDashboard/# Super Admin views
-│   ├── services/               # Frontend API service layer
-│   ├── ui/                     # Reusable UI components (shadcn-like)
-│   └── App.jsx                 # Main application routing
-├── public/                     # Static assets and uploaded media
+```powershell
+npm.cmd test
+npm.cmd run lint
+npm.cmd run build
+npm.cmd run check
+npm.cmd run check:google
+npm.cmd run check:db
 ```
 
-## 🛠️ Getting Started
+`check` runs frontend tests, lint, build, PHP syntax, selected database-free PHP regressions and the local API router test. Logs and a machine-readable summary go to ignored `tmp/project-audit/`. Google readiness is separate and intentionally fails when the local database or configuration is unavailable. Database-dependent and browser workflows require additional testing.
 
-### Prerequisites
-- PHP 8.1 or higher
-- MySQL 8.0 or higher
-- Node.js & npm (for frontend development)
+## Documentation
 
-### Local Setup
+- [Current audit and four-role workflow checklist](docs/20261013_project_audit.md)
+- [Configured database findings and Pet Hotel clinic selector](docs/20261014_database_verification.md)
+- [Google integration setup and tests](docs/google_integration_testing.md)
+- [Capability and process reference](docs/CURRENT_SYSTEM_CAPABILITIES.md)
+- [User instructions](USER_INSTRUCTIONS_FOR_DIFFERENT_ROLES.md)
+- [Installed skills](docs/installed_skills.md)
+- [Documentation index](docs/README.md)
+- [Deployment instructions](docs/hostinger_git_deployment.md)
 
-1. **Database Configuration:**
-   - Create a MySQL database.
-   - Import the schema from `tables.sql`.
-   - Update `php/config.php` (or where database credentials are stored) with your local settings.
+## Structure and access
 
-2. **Backend Setup:**
-   - You can use the built-in PHP server for development:
-     ```bash
-     php -S localhost:8000 -t .
-     ```
-   - Ensure your `.env` file in the root has:
-     ```env
-     VITE_API_BASE_URL=http://localhost:8000/php
-     ```
+`src/components` contains screens, `src/ui` shared controls, `src/services` API clients, and `php/index.php` the API controller. SQL exports and migrations live in `DDL/`. Uploaded media has its own endpoint and access checks. `dist/` is generated output.
 
-3. **Frontend Setup:**
-   ```bash
-   npm install
-   npm run dev
-   ```
+API requests must use the controller. Apache blocks direct PHP endpoint files, environment files, vendor, scripts, test files and temporary output. PHP's built-in server ignores `.htaccess`; development commands therefore use `scripts/local-api-router.php`. Restart old servers to apply this protection.
 
-4. **Self-hosted Jitsi for online consultations:**
-   - Install and start Docker Desktop first.
-   - The local Jitsi Docker project is located at:
-     ```text
-     C:\Users\Admin\WebstormProjects\untitled1\Jitsi\docker-jitsi-meet
-     ```
-   - Important local Jitsi settings in `Jitsi/docker-jitsi-meet/.env`:
-     ```env
-     CONFIG=../.jitsi-meet-cfg
-     HTTP_PORT=8080
-     HTTPS_PORT=8443
-     PUBLIC_URL=https://localhost:${HTTPS_PORT}
-     ENABLE_AUTH=0
-     ENABLE_GUESTS=1
-     AUTH_TYPE=internal
-     ```
-   - Start Jitsi:
-     ```powershell
-     cd C:\Users\Admin\WebstormProjects\untitled1\Jitsi\docker-jitsi-meet
-     docker compose up -d
-     ```
-   - Open:
-     ```text
-     https://localhost:8443
-     ```
-   - The browser may show a local certificate warning. Continue for local development.
-   - Root app `.env` should include:
-     ```env
-     JITSI_BASE_URL=https://localhost:8443
-     ```
-   - Approve a new online consultation after changing `JITSI_BASE_URL`; old consultation rows keep their existing `meeting_url`.
+The dashboard and dashboard-router debug bypasses are intentionally preserved. PHP authorization, ownership, branch and assignment checks remain the data security boundary. Secrets must not use `VITE_` variables: those values are compiled into browser code.
 
-## 🚢 Deployment
+## Verification on 2026-10-13
 
-1. **Build the Frontend:**
-   ```bash
-   npm run build
-   ```
-2. **Transfer Files:**
-   - Upload the `dist/` directory contents to your web server's public directory.
-   - Upload the `php/` directory to the server.
-   - Configure your web server (Apache/Nginx) to point to the `index.html` from the `dist` folder and handle PHP requests.
-
-## 📄 License
-This project is private and intended for specific clinic use.
-
-
-
-
-
-› FRONTEND_ORIGIN=https://ipawcus.com
-VITE_API_BASE_URL=https://api.ipawcus.com
-JITSI_BASE_URL=https://meet.ipawcus.com
-
-also im confuse...... meand i need 3 domains???
-
-
-• Not necessarily 3 domains. That was just a clean production example.
-
-You have 3 services, but they can share one domain using subdomains or paths.
-
-Services
-
-Frontend React app
-PHP API/backend
-Jitsi server
-
-Option A: 3 subdomains, cleanest
-
-FRONTEND_ORIGIN=https://ipawcus.com
-VITE_API_BASE_URL=https://api.ipawcus.com
-JITSI_BASE_URL=https://meet.ipawcus.com
-
-Option B: 2 domains/subdomains
-
-FRONTEND_ORIGIN=https://ipawcus.com
-VITE_API_BASE_URL=https://ipawcus.com/api
-JITSI_BASE_URL=https://meet.ipawcus.com
-
-Option C: 1 domain with paths, harder
-
-FRONTEND_ORIGIN=https://ipawcus.com
-VITE_API_BASE_URL=https://ipawcus.com/api
-JITSI_BASE_URL=https://ipawcus.com/meet
-
-I do not recommend Option C for Jitsi unless you know reverse proxy config well. Jitsi uses WebSocket, BOSH, media bridge ports, HTTPS, and special routing, so it is much easier
-as a subdomain.
-
-Best practical setup:
-
-ipawcus.com        -> React frontend
-api.ipawcus.com    -> PHP backend
-meet.ipawcus.com   -> Jitsi
-
-But you do not buy 3 domains. You buy/use one domain:
-
-ipawcus.com
-
-Then create DNS subdomains:
-
-api.ipawcus.com
-meet.ipawcus.com
-
-So the answer is:
-
-You need 1 domain, with subdomains for API and Jitsi.
-
-For local development, it is just:
-
-FRONTEND_ORIGIN=http://localhost:5173
-VITE_API_BASE_URL=http://localhost:8000
-JITSI_BASE_URL=https://localhost:8443
-
-
-› Find and fix a bug in @filename
-
-gpt-5.5 xhigh · ~\WebstormProjects\untitled1
+The full check runner passed 197/197 checks, including build, lint, 178 PHP syntax checks and the selected regressions. All 87 existing frontend tests passed. Added role-policy, Google failure and router checks are described in the audit. Hostinger preview completed with exit code 0; nothing was deployed. Local database readiness failed. Real Google login, SMTP delivery, push, video meetings and complete browser journeys remain unverified.

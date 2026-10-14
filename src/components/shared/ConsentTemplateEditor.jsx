@@ -21,10 +21,10 @@ export function ConsentTemplateEditor({ value, onChange, textareaRef, onInsertCo
     };
 
     return (
-        <div className="overflow-hidden rounded-lg border border-slate-200 bg-white dark:border-slate-700 dark:bg-slate-900">
+        <div className="consent-template-editor overflow-hidden rounded-lg border border-slate-200 bg-white dark:border-slate-700 dark:bg-slate-900">
             <div className="border-b border-slate-200 bg-slate-50 p-3 dark:border-slate-700 dark:bg-slate-800/70">
-                <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
-                    <div>
+                <div className="consent-editor-toolbar flex flex-col gap-3">
+                    <div className="min-w-0 flex-1">
                         <p className="flex items-center gap-2 text-sm font-bold text-slate-900 dark:text-slate-100">
                             <Code2 className="size-4 text-blue-600" /> Template content
                         </p>
@@ -32,7 +32,7 @@ export function ConsentTemplateEditor({ value, onChange, textareaRef, onInsertCo
                             Select an underline blank, then insert a code to replace it. Inserted values appear bold in the document preview.
                         </p>
                     </div>
-                    <Button type="button" variant="outline" size="sm" onClick={applySmartConversion}>
+                    <Button type="button" variant="outline" size="sm" onClick={applySmartConversion} className="shrink-0 self-start">
                         <Sparkles className="size-4 text-amber-500" /> Detect common blanks
                     </Button>
                 </div>
@@ -54,12 +54,13 @@ export function ConsentTemplateEditor({ value, onChange, textareaRef, onInsertCo
 
             <Textarea
                 ref={textareaRef}
+                aria-label="Consent template content"
                 value={value}
                 onChange={(event) => onChange(event.target.value)}
                 onFocus={() => textareaRef?.current?.setAttribute('data-consent-editor-active', 'true')}
                 rows={rows}
                 spellCheck
-                className="min-h-[320px] resize-y rounded-none border-0 bg-white font-mono text-sm leading-6 focus:ring-0 dark:bg-slate-950 dark:text-slate-100"
+                className="min-h-[280px] resize-y rounded-none border-0 bg-white text-sm leading-6 focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-blue-500 dark:bg-slate-950 dark:text-slate-100"
                 placeholder="Consent text or TXT upload"
             />
 

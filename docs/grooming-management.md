@@ -4,9 +4,9 @@
 
 An approved grooming booking appears automatically in **Admin → Grooming**. Opening the list does not create a second booking or write a job. The first save or photo upload creates its linked job, uniquely keyed by booking ID. Routine grooming is excluded from the vet’s approved booking lists and cannot be received through the clinical booking endpoint.
 
-The working form asks for the grooming service, an optional assisting-nurse name, one intake/owner-approval checkbox, and one optional clinic-notes box. A new job uses the signed-in administrator as its handler automatically; the server ignores a submitted handler override and preserves the original handler on existing jobs. The assisting nurse is stored separately in details JSON. Required before/after evidence, extra details, and history stay in compact sections. Existing notes and checklists are preserved.
+The working form asks for the grooming service, an optional assisting-nurse name, one intake/owner-approval checkbox, and one optional clinic-notes box. A new job uses the signed-in administrator as its handler automatically; the server ignores a submitted handler override and preserves the original handler on existing jobs. The assisting nurse is stored separately in details JSON. Required before/after evidence, extra details, and history stay in compact sections. Existing notes remain available; legacy checklist submissions are discarded by current validation.
 
-Normal flow: receive pet → required before photo → start grooming → optional notes → required after photo → finish → payment in the existing POS → confirm pickup. The underlying statuses are unchanged. Start needs at least one catalog service and confirmed intake/owner approval; staff do not enter a handler or price. Finish explicitly confirms completion without inventing six checklist entries. A neutral owner summary is generated if none was recorded. Pickup uses the booking owner’s name automatically, falling back to the signed-in clinic administrator’s name when the owner profile has no usable name; staff only press Confirm pickup. Existing details JSON stores the confirmation flags and assisting nurse, so no schema migration is needed. Legacy completed checklists and handover notes remain valid; closed jobs and date/booking restrictions are unchanged.
+Normal flow: receive pet -> required before photo -> start grooming -> optional notes -> required after photo -> finish -> verified full payment in the existing POS -> automatic release. Start requires an active catalog service and confirmed intake/owner approval. Finish confirms completion and prepares billing without marking the invoice paid. The payment handler releases a ready job only when its billing status is paid; routine status edits and pickup confirmation flags cannot release it. The booking owner name is recorded automatically, with the clinic actor as fallback. Closed-job history and vet-clearance restrictions remain enforced.
 
 POS search, invoice selection, billing, payment recording, and refund handling are unchanged. Open POS is ordinary navigation, without an invoice shortcut or prefilled transaction. Finishing still prepares/reuses the invoice through the existing grooming billing integration; it never marks the invoice paid. Staff use the existing POS workflow to verify payment before releasing the pet.
 
@@ -26,7 +26,7 @@ There is no grooming price input or price override. Staff may select one or more
 
 Photo categories are owner reference, before, and after; an owner reference may be presented to a veterinarian as concern evidence. Staff keep one current before photo and one current after photo, replacing the matching image when they upload again. JPG/PNG/WebP only, actual MIME validation, maximum 8 MB per image. PHP is configured for an 8 MB file and a 10 MB multipart request. Stored names use a sanitized pet token, category, timestamp, and random suffix; the database stores only `grooming_photos/<filename>`, never the private physical path. Owner concern/reference photos remain clinic-only. Owners can access only their own explicitly shared before/after photos after publication. Vets need a review assignment and branch access. Admin feature permissions and branch boundaries apply. Photos use the existing authenticated `/upload` and protected `/uploads/media` endpoints, but are stored outside the website tree to prevent direct static access. No photo-delete endpoint is introduced.
 
-The admin explicitly shares a ready/picked-up summary. Owner Home then shows the package, add-ons, summary, and selected photos. Internal notes, audit records, and vet assessments are excluded. Ready status locks service/pricing fields; the pickup name is system-assigned. Photos lock on publication or closure, so add final photos before sharing or confirming pickup.
+The admin explicitly shares a ready/picked-up summary. Owner Home then shows the package, add-ons, summary, and selected photos. Internal notes, audit records, and vet assessments are excluded. Ready status locks service/pricing fields; the pickup name is system-assigned. Photos lock on publication or closure, so add final photos before sharing or completing payment-controlled release.
 
 ## Booking and staffing scope
 
@@ -39,11 +39,11 @@ Grooming is bookable during **12:00–1:00 PM**, subject to branch hours and fre
 3. Run `php scripts/tests/grooming-storage.php`. It checks prerequisite columns, new tables, and private-folder access without changing records.
 4. Deploy frontend and backend together. Review Grooming feature access in account permissions. Existing admins default to allowed, consistent with the other feature flags.
 
-The local development database was migrated during implementation. The local private directory was created with approval and configured in the ignored `.env`; production still needs its own migration and storage configuration.
+Historical implementation notes reported a migrated local database; the October 13 audit could not connect to the current local database. The local private directory was created with approval and configured in the ignored `.env`; production still needs its own migration and storage configuration.
 
 ## Verification
 
-- `php scripts/tests/grooming-rules-regression.php` — lifecycle, intake, vet-clearance, pricing validation, checklist, pickup, permissions, private-storage guards.
+- `php scripts/tests/grooming-rules-regression.php` — lifecycle, intake, vet-clearance, pricing validation, removed-checklist compatibility, payment-controlled pickup, permissions, private-storage guards.
 - `php scripts/tests/grooming-media-regression.php` — private directory creation, write/read access, cleanup, and public-folder rejection.
 - `php scripts/tests/grooming-db-regression.php` — job identity, audit creation, and photo privacy using temporary tables only.
 - `php scripts/tests/grooming-storage.php` — read-only deployment preflight.

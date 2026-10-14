@@ -503,13 +503,13 @@ function App() {
     }>
       <div
         data-motion-page={activeView}
-        className={activeView === 'dashboard'
+        className={activeView === 'dashboard' || activeView === 'landing'
           ? 'min-h-screen theme-aware'
           : activeView === 'statusDisplay'
             ? 'min-h-screen'
             : 'min-h-screen theme-static-light'}
       >
-        <ToastViewport />
+        <ToastViewport position={['login', 'register', 'registerProfile'].includes(activeView) ? 'bottom-right' : undefined} />
         {activeView === 'statusDisplay' && (
           <TVStatusDisplay />
         )}

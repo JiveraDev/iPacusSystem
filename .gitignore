@@ -29,6 +29,8 @@ GEMINI.md
 *.sln
 *.sw?
 .env
+/env
+/tmp/
 
 # TV status deployment secrets; keep the committed example template.
 /public/tv-status/.env*

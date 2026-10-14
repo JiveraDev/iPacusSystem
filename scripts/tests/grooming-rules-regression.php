@@ -25,7 +25,7 @@ check($multipleServices['catalogServiceIds'] === [3, 1] && $multipleServices['ca
 rejects(fn() => grooming_validate_details(['catalogServiceIds' => '1,2']), 'Catalog selections must be an array');
 rejects(fn() => grooming_validate_details(['catalogServiceIds' => [1, 'invalid']]), 'Every catalog selection must be valid');
 check($details['tasks'] === [], 'Removed checklist stays empty for legacy storage compatibility');
-foreach ([['scheduled', 'checked_in'], ['checked_in', 'in_progress'], ['in_progress', 'ready'], ['ready', 'released']] as [$from, $to]) {
+foreach ([['scheduled', 'checked_in'], ['checked_in', 'in_progress'], ['in_progress', 'ready']] as [$from, $to]) {
     grooming_assert_transition($from, $to, $details, 'Care team member', null);
     check(true, "Valid transition $from to $to");
 }
@@ -39,7 +39,7 @@ rejects(fn() => grooming_assert_transition('checked_in', 'in_progress', array_re
 grooming_assert_transition('in_progress', 'ready', array_replace($details, ['ownerSummary' => '']), 'Staff', null);
 check(true, 'A second written summary is not required to finish');
 rejects(fn() => grooming_assert_transition('in_progress', 'ready', grooming_validate_details([]), 'Staff', null), 'Finish action confirmation is required');
-foreach (['pickupPerson', 'pickupNote'] as $key) rejects(fn() => grooming_assert_transition('ready', 'released', array_replace($details, [$key => '']), 'Staff', null), 'Pickup handover required');
+rejects(fn() => grooming_assert_transition('ready', 'released', $details, 'Staff', null), 'Routine status edits cannot bypass payment-controlled pickup');
 foreach ([-1, 'NaN', INF, 100001] as $quote) rejects(fn() => grooming_validate_details(['agreedTotal' => $quote]), 'Invalid money rejected');
 foreach ([0, 31, 600, 'tomorrow'] as $duration) rejects(fn() => grooming_validate_details(['durationMinutes' => $duration]), 'Invalid duration rejected');
 check(grooming_validate_details(['tasks' => ['bath' => ['status' => 'done']]])['tasks'] === [], 'Legacy checklist submissions are discarded');
@@ -73,8 +73,7 @@ check(!str_contains(grooming_completion_summary(array_replace($simple, ['interna
 $simple['pickupPerson'] = 'Owner';
 rejects(fn() => grooming_assert_transition('ready', 'released', $simple, 'Nurse', null), 'Pickup still requires explicit handover confirmation');
 $simple['pickupConfirmed'] = true;
-grooming_assert_transition('ready', 'released', $simple, 'Nurse', null);
-check(true, 'Pickup button requires no repeated handover note');
+rejects(fn() => grooming_assert_transition('ready', 'released', $simple, 'Nurse', null), 'Even confirmed pickup cannot bypass payment-controlled release');
 rejects(fn() => grooming_assert_transition('ready', 'released', array_replace($simple, ['pickupPerson' => '']), 'Nurse', null), 'Pickup person still required');
 foreach (['completionConfirmed', 'pickupConfirmed'] as $key) check(!grooming_validate_details([$key => 'true'])[$key], 'Confirmation requires a real boolean');
 foreach (['pending', 'stop', 'consultation'] as $outcome) rejects(fn() => grooming_assert_transition('vet_review', 'in_progress', $simple, 'Nurse', $outcome), 'Simple flow cannot bypass vet clearance');

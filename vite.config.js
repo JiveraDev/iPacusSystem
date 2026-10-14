@@ -6,9 +6,12 @@ export default defineConfig({
   plugins: [react()],
   envPrefix: ['VITE_', 'PWAACTIVATOR'],
   server:{
+    fs: {
+      deny: ['.env', '.env.*', 'env', '*.{crt,pem}', '**/.git/**', '**/vendor/**', '**/tmp/**']
+    },
     proxy: {
       '/api': {
-        target: 'http://localhost:8000',
+        target: process.env.IPAWCUS_SANDBOX === '1' ? 'http://127.0.0.1:8018' : 'http://localhost:8000',
         changeOrigin: true,
         rewrite: (path) => path.replace(/^\/api(?=\/|$)/, '/php/index.php/api')
       }

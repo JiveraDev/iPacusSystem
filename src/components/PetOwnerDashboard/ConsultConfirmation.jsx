@@ -19,7 +19,8 @@ import ProtectedImage from "../shared/ProtectedImage.jsx";
 import { PhotoViewer } from "../../ui/photo-viewer";
 import { readOnlineConsultationSubmission } from "../../lib/onlineConsultationSubmission";
 import { isValidTransactionNumber, normalizeTransactionNumber, TRANSACTION_NUMBER_LENGTH, TRANSACTION_NUMBER_MESSAGE } from "../../lib/transactionNumber";
-import DashboardPageHeader from "../shared/DashboardPageHeader.jsx";
+import DashboardPageHeader from "../shared/CarePageHeader.jsx";
+import ConsultationProgress from '../shared/ConsultationProgress.jsx';
 
 function normalizeConsultationStatus(value) {
   return String(value || "pending").trim().toLowerCase().replace(/[_-]+/g, " ");
@@ -360,12 +361,14 @@ export default function ConsultConfirmation() {
         .filter(Boolean);
 
   return (
-    <div className="space-y-8 max-w-3xl mx-auto">
+    <div className="care-workspace care-consult-form space-y-6">
       <DashboardPageHeader
         icon={StatusIcon}
         title={statusMeta.title}
         description="Review the latest appointment, payment, and consultation status."
       />
+
+      <ConsultationProgress step={3} />
 
       <Card>
         <CardHeader>
@@ -520,9 +523,9 @@ export default function ConsultConfirmation() {
                 </h3>
                 <p className="text-gray-700 mb-4">
                   {canJoin
-                    ? "Your veterinarian has started the consultation. Click below to join the 8x8 JaaS room."
+                    ? "Your veterinarian has started the consultation. Join your private call below."
                     : resolvedStatus !== "confirmed"
-                      ? "The 8x8 JaaS room will be created after admin approval."
+                      ? "Your private consultation room will be available after clinic approval."
                       : !onlineConsultation?.meetingUrl
                         ? "The consultation room is not available yet."
                         : "Waiting for the veterinarian to start the consultation. You can join as soon as the room is ready."}

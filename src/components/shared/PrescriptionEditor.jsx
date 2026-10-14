@@ -1,4 +1,6 @@
 import { Clock3, Pill, Plus, Trash2 } from 'lucide-react';
+import { useId } from 'react';
+import './prescriptionEditor.css';
 import { Badge } from '../../ui/badge';
 import { Button } from '../../ui/button';
 import { Checkbox } from '../../ui/checkbox';
@@ -33,6 +35,8 @@ export default function PrescriptionEditor({
     embedded = false,
     readOnly = false
 }) {
+    const id = useId();
+    const fieldId = (field) => `${id}-${field}`;
     const update = (field, value) => setDraft((current) => ({ ...current, [field]: value }));
     const setScheduleType = (scheduleType) => {
         const frequency = scheduleType === 'weekly' ? 'per week'
@@ -76,38 +80,39 @@ export default function PrescriptionEditor({
     };
 
     return (
-        <div className={`space-y-4 ${embedded ? '' : 'rounded-lg border border-slate-200 bg-slate-50 p-4 dark:border-slate-700 dark:bg-slate-800/40'}`}>
+        <div className={`prescription-editor space-y-4 ${embedded ? '' : 'rounded-lg border border-slate-200 bg-slate-50 p-4 dark:border-slate-700 dark:bg-slate-800/40'}`}>
             {readOnly && <p className="text-xs font-medium text-slate-500 dark:text-slate-400">Issued prescriptions are read-only. Use Add prescription below for another course.</p>}
             {!readOnly && <>
-            <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-4">
-                <div className="space-y-2 md:col-span-2">
-                    <Label className="text-xs font-bold uppercase tracking-wide text-slate-500 dark:text-slate-400">Medicine / Item</Label>
+            <div className="prescription-medication-grid">
+                <div className="prescription-medicine-field space-y-2">
+                    <Label htmlFor={fieldId('medicine')}>Medication name</Label>
                     <Input
+                        id={fieldId('medicine')}
+                        name="medicine"
                         value={draft.medicine}
                         onChange={(event) => update('medicine', event.target.value)}
                         placeholder="e.g. Amoxicillin"
-                        aria-label="Medicine or item"
                         className="bg-white dark:bg-slate-900"
                     />
                 </div>
                 <div className="space-y-2">
-                    <Label className="text-xs font-bold uppercase tracking-wide text-slate-500 dark:text-slate-400">Dose</Label>
-                    <Input value={draft.dose || ''} onChange={(event) => update('dose', event.target.value)} placeholder="e.g. 5 mL" className="bg-white dark:bg-slate-900" />
+                    <Label htmlFor={fieldId('dose')}>Dose</Label>
+                    <Input id={fieldId('dose')} name="dose" value={draft.dose || ''} onChange={(event) => update('dose', event.target.value)} placeholder="e.g. 5 mL" className="bg-white dark:bg-slate-900" />
                 </div>
                 <div className="space-y-2">
-                    <Label className="text-xs font-bold uppercase tracking-wide text-slate-500 dark:text-slate-400">Route</Label>
+                    <Label htmlFor={fieldId('route')}>Route</Label>
                     <Select value={draft.route || 'Oral'} onValueChange={(value) => update('route', value)}>
-                        <SelectTrigger className="bg-white dark:bg-slate-900"><SelectValue placeholder="Route" /></SelectTrigger>
+                        <SelectTrigger id={fieldId('route')} className="bg-white dark:bg-slate-900"><SelectValue placeholder="Route" /></SelectTrigger>
                         <SelectContent>{PRESCRIPTION_ROUTES.map((route) => <SelectItem key={route} value={route}>{route}</SelectItem>)}</SelectContent>
                     </Select>
                 </div>
             </div>
 
-            <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-5">
-                <div className="space-y-2 sm:col-span-2 xl:col-span-1">
-                    <Label className="text-xs font-bold uppercase tracking-wide text-slate-500 dark:text-slate-400">Schedule method</Label>
+            <div className="prescription-schedule-grid">
+                <div className="prescription-schedule-method space-y-2">
+                    <Label htmlFor={fieldId('schedule')}>Schedule method</Label>
                     <Select value={draft.scheduleType || 'times_daily'} onValueChange={setScheduleType}>
-                        <SelectTrigger className="bg-white dark:bg-slate-900"><SelectValue placeholder="Schedule" /></SelectTrigger>
+                        <SelectTrigger id={fieldId('schedule')} className="bg-white dark:bg-slate-900"><SelectValue placeholder="Schedule" /></SelectTrigger>
                         <SelectContent>
                             <SelectItem value="times_daily">Times per day</SelectItem>
                             <SelectItem value="interval_hours">Every N hours</SelectItem>
@@ -119,54 +124,54 @@ export default function PrescriptionEditor({
                 </div>
                 {draft.scheduleType === 'interval_hours' ? (
                     <div className="space-y-2">
-                        <Label className="text-xs font-bold uppercase tracking-wide text-slate-500 dark:text-slate-400">Every hours</Label>
-                        <Input type="number" min="1" max="168" value={draft.intervalHours || 8} onChange={(event) => update('intervalHours', numberValue(event.target.value, 8))} className="bg-white dark:bg-slate-900" />
+                        <Label htmlFor={fieldId('interval')}>Hours between doses</Label>
+                        <Input id={fieldId('interval')} name="intervalHours" type="number" min="1" max="168" value={draft.intervalHours || 8} onChange={(event) => update('intervalHours', numberValue(event.target.value, 8))} className="bg-white dark:bg-slate-900" />
                     </div>
                 ) : draft.scheduleType !== 'as_needed' ? (
                     <>
                         <div className="space-y-2">
-                            <Label className="text-xs font-bold uppercase tracking-wide text-slate-500 dark:text-slate-400">Occurrences</Label>
-                            <Input type="number" min="1" max="24" value={draft.times} onChange={(event) => setTimes(event.target.value)} className="bg-white dark:bg-slate-900" />
+                            <Label htmlFor={fieldId('times')}>Doses per period</Label>
+                            <Input id={fieldId('times')} name="times" type="number" min="1" max="24" value={draft.times} onChange={(event) => setTimes(event.target.value)} className="bg-white dark:bg-slate-900" />
                         </div>
                         <div className="space-y-2">
-                            <Label className="text-xs font-bold uppercase tracking-wide text-slate-500 dark:text-slate-400">Frequency</Label>
+                            <Label htmlFor={fieldId('frequency')}>Period</Label>
                             <Select value={draft.frequency} onValueChange={(value) => update('frequency', value)} disabled>
-                                <SelectTrigger className="bg-white dark:bg-slate-900"><SelectValue /></SelectTrigger>
+                                <SelectTrigger id={fieldId('frequency')} className="bg-white dark:bg-slate-900"><SelectValue /></SelectTrigger>
                                 <SelectContent>{PRESCRIPTION_FREQUENCIES.map((option) => <SelectItem key={option.value} value={option.value}>{option.label}</SelectItem>)}</SelectContent>
                             </Select>
                         </div>
                     </>
                 ) : null}
                 <div className="space-y-2">
-                    <Label className="text-xs font-bold uppercase tracking-wide text-slate-500 dark:text-slate-400">Duration</Label>
-                    <Input type="number" min="0" value={draft.durationNumber} onChange={(event) => update('durationNumber', numberValue(event.target.value, 1))} disabled={draft.scheduleType === 'as_needed'} className="bg-white dark:bg-slate-900" />
+                    <Label htmlFor={fieldId('duration')}>Duration</Label>
+                    <Input id={fieldId('duration')} name="durationNumber" type="number" min="0" value={draft.durationNumber} onChange={(event) => update('durationNumber', numberValue(event.target.value, 1))} disabled={draft.scheduleType === 'as_needed'} className="bg-white dark:bg-slate-900" />
                 </div>
                 <div className="space-y-2">
-                    <Label className="text-xs font-bold uppercase tracking-wide text-slate-500 dark:text-slate-400">Duration unit</Label>
+                    <Label htmlFor={fieldId('duration-unit')}>Duration unit</Label>
                     <Select value={draft.scheduleType === 'as_needed' ? 'as needed' : draft.durationUnit} onValueChange={(value) => update('durationUnit', value)} disabled={draft.scheduleType === 'as_needed'}>
-                        <SelectTrigger className="bg-white dark:bg-slate-900"><SelectValue /></SelectTrigger>
+                        <SelectTrigger id={fieldId('duration-unit')} className="bg-white dark:bg-slate-900"><SelectValue /></SelectTrigger>
                         <SelectContent>{PRESCRIPTION_DURATION_UNITS.map((option) => <SelectItem key={option.value} value={option.value}>{option.label}</SelectItem>)}</SelectContent>
                     </Select>
                 </div>
             </div>
 
             {['times_daily', 'weekly', 'monthly'].includes(draft.scheduleType) && (
-                <div className="space-y-2 rounded-lg border border-slate-200 bg-white p-3 dark:border-slate-700 dark:bg-slate-900">
-                    <Label className="flex items-center gap-2 text-xs font-bold uppercase tracking-wide text-slate-500 dark:text-slate-400">
-                        <Clock3 className="size-3.5" /> Recommended times
-                    </Label>
-                    <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
+                <div className="prescription-times space-y-2">
+                    <p className="flex items-center gap-2 text-xs font-semibold text-slate-600 dark:text-slate-300">
+                        <Clock3 className="size-3.5" aria-hidden="true" /> Recommended dose times
+                    </p>
+                    <div className="prescription-time-grid">
                         {defaultTimeSlots(draft.times).map((fallback, index) => (
-                            <Input key={index} type="time" value={draft.timeSlots?.[index] || fallback} onChange={(event) => setTimeSlot(index, event.target.value)} aria-label={`Dose time ${index + 1}`} />
+                            <div key={index} className="space-y-1.5"><Label htmlFor={fieldId(`time-${index}`)}>Dose {index + 1}</Label><Input id={fieldId(`time-${index}`)} type="time" value={draft.timeSlots?.[index] || fallback} onChange={(event) => setTimeSlot(index, event.target.value)} /></div>
                         ))}
                     </div>
-                    <p className="text-xs font-medium text-slate-500 dark:text-slate-400">The owner reviews these times before starting. Exact interval schedules remain anchored to the first dose.</p>
+                    <p className="text-xs leading-5 text-slate-500 dark:text-slate-400">The owner confirms the start date and dose times before beginning.</p>
                 </div>
             )}
 
             {draft.scheduleType === 'weekly' && (
                 <div className="space-y-2">
-                    <Label className="text-xs font-bold uppercase tracking-wide text-slate-500 dark:text-slate-400">Days of week</Label>
+                    <p className="text-xs font-semibold text-slate-600 dark:text-slate-300">Days of week</p>
                     <div className="flex flex-wrap gap-2">
                         {DAYS.map(([value, label]) => (
                             <label key={value} className="flex items-center gap-2 rounded-md border border-slate-200 bg-white px-3 py-2 text-xs font-bold text-slate-700 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-200">
@@ -178,17 +183,20 @@ export default function PrescriptionEditor({
                 </div>
             )}
 
-            <div className="grid gap-3 sm:grid-cols-[12rem_minmax(0,1fr)_auto] sm:items-end">
+            {draft.scheduleType === 'interval_hours' && <p className="text-xs leading-5 text-slate-500 dark:text-slate-400">Dose intervals begin at the owner's confirmed first dose.</p>}
+            <div className="prescription-directions-grid">
                 <div className="space-y-2">
-                    <Label className="text-xs font-bold uppercase tracking-wide text-slate-500 dark:text-slate-400">Recommended start</Label>
-                    <Input type="date" value={draft.recommendedStartDate || ''} onChange={(event) => update('recommendedStartDate', event.target.value)} className="bg-white dark:bg-slate-900" />
+                    <Label htmlFor={fieldId('start')}>Recommended start date</Label>
+                    <Input id={fieldId('start')} name="recommendedStartDate" type="date" value={draft.recommendedStartDate || ''} onChange={(event) => update('recommendedStartDate', event.target.value)} className="bg-white dark:bg-slate-900" />
                 </div>
                 <div className="space-y-2">
-                    <Label className="text-xs font-bold uppercase tracking-wide text-slate-500 dark:text-slate-400">Instructions / Notes</Label>
-                    <Textarea value={draft.instructions || ''} onChange={(event) => update('instructions', event.target.value)} placeholder="Clinical directions for the owner" className="min-h-20 bg-white dark:bg-slate-900" />
+                    <Label htmlFor={fieldId('instructions')}>Instructions for the owner</Label>
+                    <Textarea id={fieldId('instructions')} name="instructions" value={draft.instructions || ''} onChange={(event) => update('instructions', event.target.value)} placeholder="Clinical directions for the owner" className="min-h-20 bg-white dark:bg-slate-900" />
                 </div>
-                <Button type="button" onClick={onAdd} className="gap-2 bg-[#155dfc] text-white hover:bg-[#0d4acf] sm:mb-0.5">
-                    <Plus className="size-4" /> {addLabel}
+            </div>
+            <div className="prescription-editor-actions">
+                <Button type="button" onClick={onAdd} className="gap-2 bg-[#155dfc] text-white hover:bg-[#0d4acf]">
+                    <Plus className="size-4" aria-hidden="true" /> {addLabel}
                 </Button>
             </div>
 

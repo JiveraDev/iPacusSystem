@@ -1,5 +1,7 @@
 # Reminder Testing
 
+October 13, 2026 verification note: `npm run check` includes database-free calendar, veterinarian TODO and SMTP-session fixtures. It does not send reminder emails or run the database-dependent helper below. Local database readiness failed during [the current audit](20261013_project_audit.md); delivery, deduplication and recipients still need runtime verification against suitable test accounts.
+
 Use this note when validating schedule reminders without changing production code.
 
 ## Runner

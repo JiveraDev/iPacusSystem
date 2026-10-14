@@ -62,6 +62,17 @@ test('new description choice replaces a previous calendar choice', () => {
     assert.equal(readBookingAvailabilitySelection('online-consultation').date, '');
 });
 
+test('Pet Hotel room selection keeps its chosen clinic through owner login', () => {
+    setupStorage();
+    saveOwnerActiveBranch(1);
+    saveLandingBookingIntent({ service: 'boarding', branchId: 2, roomType: 'hotel-medium' });
+    assert.equal(consumeLandingBookingRoute(owner), '/dashboard/services/pet-hotel');
+    const selection = readBookingAvailabilitySelection('boarding');
+    assert.equal(selection.branchId, 2);
+    assert.equal(selection.roomType, 'hotel-medium');
+    assert.equal(readOwnerActiveBranch(), 2);
+});
+
 test('admin and vet accounts never follow pet-owner landing destinations', () => {
     for (const role of ['admin', 'super_admin', 'veterinarian', '', 'unknown']) {
         setupStorage();

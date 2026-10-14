@@ -1,5 +1,7 @@
 # User Instructions for Different Roles
 
+Updated: 2026-10-13. [Current testing status and role checklist](docs/20261013_project_audit.md). These instructions describe connected workflows; live deployment readiness must be checked separately.
+
 This guide explains how each iPawcus user role uses the Vetfocus clinic system. It follows the usual care journey from selecting a service, booking or joining the queue, receiving a diagnosis or boarding care, and completing payment and medical records.
 
 ## Roles at a Glance
@@ -16,6 +18,7 @@ Archived users retain their normal system permissions. Archive status is an admi
 ## Common System Use
 
 1. Sign in using the email and password assigned to the account.
+   A linked account can also use **Continue with Google** when configured. Existing password users sign in first, then use **Profile > Connect Google** with the same email. New Google users complete the owner profile and terms. Public registration creates a pet owner; staff roles come from existing clinic accounts.
 2. Use the left navigation on desktop or the menu button on mobile.
 3. Check the page title before entering data. Browser-tab titles change according to the selected page.
 4. Complete all required fields before submitting a form. Missing or invalid fields are highlighted, and the toast message identifies what must be corrected.
@@ -37,6 +40,8 @@ Archived users retain their normal system permissions. Archive status is an admi
 The pet profile should be completed before using workflows that require a registered patient, including clinic diagnosis and organized medical records.
 
 ### 2. Book a Clinic Service
+
+On the public landing page, the **Pet Hotel** room panel has a **Clinic location** selector. Choose the clinic first to see its room availability. Selecting an available room keeps that clinic and room size when you sign in and open the Pet Hotel booking form. The form checks availability again for your selected stay dates.
 
 Use this flow for services such as General Check-up, Dental Check-up, Vaccination, Grooming, Surgery, Laboratory Testing, and Parasite Control.
 

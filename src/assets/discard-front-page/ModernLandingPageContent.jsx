@@ -266,7 +266,7 @@ export default function ModernLandingPageContent({ onLogin, onRegister }) {
                             </div>
                         </Reveal>
                         <Reveal delay={100}>
-                            <PetHotelLandingRooms onBook={(size) => bookSelection({ service: 'boarding', roomType: `hotel-${size}` })} />
+                            <PetHotelLandingRooms onBook={(size, branchId) => bookSelection({ service: 'boarding', branchId, roomType: `hotel-${size}` })} />
                         </Reveal>
                     </div>
                 </section>

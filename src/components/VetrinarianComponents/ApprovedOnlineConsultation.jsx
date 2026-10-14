@@ -29,7 +29,7 @@ import { useAutoRefresh } from '../../hooks/useAutoRefresh';
 import { fetchOnlineConsultations, startOnlineConsultation } from '../../services/onlineConsultationService';
 import ProtectedImage from '../shared/ProtectedImage.jsx';
 import { PhotoViewer } from '../../ui/photo-viewer';
-import DashboardPageHeader from '../shared/DashboardPageHeader.jsx';
+import DashboardPageHeader from '../shared/CarePageHeader.jsx';
 
 function getUserId(user) {
     return user?.id || user?.user_id || user?.userId || '';
@@ -521,7 +521,7 @@ export default function ApprovedOnlineConsultation() {
     }
 
     return (
-        <div className="space-y-6">
+        <div className="care-workspace space-y-6">
             <DashboardPageHeader
                 icon={Video}
                 title="Online Consultations"

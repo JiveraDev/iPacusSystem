@@ -1,8 +1,7 @@
 import { useRef, useState } from 'react';
 import { Button } from '../../ui/button';
 import { Input } from '../../ui/input';
-import { Card, CardContent } from '../../ui/card';
-import { Badge } from '../../ui/badge';
+import { Label } from '../../ui/label';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '../../ui/dialog';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../../ui/select';
 import { Upload, FileText, Trash2, Edit3, Eye, EyeOff, Plus, AlertTriangle } from 'lucide-react';
@@ -23,12 +22,15 @@ import {
     fetchConsentFiles as fetchConsentFilesService,
     updateConsentFile
 } from '../../services/consentFileService';
-import DashboardPageHeader from '../shared/DashboardPageHeader.jsx';
+import DashboardPageHeader from '../shared/CarePageHeader.jsx';
 
 export default function ConsentFilesManagement() {
     const [files, setFiles] = useState([]);
     const [isLoading, setIsLoading] = useState(true);
     const [isUploading, setIsUploading] = useState(false);
+    const [isCreating, setIsCreating] = useState(false);
+    const [searchQuery, setSearchQuery] = useState('');
+    const [loadError, setLoadError] = useState('');
     
     // Upload States
     const [uploadFile, setUploadFile] = useState(null);
@@ -88,8 +90,10 @@ export default function ConsentFilesManagement() {
         }
         try {
             const data = await fetchConsentFilesService();
-            setFiles(data);
+            setFiles(Array.isArray(data) ? data : []);
+            setLoadError('');
         } catch (error) {
+            setLoadError("Consent templates could not be refreshed. Please retry.");
             console.error("Error fetching consent files:", error);
             if (!isAutoRefresh) {
                 toast.error('We could not load consent forms. Refresh the page or try again.');
@@ -193,6 +197,7 @@ export default function ConsentFilesManagement() {
             await createConsentFile(formData);
             toast.success('Consent form added.');
             resetUploadEditor();
+            setIsCreating(false);
             const fileInput = document.getElementById('consent-file-input');
             if (fileInput) fileInput.value = '';
             fetchConsentFiles();
@@ -254,16 +259,31 @@ export default function ConsentFilesManagement() {
         return Math.round(bytes / Math.pow(k, i)) + ' ' + sizes[i];
     };
 
+    const filteredFiles = files.filter((file) => `${file.file_name || ''} ${file.category || ''}`.toLowerCase().includes(searchQuery.trim().toLowerCase()));
+    const openTemplateEditor = (file) => {
+        setSelectedFile(file);
+        setEditTitle(file.file_name || '');
+        setEditContent(file.content || '');
+        setEditCategory(file.category || '');
+        setEditPetOwnerContexts(parseConsentContexts(file.pet_owner_contexts || file.petOwnerContexts).slice(0, 1));
+        setEditEditorOpen(true);
+        setEditPreviewOpen(false);
+        setEditModalOpen(true);
+    };
+
     return (
-        <div className="space-y-6">
+        <div className="care-workspace care-consent-workspace space-y-6">
             <DashboardPageHeader
                 icon={FileText}
                 title="Consent Template Management"
                 description="Create reusable consent letters with automatic owner, patient, service, and date fields."
-                meta={<Badge className="border-blue-200 bg-blue-50 text-blue-700">{files.length} active forms</Badge>}
+                meta={<span className="text-xs text-slate-500 dark:text-slate-400">{files.length} templates</span>}
+                actions={<Button type="button" variant={isCreating ? 'outline' : 'default'} onClick={() => setIsCreating((current) => !current)} className="gap-2"><Plus className="size-4" aria-hidden="true" />{isCreating ? 'Close new template' : 'New template'}</Button>}
             />
 
+            {loadError && <div role="status" className="flex flex-wrap items-center justify-between gap-3 rounded-lg border border-amber-200 bg-amber-50 p-3 text-sm text-amber-800 dark:border-amber-900 dark:bg-amber-950/30 dark:text-amber-200"><span>{loadError}</span><Button type="button" size="sm" variant="outline" onClick={() => fetchConsentFiles({ isAutoRefresh: true })}>Retry</Button></div>}
             {/* Template editor */}
+            {isCreating && (
             <div className="rounded-[14px] border border-[rgba(0,0,0,0.1)] bg-white p-4 shadow-sm sm:p-6">
                 <div className="mb-5 flex items-start gap-3">
                     <div className="p-2 bg-blue-50 rounded-lg">
@@ -271,7 +291,7 @@ export default function ConsentFilesManagement() {
                     </div>
                     <div className="flex flex-col">
                         <h3 className="font-['Arimo:Bold',sans-serif] text-[18px] font-bold text-[#101828]">
-                            New Consent Template Editor
+                            New consent template
                         </h3>
                         <p className="mt-1 text-sm text-slate-500">
                             Start from a blank template or import TXT. System codes are filled from the current consent record.
@@ -279,7 +299,7 @@ export default function ConsentFilesManagement() {
                     </div>
                 </div>
 
-                <div className="grid grid-cols-1 items-end gap-4 md:grid-cols-2 xl:grid-cols-4">
+                <div className="care-consent-fields grid grid-cols-1 items-end gap-4 md:grid-cols-3">
                     <div>
                         <p className="mb-2 text-[11px] font-semibold text-slate-500">Optional - uploading a TXT document loads its content into the editor.</p>
                         <FileUploadDropzone
@@ -294,17 +314,18 @@ export default function ConsentFilesManagement() {
                         />
                     </div>
                     <div className="space-y-1">
-                        <Label className="text-xs text-gray-500 block">Document Title</Label>
+                        <Label htmlFor="consent-new-title" className="text-xs text-gray-500 block">Document Title</Label>
                         <Input
+                            id="consent-new-title"
                             value={uploadTitle}
                             onChange={(event) => setUploadTitle(event.target.value)}
                             placeholder="Consent document title"
                         />
                     </div>
                     <div className="space-y-1">
-                        <Label className="text-xs text-gray-500 block">Document category</Label>
+                        <Label htmlFor="consent-new-category" className="text-xs text-gray-500 block">Document category</Label>
                         <Select value={uploadCategory} onValueChange={setUploadCategory}>
-                            <SelectTrigger>
+                            <SelectTrigger id="consent-new-category">
                                 <SelectValue placeholder="Select service category" />
                             </SelectTrigger>
                             <SelectContent>
@@ -315,12 +336,12 @@ export default function ConsentFilesManagement() {
                         </Select>
                     </div>
                     <div className="space-y-1">
-                        <Label className="text-xs text-gray-500 block">Pet-owner flow</Label>
+                        <Label htmlFor="consent-new-flow" className="text-xs text-gray-500 block">Pet-owner flow</Label>
                         <Select
                             value={uploadPetOwnerContexts[0] || 'none'}
                             onValueChange={(value) => setUploadPetOwnerContexts(value === 'none' ? [] : [value])}
                         >
-                            <SelectTrigger>
+                            <SelectTrigger id="consent-new-flow">
                                 <SelectValue
                                     displayValue={
                                         PET_OWNER_CONSENT_CONTEXTS.find((context) => context.value === uploadPetOwnerContexts[0])?.label || 'Not used'
@@ -374,7 +395,7 @@ export default function ConsentFilesManagement() {
                 {uploadEditorOpen && (
                     <div
                         id="new-consent-editor"
-                        className={`mt-3 grid gap-5 ${uploadPreviewOpen ? '2xl:grid-cols-[minmax(0,1.05fr)_minmax(420px,0.95fr)]' : ''}`}
+                        className={`care-consent-editor-layout mt-3 ${uploadPreviewOpen ? 'is-preview' : ''}`}
                     >
                         <ConsentTemplateEditor
                             value={uploadContent}
@@ -433,114 +454,32 @@ export default function ConsentFilesManagement() {
                 </div>
             </div>
 
-            {/* Files Grid */}
-            <div className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-3">
-                {isLoading ? (
-                    Array(3).fill(0).map((_, i) => (
-                        <div key={i} className="h-48 bg-gray-100 animate-pulse rounded-xl" />
-                    ))
-                ) : files.map((file) => (
-                    <Card
-                        key={file.file_id}
-                        petHover={false}
-                        className="group overflow-hidden border-slate-200 transition-colors hover:border-blue-300 dark:border-slate-700 dark:bg-slate-900"
-                    >
-                        <CardContent className="flex h-full flex-col p-0">
-                            <div className="flex items-start justify-between gap-3 border-b border-slate-100 p-4 dark:border-slate-800">
-                                <div className="flex min-w-0 items-start gap-3">
-                                    <div className="flex size-10 shrink-0 items-center justify-center rounded-lg bg-blue-50 text-blue-600 transition-colors group-hover:bg-blue-600 group-hover:text-white dark:bg-blue-950/60 dark:text-blue-300">
-                                        <FileText className="size-5" aria-hidden="true" />
-                                    </div>
-                                    <div className="min-w-0">
-                                        <h4 className="line-clamp-2 break-words text-sm font-black leading-5 text-slate-950 dark:text-white">
-                                            {file.file_name}
-                                        </h4>
-                                        <div className="mt-1.5 flex flex-wrap items-center gap-2 text-xs font-semibold text-slate-500 dark:text-slate-400">
-                                            <span>{categoryLabels[file.category] || file.category}</span>
-                                            <span aria-hidden="true">•</span>
-                                            <span>{file.file_size}</span>
-                                        </div>
-                                    </div>
-                                </div>
-                                <div className="flex shrink-0 gap-1 opacity-100 transition-opacity sm:opacity-0 sm:group-focus-within:opacity-100 sm:group-hover:opacity-100">
-                                    <Button 
-                                        variant="ghost" 
-                                        size="icon" 
-                                        className="size-8 text-slate-500 hover:bg-blue-50 hover:text-blue-700 dark:text-slate-400 dark:hover:bg-blue-950/60 dark:hover:text-blue-300"
-                                        aria-label={`Edit ${file.file_name}`}
-                                        title="Edit template"
-                                        onClick={() => {
-                                            setSelectedFile(file);
-                                            setEditTitle(file.file_name || '');
-                                            setEditContent(file.content || '');
-                                            setEditCategory(file.category || '');
-                                            setEditPetOwnerContexts(parseConsentContexts(file.pet_owner_contexts || file.petOwnerContexts).slice(0, 1));
-                                            setEditEditorOpen(true);
-                                            setEditPreviewOpen(false);
-                                            setEditModalOpen(true);
-                                        }}
-                                    >
-                                        <Edit3 className="size-4" />
-                                    </Button>
-                                    <Button 
-                                        variant="ghost" 
-                                        size="icon" 
-                                        className="size-8 text-slate-500 hover:bg-red-50 hover:text-red-600 dark:text-slate-400 dark:hover:bg-red-950/60 dark:hover:text-red-300"
-                                        aria-label={`Delete ${file.file_name}`}
-                                        title="Delete template"
-                                        onClick={() => {
-                                            setFileToDelete(file);
-                                            setDeleteDialogOpen(true);
-                                        }}
-                                    >
-                                        <Trash2 className="size-4" />
-                                    </Button>
-                                </div>
-                            </div>
-
-                            <div className="flex flex-1 flex-col gap-4 p-4">
-                                <div>
-                                    <p className="text-xs font-bold text-slate-500 dark:text-slate-400">Used in pet-owner flow</p>
-                                    <div className="mt-2 flex min-h-6 flex-wrap items-center gap-1.5">
-                                    {parseConsentContexts(file.pet_owner_contexts || file.petOwnerContexts).slice(0, 1).length > 0 ? (
-                                        parseConsentContexts(file.pet_owner_contexts || file.petOwnerContexts).slice(0, 1).map((context) => (
-                                            <Badge key={context} className="border border-blue-200 bg-blue-50 text-xs font-bold text-blue-700 dark:border-blue-800 dark:bg-blue-950/60 dark:text-blue-300">
-                                                {PET_OWNER_CONSENT_CONTEXTS.find((item) => item.value === context)?.label || context}
-                                            </Badge>
-                                        ))
-                                    ) : (
-                                        <Badge variant="outline" className="border-slate-200 bg-slate-50 text-xs text-slate-500 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-400">
-                                            Not assigned
-                                        </Badge>
-                                    )}
-                                    </div>
-                                </div>
-
-                                <Button
-                                    variant="outline"
-                                    className="mt-auto w-full gap-2 border-slate-200 font-bold text-blue-700 hover:border-blue-600 hover:bg-blue-600 hover:text-white dark:border-slate-700 dark:text-blue-300 dark:hover:border-blue-500 dark:hover:bg-blue-600 dark:hover:text-white"
-                                    onClick={() => {
-                                        setSelectedFile(file);
-                                        setViewModalOpen(true);
-                                    }}
-                                >
-                                    <Eye className="size-4" aria-hidden="true" />
-                                    View document
-                                </Button>
-                            </div>
-                        </CardContent>
-                    </Card>
-                ))}
-            </div>
-
-            {/* Empty State */}
-            {!isLoading && files.length === 0 && (
-                <div className="py-20 text-center bg-gray-50 rounded-2xl border-2 border-dashed border-gray-200">
-                    <FileText className="size-12 text-gray-300 mx-auto mb-4" />
-                    <p className="font-['Arimo:Bold',sans-serif] text-[18px] text-[#101828] mb-1">No Consent Templates</p>
-                    <p className="text-gray-400 text-sm">Upload a .txt form and assign it to a category.</p>
-                </div>
             )}
+
+            <section className="care-consent-library overflow-hidden rounded-xl border border-slate-200 bg-white dark:border-slate-700 dark:bg-slate-900" aria-labelledby="consent-library-title">
+                <div className="flex flex-col gap-3 border-b border-slate-200 p-4 dark:border-slate-700 sm:flex-row sm:items-center sm:justify-between sm:p-5">
+                    <div><h2 id="consent-library-title" className="text-base font-semibold">Consent templates</h2><p className="mt-1 text-sm text-slate-500 dark:text-slate-400">Review letters and their assigned booking flows.</p></div>
+                    <Input value={searchQuery} onChange={(event) => setSearchQuery(event.target.value)} placeholder="Search title or category" aria-label="Search consent templates" className="sm:max-w-xs" />
+                </div>
+                {isLoading ? <div role="status" className="p-8 text-center text-sm text-slate-500">Loading consent templatesâ€¦</div> : filteredFiles.length ? (
+                    <ul className="divide-y divide-slate-100 dark:divide-slate-800">
+                        {filteredFiles.map((file) => {
+                            const contexts = parseConsentContexts(file.pet_owner_contexts || file.petOwnerContexts).slice(0, 1);
+                            return (
+                                <li key={file.file_id} className="care-consent-row">
+                                    <div className="flex min-w-0 items-start gap-3"><FileText className="mt-0.5 size-5 shrink-0 text-slate-400" aria-hidden="true" /><div className="min-w-0"><h3 className="break-words text-sm font-semibold text-slate-900 dark:text-white">{file.file_name}</h3><p className="mt-1 text-xs text-slate-500 dark:text-slate-400">{categoryLabels[file.category] || file.category}{file.file_size ? ` Â· ${file.file_size}` : ''}</p></div></div>
+                                    <div><p className="text-xs text-slate-500 dark:text-slate-400">Booking flow</p><p className="mt-1 text-sm text-slate-700 dark:text-slate-300">{contexts.map((context) => PET_OWNER_CONSENT_CONTEXTS.find((item) => item.value === context)?.label || context).join(', ') || 'Not assigned'}</p></div>
+                                    <div className="flex items-center gap-1.5">
+                                        <Button type="button" variant="outline" size="sm" className="gap-2" onClick={() => { setSelectedFile(file); setViewModalOpen(true); }}><Eye className="size-4" aria-hidden="true" />View</Button>
+                                        <Button type="button" variant="ghost" size="icon" aria-label={`Edit ${file.file_name}`} title="Edit template" onClick={() => openTemplateEditor(file)}><Edit3 className="size-4" aria-hidden="true" /></Button>
+                                        <Button type="button" variant="ghost" size="icon" aria-label={`Delete ${file.file_name}`} title="Delete template" className="text-red-600 hover:bg-red-50 dark:text-red-300 dark:hover:bg-red-950/30" onClick={() => { setFileToDelete(file); setDeleteDialogOpen(true); }}><Trash2 className="size-4" aria-hidden="true" /></Button>
+                                    </div>
+                                </li>
+                            );
+                        })}
+                    </ul>
+                ) : <div className="p-8 text-center"><FileText className="mx-auto mb-3 size-8 text-slate-300" aria-hidden="true" /><p className="text-sm font-semibold">{files.length ? 'No matching templates' : 'No consent templates yet'}</p><p className="mt-1 text-sm text-slate-500">{files.length ? 'Try another title or category.' : 'Select New template to write a letter or import a TXT file.'}</p></div>}
+            </section>
 
             {/* View Modal */}
             <Dialog open={viewModalOpen} onOpenChange={setViewModalOpen}>
@@ -555,24 +494,25 @@ export default function ConsentFilesManagement() {
 
             {/* Edit Modal */}
             <Dialog open={editModalOpen} onOpenChange={setEditModalOpen}>
-                <DialogContent className="max-h-[92vh] max-w-6xl overflow-y-auto">
+                <DialogContent className="care-workspace care-consent-workspace care-consent-dialog max-h-[92vh] overflow-y-auto">
                     <DialogHeader>
                         <DialogTitle>Edit Consent Template</DialogTitle>
                     </DialogHeader>
                     <div className="space-y-4 py-4">
                         <div className="grid gap-4 md:grid-cols-3">
                             <div className="space-y-2">
-                                <Label className="text-xs text-gray-500">Document Title</Label>
+                                <Label htmlFor="consent-edit-title" className="text-xs text-gray-500">Document Title</Label>
                                 <Input
+                                    id="consent-edit-title"
                                     value={editTitle}
                                     onChange={(event) => setEditTitle(event.target.value)}
                                     placeholder="Consent document title"
                                 />
                             </div>
                             <div className="space-y-2">
-                                <Label className="text-xs text-gray-500">Document Category</Label>
+                                <Label htmlFor="consent-edit-category" className="text-xs text-gray-500">Document Category</Label>
                                 <Select value={editCategory} onValueChange={setEditCategory}>
-                                    <SelectTrigger>
+                                    <SelectTrigger id="consent-edit-category">
                                         <SelectValue placeholder="Select category" />
                                     </SelectTrigger>
                                     <SelectContent>
@@ -583,12 +523,12 @@ export default function ConsentFilesManagement() {
                                 </Select>
                             </div>
                             <div className="space-y-2">
-                                <Label className="text-xs text-gray-500">Pet-owner flow</Label>
+                                <Label htmlFor="consent-edit-flow" className="text-xs text-gray-500">Pet-owner flow</Label>
                                 <Select
                                     value={editPetOwnerContexts[0] || 'none'}
                                     onValueChange={(value) => setEditPetOwnerContexts(value === 'none' ? [] : [value])}
                                 >
-                                    <SelectTrigger>
+                                    <SelectTrigger id="consent-edit-flow">
                                         <SelectValue
                                             displayValue={
                                                 PET_OWNER_CONSENT_CONTEXTS.find((context) => context.value === editPetOwnerContexts[0])?.label || 'Not used'
@@ -642,7 +582,7 @@ export default function ConsentFilesManagement() {
                         {editEditorOpen && (
                             <div
                                 id="edit-consent-editor"
-                                className={`grid gap-5 ${editPreviewOpen ? '2xl:grid-cols-[minmax(0,1.05fr)_minmax(420px,0.95fr)]' : ''}`}
+                                className={`care-consent-editor-layout ${editPreviewOpen ? 'is-preview' : ''}`}
                             >
                                 <ConsentTemplateEditor
                                     value={editContent}
@@ -717,7 +657,3 @@ export default function ConsentFilesManagement() {
         </div>
     );
 }
-
-const Label = ({ children, className }) => (
-    <label className={`text-sm font-medium leading-none ${className}`}>{children}</label>
-);

@@ -15,7 +15,7 @@ import PasswordInput from '../shared/PasswordInput.jsx';
 import { useAutoRefresh } from '../../hooks/useAutoRefresh';
 import { createAccount, deleteAccount, fetchAccounts as fetchAccountsService, updateAccountStatus, updatePersonnelAccountDetails } from '../../services/accountService';
 import ProtectedImage from '../shared/ProtectedImage.jsx';
-import DashboardPageHeader from '../shared/DashboardPageHeader';
+import DashboardPageHeader from '../shared/CarePageHeader.jsx';
 import VetBookingSchedulePanel from '../shared/VetBookingSchedulePanel.jsx';
 import { fetchBranches, getBranchDisplayName } from '../../services/branchService';
 import PasswordRequirements from '../shared/PasswordRequirements.jsx';
@@ -66,7 +66,7 @@ function ProfileAvatar({ account, type, size = 'card' }) {
     const initials = `${displayValue(account?.first_Name, '').charAt(0)}${displayValue(account?.last_Name, '').charAt(0)}`.trim() || 'IP';
 
     return (
-        <div className={`flex ${sizeClass} shrink-0 items-center justify-center overflow-hidden rounded-full ${tone.avatarClass} font-black ${tone.iconClass}`}>
+        <div className={`care-account-avatar flex ${sizeClass} shrink-0 items-center justify-center overflow-hidden rounded-full ${tone.avatarClass} font-semibold ${tone.iconClass}`}>
             {imageSrc ? (
                 <ProtectedImage
                     src={imageSrc}
@@ -659,11 +659,7 @@ export default function AccountManagement() {
         return 'Admin / Staff';
     };
 
-    const getRoleBadgeClass = (type) => {
-        if (type === 'vet') return 'border-blue-200 bg-blue-50 text-blue-700';
-        if (type === 'superadmin') return 'border-emerald-200 bg-emerald-50 text-emerald-700';
-        return 'border-violet-200 bg-violet-50 text-violet-700';
-    };
+    const getRoleBadgeClass = () => 'border-slate-200 bg-slate-50 text-slate-600 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-300';
 
     const getAccountName = (account) => {
         return displayValue(`${account?.first_Name || ''} ${account?.last_Name || ''}`.trim(), account?.mail_Address || 'Account');
@@ -802,9 +798,10 @@ export default function AccountManagement() {
     };
 
     return (
-        <div className="space-y-5">
+        <div className="care-workspace care-accounts space-y-5">
             <DashboardPageHeader
                 title="Account Management"
+                icon={UserCog}
                 description="Manage clinic users, profile details, and account access."
                 petHover
                 petKind="bunny"
@@ -859,11 +856,12 @@ export default function AccountManagement() {
                                 value={searchQuery}
                                 onChange={(event) => setSearchQuery(event.target.value)}
                                 placeholder="Search accounts"
+                                aria-label="Search accounts"
                                 leftIcon={<Search className="size-4" />}
                             />
                         </div>
                         <Select value={roleFilter} onValueChange={setRoleFilter}>
-                            <SelectTrigger>
+                            <SelectTrigger aria-label="Filter accounts by role">
                                 <SelectValue displayValue={roleFilter === 'all' ? 'All roles' : getRoleLabel(roleFilter)} />
                             </SelectTrigger>
                             <SelectContent>
@@ -932,7 +930,7 @@ export default function AccountManagement() {
                                         aria-label={`Open account details for ${getAccountName(account)}`}
                                         onClick={() => openAccountDetails(account, account.type)}
                                         onKeyDown={(event) => handleAccountRowKeyDown(event, account)}
-                                        className="cursor-pointer align-middle transition hover:bg-blue-50/30 focus:bg-blue-50/50 focus:outline-none"
+                                        className="cursor-pointer align-middle transition-colors hover:bg-blue-50/30 focus-visible:bg-blue-50/50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-blue-500 dark:hover:bg-slate-800/60"
                                     >
                                         <td className="px-4 py-3">
                                             <div className="flex min-w-0 items-center gap-3">
@@ -1053,7 +1051,7 @@ export default function AccountManagement() {
 
             {/* View Details Modal */}
             <Dialog open={showDetails} onOpenChange={(open) => open ? setShowDetails(true) : closeAccountDetails()}>
-                <DialogContent className="max-h-[94dvh] max-w-6xl overflow-y-auto">
+                <DialogContent className="care-workspace care-accounts care-accounts-dialog max-h-[94dvh] overflow-y-auto">
                     {selectedUser && (
                         <>
                             <DialogHeader>

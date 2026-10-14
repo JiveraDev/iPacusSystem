@@ -72,10 +72,15 @@ The app theme is controlled by `ThemeProvider` from `src/context/ThemeProvider.j
 
 ## Testing Guidelines
 
-No automated test framework is currently configured in `package.json`. For now, validate changes with:
+Node's built-in test runner is configured as `npm test`; frontend regressions live beside their modules. PHP regressions live in `phpTestfiles/` and `scripts/tests/`. Validate changes with:
 
 - `npm run lint`
 - `npm run build`
+- `npm test`
+- `npm run check`: frontend tests, lint, build, PHP syntax, selected database-free regressions and local API routing; logs go to ignored `tmp/project-audit/`
+- `npm run check:google`: read-only local Google configuration/dependency/schema readiness
+- `npm run sandbox`: isolated MariaDB/PHP/Vite environment using synthetic fixtures; see `docs/database_sandbox.md`
+- `npm run sandbox:test` and `npm run sandbox:google`: database-backed checks; stop the interactive sandbox first
 - PHP syntax checks for changed endpoints, for example `php -l php/get_bookings.php`
 - Manual browser testing for booking, queue, inventory, and profile flows touched by the change
 If tests are added later, place them near the related module or in a test directory, using `*.test.jsx` or `*.spec.jsx`.
@@ -85,3 +90,7 @@ Pull requests should include a summary, affected areas, verification commands, d
 ## Security & Configuration Tips
 
 Keep secrets in `.env`; do not commit credentials or local database passwords. Uploaded files should go through the existing upload endpoint and land under the relevant `public/` upload subdirectory.
+
+PHP only loads root `.env`, not `env`. Both filenames are ignored and blocked from Apache/Vite access. The built-in PHP development server must use `scripts/local-api-router.php`, since it ignores `.htaccess`. Route requests through `php/index.php`; direct handler execution bypasses central policies. Keep database-dependent tests separate from the default runner and document browser/integration coverage honestly.
+
+The isolated launcher sets `IPAWCUS_SANDBOX=1`, which skips root `.env` for PHP and supplies dedicated loopback database/API/frontend ports. Sandbox storage and activity logs stay separate, real mail/push credentials are disabled, and Google credentials are still verified. Preserve this isolation. Setup extracts schema only from the user's dump and must not import source records or overwrite an existing instance.

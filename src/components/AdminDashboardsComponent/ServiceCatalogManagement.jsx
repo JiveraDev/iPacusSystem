@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react';
+import { Children, cloneElement, isValidElement, useId, useMemo, useState } from 'react';
 import {
     ClipboardList,
     Loader2,
@@ -24,7 +24,7 @@ import { useDashboardUser } from '../dashboardRouter.jsx';
 import { formatPhpCurrency } from '../../lib/currency';
 import { getUserFacingErrorMessage } from '../../lib/errorPresentation';
 import { fetchInventoryItems } from '../../services/inventoryApi';
-import DashboardPageHeader from '../shared/DashboardPageHeader.jsx';
+import DashboardPageHeader from '../shared/CarePageHeader.jsx';
 import {
     deactivateServiceCatalogItem,
     deleteServiceCatalogItem,
@@ -480,10 +480,11 @@ export default function ServiceCatalogManagement() {
     };
 
     return (
-        <div className="mx-auto max-w-[1600px] space-y-6">
+        <div className="care-workspace care-service-catalog space-y-6">
             <DashboardPageHeader
                 icon={ClipboardList}
                 title="Service Catalog"
+                description="Clinic services, prices, and material presets."
                 meta={(
                     <div className="flex items-center gap-2 text-xs font-bold text-slate-600 dark:text-slate-300" aria-label="Service totals">
                         <span><span className="text-[#155dfc]">{services.filter((service) => service.isActive).length}</span> active</span>
@@ -547,7 +548,7 @@ export default function ServiceCatalogManagement() {
                         </div>
                     </div>
 
-                    <div className="max-h-[calc(100vh-330px)] min-h-40 overflow-y-auto">
+                    <div className="care-service-list min-h-40 overflow-y-auto">
                         {isLoading ? (
                             <div className="flex min-h-40 items-center justify-center text-slate-500 dark:text-slate-400">
                                 <Loader2 className="mr-2 size-5 animate-spin" />
@@ -561,7 +562,7 @@ export default function ServiceCatalogManagement() {
                             </div>
                         ) : (
                             <div className="divide-y divide-slate-100 dark:divide-slate-800">
-                                <div className="hidden grid-cols-[minmax(0,2fr)_minmax(100px,1fr)_100px_100px_90px_56px] gap-4 bg-slate-50 px-5 py-2.5 text-xs font-bold uppercase tracking-wide text-slate-500 dark:bg-slate-800/60 dark:text-slate-400 lg:grid">
+                                <div className="sticky top-0 z-10 hidden grid-cols-[minmax(0,2fr)_minmax(100px,1fr)_100px_100px_90px_56px] gap-4 bg-slate-50 px-5 py-2.5 text-xs font-semibold text-slate-500 dark:bg-slate-800 dark:text-slate-400 lg:grid">
                                     <span>Service</span><span>Type</span><span className="text-right">Base price</span><span className="text-right">Materials</span><span>Status</span><span className="text-right">Edit</span>
                                 </div>
                                 {filteredServices.map((service) => (
@@ -855,10 +856,16 @@ function serviceToForm(service) {
 }
 
 function Field({ label, children, className = '' }) {
+    const id = useId();
+    const control = isValidElement(children) && children.type === Select
+        ? cloneElement(children, {}, Children.map(children.props.children, (child) => (
+            isValidElement(child) && child.type === SelectTrigger ? cloneElement(child, { id }) : child
+        )))
+        : isValidElement(children) ? cloneElement(children, { id }) : children;
     return (
         <div className={`space-y-2 ${className}`}>
-            <Label className="text-sm font-bold text-slate-900">{label}</Label>
-            {children}
+            <Label htmlFor={id} className="text-sm font-semibold text-slate-900 dark:text-slate-100">{label}</Label>
+            {control}
         </div>
     );
 }

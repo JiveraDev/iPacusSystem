@@ -1,0 +1,229 @@
+.care-workspace {
+    --care-surface: var(--theme-surface, #fff);
+    --care-muted-surface: var(--theme-surface-soft, #f4f7fb);
+    --care-border: var(--theme-border, #dfe5ed);
+    --care-ink: var(--theme-text, #10213f);
+    --care-muted: var(--theme-text-muted, #536782);
+    width: 100%;
+    min-width: 0;
+    max-width: 100rem;
+    margin-inline: auto;
+    color: var(--care-ink);
+}
+.care-workspace.care-consult-form { max-width: 56rem; }
+.care-workspace.care-pet-profile, .care-workspace.care-pet-information, .care-workspace.medical-records-page { max-width: 76rem; }
+.care-workspace.care-record-dialog { max-width: min(76rem, calc(100vw - 2rem)); }
+
+.care-page-header[data-slot='dashboard-page-header'] {
+    padding: .25rem 0 1.25rem;
+    overflow: visible;
+    border: 0;
+    border-bottom: 1px solid var(--theme-border);
+    border-radius: 0;
+    background: transparent !important;
+    box-shadow: none !important;
+}
+
+.care-page-header h1 { font-size: 1.5rem; font-weight: 700; letter-spacing: -.035em; line-height: 1.3; }
+html.dark .care-page-header[data-slot='dashboard-page-header'] { background-color: transparent !important; }
+.care-workspace.care-emr [class*='uppercase'] { text-transform: none; letter-spacing: normal; }
+.care-workspace.care-pet-profile .pet-action-dock-anchor { position: static; padding: 0; }
+.care-workspace.care-pet-profile .pet-action-dock { max-width: none; box-shadow: none !important; }
+.care-workspace.care-pet-profile .pet-action-dock button { min-height: 3.5rem; }
+.care-workspace.care-pet-profile .pet-action-dock button > span:last-child { display: block; white-space: normal; font-size: .65rem; line-height: 1.35; font-weight: 600; }
+.care-page-header[data-slot='dashboard-page-header']::before { display: none; }
+.care-page-header h1 + p, .care-page-header .ipawcus-dashboard-heading > p { font-weight: 400; }
+.care-page-header > div > div > .flex.size-11 { width: 2.5rem; height: 2.5rem; border-radius: .7rem; }
+.care-workspace [data-slot='card'] { border-radius: .85rem; box-shadow: none; }
+.care-workspace .ipawcus-dashboard-surface { box-shadow: none !important; }
+.care-workspace .care-pet-information-label, .care-workspace.care-pet-information [class*='uppercase'] { text-transform: none; letter-spacing: normal; }
+.care-workspace [data-slot='card-title'] { font-size: 1rem; font-weight: 650; letter-spacing: -.02em; line-height: 1.5; }
+.care-workspace :is(label, [data-slot='label']) { font-size: .75rem; font-weight: 600; text-transform: none; letter-spacing: normal; }
+.care-workspace :is(input, textarea, [data-slot='select-trigger']) { border-radius: .6rem; }
+.care-workspace table th { font-size: .73rem; font-weight: 600; text-transform: none; letter-spacing: normal; }
+.care-workspace :is(button, a):focus-visible { outline-offset: 3px; }
+.care-workspace .care-section-heading { display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 1rem; margin-bottom: 1rem; }
+.care-workspace .care-section-heading h2 { margin: 0; font-size: 1.05rem; font-weight: 650; letter-spacing: -.025em; }
+.care-workspace .care-section-heading p { margin: .3rem 0 0; color: var(--care-muted); font-size: .8rem; line-height: 1.6; }
+.care-workspace .care-context-bar { display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: .75rem 1.5rem; padding: .85rem 1rem; border: 1px solid var(--care-border); border-radius: .7rem; background: var(--care-surface); color: var(--care-muted); font-size: .8rem; }
+.care-workspace .care-context-bar strong { margin-left: .5rem; color: var(--care-ink); font-weight: 600; }
+.care-workspace .care-context-bar button { display: inline-flex; align-items: center; gap: .5rem; min-height: 2.4rem; color: var(--theme-primary); font-size: .8rem; font-weight: 600; }
+.care-workspace .care-context-bar button:hover { text-decoration: underline; text-underline-offset: 3px; }
+.care-workspace .care-context-bar button:disabled { color: var(--care-muted); cursor: default; text-decoration: none; }
+.care-workspace .care-kpi-card { min-height: 8.3rem; }
+.care-workspace .care-kpi-card--compact { min-height: 6.5rem; }
+.care-workspace .care-kpi-label { display: flex; align-items: flex-start; justify-content: space-between; gap: .75rem; min-height: 2.25rem; font-size: .78rem; line-height: 1.5; color: var(--care-muted); }
+.care-workspace .care-kpi-label p { margin: 0; font-weight: 500; }
+.care-workspace .care-kpi-label > svg { flex-shrink: 0; color: var(--care-muted); margin-top: .1rem; }
+.care-workspace .care-kpi-value { font-size: clamp(1.2rem, 1.6vw, 1.75rem); line-height: 1.2; font-weight: 700; letter-spacing: -.04em; font-variant-numeric: tabular-nums; overflow-wrap: anywhere; color: var(--care-ink); }
+.care-workspace .care-kpi-comparison { display: flex; align-items: center; gap: .3rem; min-height: 1.25rem; margin-top: .5rem; font-size: .7rem; line-height: 1.5; color: var(--care-muted); }
+.care-workspace .care-report-charts { align-items: stretch; }
+.care-workspace .care-report-charts [data-report-chart-heading] h3 { font-weight: 650; font-size: .92rem; line-height: 1.5; }
+.care-workspace .care-report-charts [data-report-chart-heading] > div > p:first-child { text-transform: none; letter-spacing: normal; font-weight: 500; font-size: .7rem; color: var(--care-muted); }
+.care-workspace .care-report-charts [data-report-chart-heading] h3 + p { font-weight: 400; font-size: .75rem; }
+.care-workspace .care-consult-overview { display: grid; grid-template-columns: minmax(0, 1fr) auto; align-items: center; gap: 1rem; padding: 1rem 1.25rem; border: 1px solid var(--care-border); border-radius: .85rem; background: var(--care-surface); }
+.care-workspace .care-consult-overview h2 { margin: 0; font-size: 1rem; font-weight: 650; }
+.care-workspace .care-consult-overview p { margin: .4rem 0 0; color: var(--care-muted); font-size: .8rem; line-height: 1.75; }
+.care-workspace .care-consult-list { overflow: hidden; border: 1px solid var(--care-border); border-radius: .85rem; background: var(--care-surface); }
+.care-workspace .care-consult-list > [data-slot='card'] { border: 0; border-bottom: 1px solid var(--care-border); border-radius: 0; }
+.care-workspace .care-consult-list > [data-slot='card']:last-child { border-bottom: 0; }
+.care-workspace .care-consult-list [data-slot='card-content'] { padding: 1rem 1.25rem; }
+.care-workspace .care-consult-list h3 { font-size: 1rem; }
+.care-workspace .care-consult-list h3 + span { font-weight: 500; }
+.care-consult-progress { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: .5rem; margin: 0; padding: .9rem; border: 1px solid var(--theme-border); border-radius: .8rem; background: var(--theme-surface); list-style: none; }
+.care-consult-progress li { display: flex; align-items: center; gap: .65rem; padding: .4rem .5rem; min-width: 0; color: var(--theme-text-muted); }
+.care-consult-progress .care-progress-icon { display: grid; place-items: center; flex-shrink: 0; width: 2.1rem; height: 2.1rem; border: 1px solid var(--theme-border); border-radius: .65rem; background: var(--theme-surface-soft); }
+.care-consult-progress strong { display: block; font-size: .76rem; font-weight: 600; line-height: 1.5; }
+.care-consult-progress small { display: block; margin-bottom: .1rem; font-size: .65rem; }
+.care-consult-progress .is-current { color: var(--theme-text); }
+.care-consult-progress .is-current .care-progress-icon { background: #155dfc; border-color: #155dfc; color: white; }
+.care-consult-progress .is-complete .care-progress-icon { color: var(--theme-primary); }
+.care-workspace .care-emr-grid { display: grid; grid-template-columns: minmax(0, 1fr); }
+.care-workspace .care-emr-grid :is(main, aside) { min-width: 0; }
+.care-workspace .care-emr-grid > aside:first-child { background: var(--care-muted-surface); }
+.care-workspace .care-emr-grid > main { background: var(--care-surface); }
+.care-workspace.care-consult-clinical [class*='uppercase'] { text-transform: none; letter-spacing: normal; }
+.care-workspace.care-consult-clinical :is(h2, h3) { font-weight: 650; }
+.care-consult-header > div:last-child > div:first-child { align-items: flex-start; }
+.care-consult-header > div:last-child > div:first-child > div:last-child { flex-wrap: wrap; }
+@media (max-width: 639px) {
+    .care-consult-header > div:last-child > div:first-child > div:last-child { flex-direction: row; align-items: center; }
+    .care-consult-header .care-consult-save { order: 1; flex: 1; }
+    .care-consult-header .care-consult-autosave { order: 2; }
+    .care-consult-header .care-consult-panel-toggle { order: 3; }
+    .care-consult-header button:not(.care-consult-save, .care-consult-panel-toggle) { order: 4; }
+}
+.care-workspace.care-consult-clinical [aria-label='Clinical consultation form'] { background: var(--care-surface); }
+.care-workspace.care-consult-clinical [aria-label='Clinical consultation form'] section { border: 0; border-top: 1px solid var(--care-border); border-radius: 0; }
+.care-workspace.care-consult-clinical [aria-label='Clinical consultation form'] section > div:first-child { background: transparent; }
+.care-workspace .care-emr-grid > aside:last-child { background: var(--care-muted-surface); grid-column: 1 / -1; }
+.care-workspace .care-emr-grid :is(h3, h4) { font-weight: 650; }
+.care-workspace .care-emr-grid [class*='uppercase'] { text-transform: none; letter-spacing: normal; }
+.care-workspace .care-emr-grid > main > div > p:first-child { color: var(--care-muted); font-size: .75rem; font-weight: 600; }
+.care-workspace .care-health-overview { overflow: hidden; border: 1px solid var(--care-border); border-radius: .85rem; background: var(--care-surface); }
+.care-workspace .care-health-overview > header { display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: .75rem; padding: 1.2rem; border-bottom: 1px solid var(--care-border); }
+.care-workspace .care-health-overview h2 { margin: 0; display: flex; align-items: center; gap: .6rem; font-size: 1rem; font-weight: 650; }
+.care-workspace .care-health-overview h2 svg { color: var(--theme-primary); }
+.care-workspace .care-health-overview header p { margin-top: .35rem; color: var(--care-muted); font-size: .75rem; }
+.care-workspace .care-health-metrics { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 1rem; margin: 0; padding: 1.2rem; background: var(--care-muted-surface); }
+.care-workspace .care-health-metrics dt { color: var(--care-muted); font-size: .7rem; }
+.care-workspace .care-health-metrics dd { margin: .25rem 0 0; font-size: 1.1rem; font-weight: 650; font-variant-numeric: tabular-nums; }
+.care-workspace .care-health-overview h3 { margin: 1.2rem 1.2rem .5rem; color: var(--care-muted); font-size: .8rem; font-weight: 600; }
+.care-workspace .care-medical-summaries article { margin: .75rem 1.2rem; padding: .9rem 1rem; border-left: 2px solid var(--theme-primary); background: var(--care-muted-surface); border-radius: 0 .5rem .5rem 0; }
+.care-workspace .care-medical-summaries h4, .care-workspace .care-medical-visits h4 { margin: 0; color: var(--care-ink); font-size: .85rem; font-weight: 600; }
+.care-workspace .care-medical-summaries p { margin: .5rem 0; font-size: .8rem; line-height: 1.7; white-space: pre-wrap; }
+.care-workspace .care-medical-summaries article > span { color: var(--care-muted); font-size: .7rem; }
+.care-workspace .care-medical-visits article { display: flex; gap: .75rem; padding: 1rem 1.2rem; border-top: 1px solid var(--care-border); }
+.care-workspace .care-medical-visits article > svg { flex-shrink: 0; margin-top: .15rem; color: var(--theme-primary); }
+.care-workspace .care-medical-visits p { margin-top: .3rem; color: var(--care-muted); font-size: .75rem; line-height: 1.6; }
+.care-workspace .care-medical-header { border: 1px solid var(--care-border); border-top: 3px solid #155dfc; border-radius: .8rem; background: var(--care-surface); padding: 1.5rem; box-shadow: none; }
+.care-workspace .care-medical-header h1 { font-size: 1.5rem; font-weight: 700; letter-spacing: -.03em; line-height: 1.4; }
+.care-workspace .care-medical-brand { display: flex; align-items: center; gap: .8rem; margin-bottom: 1rem; padding-bottom: 1rem; border-bottom: 1px solid var(--care-border); }
+.care-workspace .care-medical-brand img { height: 2.4rem; width: auto; max-width: 8rem; object-fit: contain; }
+.care-workspace .care-medical-brand span { color: var(--care-muted); font-size: .78rem; font-weight: 500; }
+.care-workspace .medical-print-area :is(h2, h3) { font-weight: 650; }
+.care-workspace .medical-print-area [class*='uppercase'] { text-transform: none; letter-spacing: normal; }
+.care-workspace .medical-print-area header { background: var(--care-muted-surface); }
+.care-workspace .care-document-toolbar { display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: .8rem; }
+.care-workspace .care-document-toolbar > div { display: flex; flex-wrap: wrap; gap: .6rem; }
+.care-workspace .care-profile-header { border: 1px solid var(--care-border); border-radius: .85rem; background: var(--care-surface); box-shadow: none; }
+.care-workspace .care-profile-header h1 { font-size: 1.7rem; line-height: 1.3; }
+.care-workspace .care-profile-header [class*='shadow'] { box-shadow: none; }
+.care-pet-identity .pet-id-face { box-shadow: none !important; }
+.care-pet-identity [class*='uppercase'] { text-transform: none; letter-spacing: normal; font-weight: 600; }
+.care-pet-identity .care-pet-card-toolbar { background: transparent !important; }
+.care-pet-identity .care-pet-name { font-size: clamp(1.6rem, 3vw, 2.4rem); line-height: 1.25; }
+.care-pet-identity .care-pet-card-body dl { gap: 1.1rem 1.5rem; }
+.care-pet-identity .care-pet-portrait { border-radius: 1rem; }
+.care-pet-identity .pet-id-face--back { min-height: 0; }
+.care-pet-identity .pet-id-face--back > div:last-child { min-height: 0; }
+.care-pet-identity .pet-id-face footer { align-items: center; }
+.care-pet-detail [class*='uppercase'] { text-transform: none; letter-spacing: normal; }
+.care-pet-detail h3 { font-weight: 650; }
+.care-pet-detail h4 { color: var(--theme-text-muted); font-size: .8rem; font-weight: 600; }
+.care-workspace.care-consent-dialog { max-width: min(76rem, calc(100vw - 2rem)); }
+.care-workspace.care-accounts-dialog { max-width: min(64rem, calc(100vw - 2rem)); }
+.care-accounts [class*='uppercase'] { text-transform: none; letter-spacing: normal; }
+.care-accounts table { table-layout: fixed; }
+.care-accounts table th:first-child { width: 27%; }
+.care-accounts table th:nth-child(2) { width: 13%; }
+.care-accounts table th:last-child { width: 13%; }
+.care-accounts table p.font-black { font-weight: 600; }
+.care-accounts .care-account-avatar { background: var(--care-muted-surface) !important; color: var(--care-muted) !important; }
+.care-consent-fields > div:first-child { grid-column: 1 / -1; }
+.care-consent-row { display: grid; gap: 1rem; padding: 1rem 1.25rem; }
+.care-consent-row > div:last-child { justify-content: flex-end; }
+.care-consent-editor-layout { display: grid; grid-template-columns: minmax(0, 1fr); gap: 1.25rem; }
+.care-consent-editor-layout > * { min-width: 0; }
+.care-consent-workspace :is(h3, h4) { font-weight: 600; }
+.care-consent-workspace .consent-template-editor textarea { font-family: inherit; padding: 1rem; }
+.care-consent-workspace .consent-template-editor { container-type: inline-size; }
+@container (min-width: 40rem) { .consent-editor-toolbar { flex-direction: row; align-items: flex-start; } }
+.care-service-list { max-height: none; }
+.care-service-catalog [class*='uppercase'] { text-transform: none; letter-spacing: normal; }
+.care-pos [class*='uppercase'] { text-transform: none; letter-spacing: normal; }
+.care-pos :is(h2, h3) { font-weight: 600; }
+.care-pos .care-pos-products { container-type: inline-size; }
+.care-pos-catalog-grid { display: grid; grid-template-columns: minmax(0, 1fr); gap: .75rem; }
+.care-pos-product { min-width: 0; padding: .9rem 1rem; }
+.care-pos-product h3 { font-size: .9rem; font-weight: 600; line-height: 1.5; }
+.care-pos .care-pos-invoice-heading { background: var(--care-surface) !important; color: var(--care-ink) !important; border-bottom: 1px solid var(--care-border); padding: 1rem; }
+.care-pos .care-pos-invoice-heading p { color: var(--care-muted) !important; font-weight: 400; }
+.care-pos .care-pos-invoice-heading [data-slot='badge'] { background: var(--care-muted-surface) !important; color: var(--care-muted) !important; border: 0; }
+.care-pos main button[aria-label^='Increase quantity'], .care-pos main button[aria-label^='Decrease quantity'] { min-width: 2.25rem; min-height: 2.25rem; }
+.care-pos main button[aria-label^='Remove '] { min-width: 2.25rem; min-height: 2.25rem; }
+@container (min-width: 34rem) { .care-pos-catalog-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+@container (min-width: 52rem) { .care-pos-catalog-grid { grid-template-columns: repeat(3, minmax(0, 1fr)); } }
+@media (min-width: 768px) { .care-consent-row { grid-template-columns: minmax(0, 1.5fr) minmax(9rem, .8fr) auto; align-items: center; } }
+@media (min-width: 1100px) { .care-service-list { max-height: calc(100dvh - 22rem); } }
+@media (min-width: 1280px) { .care-consent-editor-layout.is-preview { grid-template-columns: minmax(0, 1.1fr) minmax(0, 1fr); align-items: start; } }
+
+@media (min-width: 1100px) {
+    .care-workspace .care-emr-grid { grid-template-columns: 13rem minmax(0, 1fr); }
+    .care-workspace .care-emr-grid > aside:last-child { grid-column: 1 / -1; }
+    .care-workspace .care-emr-grid > aside:last-child > div:last-child { grid-template-columns: repeat(2, minmax(0, 1fr)); max-height: 26rem; }
+}
+@media (min-width: 1600px) {
+    .care-workspace .care-emr-grid { grid-template-columns: 13rem minmax(0, 1fr) 19rem; }
+    .care-workspace .care-emr-grid > aside:last-child { grid-column: auto; }
+    .care-workspace .care-emr-grid > aside:last-child > div:last-child { grid-template-columns: 1fr; max-height: calc(100dvh - 19rem); }
+}
+@media (max-width: 639px) {
+    .care-page-header h1 { font-size: 1.35rem; }
+    .care-workspace .care-consult-overview { grid-template-columns: 1fr; }
+    .care-workspace .care-consult-overview > button { width: 100%; }
+    .care-consult-progress { padding: .7rem .25rem; gap: .2rem; }
+    .care-consult-progress li { flex-direction: column; align-items: flex-start; gap: .5rem; padding: .25rem .5rem; }
+    .care-consult-progress strong { font-size: .7rem; }
+    .care-workspace .care-health-overview > header { align-items: flex-start; }
+    .care-workspace .care-health-overview > header button { width: 100%; }
+    .care-workspace .care-health-metrics { gap: .7rem; padding: 1rem; }
+    .care-workspace .care-health-metrics dt { font-size: .65rem; }
+    .care-workspace .care-health-metrics dd { font-size: 1rem; }
+    .care-workspace .care-medical-header { padding: 1rem; }
+    .care-workspace .care-document-toolbar > div { width: 100%; }
+    .care-workspace .care-document-toolbar > div > button { flex: 1; }
+}
+
+@media print {
+    .care-workspace { max-width: none; }
+    .medical-print-area {
+        --theme-surface: #fff;
+        --theme-surface-soft: #f8fafc;
+        --theme-surface-muted: #f1f5f9;
+        --theme-border: #d1d5db;
+        --theme-text: #111827;
+        --theme-text-muted: #4b5563;
+        --theme-text-soft: #6b7280;
+    }
+    .medical-print-area .care-medical-header { padding: 0 0 4mm !important; border: 0 !important; border-bottom: 1.5pt solid #24364a !important; border-radius: 0; margin-bottom: 5mm; break-after: avoid-page; }
+    .medical-print-area .care-medical-brand { margin-bottom: 3mm; padding-bottom: 3mm; border-bottom: .5pt solid #d1d5db; }
+    .medical-print-area .care-medical-brand img { max-height: 12mm; }
+    .medical-print-area .care-medical-header h1 { color: #111827 !important; font-size: 16pt !important; line-height: 1.3 !important; }
+    .medical-print-area :is(h2, h3) { color: #111827 !important; font-size: 11pt !important; break-after: avoid-page; }
+    .medical-print-area :is(h4, label) { color: #374151 !important; font-size: 9pt !important; }
+    .medical-print-area table { width: 100%; border-collapse: collapse; }
+    .medical-print-area thead { display: table-header-group; }
+    .medical-print-area tr { break-inside: avoid-page; }
+    .medical-print-area p { orphans: 3; widows: 3; }
+}

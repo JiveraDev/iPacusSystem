@@ -1,0 +1,4 @@
+interface:
+  display_name: "Design Reference Collection"
+  short_description: "Apply brand-inspired DESIGN.md references"
+  default_prompt: "Use $awesome-design-md to apply a selected brand reference to this project’s DESIGN.md and UI."

@@ -40,7 +40,7 @@ import { formatDisplayDate } from '../../lib/date';
 import { dedupeClinicalFields } from '../../lib/clinicalRecord';
 import { resolveImageUrl } from '../../lib/image';
 import { formatQueueReference } from '../../lib/referenceNumbers';
-import DashboardPageHeader from '../shared/DashboardPageHeader.jsx';
+import DashboardPageHeader from '../shared/CarePageHeader.jsx';
 import PrescriptionPlanPanel from '../shared/PrescriptionPlanPanel.jsx';
 import { fetchProfile } from '../../services/profileService';
 import { uploadDataUrlImage, uploadDocumentFile } from '../../services/uploadService';
@@ -1118,7 +1118,7 @@ export default function VetPetsEMR() {
     };
 
     return (
-        <div className="space-y-6">
+        <div className="care-workspace care-emr space-y-6">
             <DashboardPageHeader
                 icon={Stethoscope}
                 title="Medical Record Editor"
@@ -1154,6 +1154,7 @@ export default function VetPetsEMR() {
                                     }}
                                     onFocus={() => setIsPetSearchOpen(true)}
                                     placeholder="Search the patient directory"
+                                    aria-label="Search the patient directory"
                                     className="h-11 text-base"
                                     leftIcon={<Search className="size-4" />}
                                 />
@@ -1187,8 +1188,8 @@ export default function VetPetsEMR() {
                                                         type="button"
                                                         onMouseDown={(event) => {
                                                             event.preventDefault();
-                                                            selectPet(pet);
                                                         }}
+                                                        onClick={() => selectPet(pet)}
                                                         className={`flex w-full items-start justify-between gap-3 rounded-md p-3 text-left transition ${
                                                             isSelected ? 'bg-blue-50 dark:bg-blue-950/50' : 'hover:bg-slate-50 dark:hover:bg-slate-800'
                                                         }`}
@@ -1292,7 +1293,7 @@ export default function VetPetsEMR() {
                         </div>
                     </header>
 
-                    <div className="grid min-h-[36rem] lg:grid-cols-[14rem_minmax(0,1fr)] xl:grid-cols-[15rem_minmax(0,1fr)_22rem]">
+                    <div className="care-emr-grid min-h-[36rem]">
                         <aside className="border-b border-slate-200 bg-slate-50/70 p-4 dark:border-slate-700 dark:bg-slate-950/40 lg:border-b-0 lg:border-r">
                             <div className="flex items-center justify-between gap-2">
                                 <div>
@@ -1405,6 +1406,7 @@ export default function VetPetsEMR() {
                                         value={sourceSearch}
                                         onChange={(event) => setSourceSearch(event.target.value)}
                                         placeholder="Search source records"
+                                    aria-label="Search source records"
                                         leftIcon={<Search className="size-4" />}
                                         aria-label="Search service and vaccination records"
                                     />
@@ -1461,7 +1463,7 @@ export default function VetPetsEMR() {
             )}
 
             <Dialog open={Boolean(previewRecord)} onOpenChange={(open) => !open && setPreviewRecord(null)}>
-                <DialogContent className="max-h-[90vh] max-w-5xl overflow-y-auto">
+                <DialogContent className="care-workspace care-record-dialog max-h-[90vh] overflow-y-auto">
                     <DialogHeader>
                         <DialogTitle>{previewRecord?.title || 'Service Record'}</DialogTitle>
                         <DialogDescription>
@@ -1503,7 +1505,7 @@ export default function VetPetsEMR() {
                     }
                 }}
             >
-                <DialogContent className="max-h-[90vh] max-w-6xl overflow-y-auto">
+                <DialogContent className="care-workspace care-record-dialog max-h-[90vh] overflow-y-auto">
                     <DialogHeader>
                         <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
                             <DialogTitle>Revise Medical Record</DialogTitle>
@@ -1539,12 +1541,13 @@ export default function VetPetsEMR() {
                                 <p className="mt-1 text-xs text-slate-500 dark:text-slate-400">Edit the clinical history and add supporting files. This revised copy is what appears in the organized medical record.</p>
                             </div>
                             <div className="space-y-2">
-                                <Label>Record title</Label>
-                                <Input value={itemDraft.title} onChange={(event) => setItemDraft(current => ({ ...current, title: event.target.value }))} />
+                                <Label htmlFor="emr-revision-title">Record title</Label>
+                                <Input id="emr-revision-title" value={itemDraft.title} onChange={(event) => setItemDraft(current => ({ ...current, title: event.target.value }))} />
                             </div>
                             <div className="space-y-2">
-                                <Label>Revised diagnosis / medical summary</Label>
+                                <Label htmlFor="emr-revision-summary">Revised diagnosis / medical summary</Label>
                                 <Textarea
+                                    id="emr-revision-summary"
                                     value={itemDraft.summary}
                                     onChange={(event) => setItemDraft(current => ({ ...current, summary: event.target.value }))}
                                     className="min-h-28 resize-y"
@@ -1599,8 +1602,9 @@ export default function VetPetsEMR() {
                                 )}
                             </div>
                             <div className="space-y-2">
-                                <Label>Veterinarian Revision Notes</Label>
+                                <Label htmlFor="emr-revision-notes">Veterinarian Revision Notes</Label>
                                 <Textarea
+                                    id="emr-revision-notes"
                                     value={itemDraft.revisionNotes}
                                     onChange={(event) => setItemDraft(current => ({ ...current, revisionNotes: event.target.value }))}
                                     placeholder="Explain what was revised without rewriting the source diagnosis."
@@ -2189,15 +2193,17 @@ function RecordGroup({
                     <div className="space-y-3">
                         <div className="grid gap-3 lg:grid-cols-[minmax(0,0.9fr)_minmax(0,1.4fr)]">
                             <div className="space-y-2">
-                                <Label>Title</Label>
+                                <Label htmlFor="emr-group-title">Title</Label>
                                 <Input
+                                    id="emr-group-title"
                                     value={draft.title}
                                     onChange={(event) => onDraftChange(current => ({ ...current, title: event.target.value }))}
                                 />
                             </div>
                             <div className="space-y-2">
-                                <Label>Group Summary</Label>
+                                <Label htmlFor="emr-group-summary">Group Summary</Label>
                                 <Textarea
+                                    id="emr-group-summary"
                                     value={draft.summary}
                                     onChange={(event) => onDraftChange(current => ({ ...current, summary: event.target.value }))}
                                     placeholder="Treatment summary"

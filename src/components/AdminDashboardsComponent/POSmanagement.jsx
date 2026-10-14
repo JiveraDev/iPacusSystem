@@ -44,7 +44,7 @@ import { fetchInventoryItems } from '../../services/inventoryApi';
 import { updateBookingStatus } from '../../services/bookingService';
 import { fetchServiceCatalog } from '../../services/serviceCatalogService';
 import { uploadDocumentFile } from '../../services/uploadService';
-import DashboardPageHeader from '../shared/DashboardPageHeader.jsx';
+import DashboardPageHeader from '../shared/CarePageHeader.jsx';
 import { createVisit, fetchVisits, postVisitPayment } from '../../services/visitBillingService';
 import { fetchBranches, getBranchDisplayName } from '../../services/branchService';
 import { toast } from '../../reusecomponent/toast.jsx';
@@ -2179,7 +2179,7 @@ export default function ServicePOS() {
   })();
 
   return (
-    <div className="space-y-5">
+    <div className="care-workspace care-pos space-y-5">
       <style>
         {`
           @media print {
@@ -2272,8 +2272,8 @@ export default function ServicePOS() {
       )}
       <DashboardPageHeader
         icon={Receipt}
-        title="Veterinary Point-Of-Sale"
-        description="Patient visit billing with invoice preview, prescriptions, retail sales, and internal stock deduction."
+        title="Point of sale"
+        description="Select a patient or walk-in sale, add billable items, and review payment."
         layout="stacked"
         toolbar={(
         <div className="flex w-full justify-end border-t border-slate-100 pt-3 dark:border-slate-800">
@@ -2384,11 +2384,11 @@ export default function ServicePOS() {
       />
 
       <div
-        className={`grid grid-cols-1 gap-5 ${invoicePanelOpen ? 'xl:grid-cols-[minmax(300px,var(--invoice-panel-width))_12px_minmax(0,1fr)] xl:gap-0' : ''}`}
+        className={`care-pos-layout grid grid-cols-1 gap-5 ${invoicePanelOpen ? 'xl:grid-cols-[minmax(300px,var(--invoice-panel-width))_12px_minmax(0,1fr)] xl:gap-0' : ''}`}
         style={invoicePanelOpen ? { '--invoice-panel-width': `${invoicePanelWidth}px` } : undefined}
       >
         {invoicePanelOpen && <aside id="pos-products-panel" className="order-3 w-full min-w-0 space-y-4 xl:sticky xl:top-4 xl:max-h-[calc(100vh-2rem)] xl:overflow-y-auto">
-          <section className="overflow-hidden rounded-lg border border-slate-200 bg-white shadow-sm">
+          <section className="care-pos-products overflow-hidden rounded-lg border border-slate-200 bg-white shadow-none">
             <div className="border-b border-slate-200 p-4 text-center sm:text-left">
               <div className="flex items-center justify-center gap-2 sm:justify-start">
                 <ShoppingCart className="size-5 text-[#155dfc]" />
@@ -2403,6 +2403,7 @@ export default function ServicePOS() {
                   value={searchQuery}
                   onChange={(event) => setSearchQuery(event.target.value)}
                   placeholder="Search item"
+                  aria-label="Search products and services"
                   className="h-10"
                   leftIcon={<Search className="size-4" />}
                 />
@@ -2423,7 +2424,7 @@ export default function ServicePOS() {
 
                 {BILLING_CLASSIFICATIONS.map((classification) => (
                   <TabsContent key={classification.id} value={classification.id} className="mt-4">
-                    <div className="grid gap-3 md:grid-cols-2 2xl:grid-cols-3">
+                    <div className="care-pos-catalog-grid">
                       {visibleCatalog.length === 0 ? (
                         <div className="rounded-lg border border-dashed border-slate-300 p-6 text-center text-sm font-semibold text-slate-500">
                           {catalogEmptyMessage}
@@ -2461,7 +2462,7 @@ export default function ServicePOS() {
 
         <main className="order-1 min-w-0 space-y-4 xl:sticky xl:top-24 xl:z-10 xl:self-start">
             <section className="overflow-hidden rounded-lg border border-slate-200 bg-white shadow-sm">
-              <div className="bg-[#155dfc] p-3 text-white">
+              <div className="care-pos-invoice-heading bg-[#155dfc] p-3 text-white">
                 <div className="flex items-center justify-between gap-3">
                   <h2 className="flex items-center gap-2 text-base font-black">
                     <Receipt className="size-4" />
@@ -2518,7 +2519,7 @@ export default function ServicePOS() {
                   type="button"
                   onClick={openInvoice}
                   disabled={!canPreviewInvoice}
-                  className="h-10 w-full bg-[#0c6a3c] text-white hover:bg-[#09522f] disabled:cursor-not-allowed disabled:bg-slate-300"
+                  className="h-10 w-full bg-[#155dfc] text-white hover:bg-[#0d4acf] disabled:cursor-not-allowed disabled:bg-slate-300"
                   title={invoiceBlockReason || undefined}
                 >
                   <FileText className="mr-2 size-5" />
@@ -2861,7 +2862,7 @@ function CatalogItemCard({ item, charges, inventoryById, onAdd }) {
   const isBlocked = shortages.length > 0;
 
   return (
-    <div className={`rounded-lg border p-4 transition ${isBlocked ? 'border-red-200 bg-red-50/40' : 'border-slate-200 bg-white hover:border-blue-200 hover:bg-blue-50/30'}`}>
+    <div className={`care-pos-product rounded-lg border p-4 transition-colors ${isBlocked ? 'border-red-200 bg-red-50/40' : 'border-slate-200 bg-white hover:border-blue-200 hover:bg-blue-50/30'}`}>
       <div className="flex items-start justify-between gap-3">
         <div className="min-w-0">
           <div className="mb-2 flex flex-wrap items-center gap-2">
@@ -2876,10 +2877,11 @@ function CatalogItemCard({ item, charges, inventoryById, onAdd }) {
             type="button"
             size="sm"
             onClick={onAdd}
+            aria-label={`Add ${item.name} to invoice`}
             disabled={isBlocked}
             className="mt-2 h-8 bg-[#155dfc] text-white hover:bg-[#0d4acf] disabled:cursor-not-allowed disabled:bg-slate-300"
           >
-            <Plus className="size-4" />
+            <Plus className="size-4" aria-hidden="true" />
           </Button>
         </div>
       </div>

@@ -1,6 +1,20 @@
 # iPawcus Documentation Index
 
-Updated: 2026-07-21
+Updated: 2026-10-14
+
+## Current audit and testing
+
+- [Configured database verification and Pet Hotel clinic selection](20261014_database_verification.md): the normal database connects, but its metadata import is incomplete; the landing room panel now supports per-clinic selection.
+
+- [Isolated database sandbox](database_sandbox.md): latest 88-table schema, synthetic role logins, browser run/stop commands and database-backed checks, verified October 14.
+
+- [October 13 project audit](20261013_project_audit.md): confirmed fixes, verification evidence, four-role interactions and remaining runtime checks.
+- [Google integration testing](google_integration_testing.md): configuration, identity linking, onboarding and manual scenarios.
+- [Installed skills](installed_skills.md): repository and session-provided skills.
+- [Capability reference](CURRENT_SYSTEM_CAPABILITIES.md): detailed source-backed reference with an October 13 addendum.
+- [Role instructions](../USER_INSTRUCTIONS_FOR_DIFFERENT_ROLES.md): pet-owner and personnel guide.
+
+Current review: `master`, HEAD `a7e9add1`, with uncommitted work. `npm run check` writes logs to ignored `tmp/project-audit/`. Local database readiness failed. Older dated documents retain their original review dates as historical evidence.
 
 This folder contains the current planning, architecture, backlog, deployment, and release notes for the iPawcus React/PHP project.
 
@@ -23,7 +37,7 @@ This folder contains the current planning, architecture, backlog, deployment, an
 | `20260625_repository_update.md` | June 22-25 repository changes, schema alignment notes, notification-page work, and verification scope. |
 | `20260620_quality_fix_notes.md` | Historical notes for the June 20 phone, confirmation, modal, notification, and boarding fixes. |
 
-## Current Repository Snapshot
+## Historical June Repository Snapshot
 
 - Branch: `master`
 - Reviewed HEAD: `07fe6fb` from 2026-06-23
@@ -36,7 +50,7 @@ This folder contains the current planning, architecture, backlog, deployment, an
 
 The June 25 repository snapshot remains as a historical baseline; the June 30 and July 5 project notes record the broader working-tree updates.
 
-## Latest Coverage
+## Historical July Coverage
 
 - July 5 consolidated Gantt update: combined documentation summary, current status mapping, new Gantt items, suggested release-hardening dates, and Mermaid Gantt draft.
 - July 5 combined project update: calendar-app style TODO scheduling, slot/range task creation, shared Mantine date picker behavior, report date filters, account directory row activation, master-key account removal, and medical-record owner notifications.

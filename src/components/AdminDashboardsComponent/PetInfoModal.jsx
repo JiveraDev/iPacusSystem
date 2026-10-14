@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
 import { AlertCircle, Calendar, Check, PawPrint, User } from 'lucide-react';
+import '../shared/careWorkspace.css';
 import { Badge } from '../../ui/badge';
 import { calculateAge, formatDisplayDate } from '../../lib/date';
 import { fetchPetDetails } from '../../services/petService';
@@ -126,7 +127,7 @@ function PetDetails({ pet }) {
             : [];
 
     return (
-        <div className="min-w-0 space-y-4 rounded-2xl border border-slate-200 bg-white p-3 sm:space-y-6 sm:p-5">
+        <div className="care-pet-detail min-w-0 space-y-4 rounded-xl border border-slate-200 bg-white p-3 sm:space-y-6 sm:p-5">
             <div className="flex flex-col items-center gap-4 text-center sm:flex-row sm:text-left">
                 <div className="relative">
                     <div className="size-24 overflow-hidden rounded-2xl border-4 border-white bg-slate-100 shadow-xl ring-1 ring-slate-100 sm:size-28 sm:rounded-3xl">

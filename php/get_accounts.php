@@ -40,10 +40,18 @@ try {
     $superAdminStmt = $pdo->query($superAdminSql);
     $superAdmins = $superAdminStmt->fetchAll();
 
+    // Password hashes are authentication data, never account-directory data.
+    $publicAccounts = static function (array $accounts): array {
+        return array_map(static function (array $account): array {
+            unset($account['user_password']);
+            return $account;
+        }, $accounts);
+    };
+
     echo json_encode([
-        'veterinarians' => $veterinarians,
-        'staff' => $staff,
-        'superadmins' => $superAdmins
+        'veterinarians' => $publicAccounts($veterinarians),
+        'staff' => $publicAccounts($staff),
+        'superadmins' => $publicAccounts($superAdmins)
     ]);
 
 } catch (Exception $e) {

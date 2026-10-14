@@ -326,12 +326,13 @@ function ToastCard({ toastItem }) {
   );
 }
 
-function ToastViewport() {
+function ToastViewport({ position } = {}) {
   const toasts = useSyncExternalStore(subscribe, getToastSnapshot, getServerToastSnapshot);
   const [pathname, setPathname] = useState(() => (
     typeof window === 'undefined' ? '' : window.location.pathname
   ));
   const isPosPage = pathname === '/dashboard/pos' || pathname.startsWith('/dashboard/pos/');
+  const isBottomRight = position === 'bottom-right';
 
   useEffect(() => {
     const syncPathname = () => setPathname(window.location.pathname);
@@ -354,12 +355,14 @@ function ToastViewport() {
 
   return (
     <div
-      className={`ipawcus-toast-viewport pointer-events-none fixed top-4 z-[2300] flex max-h-[calc(100dvh-2rem)] w-[calc(100%-2rem)] max-w-[28rem] flex-col gap-3 overflow-y-auto sm:top-6 ${
-        isPosPage
-          ? 'right-4 sm:right-6'
-          : 'left-1/2 -translate-x-1/2'
+      className={`ipawcus-toast-viewport pointer-events-none fixed z-[2300] flex max-h-[calc(100dvh-2rem)] w-[calc(100%-2rem)] max-w-[28rem] flex-col gap-3 overflow-y-auto ${
+        isBottomRight
+          ? 'bottom-4 right-4 sm:bottom-6 sm:right-6'
+          : isPosPage
+            ? 'top-4 right-4 sm:top-6 sm:right-6'
+            : 'top-4 left-1/2 -translate-x-1/2 sm:top-6'
       }`}
-      data-position={isPosPage ? 'top-right' : 'top-center'}
+      data-position={isBottomRight ? 'bottom-right' : isPosPage ? 'top-right' : 'top-center'}
       aria-label="Notifications"
     >
       {toasts.map((toastItem) => <ToastCard key={toastItem.id} toastItem={toastItem} />)}

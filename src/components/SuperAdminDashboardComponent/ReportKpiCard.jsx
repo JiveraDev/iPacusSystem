@@ -93,37 +93,20 @@ export default function ReportKpiCard({ label, value, format, direction = 'neutr
             title={isInteractive && targetTitle ? `View ${targetTitle}` : undefined}
             onClick={isInteractive ? onSelectChart : undefined}
             onKeyDown={handleKeyDown}
-            className={`group relative h-full overflow-hidden rounded-xl border-slate-200 bg-white shadow-sm transition-[transform,background-color,border-color,box-shadow] duration-150 ease-[cubic-bezier(0.23,1,0.32,1)] dark:border-slate-700 dark:bg-slate-900 ${isSelected ? 'border-blue-500 bg-blue-50/50 ring-1 ring-blue-500/20 dark:border-blue-400 dark:bg-blue-950/30' : ''} ${
+            className={`care-kpi-card ${compact ? 'care-kpi-card--compact' : ''} group relative h-full overflow-hidden rounded-xl border-slate-200 bg-white shadow-none transition-colors duration-150 dark:border-slate-700 dark:bg-slate-900 ${isSelected ? 'border-blue-500 bg-blue-50/50 ring-1 ring-blue-500/20 dark:border-blue-400 dark:bg-blue-950/30' : ''} ${
                 isInteractive
                     ? 'cursor-pointer hover:border-blue-300 hover:bg-blue-50/30 active:scale-[0.985] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 dark:hover:border-blue-600 dark:hover:bg-blue-950/20'
                     : ''
             }`}
         >
             {isSelected ? <span aria-hidden="true" className="absolute inset-x-0 top-0 h-0.5 bg-blue-600 dark:bg-blue-400" /> : null}
-            <CardContent className={`flex h-full flex-col ${compact ? 'min-h-[104px] gap-2 p-3' : 'gap-3 p-4'}`}>
-                {compact ? (
-                    <div className="flex min-w-0 items-start gap-2">
-                        <span className={`flex size-7 shrink-0 items-center justify-center rounded-md ${visual.className}`}><VisualIcon className="size-4" /></span>
-                        <p className="min-w-0 truncate whitespace-nowrap text-[11px] font-bold leading-7 text-slate-600 dark:text-slate-200 sm:text-xs" title={label}>{label}</p>
-                    </div>
-                ) : (
-                    <div className="flex items-start justify-between gap-3">
-                        <div className={`flex size-10 shrink-0 items-center justify-center rounded-xl ${visual.className}`}>
-                            <VisualIcon className="size-5" />
-                        </div>
-                        <div className={`flex size-8 shrink-0 items-center justify-center rounded-lg ${trend.className}`} title={trend.label}>
-                            <TrendIcon className="size-4" />
-                        </div>
-                    </div>
-                )}
-                <div className="min-w-0 flex-1">
-                    {!compact ? <p className="text-xs font-bold uppercase tracking-wide text-slate-500 dark:text-slate-300">{label}</p> : null}
-                    <p className={`truncate font-black tabular-nums tracking-tight text-slate-950 dark:text-white ${compact ? 'text-lg sm:text-xl' : 'mt-1.5 text-2xl'}`}>{formatKpiValue(value, format)}</p>
-                    <p className="mt-1 flex items-center gap-1 text-xs font-semibold text-slate-500 dark:text-slate-400" title={supportingText}>
-                        {comparisonLabel && direction !== 'neutral' ? <TrendIcon className="size-3.5 shrink-0" aria-hidden="true" /> : null}
-                        <span className="truncate">{supportingText}</span>
-                    </p>
-                </div>
+            <CardContent className={`flex h-full flex-col ${compact ? 'gap-1 p-3' : 'gap-2 p-4'}`}>
+                <div className="care-kpi-label"><p>{label}</p><VisualIcon className="size-4" aria-hidden="true" /></div>
+                <p className="care-kpi-value" title={formatKpiValue(value, format)}>{formatKpiValue(value, format)}</p>
+                <p className="care-kpi-comparison" title={supportingText}>
+                    {comparisonLabel && direction !== 'neutral' ? <TrendIcon className="size-3.5 shrink-0" aria-hidden="true" /> : null}
+                    <span>{supportingText}</span>
+                </p>
             </CardContent>
         </Card>
     );

@@ -1,5 +1,5 @@
 import { useNavigate } from "../dashboardRouter.jsx";
-import { Card, CardContent, CardHeader, CardTitle } from "../../ui/card";
+import { Card, CardContent } from "../../ui/card";
 import { Button } from "../../ui/button";
 import { AlertCircle, Calendar, CheckCircle2, Clock, Loader2, Video, XCircle } from "lucide-react";
 import { useState } from "react";
@@ -10,7 +10,7 @@ import { fetchUserBookings } from "../../services/bookingService";
 import { fetchOnlineConsultations } from "../../services/onlineConsultationService";
 import { useBookingPriceProjections } from "../../hooks/useBookingPriceProjections";
 import { formatDisplayPersonName } from "../../lib/personName";
-import DashboardPageHeader from "../shared/DashboardPageHeader.jsx";
+import DashboardPageHeader from "../shared/CarePageHeader.jsx";
 
 function parseConsultDateTime(consultation) {
   if (!consultation?.date) {
@@ -113,6 +113,7 @@ export default function Consult() {
   const [upcomingConsultations, setUpcomingConsultations] = useState([]);
   const [onlineConsultationsByBookingId, setOnlineConsultationsByBookingId] = useState({});
   const [isLoading, setIsLoading] = useState(true);
+  const [loadError, setLoadError] = useState('');
   const [joiningConsultationId, setJoiningConsultationId] = useState(null);
 
   const fetchConsultations = async () => {
@@ -133,6 +134,7 @@ export default function Consult() {
         .sort(sortConsultationsNewestFirst);
 
       setUpcomingConsultations(upcoming);
+      setLoadError('');
 
       try {
         const onlineConsultations = await fetchOnlineConsultations({ ownerId: userId });
@@ -145,9 +147,11 @@ export default function Consult() {
         setOnlineConsultationsByBookingId(byBookingId);
       } catch (onlineConsultationError) {
         console.error("Error fetching live consultation states:", onlineConsultationError);
+        setLoadError('Live call status could not be refreshed. Try again before joining a consultation.');
       }
     } catch (error) {
       console.error("Error fetching consultations:", error);
+      setLoadError('Consultations could not be refreshed. Please try again.');
     } finally {
       setIsLoading(false);
     }
@@ -200,12 +204,15 @@ export default function Consult() {
   }
 
   return (
-    <div className="space-y-8">
+    <div className="care-workspace space-y-6">
       <DashboardPageHeader
         icon={Video}
         title="Online Consultations"
         description="Book, review, and join your clinic video consultations."
+        actions={<Button onClick={() => navigate('/dashboard/consult/booking')} className="gap-2"><Calendar className="size-4" />New consultation</Button>}
       />
+
+      {loadError && <div role="status" className="flex flex-wrap items-center justify-between gap-3 rounded-lg border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800 dark:border-amber-900 dark:bg-amber-950/30 dark:text-amber-200"><p>{loadError}</p><Button variant="outline" size="sm" onClick={fetchConsultations}>Retry</Button></div>}
 
       {activeConsultation && (
         <section
@@ -242,67 +249,15 @@ export default function Consult() {
         </section>
       )}
 
-      <Card
-        petHover="always"
-        petKind="parrot"
-        petAccent="mint"
-        className="overflow-hidden border-blue-200 bg-blue-50"
-      >
-        <CardHeader>
-          <CardTitle>How Online Consultations Work</CardTitle>
-        </CardHeader>
-        <CardContent>
-          <div className="space-y-3 text-gray-700">
-            <p>• Select your pet and describe the consultation topic (weight, symptoms, behavior, etc.)</p>
-            <p>• Choose an available time slot (bookings available from next day onwards)</p>
-            <p>• Complete secure payment with the clinic payment methods ({servicePrices.onlineConsultation})</p>
-            <p>• Join the video consultation at your scheduled time</p>
-          </div>
-        </CardContent>
-      </Card>
-
-      <div className="grid grid-cols-1 gap-6 md:grid-cols-2">
-        <Card
-          petHover="always"
-          petKind="dog"
-          petAccent="coral"
-          className="cursor-pointer overflow-hidden transition-shadow hover:shadow-lg"
-          onClick={() => navigate("/dashboard/consult/booking")}
-        >
-          <CardContent className="pt-6">
-            <div className="flex items-center gap-4">
-              <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-full bg-blue-100">
-                <Calendar className="h-6 w-6 text-blue-600" />
-              </div>
-              <div className="min-w-0">
-                <h3 className="font-semibold text-lg">Book New Consultation</h3>
-                <p className="text-sm text-gray-600">Schedule an appointment with a veterinarian</p>
-              </div>
-            </div>
-          </CardContent>
-        </Card>
-
-        <Card petHover="always" petKind="cat" petAccent="blue" className="overflow-hidden">
-          <CardContent className="pt-6">
-            <div className="flex items-center gap-4">
-              <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-full bg-blue-100 dark:bg-blue-950/50">
-                <Video className="h-6 w-6 text-blue-600 dark:text-blue-300" />
-              </div>
-              <div className="min-w-0">
-                <h3 className="font-semibold text-lg">Recent Consultations</h3>
-                <p className="text-sm text-gray-600 dark:text-slate-300">
-                  {upcomingConsultations.length} recent booking{upcomingConsultations.length === 1 ? "" : "s"}
-                </p>
-              </div>
-            </div>
-          </CardContent>
-        </Card>
-      </div>
+      <section className="care-consult-overview" aria-label="Consultation overview">
+        <div><h2>Care from wherever you are</h2><p>Select your pet and an available veterinary schedule, complete consent and payment, then return here to join your call.<br />Consultation fee: <strong>{servicePrices.onlineConsultation}</strong></p></div>
+        <div className="text-right"><p className="text-xs">Recent bookings</p><p className="text-2xl font-semibold tabular-nums text-slate-900 dark:text-white">{upcomingConsultations.length}</p></div>
+      </section>
 
       {upcomingConsultations.length > 0 && (
         <div>
           <h2 className="text-xl font-bold text-gray-900 mb-4">Your Recent Consultations</h2>
-          <div className="space-y-4">
+          <div className="care-consult-list">
             {upcomingConsultations.map((consultation) => {
               const normalizedStatus = normalizeConsultationStatus(consultation.status);
               const status = consultationStatusMeta(normalizedStatus);
@@ -345,26 +300,30 @@ export default function Consult() {
                         </div>
                         <p className="text-sm text-gray-600 dark:text-slate-300">Veterinarian: {formatDisplayPersonName(consultation.veterinarian, "Veterinarian not assigned")}</p>
                         
+                      </div>
+                      <div className="flex w-full shrink-0 flex-col gap-2 sm:w-auto sm:items-end">
                         {canJoinConsultation && (
-                          <div className="pt-2">
+                          <div className="w-full sm:w-auto">
                             <Button 
                               variant="outline"
                               size="sm"
                               onClick={() => handleJoinConsultation(consultation, onlineConsultation)}
                               disabled={isJoining}
-                              className="inline-flex items-center gap-2"
+                              className="inline-flex w-full items-center gap-2 sm:w-auto"
                             >
                               {isJoining ? <Loader2 className="h-4 w-4 animate-spin" /> : <Video className="h-4 w-4" />}
                               {isJoining ? "Joining..." : "Join call now"}
                             </Button>
                           </div>
                         )}
-                      </div>
                       <Button 
+                        variant="outline"
+                        className="w-full sm:w-auto"
                         onClick={() => navigate(`/dashboard/consult/confirmation/${consultation.id}`)}
                       >
                         View Details
                       </Button>
+                      </div>
                     </div>
                   </CardContent>
                 </Card>
@@ -374,7 +333,7 @@ export default function Consult() {
         </div>
       )}
 
-      {upcomingConsultations.length === 0 && (
+      {upcomingConsultations.length === 0 && !loadError && (
         <Card>
           <CardContent className="pt-6 text-center py-12">
             <Video className="h-16 w-16 text-gray-400 mx-auto mb-4" />

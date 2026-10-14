@@ -1,10 +1,16 @@
 # Deployed Server SQL Runbook
 
-Updated: 2026-07-10
+Updated: 2026-10-13
+
+## October review: migration scope
+
+The bundled July script below covers the July release, not every migration added afterward. Google identity support additionally requires `DDL/20260917_01_google_identity.sql` and the existing email-verification/access-token prerequisites. Review current database columns, including nullable `users.user_password`, before enabling Google-only onboarding. Later grooming, booking and inventory features have their own migrations; use their feature guides and the actual schema rather than assuming the July bundle is sufficient.
+
+No migration was applied during the October review; local database readiness failed. See [the current audit](20261013_project_audit.md) and [Google integration tests](google_integration_testing.md). Validate on a disposable/staging database before production.
 
 This is the deployment SQL list for the current iPawcus update.
 
-## Required For Current Deployment
+## Required For July 10 Deployment
 
 Run this single bundled file on the deployed database:
 

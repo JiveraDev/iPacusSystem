@@ -1,7 +1,8 @@
 import PropTypes from 'prop-types';
-import { useMemo, useState } from 'react';
+import { useEffect, useId, useMemo, useRef, useState } from 'react';
 import {
     Activity,
+    Building2,
     Check,
     Clock3,
     DoorOpen,
@@ -14,11 +15,13 @@ import {
     Utensils,
 } from 'lucide-react';
 import { Button } from '../../ui/button';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../../ui/select';
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '../../ui/dialog';
 import { useAutoRefresh } from '../../hooks/useAutoRefresh';
 import { fetchOwnerBoardingStays } from '../../services/boardingService';
 import { fetchBookingAvailability } from '../../services/bookingAvailabilityService';
 import ClinicAvailabilityCalendar from './ClinicAvailabilityCalendar.jsx';
+import Label from './BookingFieldLabel.jsx';
 import BoardingRoomAvailability, { BoardingAvailabilityLegend } from './BoardingRoomAvailability.jsx';
 
 const PET_HOTEL_ROOM_META = Object.freeze([
@@ -449,42 +452,98 @@ PetHotelOwnerRooms.propTypes = {
 
 export function PetHotelLandingRooms({ onBook }) {
     const [availability, setAvailability] = useState(null);
+    const [branchId, setBranchId] = useState('');
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState('');
+    const clinicControlId = useId();
+    const currentRequest = useRef(branchId);
+    const requestSerial = useRef(0);
+
+    useEffect(() => {
+        currentRequest.current = branchId;
+        return () => { currentRequest.current = null; };
+    }, [branchId]);
 
     const load = async ({ isAutoRefresh = false } = {}) => {
+        const serial = ++requestSerial.current;
+        const isCurrent = () => currentRequest.current === branchId && requestSerial.current === serial;
+        if (!isAutoRefresh) setLoading(true);
         try {
             const today = clinicDateKey();
             const response = await fetchBookingAvailability({
                 service: 'boarding',
                 month: today.slice(0, 7),
                 date: today,
+                branchId,
                 hotel_boarding_type: 'hotel',
+                detailsOnly: true,
             });
+            if (!isCurrent()) return;
             setAvailability(response);
             setError('');
+            setLoading(false);
+            const resolvedBranchId = String(response?.selected?.branchId || '');
+            if (branchId && resolvedBranchId !== branchId) {
+                currentRequest.current = resolvedBranchId;
+                setBranchId(resolvedBranchId);
+            }
         } catch (loadError) {
+            if (!isCurrent()) return;
             setError(loadError.message || 'Live room availability is temporarily unavailable.');
             throw loadError;
         } finally {
-            if (!isAutoRefresh) setLoading(false);
+            if (isCurrent()) setLoading(false);
         }
     };
 
-    useAutoRefresh(load, { refreshKey: 'landing-pet-hotel-rooms' });
-    const rooms = normalizeHotelRooms(availability?.details?.rooms || []);
+    useAutoRefresh(load, { refreshKey: `landing-pet-hotel-rooms:${branchId}` });
+    const branches = availability?.filters?.branches || [];
+    const selectedBranchId = branchId || String(availability?.selected?.branchId || '');
+    const selectedBranch = branches.find((branch) => String(branch.id) === selectedBranchId);
+    const matchesBranch = !branchId || String(availability?.selected?.branchId || '') === branchId;
+    const rooms = normalizeHotelRooms(matchesBranch ? availability?.details?.rooms || [] : []);
+    const isLoading = loading || (!matchesBranch && !error);
+
+    const changeBranch = (value) => {
+        requestSerial.current += 1;
+        currentRequest.current = value;
+        setBranchId(value);
+        setLoading(true);
+        setError('');
+    };
 
     return (
         <div className="rounded-xl border border-slate-200 bg-white p-4 dark:border-slate-800 dark:bg-slate-900 sm:p-5">
-            <div className="mb-3 flex flex-col gap-2 sm:flex-row sm:items-end sm:justify-between">
+            <div className="mb-4 space-y-3">
                 <div>
                     <h3 className="text-base font-semibold text-slate-900 dark:text-slate-100">Choose a Pet Hotel room</h3>
-                    <p className="mt-1 text-sm text-slate-500 dark:text-slate-400">{availability ? getAvailabilityBranchName(availability) : 'Pet Hotel'} · Today’s availability</p>
+                    <p className="mt-1 text-sm text-slate-500 dark:text-slate-400">{selectedBranch?.name || (availability ? getAvailabilityBranchName(availability) : 'Pet Hotel')} · Today’s availability</p>
                 </div>
-                <BoardingAvailabilityLegend />
+                <div className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
+                    <div className="w-full space-y-1 sm:max-w-xs">
+                        <Label htmlFor={clinicControlId} help="Choose a clinic to see its Pet Hotel rooms and today's availability.">
+                            <Building2 className="size-4 text-slate-500 dark:text-slate-400" aria-hidden="true" />
+                            Clinic location
+                        </Label>
+                        <Select value={selectedBranchId} onValueChange={changeBranch} disabled={!branches.length}>
+                            <SelectTrigger id={clinicControlId} aria-busy={isLoading}>
+                                <SelectValue displayValue={selectedBranch?.name} placeholder={loading ? 'Loading clinics...' : 'No clinics available'} />
+                            </SelectTrigger>
+                            <SelectContent>
+                                {branches.map((branch) => <SelectItem key={branch.id} value={String(branch.id)}>{branch.name}</SelectItem>)}
+                            </SelectContent>
+                        </Select>
+                    </div>
+                    <BoardingAvailabilityLegend />
+                </div>
             </div>
-            {error && <p role="status" className="mb-4 rounded-lg bg-amber-50 px-3 py-2 text-sm text-amber-800 dark:bg-amber-950/30 dark:text-amber-200">Room availability could not be refreshed. Please try again shortly.</p>}
-            <BoardingRoomAvailability rooms={rooms} onSelectRoom={(room) => onBook(room.size || room.id)} loading={loading} availabilityUnavailable={Boolean(error)} className="lg:grid-cols-3" />
+            {error && (
+                <div role="status" className="mb-4 flex flex-wrap items-center justify-between gap-2 rounded-lg bg-amber-50 px-3 py-2 text-sm text-amber-800 dark:bg-amber-950/30 dark:text-amber-200">
+                    <p>Room availability could not be refreshed for this clinic.</p>
+                    <Button type="button" variant="outline" size="sm" onClick={() => load().catch(() => {})} disabled={loading}><RefreshCw className="size-4" aria-hidden="true" />Retry</Button>
+                </div>
+            )}
+            <BoardingRoomAvailability rooms={rooms} onSelectRoom={(room) => onBook(room.size || room.id, availability?.selected?.branchId)} loading={isLoading} availabilityUnavailable={Boolean(error)} className="lg:grid-cols-3" />
         </div>
     );
 }

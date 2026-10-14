@@ -24,7 +24,8 @@ import ProtectedImage from "../shared/ProtectedImage";
 import { saveOnlineConsultationSubmission } from "../../lib/onlineConsultationSubmission";
 import { isValidTransactionNumber, normalizeTransactionNumber, TRANSACTION_NUMBER_MESSAGE } from "../../lib/transactionNumber";
 import { reportBookingFormErrors, reportBookingSubmissionError } from "../../lib/bookingFormValidation";
-import DashboardPageHeader from "../shared/DashboardPageHeader.jsx";
+import DashboardPageHeader from "../shared/CarePageHeader.jsx";
+import ConsultationProgress from '../shared/ConsultationProgress.jsx';
 import ConsentTemplateText from "../shared/ConsentTemplateText.jsx";
 
 export default function ConsultPayment() {
@@ -312,7 +313,7 @@ export default function ConsultPayment() {
   };
 
   return (
-    <div className="space-y-8 max-w-4xl">
+    <div className="care-workspace care-consult-form space-y-6">
       <DashboardPageHeader
         icon={ShieldCheck}
         title="Complete Payment"
@@ -325,6 +326,7 @@ export default function ConsultPayment() {
       />
 
       {/* Information Banner */}
+      <ConsultationProgress step={2} />
       <Card className="bg-blue-50 border-blue-200">
         <CardContent className="pt-6">
           <div className="flex gap-3">

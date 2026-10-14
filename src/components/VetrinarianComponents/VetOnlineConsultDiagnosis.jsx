@@ -31,7 +31,7 @@ import {
     startOnlineConsultation,
     submitOnlineConsultationDiagnosis
 } from '../../services/onlineConsultationService';
-import DashboardPageHeader from '../shared/DashboardPageHeader.jsx';
+import DashboardPageHeader from '../shared/CarePageHeader.jsx';
 import PrescriptionEditor from '../shared/PrescriptionEditor.jsx';
 import { createPrescriptionDraft, normalizePrescriptionDraft } from '../../lib/prescriptions';
 
@@ -400,13 +400,14 @@ export default function VetOnlineConsultDiagnosis() {
     };
 
     return (
-        <div className="flex h-[calc(100dvh-7rem)] min-h-0 flex-col gap-4 overflow-y-auto lg:h-[calc(100vh-120px)] lg:min-h-[680px] lg:overflow-hidden">
+        <div className="care-workspace care-consult-clinical flex min-h-0 flex-col gap-4 lg:h-[calc(100vh-120px)] lg:min-h-[680px] lg:overflow-hidden">
             <DashboardPageHeader
                 icon={Stethoscope}
                 title="Consultation Diagnosis"
                 description={`${consultation.petName || 'Unnamed Pet'} with ${consultation.ownerName || 'Pet Owner'} - ${formatDisplayDateTime(consultation.scheduledStart)}`}
                 meta={getStatusBadge(consultation.status)}
-                className="shrink-0"
+                layout="stacked"
+                className="care-consult-header shrink-0"
                 navigation={(
                     <Button
                         variant="ghost"
@@ -420,6 +421,16 @@ export default function VetOnlineConsultDiagnosis() {
                 )}
                 actions={(
                     <>
+                        <Button type="button" onClick={saveDiagnosis} disabled={isSaving} className="care-consult-save gap-2 bg-[#155dfc] text-white hover:bg-[#0d4acf]">
+                            {isSaving ? <Loader2 className="size-4 animate-spin" aria-hidden="true" /> : <CheckCircle className="size-4" aria-hidden="true" />}
+                            {isSaving ? 'Saving…' : isFinal ? 'Save Diagnosis' : 'Save Diagnosis & Complete'}
+                        </Button>
+                        {lastAutosavedAt && (
+                            <span role="status" className="care-consult-autosave flex size-10 shrink-0 items-center justify-center text-emerald-600 dark:text-emerald-400" title={`Draft autosaved ${formatDisplayDateTime(lastAutosavedAt)}`}>
+                                <CheckCircle className="size-5" aria-hidden="true" />
+                                <span className="sr-only">Draft autosaved {formatDisplayDateTime(lastAutosavedAt)}</span>
+                            </span>
+                        )}
                         {!callStarted && canUseRoom && (
                             <Button onClick={startConsultation} disabled={isStarting} className="gap-2 bg-[#155dfc] hover:bg-[#0d4acf]">
                                 {isStarting ? <Loader2 className="h-4 w-4 animate-spin" /> : <Video className="h-4 w-4" />}
@@ -439,34 +450,31 @@ export default function VetOnlineConsultDiagnosis() {
                             </Button>
                         )}
                         <Button
+                            type="button"
                             variant="outline"
+                            size="icon"
                             onClick={() => setIsClinicalPanelOpen((isOpen) => !isOpen)}
                             aria-controls="online-consult-clinical-panel"
                             aria-expanded={isClinicalPanelOpen}
-                            className="gap-2 border-blue-200 bg-blue-50 text-blue-700 hover:bg-blue-100 dark:border-blue-900 dark:bg-blue-950/40 dark:text-blue-300 dark:hover:bg-blue-950/70"
+                            aria-label={isClinicalPanelOpen ? 'Hide Diagnosis Panel' : 'Show Diagnosis Panel'}
+                            title={isClinicalPanelOpen ? 'Hide Diagnosis Panel' : 'Show Diagnosis Panel'}
+                            className="care-consult-panel-toggle shrink-0 border-blue-200 bg-blue-50 text-blue-700 hover:bg-blue-100 dark:border-blue-900 dark:bg-blue-950/40 dark:text-blue-300 dark:hover:bg-blue-950/70"
                         >
                             {isClinicalPanelOpen
                                 ? <PanelRightClose className="size-4" aria-hidden="true" />
                                 : <PanelRightOpen className="size-4" aria-hidden="true" />}
-                            {isClinicalPanelOpen ? 'Hide Diagnosis Panel' : 'Show Diagnosis Panel'}
                         </Button>
                     </>
                 )}
             />
 
-            {lastAutosavedAt && (
-                <p className="-mt-2 px-1 text-xs font-medium text-emerald-600 dark:text-emerald-400">
-                    Draft autosaved {formatDisplayDateTime(lastAutosavedAt)}
-                </p>
-            )}
-
             <div className="relative flex min-h-[42rem] flex-1 flex-col overflow-hidden rounded-xl border border-slate-200 bg-white dark:border-slate-800 dark:bg-slate-950 lg:min-h-0">
 
                 <div className="flex min-h-0 flex-1 flex-col overflow-auto lg:flex-row lg:overflow-hidden">
-                    <section className="flex min-h-[520px] min-w-0 flex-1 flex-col bg-[#101828] lg:min-h-0">
+                    <section className="flex min-h-[18rem] min-w-0 flex-1 flex-col bg-[#101828] sm:min-h-[24rem] lg:min-h-0">
                     <div className="flex items-center justify-between border-b border-white/10 px-5 py-3 text-white">
                         <div>
-                            <p className="text-sm font-semibold">8x8 JaaS Meeting Room</p>
+                            <p className="text-sm font-semibold">Private veterinary consultation</p>
                             <p className="text-xs text-white/60">{consultation.meetingCode || 'Private consultation room'}</p>
                         </div>
                         {callStarted ? (
@@ -478,12 +486,12 @@ export default function VetOnlineConsultDiagnosis() {
 
                     <div
                         data-video-call-dock={String(consultation.id || onlineConsultationId)}
-                        className="relative flex min-h-[460px] flex-1 items-center justify-center overflow-hidden bg-black lg:min-h-0"
+                        className="relative flex min-h-[14rem] flex-1 items-center justify-center overflow-hidden bg-black sm:min-h-[20rem] lg:min-h-0"
                         aria-label="Veterinarian consultation video"
                     >
                         {canUseRoom && callStarted ? (
                             isMinimized ? (
-                                <div className="flex h-full min-h-[460px] flex-col items-center justify-center p-8 text-center text-white lg:min-h-0">
+                                <div className="flex h-full min-h-[14rem] flex-col items-center justify-center p-8 text-center text-white sm:min-h-[20rem] lg:min-h-0">
                                     <div className="flex size-14 items-center justify-center rounded-full bg-white/10">
                                         <Video className="h-7 w-7 text-white/70" />
                                     </div>
@@ -498,13 +506,13 @@ export default function VetOnlineConsultDiagnosis() {
                                 </div>
                             ) : null
                         ) : (
-                            <div className="flex h-full min-h-[460px] flex-col items-center justify-center p-8 text-center text-white lg:min-h-0">
+                            <div className="flex h-full min-h-[14rem] flex-col items-center justify-center p-8 text-center text-white sm:min-h-[20rem] lg:min-h-0">
                                 <Video className="mb-4 h-12 w-12 text-white/60" />
                                 <h2 className="text-xl font-bold">{isFinal ? 'Meeting is closed' : 'Meeting has not started'}</h2>
                                 <p className="mt-2 max-w-md text-sm text-white/70">
                                     {isFinal
                                         ? 'This consultation is no longer active. Open Clinical Notes to review or update the diagnosis.'
-                                        : 'Start the 8x8 JaaS meeting from this page when you are ready.'}
+                                        : 'Start the consultation when you are ready to meet the pet owner.'}
                                 </p>
                                 {canUseRoom && (
                                     <Button onClick={startConsultation} disabled={isStarting} className="mt-6 gap-2 bg-[#155dfc] hover:bg-[#0d4acf]">
@@ -533,10 +541,6 @@ export default function VetOnlineConsultDiagnosis() {
                                 </p>
                             </div>
                             <div className="flex shrink-0 items-center gap-2">
-                                <div className="flex items-center gap-2 rounded-full border border-slate-200 bg-white px-3 py-1.5 text-xs font-semibold text-slate-600 dark:border-slate-700 dark:bg-slate-950 dark:text-slate-300">
-                                    <CheckCircle className="size-3.5 text-emerald-600 dark:text-emerald-400" aria-hidden="true" />
-                                    {lastAutosavedAt ? `Saved ${formatDisplayDateTime(lastAutosavedAt)}` : 'Drafts save automatically'}
-                                </div>
                                 <Button
                                     type="button"
                                     variant="ghost"
@@ -630,8 +634,8 @@ export default function VetOnlineConsultDiagnosis() {
                                             <Pill className="size-4" aria-hidden="true" />
                                         </span>
                                         <div>
-                                            <Label className="text-sm font-bold text-slate-900 dark:text-slate-100">Prescription and medications</Label>
-                                            <p className="mt-0.5 text-xs font-medium leading-5 text-slate-500 dark:text-slate-400">Each item gets its own dose, route, schedule, start date, and owner checklist.</p>
+                                            <h4 className="text-sm font-semibold text-slate-900 dark:text-slate-100">Prescription and medications</h4>
+                                            <p className="mt-0.5 text-xs font-medium leading-5 text-slate-500 dark:text-slate-400">Add each medication with its dose and care instructions.</p>
                                         </div>
                                     </div>
                                     {consultation.petId ? (
@@ -668,8 +672,7 @@ export default function VetOnlineConsultDiagnosis() {
                         </section>
 
                     </div>
-                    <div className="sticky bottom-0 z-20 mx-auto mt-5 flex w-full max-w-3xl flex-col gap-2 border-t border-slate-200 bg-slate-50/95 pt-4 backdrop-blur dark:border-slate-700 dark:bg-slate-900/95 sm:flex-row sm:justify-end">
-                        {!isFinal && (
+                    {!isFinal && <div className="mx-auto mt-5 flex w-full max-w-3xl justify-end border-t border-slate-200 pt-4 dark:border-slate-700">
                             <Button
                                 variant="outline"
                                 onClick={endWithoutDiagnosis}
@@ -679,12 +682,7 @@ export default function VetOnlineConsultDiagnosis() {
                                 <PhoneOff className="mr-2 h-4 w-4" />
                                 End Call Only
                             </Button>
-                        )}
-                        <Button onClick={saveDiagnosis} disabled={isSaving} className="bg-[#155dfc] text-white hover:bg-[#0d4acf]">
-                            {isSaving ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <CheckCircle className="mr-2 h-4 w-4" />}
-                            {isFinal ? 'Save Diagnosis' : 'Save Diagnosis & Complete'}
-                        </Button>
-                    </div>
+                    </div>}
                 </section>
                         </aside>
                     )}

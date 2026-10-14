@@ -31,7 +31,7 @@ import { dedupeClinicalFields } from '../../lib/clinicalRecord';
 import { resolveImageUrl } from '../../lib/image';
 import { fetchPetMedicalRecords } from '../../services/petService';
 import ProtectedImage from '../shared/ProtectedImage.jsx';
-import ServicePetPeek from '../shared/ServicePetPeek.jsx';
+import '../shared/careWorkspace.css';
 
 const MEDICAL_SEARCH_FOCUS_KEY = 'ipawcus-medical-search-focus';
 
@@ -352,6 +352,7 @@ export default function MedicalRecords() {
     const { petId } = useParams();
     const [records, setRecords] = useState(null);
     const [isLoading, setIsLoading] = useState(true);
+    const [loadError, setLoadError] = useState('');
     const [viewer, setViewer] = useState(null);
     const [isPreparingPrint, setIsPreparingPrint] = useState(false);
     const [searchFocus, setSearchFocus] = useState(null);
@@ -379,8 +380,10 @@ export default function MedicalRecords() {
                 throw new Error(data.message || 'Medical records could not be loaded.');
             }
             setRecords(data);
+            setLoadError('');
             return data;
         } catch (error) {
+            setLoadError(error.message || 'Medical records could not be loaded.');
             if (!isAutoRefresh) {
                 toast.error(error.message || 'Could not load medical records.');
             }
@@ -482,7 +485,9 @@ export default function MedicalRecords() {
                 <Card>
                     <CardContent className="py-12 text-center">
                         <FileText className="mx-auto mb-4 size-14 text-slate-300" />
-                        <h3 className="text-lg font-black text-slate-900">Pet Not Found</h3>
+                        <h3 className="text-lg font-semibold text-slate-900 dark:text-white">Medical record unavailable</h3>
+                        <p className="mt-2 text-sm text-slate-500 dark:text-slate-400">{loadError || 'There is no medical record available for this pet yet.'}</p>
+                        <Button type="button" variant="outline" className="mt-4" onClick={() => loadRecords()}>Retry</Button>
                     </CardContent>
                 </Card>
             </div>
@@ -490,7 +495,7 @@ export default function MedicalRecords() {
     }
 
     return (
-        <div className="medical-records-page space-y-6">
+        <div className="care-workspace medical-records-page space-y-6">
             <style>
                 {`
                     @media print {
@@ -659,7 +664,7 @@ export default function MedicalRecords() {
                 `}
             </style>
 
-            <div className="no-print flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+            <div className="no-print care-document-toolbar">
                 <Button variant="ghost" onClick={() => navigate(`/dashboard/my-pets/${petId}`)}>
                     <ArrowLeft className="mr-2 size-4" />
                     Back to Profile
@@ -678,6 +683,7 @@ export default function MedicalRecords() {
             </div>
 
             <main className="medical-print-area space-y-6">
+                {loadError && <div role="status" className="no-print flex flex-wrap items-center justify-between gap-3 rounded-lg border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800 dark:border-amber-900 dark:bg-amber-950/30 dark:text-amber-200"><span>The record could not be refreshed. Showing the last loaded version.</span><Button type="button" variant="outline" size="sm" onClick={() => loadRecords({ isAutoRefresh: true })}>Retry</Button></div>}
                 {highlightedMatch && (
                     <div className="no-print flex items-start gap-3 rounded-lg border border-amber-200 bg-amber-50 px-4 py-3 text-amber-900">
                         <Stethoscope className="mt-0.5 size-5 shrink-0" />
@@ -687,11 +693,11 @@ export default function MedicalRecords() {
                         </div>
                     </div>
                 )}
-                <section data-header-pet="enabled" className="dashboard-page-header-pet relative isolate overflow-hidden rounded-xl border border-slate-200 bg-white p-5 shadow-sm print-break-inside">
-                    <ServicePetPeek kind="bunny" accent="blue" />
+                <section className="care-medical-header print-break-inside">
+                    <div className="care-medical-brand"><img src={ipawcusLogo} alt="iPawcus" /><span>Vetfocus Care Animal Clinic · Patient medical record</span></div>
                     <div className="flex flex-col gap-4 md:flex-row md:items-start md:justify-between">
-                        <div>
-                            <p className="text-xs font-black uppercase tracking-widest text-[#155dfc]">Vetfocus Animal Care Clinic</p>
+                        <div data-dashboard-heading-plain>
+                            <p className="text-xs font-semibold text-[#155dfc]">Clinical history and care summary</p>
                             <h1 className="mt-1 text-2xl font-black text-slate-950">
                                 {pet.name || pet.petName || 'Pet'} Medical Record
                             </h1>
@@ -700,7 +706,7 @@ export default function MedicalRecords() {
                             </p>
                         </div>
                         <div className="text-left md:text-right">
-                            <p className="text-xs font-black uppercase tracking-widest text-slate-400">Printed</p>
+                            <p className="text-xs font-semibold text-slate-500">Record generated</p>
                             <p className="font-bold text-slate-800">{formatDisplayDateTime(new Date().toISOString())}</p>
                         </div>
                     </div>

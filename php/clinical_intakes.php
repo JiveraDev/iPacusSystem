@@ -15,7 +15,7 @@ function clinical_intake_schema_ready(PDO $pdo): bool
 function clinical_intake_require_schema(PDO $pdo): void
 {
     if (!clinical_intake_schema_ready($pdo)) {
-        ipawcus_guard_error(503, 'Patient Intake is not installed yet. Run DDL/20261004_01_clinical_intakes.sql, then try again.', [
+        ipawcus_guard_error(503, 'Pet Intake is not installed yet. Run DDL/20261004_01_clinical_intakes.sql, then try again.', [
             'schemaReady' => false,
             'code' => 'clinical_intake_schema_missing',
         ]);
@@ -171,7 +171,7 @@ if ($method === 'GET') {
         $conditions[] = 'ci.assigned_veterinarian_user_id = ?';
         $params[] = $currentUserId;
     } elseif (!ipawcus_guard_is_admin_role($currentRole)) {
-        ipawcus_guard_error(403, 'Only clinic staff can view patient intake records.');
+        ipawcus_guard_error(403, 'Only clinic staff can view pet intake records.');
     }
 
     $where = $conditions ? 'WHERE ' . implode(' AND ', $conditions) : '';
@@ -248,9 +248,9 @@ if ($method === 'POST') {
 
 if ($method === 'PATCH') {
     $intakeId = clinical_intake_nullable_int($input['intake_id'] ?? $input['intakeId'] ?? null);
-    if (!$intakeId) ipawcus_guard_error(422, 'Patient intake ID is required.');
+    if (!$intakeId) ipawcus_guard_error(422, 'Pet intake ID is required.');
     $record = clinical_intake_fetch($pdo, $intakeId);
-    if (!$record) ipawcus_guard_error(404, 'Patient intake was not found.');
+    if (!$record) ipawcus_guard_error(404, 'Pet intake was not found.');
     clinical_intake_assert_branch_access($pdo, $currentUser, (int)$record['queue_id']);
 
     $status = strtolower(trim((string)($input['status'] ?? $record['status'])));

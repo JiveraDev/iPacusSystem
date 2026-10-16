@@ -14,6 +14,7 @@ import ClinicAvailabilityCalendar from './shared/ClinicAvailabilityCalendar.jsx'
 import { PetHotelLandingRooms } from './shared/PetHotelRoomShowcase.jsx';
 import VetPresenceSign from './shared/VetPresenceSign.jsx';
 import PwaInstallButton from '../pwa/PwaInstallButton.jsx';
+import ThemeSelector from './shared/ThemeSelector.jsx';
 import { clearLandingBookingIntent, saveLandingBookingIntent } from '../lib/landingBookingIntent.js';
 import './landingpage.css';
 
@@ -158,6 +159,7 @@ export default function LandingPageContent({ onLogin, onRegister }) {
                         {navigation.map((item) => <a key={item.href} href={item.href} onClick={(event) => navigate(event, item.href)}>{item.label}</a>)}
                     </nav>
                     <div className="lp-header-actions">
+                        <ThemeSelector />
                         <button type="button" className="lp-login" onClick={login}>Log in</button>
                         <a href="#availability" className="lp-button lp-header-book" onClick={(event) => navigate(event, '#availability')}>Book a visit <ArrowUpRight size={16} aria-hidden="true" /></a>
                         <button ref={menuButtonRef} type="button" className="lp-menu-button" aria-label={menuOpen ? 'Close navigation' : 'Open navigation'} aria-expanded={menuOpen} aria-controls="lp-mobile-menu" onClick={() => setMenuOpen((open) => !open)}>

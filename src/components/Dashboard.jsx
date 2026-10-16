@@ -131,7 +131,7 @@ const RecordUpdateRequestsManagement = lazy(() => import("./AdminDashboardsCompo
 const PetBoardingManagement = lazy(() => import("./AdminDashboardsComponent/PetBoardingManagement.jsx"));
 const GroomingManagement = lazy(() => import("./AdminDashboardsComponent/GroomingManagement.jsx"));
 const QueueManagement = lazy(() => import("./AdminDashboardsComponent/QueueManagement.jsx"));
-const PatientIntake = lazy(() => import("./AdminDashboardsComponent/PatientIntake.jsx"));
+const PetIntake = lazy(() => import("./AdminDashboardsComponent/PetIntake.jsx"));
 const POSManagement = lazy(() => import("./AdminDashboardsComponent/POSmanagement.jsx"));
 const ServiceCatalogManagement = lazy(() => import("./AdminDashboardsComponent/ServiceCatalogManagement.jsx"));
 const ConsentFilesManagement = lazy(() => import("./AdminDashboardsComponent/ConsentFileManagement.jsx"));
@@ -236,7 +236,7 @@ const navItems = [
   { id: "boarding", featureKey: "boarding", label: "Boarding", icon: Hotel, path: "/dashboard/boarding", roles: ADMIN_ROLES, navGroup: "admin" },
   { id: "grooming", featureKey: "grooming", label: "Grooming", icon: Scissors, path: "/dashboard/grooming", roles: ADMIN_ROLES, navGroup: "admin" },
   { id: "queue", featureKey: "queue", label: "Queue", icon: ListChecks, path: "/dashboard/queue", roles: ADMIN_ROLES, navGroup: "admin" },
-  { id: "patient-intake", featureKey: "queue", label: "Patient Intake", icon: ClipboardCheck, path: "/dashboard/patient-intake", roles: ADMIN_ROLES, navGroup: "admin" },
+  { id: "pet-intake", featureKey: "queue", label: "Pet Intake", icon: ClipboardCheck, path: "/dashboard/pet-intake", roles: ADMIN_ROLES, navGroup: "admin" },
   { id: "pos", featureKey: "pos", label: "Point-Of-Sale", icon: CircleDollarSign, path: "/dashboard/pos", roles: ADMIN_ROLES, navGroup: "admin" },
   { id: "service-catalog", featureKey: "service_catalog", label: "Service Catalog", icon: BookOpenCheck, path: "/dashboard/service-catalog", roles: ADMIN_ROLES, navGroup: "admin" },
   { 
@@ -307,7 +307,8 @@ const screenMap = {
   "/dashboard/boarding": PetBoardingManagement,
   "/dashboard/grooming": GroomingManagement,
   "/dashboard/queue": QueueManagement,
-  "/dashboard/patient-intake": PatientIntake,
+  "/dashboard/pet-intake": PetIntake,
+  "/dashboard/patient-intake": PetIntake,
   "/dashboard/pos": POSManagement,
   "/dashboard/service-catalog": ServiceCatalogManagement,
   "/dashboard/consent": ConsentFilesManagement,
@@ -379,6 +380,7 @@ const dashboardRouteRoles = {
   "/dashboard/boarding": ADMIN_ROLES,
   "/dashboard/grooming": ADMIN_ROLES,
   "/dashboard/queue": ADMIN_ROLES,
+  "/dashboard/pet-intake": ADMIN_ROLES,
   "/dashboard/patient-intake": ADMIN_ROLES,
   "/dashboard/pos": ADMIN_ROLES,
   "/dashboard/service-catalog": ADMIN_ROLES,
@@ -527,8 +529,8 @@ function getActiveTab(path) {
   if (path.startsWith("/dashboard/queue")) {
     return "queue";
   }
-  if (path.startsWith("/dashboard/patient-intake")) {
-    return "patient-intake";
+  if (path.startsWith("/dashboard/pet-intake") || path.startsWith("/dashboard/patient-intake")) {
+    return "pet-intake";
   }
   if (path.startsWith("/dashboard/pos")) {
     return "pos";

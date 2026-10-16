@@ -4,9 +4,15 @@ import {
     ArrowLeft,
     Building2,
     CalendarDays,
+    CheckCircle2,
+    ChevronDown,
     Clock,
+    FileCheck2,
     FileText,
+    LayoutGrid,
+    List,
     Loader2,
+    PawPrint,
     RefreshCw,
     Scissors,
     Search,
@@ -20,6 +26,7 @@ import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, D
 import { Input } from '../../ui/input';
 import { Label } from '../../ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../../ui/select';
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '../../ui/table';
 import { toast } from '../../reusecomponent/toast.jsx';
 import { calculateAge, clinicTodayDate, formatDisplayDate, formatDisplayDateTime } from '../../lib/date';
 import { assignedVetBookings, bookingDateKey, bookingPreviewSelection, bookingsForDate, filterVetBookings, nextBookedDate, nextBookingDayLabel, queueScheduleDate, vetBookingService } from '../../lib/vetDailyBookings';
@@ -41,10 +48,11 @@ import {
 } from '../../services/queueService';
 import { uploadDataUrlImage } from '../../services/uploadService';
 import { fetchBranches, getBranchDisplayName } from '../../services/branchService';
-import DashboardPageHeader from '../shared/DashboardPageHeader.jsx';
+import CarePageHeader from '../shared/CarePageHeader.jsx';
 import GroomingWorkspace from '../shared/GroomingWorkspace.jsx';
 import VetBookingDayList from '../shared/VetBookingDayList.jsx';
 import { fetchVeterinarianBookings } from '../../services/bookingService';
+import './vetMyList.css';
 
 const CONSENT_STORAGE_KEY = 'ipawcus-vet-my-list-consents';
 
@@ -62,11 +70,6 @@ function isReceived(item) {
 function isCompleted(item) {
     const status = normalize(item.status);
     return normalize(item.assignment_status) === 'completed' || status === 'completed' || status === 'done';
-}
-
-function isPastQueueDate(value) {
-    const date = bookingDateKey(value);
-    return Boolean(date && date < clinicTodayDate());
 }
 
 function ownerName(item) {
@@ -743,140 +746,174 @@ export default function VetMyList() {
     };
 
     return (
-        <div className="space-y-6">
-            <DashboardPageHeader
+        <div className="care-workspace vet-my-list space-y-5 pb-24">
+            <CarePageHeader
                 icon={Stethoscope}
                 title="My List"
-                description={`Today’s approved bookings and examination patients — ${formatDisplayDate(todayKey)}. Future schedules stay in To-dos.`}
+                description="Review your assigned patients, check examination progress, and begin diagnosis."
                 layout="stacked"
                 actions={(
                     <div className="flex flex-wrap gap-2">
-                    <Button type="button" variant="outline" disabled={isBookingsLoading || Boolean(bookingsError) || !nextDate} onClick={() => openBookingPreview(nextDate)} className="gap-2" title={nextDate ? `View approved bookings for ${formatDisplayDate(nextDate)}` : 'No future approved bookings'}>
-                        <CalendarDays className="size-4" />
-                        {nextBookingDayLabel(nextDate, todayKey)}{nextDate ? ` (${nextBookings.length})` : ''}
-                    </Button>
-                    <Button type="button" variant="outline" onClick={() => navigate('/dashboard/todos')} className="gap-2">All schedules</Button>
-                    <Button
-                        type="button"
-                        variant="outline"
-                        onClick={() => {
-                            loadQueue();
-                            loadBookings();
-                            loadConsentForms();
-                        }}
-                        disabled={isLoading}
-                        className="gap-2"
-                    >
-                        {isLoading ? <Loader2 className="size-4 animate-spin" /> : <RefreshCw className="size-4" />}
-                        <span>Refresh</span>
-                    </Button>
+                        <Button type="button" variant="outline" disabled={isBookingsLoading || Boolean(bookingsError) || !nextDate} onClick={() => openBookingPreview(nextDate)} className="gap-2" title={nextDate ? `View approved bookings for ${formatDisplayDate(nextDate)}` : 'No future approved bookings'}>
+                            <CalendarDays className="size-4" />
+                            {nextBookingDayLabel(nextDate, todayKey)}{nextDate ? ` (${nextBookings.length})` : ''}
+                        </Button>
+                        <Button type="button" variant="outline" onClick={() => navigate('/dashboard/todos')} className="gap-2">All schedules</Button>
+                        <Button
+                            type="button"
+                            variant="outline"
+                            onClick={() => {
+                                loadQueue();
+                                loadBookings();
+                                loadConsentForms();
+                            }}
+                            disabled={isLoading}
+                            className="gap-2"
+                        >
+                            {isLoading ? <Loader2 className="size-4 animate-spin" /> : <RefreshCw className="size-4" />}
+                            <span>Refresh</span>
+                        </Button>
                     </div>
                 )}
             />
 
-            <div className="rounded-xl border border-slate-200 bg-white p-4 shadow-sm dark:border-slate-700 dark:bg-slate-900">
-                <div className="grid gap-3 md:grid-cols-[minmax(0,1fr)_minmax(200px,280px)]">
-                    <Input
-                        value={searchQuery}
-                        onChange={(event) => setSearchQuery(event.target.value)}
-                        placeholder="Search booking, queue, pet or owner"
-                        className="h-10"
-                        leftIcon={<Search className="size-4" />}
-                    />
-                    <Select value={branchFilter} onValueChange={setBranchFilter} searchable={false}>
-                        <SelectTrigger aria-label="Clinic for My List"><Building2 className="size-4 text-slate-500" /><SelectValue displayValue={branchFilter === 'all' ? 'All assigned clinics' : getBranchDisplayName(branches, branchFilter)} /></SelectTrigger>
-                        <SelectContent><SelectItem value="all">All assigned clinics</SelectItem>{branches.map(branch => <SelectItem key={branch.id} value={String(branch.id)}>{branch.name}</SelectItem>)}</SelectContent>
-                    </Select>
+            <div className="vet-list-content space-y-5">
+                <div className="vet-day-context">
+                    <span><CalendarDays className="size-4" aria-hidden="true" />{formatDisplayDate(todayKey)}</span>
+                    <span><RefreshCw className="size-3.5" aria-hidden="true" />Updates automatically</span>
                 </div>
+
+                <div className="vet-list-toolbar">
+                    <div className="space-y-2">
+                        <Label htmlFor="vet-list-search">Search patients and bookings</Label>
+                        <Input
+                            id="vet-list-search"
+                            value={searchQuery}
+                            onChange={(event) => setSearchQuery(event.target.value)}
+                            placeholder="Search booking, queue, pet or owner"
+                            className="h-10"
+                            leftIcon={<Search className="size-4" />}
+                        />
+                    </div>
+                    <div className="space-y-2">
+                        <Label id="vet-list-clinic-label">Clinic</Label>
+                        <Select value={branchFilter} onValueChange={setBranchFilter} searchable={false}>
+                            <SelectTrigger aria-labelledby="vet-list-clinic-label"><Building2 className="size-4 text-slate-500" /><SelectValue displayValue={branchFilter === 'all' ? 'All assigned clinics' : getBranchDisplayName(branches, branchFilter)} /></SelectTrigger>
+                            <SelectContent><SelectItem value="all">All assigned clinics</SelectItem>{branches.map(branch => <SelectItem key={branch.id} value={String(branch.id)}>{branch.name}</SelectItem>)}</SelectContent>
+                        </Select>
+                    </div>
+                    {searchQuery || branchFilter !== 'all' ? (
+                        <Button type="button" variant="ghost" size="sm" onClick={() => { setSearchQuery(''); setBranchFilter('all'); }}>
+                            <X className="size-4" />Clear filters
+                        </Button>
+                    ) : null}
+                </div>
+
+                {errorMessage && (
+                    <div role="alert" className="vet-list-error">
+                        <AlertTriangle className="size-4 shrink-0" aria-hidden="true" />
+                        <p>{errorMessage}</p>
+                        <Button type="button" variant="outline" size="sm" onClick={() => loadQueue()}>Retry patients</Button>
+                    </div>
+                )}
+
+                <div className="vet-workspace-grid">
+                    <section className="vet-list-panel" aria-labelledby="vet-patients-heading">
+                        <div className="vet-panel-heading">
+                            <div>
+                                <h2 id="vet-patients-heading">In progress <span className="vet-section-count">{filteredReceivedItems.length}</span></h2>
+                                <p>Examination progress and consent for today’s patients.</p>
+                            </div>
+                        </div>
+
+                        {isLoading ? (
+                            <LoadingState />
+                        ) : errorMessage && !hasLoadedQueue ? (
+                            <EmptyState message="Patients could not be loaded." description="Use Retry patients above to reconnect." />
+                        ) : filteredReceivedItems.length === 0 ? (
+                            <EmptyState message={searchQuery || branchFilter !== 'all' ? 'No patients match your filters.' : 'No patients in progress.'} description={searchQuery || branchFilter !== 'all' ? 'Try another name, queue reference, or clinic.' : 'Assigned patients appear here when their examination begins.'} />
+                        ) : (
+                            <div className="vet-patient-list">
+                                {filteredReceivedItems.map(item => (
+                                    <PatientCard
+                                        key={item.queue_id}
+                                        item={item}
+                                        consentRecord={getConsentRecord(item)}
+                                        onConsent={() => openConsentDialog(item)}
+                                        onUploadConsent={() => openUploadDialog(item)}
+                                        onStartDiagnosis={() => startDiagnosis(item)}
+                                    />
+                                ))}
+                            </div>
+                        )}
+                    </section>
+
+                    <section className="vet-list-panel vet-bookings" aria-labelledby="vet-bookings-heading">
+                        <div className="vet-panel-heading">
+                            <div>
+                                <h2 id="vet-bookings-heading">Today’s bookings <span className="vet-section-count">{todayBookings.length}</span></h2>
+                                <p>Your approved appointments, ordered by time.</p>
+                            </div>
+                            <CalendarDays className="size-4" aria-hidden="true" />
+                        </div>
+                        {isBookingsLoading ? <LoadingState /> : bookingsError ? <div role="alert" className="vet-list-error"><p>{bookingsError}</p><Button type="button" variant="outline" size="sm" onClick={() => loadBookings()}>Retry bookings</Button></div> : <VetBookingDayList compact bookings={todayBookings} getStatus={getBookingStatus} onSelect={booking => openBookingPreview(todayKey, booking)} emptyText="No approved bookings for today. Future bookings are in All schedules." />}
+                    </section>
+                </div>
+
+                <section className="vet-list-panel" aria-labelledby="vet-completed-heading">
+                    <div className="vet-panel-heading">
+                        <div>
+                            <h2 id="vet-completed-heading">Completed today <span className="vet-section-count">{filteredCompletedItems.length}</span></h2>
+                            <p>Review completed visits or return a patient to your list.</p>
+                        </div>
+                        <div className="vet-view-switch" role="group" aria-label="Completed patient view">
+                            <Button
+                                type="button"
+                                variant={completedViewMode === 'table' ? 'default' : 'outline'}
+                                size="sm"
+                                onClick={() => setCompletedViewMode('table')}
+                                aria-pressed={completedViewMode === 'table'}
+                            >
+                                <List className="size-4" />
+                                Table
+                            </Button>
+                            <Button
+                                type="button"
+                                variant={completedViewMode === 'cards' ? 'default' : 'outline'}
+                                size="sm"
+                                onClick={() => setCompletedViewMode('cards')}
+                                aria-pressed={completedViewMode === 'cards'}
+                            >
+                                <LayoutGrid className="size-4" />
+                                Cards
+                            </Button>
+                        </div>
+                    </div>
+
+                    {isLoading ? <LoadingState /> : filteredCompletedItems.length === 0 ? (
+                        <EmptyState message={searchQuery || branchFilter !== 'all' ? 'No completed patients match your filters.' : 'No completed patients today.'} compact />
+                    ) : (
+                        <div data-completed-view={completedViewMode}>
+                            <div className="vet-completed-cards">
+                                <CompletedPatientsCards
+                                    items={filteredCompletedItems}
+                                    getConsentRecord={getConsentRecord}
+                                    updatingQueueId={updatingQueueId}
+                                    onReopen={(item) => updateQueueStatus(item.queue_id, 'in-progress')}
+                                />
+                            </div>
+                            <div className="vet-completed-table">
+                                <CompletedPatientsTable
+                                    items={filteredCompletedItems}
+                                    getConsentRecord={getConsentRecord}
+                                    updatingQueueId={updatingQueueId}
+                                    onReopen={(item) => updateQueueStatus(item.queue_id, 'in-progress')}
+                                />
+                            </div>
+                        </div>
+                    )}
+                </section>
             </div>
-
-            {errorMessage && (
-                <div className="rounded-xl border border-red-200 bg-red-50 p-4 text-sm font-semibold text-red-700">
-                    {errorMessage}
-                </div>
-            )}
-
-            <section className="overflow-hidden rounded-xl border border-slate-200 bg-white dark:border-slate-700 dark:bg-slate-900" aria-label="Today’s approved bookings">
-                <div className="flex flex-wrap items-center justify-between gap-2 border-b border-slate-100 px-4 py-3 dark:border-slate-800 sm:px-5">
-                    <h3 className="text-base font-bold text-slate-900 dark:text-slate-100">Today’s approved bookings</h3>
-                    <span className="text-sm text-slate-500 dark:text-slate-400">{todayBookings.length} booking{todayBookings.length === 1 ? '' : 's'}</span>
-                </div>
-                {isBookingsLoading ? <LoadingState /> : bookingsError ? <div role="alert" className="flex flex-wrap items-center gap-3 p-4 text-sm text-red-600 dark:text-red-300"><p>{bookingsError}</p><Button type="button" variant="outline" size="sm" onClick={() => loadBookings()}>Retry</Button></div> : <VetBookingDayList bookings={todayBookings} getStatus={getBookingStatus} onSelect={booking => openBookingPreview(todayKey, booking)} emptyText="No approved bookings for today. Future bookings are in All schedules." />}
-            </section>
-
-            <section className="space-y-4">
-                <div className="flex items-center justify-between">
-                    <h3 className="text-lg font-bold text-slate-900 dark:text-slate-100">Today — In Progress</h3>
-                    <Badge className="border-0 bg-blue-50 text-blue-700">{filteredReceivedItems.length} patients</Badge>
-                </div>
-
-                {isLoading ? (
-                    <LoadingState />
-                ) : filteredReceivedItems.length === 0 ? (
-                    <EmptyState message="No examination patients for today." />
-                ) : (
-                    <div className="grid grid-cols-1 gap-4 xl:grid-cols-2">
-                        {filteredReceivedItems.map(item => (
-                            <PatientCard
-                                key={item.queue_id}
-                                item={item}
-                                consentRecord={getConsentRecord(item)}
-                                isUpdating={updatingQueueId === item.queue_id}
-                                onConsent={() => openConsentDialog(item)}
-                                onUploadConsent={() => openUploadDialog(item)}
-                                onStartDiagnosis={() => startDiagnosis(item)}
-                            />
-                        ))}
-                    </div>
-                )}
-            </section>
-
-            <section className="space-y-4">
-                <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-                    <div className="flex items-center gap-3">
-                        <h3 className="text-lg font-bold text-slate-900 dark:text-slate-100">Today — Done</h3>
-                        <Badge className="border-0 bg-green-50 text-green-700">{filteredCompletedItems.length} patients</Badge>
-                    </div>
-                    <div className="grid grid-cols-2 gap-2 sm:flex">
-                        <Button
-                            type="button"
-                            variant={completedViewMode === 'table' ? 'default' : 'outline'}
-                            size="sm"
-                            onClick={() => setCompletedViewMode('table')}
-                            className={completedViewMode === 'table' ? 'bg-[#155dfc] text-white hover:bg-[#0d4acf]' : ''}
-                        >
-                            Table
-                        </Button>
-                        <Button
-                            type="button"
-                            variant={completedViewMode === 'cards' ? 'default' : 'outline'}
-                            size="sm"
-                            onClick={() => setCompletedViewMode('cards')}
-                            className={completedViewMode === 'cards' ? 'bg-[#155dfc] text-white hover:bg-[#0d4acf]' : ''}
-                        >
-                            Cards
-                        </Button>
-                    </div>
-                </div>
-
-                {filteredCompletedItems.length === 0 ? (
-                    <EmptyState message="No completed patients for today." compact />
-                ) : completedViewMode === 'cards' ? (
-                    <CompletedPatientsCards
-                        items={filteredCompletedItems}
-                        getConsentRecord={getConsentRecord}
-                        updatingQueueId={updatingQueueId}
-                        onReopen={(item) => updateQueueStatus(item.queue_id, 'in-progress')}
-                    />
-                ) : (
-                    <CompletedPatientsTable
-                        items={filteredCompletedItems}
-                        getConsentRecord={getConsentRecord}
-                        updatingQueueId={updatingQueueId}
-                        onReopen={(item) => updateQueueStatus(item.queue_id, 'in-progress')}
-                    />
-                )}
-            </section>
 
             <Button
                 type="button"
@@ -1099,7 +1136,6 @@ export default function VetMyList() {
         </div>
     );
 }
-
 function filterItems(items, searchQuery, branchFilter = 'all') {
     const query = normalize(searchQuery);
     const byBranch = items.filter(item => branchFilter === 'all' || String(item.branch_id) === branchFilter);
@@ -1129,41 +1165,35 @@ function PatientCard({ item, consentRecord, onConsent, onUploadConsent, onStartD
         || consentRecord?.signedDocumentPath
         || consentRecord?.physicalConsentPath
     );
-    const queueDatePassed = isPastQueueDate(queueScheduleDate(item));
     const intakeStatus = normalize(item.clinical_intake?.status || item.clinical_intake_status);
     const examinationComplete = intakeStatus === 'completed';
 
     return (
-        <div className="rounded-xl border border-slate-200 bg-white p-5 shadow-sm">
-            <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
+        <article className="vet-patient-row" aria-label={`Patient ${item.pet_name || 'Unknown Pet'}, ${formatQueueReference(item)}`}>
+            <div className="min-w-0">
                 <PatientSummary item={item} />
-                <div className="flex flex-wrap gap-2 sm:justify-end">
-                    {getPriorityBadge(item.priority)}
-                    {getConsentBadge(consentRecord)}
-                    <Badge className={examinationComplete
-                        ? 'border-0 bg-emerald-50 text-[10px] text-emerald-700'
-                        : 'border-0 bg-amber-50 text-[10px] text-amber-700'}>
-                        {examinationComplete ? 'Ready for diagnosis' : 'Undergoing physical examination'}
-                    </Badge>
-                </div>
+                <dl className="vet-patient-context">
+                    <div><dt>Owner</dt><dd>{ownerName(item)}</dd></div>
+                    <div><dt>Service</dt><dd>{getServiceDisplayName(item.service_name, 'Queue')}</dd></div>
+                </dl>
+                {item.complaint ? <p className="vet-patient-complaint"><span>Concern</span>{item.complaint}</p> : null}
+                <PatientDetails item={item} />
             </div>
-
-            <PatientDetails item={item} />
-
-            {queueDatePassed && (
-                <div className="mt-4 rounded-lg border border-amber-200 bg-amber-50 p-3 text-xs font-semibold text-amber-700">
-                    Service date has passed. Returning this patient will cancel the queue for re-entry.
-                </div>
-            )}
-
-            <div className={`mt-5 grid gap-2 sm:grid-cols-2 ${hasConsent ? '' : 'xl:grid-cols-3'}`}>
+            <div className="vet-patient-workflow">
+                <Badge className={examinationComplete
+                    ? 'border-0 bg-emerald-50 text-emerald-700'
+                    : 'border-0 bg-amber-50 text-amber-700'}>
+                    {examinationComplete ? 'Examination complete' : 'In examination'}
+                </Badge>
+                {getConsentBadge(consentRecord)}
+                <div className="vet-patient-actions">
                 {!hasConsent && (
                     <>
-                        <Button type="button" variant="outline" onClick={onConsent}>
+                        <Button type="button" variant="outline" size="sm" onClick={onConsent} aria-label={`Record consent for ${item.pet_name}`}>
                             <FileText className="size-4" />
                             Consent
                         </Button>
-                        <Button type="button" variant="outline" onClick={onUploadConsent}>
+                        <Button type="button" variant="outline" size="sm" onClick={onUploadConsent} aria-label={`Upload consent for ${item.pet_name}`}>
                             <Upload className="size-4" />
                             Upload
                         </Button>
@@ -1172,57 +1202,48 @@ function PatientCard({ item, consentRecord, onConsent, onUploadConsent, onStartD
                 <Button
                     type="button"
                     onClick={onStartDiagnosis}
+                    variant={!hasConsent || !examinationComplete ? 'secondary' : 'default'}
                     disabled={!hasConsent || !examinationComplete}
-                    className="bg-[#155dfc] text-white hover:bg-[#0d4acf]"
+                    aria-label={`Open diagnosis for ${item.pet_name}`}
+                    aria-describedby={`vet-patient-requirement-${item.queue_id}`}
+                    className="vet-diagnosis-action"
                 >
                     <Stethoscope className="size-4" />
-                    {examinationComplete ? 'Diagnosis' : 'Waiting for examination'}
+                    Open diagnosis
                 </Button>
+                </div>
+                <p id={`vet-patient-requirement-${item.queue_id}`} className="vet-workflow-hint">
+                    {!examinationComplete ? 'Complete examination before diagnosis.' : !hasConsent ? 'Record owner consent to continue.' : 'Ready to begin diagnosis.'}
+                </p>
             </div>
-        </div>
+        </article>
     );
 }
 
 function CompletedPatientsCards({ items, getConsentRecord, updatingQueueId, onReopen }) {
     return (
-        <div className="grid gap-3 lg:grid-cols-2">
+        <div className="vet-completed-grid">
             {items.map((item) => {
                 const consentRecord = getConsentRecord(item);
                 const isUpdating = updatingQueueId === item.queue_id;
 
                 return (
-                    <div key={item.queue_id} className="rounded-xl border border-slate-200 bg-white p-4 shadow-sm">
-                        <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
-                            <div className="min-w-0">
-                                <div className="flex flex-wrap items-center gap-2">
-                                    <Badge className="border-0 bg-blue-50 text-blue-700">{formatQueueReference(item)}</Badge>
-                                    {getConsentBadge(consentRecord)}
-                                </div>
-                                <h4 className="mt-3 truncate text-lg font-black text-slate-900">{item.pet_name || 'Unknown Pet'}</h4>
-                                <p className="mt-1 text-sm font-semibold text-slate-500">{ownerName(item)}</p>
-                                <p className="mt-1 text-xs text-slate-400">
-                                    {[item.pet_species, item.pet_breed].filter(Boolean).join(' - ') || 'No pet profile details'}
-                                </p>
-                            </div>
-                            <Button type="button" size="sm" onClick={() => onReopen(item)} disabled={isUpdating} className="w-full gap-1 bg-slate-900 text-white hover:bg-slate-800 sm:w-auto">
+                    <article key={item.queue_id} className="vet-completed-card">
+                        <PatientSummary item={item} />
+                        <dl className="vet-patient-context">
+                            <div><dt>Owner</dt><dd>{ownerName(item)}</dd></div>
+                            <div><dt>Service</dt><dd>{getServiceDisplayName(item.service_name, 'Queue')}</dd></div>
+                            <div><dt>Completed</dt><dd>{formatQueueTime(item.completed_at || item.timestamp)}</dd></div>
+                        </dl>
+                        {item.complaint ? <p className="vet-patient-complaint">{item.complaint}</p> : null}
+                        <div className="vet-completed-card-actions">
+                            {getConsentBadge(consentRecord)}
+                            <Button type="button" variant="outline" size="sm" onClick={() => onReopen(item)} disabled={isUpdating} aria-label={`Reopen visit for ${item.pet_name}`}>
                                 {isUpdating ? <Loader2 className="size-4 animate-spin" /> : <Clock className="size-4" />}
                                 Reopen
                             </Button>
                         </div>
-                        <div className="mt-4 grid gap-3 text-sm sm:grid-cols-2">
-                            <div>
-                                <p className="text-xs font-black uppercase tracking-widest text-slate-400">Service</p>
-                                <p className="mt-1 font-semibold text-slate-700">{getServiceDisplayName(item.service_name, 'Queue')}</p>
-                            </div>
-                            <div>
-                                <p className="text-xs font-black uppercase tracking-widest text-slate-400">Completed</p>
-                                <p className="mt-1 font-semibold text-slate-700">{formatQueueTime(item.completed_at || item.timestamp)}</p>
-                            </div>
-                        </div>
-                        {item.complaint && (
-                            <p className="mt-3 line-clamp-2 text-xs font-semibold leading-5 text-slate-500">{item.complaint}</p>
-                        )}
-                    </div>
+                    </article>
                 );
             })}
         </div>
@@ -1231,102 +1252,92 @@ function CompletedPatientsCards({ items, getConsentRecord, updatingQueueId, onRe
 
 function CompletedPatientsTable({ items, getConsentRecord, updatingQueueId, onReopen }) {
     return (
-        <div className="overflow-hidden rounded-xl border border-slate-200 bg-white shadow-sm">
-            <div className="overflow-x-auto">
-                <table className="min-w-[900px] w-full text-left text-sm">
-                    <thead className="border-b border-slate-200 bg-slate-50 text-xs font-black uppercase tracking-wider text-slate-500">
-                        <tr>
-                            <th className="px-4 py-3">Queue</th>
-                            <th className="px-4 py-3">Patient</th>
-                            <th className="px-4 py-3">Service</th>
-                            <th className="px-4 py-3">Completed</th>
-                            <th className="px-4 py-3">Consent</th>
-                            <th className="px-4 py-3 text-right">Actions</th>
-                        </tr>
-                    </thead>
-                    <tbody className="divide-y divide-slate-100">
-                        {items.map((item) => {
-                            const consentRecord = getConsentRecord(item);
-                            const isUpdating = updatingQueueId === item.queue_id;
+        <Table aria-label="Completed patients" className="vet-completed-records">
+            <TableHeader>
+                <TableRow>
+                    <TableHead>Patient / Queue</TableHead>
+                    <TableHead>Service</TableHead>
+                    <TableHead>Completed</TableHead>
+                    <TableHead>Consent</TableHead>
+                    <TableHead className="text-right">Actions</TableHead>
+                </TableRow>
+            </TableHeader>
+            <TableBody>
+                {items.map((item) => {
+                    const consentRecord = getConsentRecord(item);
+                    const isUpdating = updatingQueueId === item.queue_id;
 
-                            return (
-                                <tr key={item.queue_id} className="align-top transition hover:bg-blue-50/40">
-                                    <td className="px-4 py-4">
-                                        <Badge className="border-0 bg-blue-50 text-blue-700">{formatQueueReference(item)}</Badge>
-                                    </td>
-                                    <td className="px-4 py-4">
-                                        <p className="font-black text-slate-900">{item.pet_name || 'Unknown Pet'}</p>
-                                        <p className="mt-1 text-xs font-semibold text-slate-500">{ownerName(item)}</p>
-                                        <p className="mt-1 text-xs text-slate-400">
-                                            {[item.pet_species, item.pet_breed].filter(Boolean).join(' - ') || 'No pet profile details'}
-                                        </p>
-                                    </td>
-                                    <td className="px-4 py-4">
-                                        <p className="font-semibold text-slate-700">{getServiceDisplayName(item.service_name, 'Queue')}</p>
-                                        {item.complaint && (
-                                            <p className="mt-1 line-clamp-2 max-w-xs text-xs text-slate-500">{item.complaint}</p>
-                                        )}
-                                    </td>
-                                    <td className="px-4 py-4 font-semibold text-slate-600">
-                                        {formatQueueTime(item.completed_at || item.timestamp)}
-                                    </td>
-                                    <td className="px-4 py-4">
-                                        {getConsentBadge(consentRecord)}
-                                    </td>
-                                    <td className="px-4 py-4">
-                                        <div className="flex justify-end gap-2">
-                                            <Button type="button" size="sm" onClick={() => onReopen(item)} disabled={isUpdating} className="gap-1 bg-slate-900 text-white hover:bg-slate-800">
-                                                {isUpdating ? <Loader2 className="size-4 animate-spin" /> : <Clock className="size-4" />}
-                                                Reopen
-                                            </Button>
-                                        </div>
-                                    </td>
-                                </tr>
-                            );
-                        })}
-                    </tbody>
-                </table>
-            </div>
-        </div>
+                    return (
+                        <TableRow key={item.queue_id}>
+                            <TableCell>
+                                <div className="vet-completed-identity"><strong>{item.pet_name || 'Unknown Pet'}</strong><span>{formatQueueReference(item)}</span></div>
+                                <p className="vet-secondary">{ownerName(item)}</p>
+                                <p className="vet-secondary">{[item.pet_species, item.pet_breed].filter(Boolean).join(' · ') || 'No pet profile details'}</p>
+                            </TableCell>
+                            <TableCell>
+                                <p className="vet-record-service">{getServiceDisplayName(item.service_name, 'Queue')}</p>
+                                <p className="vet-secondary">{item.branch_name || 'Main Clinic'}</p>
+                                {item.complaint ? <p className="vet-secondary line-clamp-2">{item.complaint}</p> : null}
+                            </TableCell>
+                            <TableCell className="tabular-nums">
+                                {formatQueueTime(item.completed_at || item.timestamp)}
+                            </TableCell>
+                            <TableCell>
+                                {getConsentBadge(consentRecord)}
+                            </TableCell>
+                            <TableCell>
+                                <div className="flex justify-end gap-2">
+                                    <Button type="button" variant="outline" size="sm" onClick={() => onReopen(item)} disabled={isUpdating} aria-label={`Reopen visit for ${item.pet_name}`}>
+                                        {isUpdating ? <Loader2 className="size-4 animate-spin" /> : <Clock className="size-4" />}
+                                        Reopen
+                                    </Button>
+                                </div>
+                            </TableCell>
+                        </TableRow>
+                    );
+                })}
+            </TableBody>
+        </Table>
     );
 }
 
 function PatientSummary({ item }) {
     return (
-        <div className="min-w-0">
-            <div className="flex flex-wrap items-center gap-2">
-                <h4 className="truncate text-xl font-black text-slate-900">{item.pet_name || 'Unknown Pet'}</h4>
-                <Badge className="border-0 bg-blue-50 text-blue-700">{formatQueueReference(item)}</Badge>
-                <Badge className="border-0 bg-slate-100 text-slate-700">{item.branch_name || 'Main Clinic'}</Badge>
+        <div className="vet-patient-identity">
+            <span className="vet-patient-avatar"><PawPrint className="size-5" aria-hidden="true" /></span>
+            <div className="min-w-0">
+                <div className="vet-patient-title">
+                    <h3>{item.pet_name || 'Unknown Pet'}</h3>
+                    <span className="vet-queue-reference">{formatQueueReference(item)}</span>
+                    {getPriorityBadge(item.priority)}
+                </div>
+                <p className="vet-secondary">{[item.pet_species, item.pet_breed].filter(Boolean).join(' · ') || 'No pet profile details'}</p>
+                <p className="vet-secondary">{item.branch_name || 'Main Clinic'}</p>
             </div>
-            <p className="mt-1 text-sm font-semibold text-slate-500">
-                {[item.pet_species, item.pet_breed].filter(Boolean).join(' - ') || 'No pet profile details'}
-            </p>
         </div>
     );
 }
 
 function PatientDetails({ item }) {
     return (
-        <div className="mt-4 grid gap-3 rounded-lg bg-slate-50 p-4 text-sm md:grid-cols-2">
-            <Detail label="Owner" value={ownerName(item)} />
-            <Detail label="Service" value={getServiceDisplayName(item.service_name, 'Queue')} />
-            <Detail label="Clinic Location" value={item.branch_name || 'Main Clinic'} />
-            <Detail label="Received" value={formatQueueTime(item.received_at || item.timestamp)} />
-            <Detail label="Contact" value={item.contactNumber} />
-            <Detail label="Age" value={petAge(item)} />
-            <Detail label="Weight" value={item.pet_weight ? `${item.pet_weight} kg` : ''} />
-            <Detail label="Complaint" value={item.complaint} className="md:col-span-2" />
-        </div>
+        <details className="vet-patient-details">
+            <summary>Patient details<ChevronDown className="size-3.5" aria-hidden="true" /></summary>
+            <div className="vet-patient-detail-grid">
+                <Detail label="Contact" value={item.contactNumber} />
+                <Detail label="Age" value={petAge(item)} />
+                <Detail label="Weight" value={item.pet_weight ? `${item.pet_weight} kg` : ''} />
+                <Detail label="Received" value={formatQueueTime(item.received_at || item.timestamp)} />
+            </div>
+        </details>
     );
 }
 
 function Detail({ label, value, className = '' }) {
     return (
         <div className={className}>
-            <p className="text-[10px] font-black uppercase tracking-widest text-slate-500 dark:text-slate-400">{label}</p>
-            <p className="mt-1 break-words font-semibold text-slate-700 dark:text-slate-200">
-                {value || <span className="text-slate-300">N/A</span>}
+            <p className="text-xs font-medium text-slate-600 dark:text-slate-300">{label}</p>
+            <p className="mt-1 break-words text-sm font-medium text-slate-900 dark:text-slate-100">
+                {value || <span className="text-slate-600 dark:text-slate-300">Not recorded</span>}
             </p>
         </div>
     );
@@ -1343,38 +1354,40 @@ function getPriorityBadge(priority) {
     if (normalizedPriority === 'low-test') return (
         <Badge className="border border-blue-200 bg-blue-50 text-blue-700">Low-test</Badge>
     );
-    return <Badge className="border-0 bg-slate-100 text-slate-700">Normal</Badge>;
+    return null;
 }
 
 function getConsentBadge(record) {
     if (!record?.signedAt && !record?.signedDocumentPath && !record?.physicalConsentPath) {
-        return <Badge className="border-0 bg-red-50 text-red-700">No Consent</Badge>;
+        return <span className="vet-consent" data-state="missing"><FileText className="size-3.5" aria-hidden="true" />Consent needed</span>;
     }
 
     if (record.physicalConsentUploadedAt) {
-        return <Badge className="border-0 bg-green-50 text-green-700">Physical Consent</Badge>;
+        return <span className="vet-consent" data-state="signed"><FileCheck2 className="size-3.5" aria-hidden="true" />Physical consent</span>;
     }
 
     if (record.isTemporary) {
-        return <Badge className="border-0 bg-amber-50 text-amber-700">Temporary Consent</Badge>;
+        return <span className="vet-consent" data-state="temporary"><FileText className="size-3.5" aria-hidden="true" />Temporary consent</span>;
     }
 
-    return <Badge className="border-0 bg-green-50 text-green-700">Signed Consent</Badge>;
+    return <span className="vet-consent" data-state="signed"><FileCheck2 className="size-3.5" aria-hidden="true" />Signed consent</span>;
 }
 
 function LoadingState() {
     return (
-        <div className="rounded-xl border border-slate-200 bg-white p-10 text-center text-sm font-semibold text-slate-500">
-            <Loader2 className="mx-auto mb-3 size-6 animate-spin text-[#155dfc]" />
-            Loading veterinarian list...
+        <div className="vet-list-loading" role="status">
+            <span className="sr-only">Loading veterinarian list...</span>
+            {[1, 2].map(row => <div key={row} className="vet-loading-row" aria-hidden="true"><span /><span /><span /></div>)}
         </div>
     );
 }
 
-function EmptyState({ message, compact = false }) {
+function EmptyState({ message, description, compact = false }) {
     return (
-        <div className={`rounded-xl border border-dashed border-slate-300 bg-white text-center text-sm font-semibold text-slate-400 ${compact ? 'p-6' : 'p-10'}`}>
-            {message}
+        <div className={`vet-list-empty ${compact ? 'vet-list-empty-compact' : ''}`}>
+            {compact ? <CheckCircle2 className="size-6" aria-hidden="true" /> : <Stethoscope className="size-6" aria-hidden="true" />}
+            <h3>{message}</h3>
+            {description ? <p>{description}</p> : null}
         </div>
     );
 }

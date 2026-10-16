@@ -1,50 +1,54 @@
-import { Moon, Sun } from 'lucide-react';
+import { Check, Moon, Sun } from 'lucide-react';
 
 import { useTheme } from '../../hooks/useTheme';
-import { THEME_OPTIONS } from '../../lib/theme';
+import { THEME_CATALOG } from '../../lib/theme';
 import { cn } from '../../ui/utils';
 
-const themeOptions = [
-    { value: THEME_OPTIONS.LIGHT, label: 'Light', icon: Sun },
-    { value: THEME_OPTIONS.DARK, label: 'Dark', icon: Moon },
-];
-
 export default function ThemeToggle({ className = '' }) {
-    const { theme, setTheme } = useTheme();
+    const { theme, palette, setTheme } = useTheme();
 
     return (
-        <section className={cn('rounded-2xl border border-slate-200 bg-white p-5 shadow-sm sm:p-6', className)}>
-            <div className="flex flex-col gap-5 sm:flex-row sm:items-center sm:justify-between">
+        <section className={cn('theme-chooser', className)} aria-labelledby="theme-chooser-heading">
+            <div className="theme-chooser-heading">
                 <div>
-                    <h3 className="text-lg font-bold text-slate-900">Theme</h3>
-                    <p className="mt-1 text-sm text-slate-500">Choose your preferred display mode.</p>
+                    <h3 id="theme-chooser-heading">Theme</h3>
+                    <p>Choose a palette for your workspace. Your selection is saved on this browser.</p>
                 </div>
+                <span className="theme-current" aria-live="polite"><Check className="size-4" aria-hidden="true" />{palette.label}</span>
+            </div>
 
-                <div className="grid w-full grid-cols-2 rounded-xl border border-slate-200 bg-slate-100 p-1 sm:w-[220px]">
-                    {themeOptions.map((option) => {
-                        const Icon = option.icon;
-                        const isActive = theme === option.value;
+            <fieldset>
+                <legend className="sr-only">Workspace color theme</legend>
+                <div className="theme-choice-grid">
+                    {THEME_CATALOG.map((option) => {
+                        const Icon = option.appearance === 'dark' ? Moon : Sun;
+                        const selected = theme === option.id;
+                        const colors = option.tokens;
 
                         return (
-                            <button
-                                key={option.value}
-                                type="button"
-                                onClick={() => setTheme(option.value)}
-                                aria-pressed={isActive}
-                                className={cn(
-                                    'flex h-10 items-center justify-center gap-2 rounded-lg text-sm font-bold transition-all',
-                                    isActive
-                                        ? 'bg-[#155dfc] text-white shadow-sm'
-                                        : 'text-slate-600 hover:bg-white hover:text-slate-900',
-                                )}
-                            >
-                                <Icon className="size-4" />
-                                {option.label}
-                            </button>
+                            <label key={option.id} className="theme-choice" data-selected={selected}>
+                                <input type="radio" name="workspace-theme" value={option.id} checked={selected} onChange={() => setTheme(option.id)} className="sr-only" aria-describedby={`theme-description-${option.id}`} />
+                                <span className="theme-choice-preview" aria-hidden="true" style={{
+                                    '--preview-page': colors['--theme-page'],
+                                    '--preview-surface': colors['--theme-surface'],
+                                    '--preview-soft': colors['--theme-surface-soft'],
+                                    '--preview-text': colors['--theme-text'],
+                                    '--preview-muted': colors['--theme-text-muted'],
+                                    '--preview-primary': colors['--theme-primary'],
+                                    '--preview-on-primary': colors['--theme-on-primary'],
+                                }}>
+                                    <span className="theme-preview-sidebar"><span /><span /><span /></span>
+                                    <span className="theme-preview-panel"><span className="theme-preview-title">Aa</span><span className="theme-preview-line" /><span className="theme-preview-line theme-preview-line-short" /><span className="theme-preview-action">Continue</span></span>
+                                </span>
+                                <span className="theme-choice-title"><span>{option.label}</span><Icon className="size-4" aria-hidden="true" /></span>
+                                <span id={`theme-description-${option.id}`} className="theme-choice-description">{option.description}</span>
+                                <span className="theme-choice-meta"><span>{option.appearance === 'dark' ? 'Dark' : 'Light'}{option.family === 'Dracula' ? ' · Dracula' : ''}</span><span className="theme-choice-indicator" aria-hidden="true">{selected && <Check className="size-3" />}</span></span>
+                            </label>
                         );
                     })}
                 </div>
-            </div>
+            </fieldset>
+            <p className="theme-chooser-note">Status colors keep their meaning across themes. Documents and receipts keep their print colors.</p>
         </section>
     );
 }

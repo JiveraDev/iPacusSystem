@@ -3,7 +3,7 @@ import { Badge } from '../../ui/badge';
 import { formatDisplayTime } from '../../lib/date';
 import { vetBookingService } from '../../lib/vetDailyBookings';
 
-export default function VetBookingDayList({ bookings, onSelect, getStatus, emptyText = 'No approved bookings for this date.' }) {
+export default function VetBookingDayList({ bookings, onSelect, getStatus, compact = false, emptyText = 'No approved bookings for this date.' }) {
     if (!bookings.length) return <p className="px-4 py-8 text-center text-sm text-slate-500 dark:text-slate-400">{emptyText}</p>;
     return (
         <ul className="divide-y divide-slate-100 dark:divide-slate-800">
@@ -22,9 +22,9 @@ export default function VetBookingDayList({ bookings, onSelect, getStatus, empty
                                 <span>{booking.branchName || 'Clinic'}</span>
                             </div>
                             <p className="mt-1 truncate text-xs text-slate-500 dark:text-slate-400">Owner: {booking.ownerName || 'Pet owner'}</p>
-                            <Badge className={`mt-2 border-0 text-[11px] sm:hidden ${status.className}`}>{status.label}</Badge>
+                            <Badge className={`mt-2 border-0 text-[11px] ${compact ? '' : 'sm:hidden'} ${status.className}`}>{status.label}</Badge>
                         </div>
-                        <Badge className={`hidden shrink-0 border-0 text-xs sm:inline-flex ${status.className}`}>{status.label}</Badge>
+                        {!compact ? <Badge className={`hidden shrink-0 border-0 text-xs sm:inline-flex ${status.className}`}>{status.label}</Badge> : null}
                         <ChevronRight className="size-4 shrink-0 text-slate-400" aria-hidden="true" />
                     </button>
                 </li>;

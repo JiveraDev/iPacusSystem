@@ -42,6 +42,8 @@ import ServicePetPeek from '../shared/ServicePetPeek.jsx';
 import PrescriptionPlanPanel from '../shared/PrescriptionPlanPanel.jsx';
 import { updatePrescriptionOccurrence } from '../../services/prescriptionService';
 import { bookingScheduleCount, isBookingScheduleTask } from '../../lib/vetDailyBookings';
+import { contrastRatio } from '../../lib/theme';
+import { useTheme } from '../../hooks/useTheme';
 
 dayjs.extend(updateLocale);
 dayjs.updateLocale('en', { weekStart: 0 });
@@ -82,6 +84,12 @@ const CATEGORY_COLORS = {
     'Personal Task': '#475569',
     'Online Consultation': '#2563eb',
     Other: '#64748b'
+};
+
+const CATEGORY_THEME_COLORS = {
+    Booking: 'primary', Boarding: 'info-solid', Payment: 'success-solid',
+    'Follow-up': 'info-solid', Medication: 'warning-solid', 'Personal Task': 'surface-muted',
+    'Online Consultation': 'primary', Other: 'surface-muted'
 };
 
 const CALENDAR_VIEWS = [
@@ -311,6 +319,7 @@ function petProfilePath(task) {
 
 export default function Todos({ user }) {
     const navigate = useNavigate();
+    const { theme, palette } = useTheme();
     const userId = getUserId(user);
     const isVeterinarian = isVeterinarianRole(user?.role);
     const [calendarDate, setCalendarDate] = useState(() => new Date());
@@ -612,19 +621,20 @@ export default function Todos({ user }) {
                     backgroundColor: 'transparent',
                     borderColor: 'transparent',
                     color: 'var(--theme-text)',
-                    opacity: isTaskDone(task) ? 0.72 : 1
+                    textDecoration: isTaskDone(task) ? 'line-through' : 'none'
                 }
             };
         }
 
-        const color = CATEGORY_COLORS[task.category] || CATEGORY_COLORS[task.source === 'personal' ? 'Personal Task' : 'Other'];
+        const category = CATEGORY_COLORS[task.category] ? task.category : task.source === 'personal' ? 'Personal Task' : 'Other';
+        const color = theme === 'light' ? CATEGORY_COLORS[category] : palette.tokens[`--theme-${CATEGORY_THEME_COLORS[category]}`];
 
         return {
             style: {
                 backgroundColor: color,
                 borderColor: color,
-                color: '#ffffff',
-                opacity: isTaskDone(task) ? 0.68 : 1
+                color: contrastRatio(color, '#ffffff') >= 4.5 ? '#ffffff' : '#17171c',
+                textDecoration: isTaskDone(task) ? 'line-through' : 'none'
             }
         };
     };

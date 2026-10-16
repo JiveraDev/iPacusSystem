@@ -123,10 +123,10 @@ const adminActions = [
     tone: "bg-emerald-50 text-emerald-700",
   },
   {
-    title: "Patient Intake",
+    title: "Pet Intake",
     description: "Perform physical examinations and record field-level photo evidence.",
     icon: Stethoscope,
-    path: "/dashboard/patient-intake",
+    path: "/dashboard/pet-intake",
     tone: "bg-violet-50 text-violet-700",
   },
   {
@@ -629,7 +629,7 @@ export default function Home({ user }) {
               </div>
             </div>
           </div>
-          <div className="relative min-h-56 bg-slate-950 lg:min-h-full">
+          <div className="home-care-photo relative min-h-56 bg-slate-950 lg:min-h-full">
             <img src={consultImage} alt="Online veterinary consultation" className="absolute inset-0 h-full w-full object-cover opacity-80" />
             <div className="absolute inset-0 bg-slate-950/35" aria-hidden="true" />
             <div className="relative flex h-full min-h-56 flex-col justify-end p-5 text-white">

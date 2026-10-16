@@ -63,7 +63,7 @@ export default function DashboardPageHeader({
         <section
             data-slot="dashboard-page-header"
             data-header-pet={petHover ? 'enabled' : 'disabled'}
-            className={`dashboard-page-header-pet relative isolate overflow-hidden rounded-xl border border-slate-200 bg-white px-4 py-4 shadow-sm dark:border-slate-700 dark:bg-slate-900 ${className}`}
+            className={`dashboard-page-header-pet relative isolate min-w-0 overflow-hidden pb-5 ${className}`}
         >
             {petHover ? (
                 <ServicePetPeek

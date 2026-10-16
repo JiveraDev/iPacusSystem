@@ -191,7 +191,7 @@ function SalesPointDetails({ date, details, reduceMotion, onClose }) {
 export default function ReportChartCard({ title, summary, chart, compact = false, stableHeight = false, eyebrow = '', actions = null }) {
     const rootRef = useRef(null);
     const progressiveLineActiveRef = useRef(true);
-    const { isDark } = useTheme();
+    const { palette } = useTheme();
     const [reduceMotion, setReduceMotion] = useState(() => typeof window !== 'undefined' && window.matchMedia('(prefers-reduced-motion: reduce)').matches);
     const [selectedPointIndex, setSelectedPointIndex] = useState(null);
     useEffect(() => {
@@ -235,9 +235,9 @@ export default function ReportChartCard({ title, summary, chart, compact = false
     }, { scope: rootRef, dependencies: [reduceMotion], revertOnUpdate: true });
     const chartData = buildChartData(chart);
     const forceWholeNumberTicks = chartUsesWholeNumbers(chart);
-    const axisTextColor = isDark ? '#cbd5e1' : '#64748b';
-    const legendTextColor = isDark ? '#e2e8f0' : '#334155';
-    const gridColor = isDark ? '#334155' : '#e2e8f0';
+    const axisTextColor = palette.id === 'light' ? '#64748b' : palette.tokens['--theme-text-muted'];
+    const legendTextColor = palette.id === 'light' ? '#334155' : palette.tokens['--theme-text'];
+    const gridColor = palette.id === 'light' ? '#e2e8f0' : palette.tokens['--theme-border'];
     const pointDetails = chart?.pointDetails && typeof chart.pointDetails === 'object' ? chart.pointDetails : {};
     const hasPointDetails = Object.keys(pointDetails).length > 0;
     const activePointIndex = selectedPointIndex;

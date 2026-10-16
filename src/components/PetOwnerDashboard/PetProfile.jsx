@@ -6,7 +6,7 @@ import { Button } from "../../ui/button";
 import { Badge } from "../../ui/badge";
 import { Input } from "../../ui/input";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "../../ui/dialog";
-import { ArrowLeft, FileText, PawPrint, Syringe, AlertCircle, ClipboardPenLine, HeartPulse, Loader2, Copy, Check, Camera, ClipboardList, CalendarClock, Eye, ShieldCheck, UserPlus, Pencil, Save, X, Download, RotateCw, Award, BadgeCheck, Pill } from "lucide-react";
+import { ArrowLeft, FileText, PawPrint, Syringe, AlertCircle, ClipboardPenLine, Loader2, Copy, Check, Camera, ClipboardList, CalendarClock, Eye, ShieldCheck, UserPlus, Pencil, Save, X, Download, RotateCw, Award, BadgeCheck, Pill } from "lucide-react";
 import navigationLogo from "../../assets/circular_logo.png";
 import { toast } from "../../reusecomponent/toast.jsx";
 import { resolveImageUrl } from "../../lib/image";
@@ -29,7 +29,7 @@ import ProtectedImage from "../shared/ProtectedImage.jsx";
 import EditPetInformationDialog from "../shared/EditPetInformationDialog.jsx";
 import PetCertificateDialog from "../shared/PetCertificateDialog.jsx";
 import PrescriptionPlanPanel from "../shared/PrescriptionPlanPanel.jsx";
-import PetMedicalOverview from '../shared/PetMedicalOverview.jsx';
+import PetActionDock from '../shared/PetActionDock.jsx';
 import CarePageHeader from '../shared/CarePageHeader.jsx';
 import { canEditPetInformation } from "../../lib/petInformation";
 
@@ -311,7 +311,7 @@ export default function PetProfile() {
     }
   };
 
-  const handlePrint = () => {
+  const handleOpenMedicalRecords = () => {
     navigate(`/dashboard/my-pets/${petId}/medical-records`);
   };
 
@@ -761,7 +761,7 @@ export default function PetProfile() {
   }
 
   return (
-    <div className="care-workspace care-pet-profile space-y-6 pb-6">
+    <div className="care-workspace care-pet-profile space-y-6 pb-28">
       <CarePageHeader
         title="Pet information"
         description="Patient details, vaccination history, and medical records."
@@ -800,7 +800,7 @@ export default function PetProfile() {
         bookingCount={visibleBookingRecords.length}
         canViewBookings={canViewPetOwnerActivity}
         onRequestUpdate={() => navigate(`/dashboard/my-pets/${petId}/request-update`)}
-        onOpenHistory={handlePrint}
+        onOpenMedicalRecords={handleOpenMedicalRecords}
         onOpenConsent={() => setIsConsentPanelOpen(true)}
         onOpenBookings={() => setIsBookingsPanelOpen(true)}
         registrationCertificate={certificates.registrationCertificate}
@@ -808,8 +808,6 @@ export default function PetProfile() {
         onOpenRegistrationCertificate={openRegistrationCertificate}
         onOpenMedicalCertificate={openMedicalCertificate}
       />
-
-      <PetMedicalOverview key={pet.db_id || petId} petId={pet.db_id || petId} ownerOnly={canRequestRecordUpdate} onOpenRecord={handlePrint} />
 
       <div className="hidden" aria-hidden="true">
         {/* Supporting pet details */}
@@ -1571,8 +1569,8 @@ function PetIdentityCard({ pet, copied, flipped, canEdit, canChangeOwner, queueR
                 <div className="flex min-w-0 items-center gap-3">
                   <img src={navigationLogo} alt="iPawcus logo" className="size-10 shrink-0 object-contain" />
                   <div className="min-w-0">
-                    <p className="text-sm font-semibold text-slate-900 dark:text-white">Patient profile</p>
-                    <p className="mt-0.5 text-xs text-slate-500 dark:text-slate-400">iPawcus · Vetfocus Care</p>
+                    <p className="text-sm font-semibold text-slate-900 dark:text-white">iPawcus</p>
+                    <p className="mt-0.5 text-xs text-slate-500 dark:text-slate-400">Vetfocus Care · Patient Profile</p>
                   </div>
                 </div>
                 <div className="flex shrink-0 items-start justify-end gap-2">
@@ -1770,13 +1768,12 @@ function PetIdentityCard({ pet, copied, flipped, canEdit, canChangeOwner, queueR
   );
 }
 
-function PetProfileActionDock({ canRequestRecordUpdate, activeRecordUpdateRequest, consentCount, documentCount, bookingCount, canViewBookings, onRequestUpdate, onOpenHistory, onOpenConsent, onOpenBookings, registrationCertificate, medicalCertificate, onOpenRegistrationCertificate, onOpenMedicalCertificate }) {
+function PetProfileActionDock({ canRequestRecordUpdate, activeRecordUpdateRequest, consentCount, documentCount, bookingCount, canViewBookings, onRequestUpdate, onOpenMedicalRecords, onOpenConsent, onOpenBookings, registrationCertificate, medicalCertificate, onOpenRegistrationCertificate, onOpenMedicalCertificate }) {
   const requestDisabled = !canRequestRecordUpdate || Boolean(activeRecordUpdateRequest);
   const linkedFileCount = consentCount + documentCount;
 
   return (
-    <div className="pet-action-dock-anchor pointer-events-none fixed inset-x-0 z-40 px-3 sm:px-5">
-    <nav className="pet-action-dock pointer-events-auto mx-auto flex w-full max-w-4xl gap-0.5 overflow-x-auto rounded-xl border border-slate-200 bg-white p-1 shadow-xl shadow-slate-950/15 dark:border-slate-700 dark:bg-slate-900" aria-label="Pet profile actions">
+    <PetActionDock>
       <button
         type="button"
         disabled={requestDisabled}
@@ -1790,13 +1787,13 @@ function PetProfileActionDock({ canRequestRecordUpdate, activeRecordUpdateReques
       </button>
       <button
         type="button"
-        onClick={onOpenHistory}
+        onClick={onOpenMedicalRecords}
         className="group flex min-w-11 flex-1 flex-col items-center justify-center gap-0.5 rounded-lg px-1.5 py-2.5 text-center text-slate-700 outline-none transition-[background-color,color,transform] duration-200 hover:bg-blue-50 hover:text-[#155dfc] focus-visible:ring-2 focus-visible:ring-[#155dfc] dark:text-slate-200 dark:hover:bg-blue-950/50 dark:hover:text-blue-300 sm:min-w-[5.5rem] sm:py-2"
-        aria-label="Open pet health history"
-        title="Health History"
+        aria-label="Open pet medical records"
+        title="Medical Records"
       >
-        <HeartPulse className="size-5 sm:size-4" aria-hidden="true" />
-        <span className="hidden truncate text-[11px] font-black sm:block sm:text-xs">Health History</span>
+        <FileText className="size-5 sm:size-4" aria-hidden="true" />
+        <span className="hidden truncate text-[11px] font-black sm:block sm:text-xs">Medical Records</span>
       </button>
       <button
         type="button"
@@ -1843,8 +1840,7 @@ function PetProfileActionDock({ canRequestRecordUpdate, activeRecordUpdateReques
         <CalendarClock className="size-5 sm:size-4" aria-hidden="true" />
         <span className="hidden truncate text-[11px] font-black sm:block sm:text-xs">Bookings</span>
       </button>
-    </nav>
-    </div>
+    </PetActionDock>
   );
 }
 

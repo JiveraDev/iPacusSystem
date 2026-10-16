@@ -106,10 +106,11 @@ export function Login({
 
                 <form onSubmit={handleSubmit} className="px-6 pt-4 pb-6 space-y-4">
                     <div className="space-y-2">
-                        <label aria-autocomplete={"list"} className="block text-base text-[#0a0a0a]" style={{ fontFamily: "Arimo, sans-serif" }}>
+                        <label htmlFor="login-email" className="block text-base text-[#0a0a0a]" style={{ fontFamily: "Arimo, sans-serif" }}>
                             Email
                         </label>
                         <input
+                            id="login-email"
                             type="email"
                             value={email}
                             onChange={(event) => setEmail(event.target.value)}
@@ -122,7 +123,7 @@ export function Login({
 
                     <div className="space-y-2">
                         <div className="flex items-center justify-between gap-3">
-                            <label className="block text-base text-[#0a0a0a]" style={{ fontFamily: "Arimo, sans-serif" }}>
+                            <label htmlFor="login-password" className="block text-base text-[#0a0a0a]" style={{ fontFamily: "Arimo, sans-serif" }}>
                                 Password
                             </label>
                             <button
@@ -136,6 +137,7 @@ export function Login({
                         </div>
                         <div className="relative h-11">
                             <input
+                                id="login-password"
                                 type={showPassword ? "text" : "password"}
                                 value={password}
                                 onChange={(event) => setPassword(event.target.value)}

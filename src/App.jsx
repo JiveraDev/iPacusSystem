@@ -507,7 +507,7 @@ function App() {
           ? 'min-h-screen theme-aware'
           : activeView === 'statusDisplay'
             ? 'min-h-screen'
-            : 'min-h-screen theme-static-light'}
+            : 'min-h-screen theme-aware public-auth'}
       >
         <ToastViewport position={['login', 'register', 'registerProfile'].includes(activeView) ? 'bottom-right' : undefined} />
         {activeView === 'statusDisplay' && (

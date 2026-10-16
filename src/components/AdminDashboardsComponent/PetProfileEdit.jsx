@@ -15,7 +15,7 @@ import { toast } from "../../reusecomponent/toast.jsx";
 import { openProtectedDocument } from "../../hooks/useConsentDocumentSource";
 import { calculateAge, formatDisplayDate } from "../../lib/date";
 import ProtectedImage from "../shared/ProtectedImage.jsx";
-import PetMedicalOverview from '../shared/PetMedicalOverview.jsx';
+import PetActionDock from '../shared/PetActionDock.jsx';
 import { useAutoRefresh } from '../../hooks/useAutoRefresh';
 import {
   PET_INPUT_LIMITS,
@@ -259,7 +259,7 @@ export default function PetProfileEdit() {
   }
 
   return (
-    <div className="care-workspace care-pet-information space-y-6 pb-12">
+    <div className="care-workspace care-pet-information space-y-6 pb-28">
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <Button variant="ghost" onClick={() => navigate("/dashboard/pet-register")} className="w-fit hover:bg-slate-100">
           <ArrowLeft className="h-4 w-4 mr-2" />
@@ -419,7 +419,12 @@ export default function PetProfileEdit() {
         </div>
       </div>
 
-      <PetMedicalOverview key={petId} petId={petId} onOpenRecord={() => navigate(`/dashboard/my-pets/${petId}/medical-records`)} />
+      <PetActionDock className="w-auto max-w-fit" label="Pet medical record actions">
+        <Button type="button" variant="ghost" onClick={() => navigate(`/dashboard/my-pets/${petId}/medical-records`)} className="min-h-12 gap-2 px-5">
+          <FileText className="size-5" aria-hidden="true" />
+          Medical Records
+        </Button>
+      </PetActionDock>
 
       {/* Dialogs */}
       <Dialog open={showAddVax} onOpenChange={setShowAddVax}>

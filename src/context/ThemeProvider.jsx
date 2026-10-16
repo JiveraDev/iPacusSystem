@@ -1,19 +1,18 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 
 import { ThemeContext } from './ThemeContext';
-import { getStoredTheme, normalizeTheme, THEME_OPTIONS, THEME_STORAGE_KEY } from '../lib/theme';
+import { applyTheme, getStoredTheme, getTheme, normalizeTheme, THEME_STORAGE_KEY } from '../lib/theme';
 
 export default function ThemeProvider({ children }) {
     const [theme, setThemeState] = useState(getStoredTheme);
 
     useEffect(() => {
-        const normalizedTheme = normalizeTheme(theme);
-        const root = document.documentElement;
-
-        root.classList.toggle('dark', normalizedTheme === THEME_OPTIONS.DARK);
-        root.dataset.theme = normalizedTheme;
-        root.style.colorScheme = normalizedTheme;
-        localStorage.setItem(THEME_STORAGE_KEY, normalizedTheme);
+        const palette = applyTheme(theme);
+        try {
+            localStorage.setItem(THEME_STORAGE_KEY, palette.id);
+        } catch {
+            // The selected palette still works when browser storage is blocked.
+        }
     }, [theme]);
 
     const setTheme = useCallback((nextTheme) => {
@@ -21,14 +20,13 @@ export default function ThemeProvider({ children }) {
     }, []);
 
     const toggleTheme = useCallback(() => {
-        setThemeState((currentTheme) => (
-            currentTheme === THEME_OPTIONS.DARK ? THEME_OPTIONS.LIGHT : THEME_OPTIONS.DARK
-        ));
+        setThemeState((currentTheme) => getTheme(currentTheme).pairedTheme);
     }, []);
 
     const contextValue = useMemo(() => ({
         theme,
-        isDark: theme === THEME_OPTIONS.DARK,
+        palette: getTheme(theme),
+        isDark: getTheme(theme).appearance === 'dark',
         setTheme,
         toggleTheme,
     }), [setTheme, theme, toggleTheme]);

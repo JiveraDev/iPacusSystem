@@ -41,6 +41,7 @@ function ipawcus_admin_feature_keys(): array
         'pets',
         'pet_register',
         'bookings',
+        'pet_intake',
         'record_requests',
         'boarding',
         'grooming',
@@ -91,11 +92,16 @@ function ipawcus_admin_feature_permissions(PDO $pdo, int $userId): array
             WHERE user_id = ?
         ");
         $stmt->execute([$userId]);
+        $hasPetIntakePermission = false;
         foreach ($stmt->fetchAll(PDO::FETCH_ASSOC) as $row) {
             $key = (string)($row['feature_key'] ?? '');
             if (array_key_exists($key, $permissions)) {
                 $permissions[$key] = (int)($row['is_allowed'] ?? 0) === 1;
+                if ($key === 'pet_intake') $hasPetIntakePermission = true;
             }
+        }
+        if (!$hasPetIntakePermission) {
+            $permissions['pet_intake'] = $permissions['queue'];
         }
     } catch (Throwable $error) {
         // RBAC is additive. A missing/partial optional table must preserve the
@@ -120,7 +126,7 @@ function ipawcus_admin_feature_for_mutation(string $path, string $method): ?stri
     if (preg_match('#^/boarding(/|$)#', $path)) return 'boarding';
     if ($path === '/grooming') return 'grooming';
     if (preg_match('#^/queues(/|$)#', $path)) return 'queue';
-    if ($path === '/clinical-intakes') return 'queue';
+    if ($path === '/clinical-intakes') return 'pet_intake';
     if (preg_match('#^/visits(/|$)#', $path)) return 'pos';
     if (preg_match('#^/inventory(/|$)#', $path)) return 'inventory';
     if (preg_match('#^/(consent_files|consent-form-records|consent_form_records)(/|$)#', $path)) return 'consent';
@@ -288,7 +294,7 @@ function ipawcus_route_access_policy(string $path, string $method): array
     }
 
     if ($path === '/clinical-intakes') {
-        return ['roles' => ipawcus_roles('clinic')];
+        return ['roles' => $method === 'GET' ? ipawcus_roles('clinic') : ipawcus_roles('admin')];
     }
 
     if (preg_match('#^/vet-diagnoses(/|$)#', $path)) {

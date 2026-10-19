@@ -1,0 +1,1 @@
+import{y as e}from"./apiClient-BNDAvWUn.js";function t(t,n={}){return e(`/consent-form-records`,t,n)}export{t};

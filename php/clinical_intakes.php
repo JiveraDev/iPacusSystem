@@ -15,7 +15,8 @@ function clinical_intake_schema_ready(PDO $pdo): bool
 function clinical_intake_require_schema(PDO $pdo): void
 {
     if (!clinical_intake_schema_ready($pdo)) {
-        ipawcus_guard_error(503, 'Pet Intake is not installed yet. Run DDL/20261004_01_clinical_intakes.sql, then try again.', [
+        error_log('Pet Intake setup required: apply DDL/20261004_01_clinical_intakes.sql to the application database.');
+        ipawcus_guard_error(503, 'Pet Intake setup is incomplete. Ask your clinic administrator to finish setup, then refresh.', [
             'schemaReady' => false,
             'code' => 'clinical_intake_schema_missing',
         ]);
@@ -172,6 +173,11 @@ if ($method === 'GET') {
         $params[] = $currentUserId;
     } elseif (!ipawcus_guard_is_admin_role($currentRole)) {
         ipawcus_guard_error(403, 'Only clinic staff can view pet intake records.');
+    }
+
+    if (($_GET['checkSetup'] ?? '') === '1') {
+        echo json_encode(['success' => true, 'schemaReady' => true]);
+        exit;
     }
 
     $where = $conditions ? 'WHERE ' . implode(' AND ', $conditions) : '';

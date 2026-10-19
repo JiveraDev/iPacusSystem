@@ -1,1 +1,0 @@
-import{y as e}from"./apiClient-CO5M9TNe.js";function t(t,n={}){return e(`/consent-form-records`,t,n)}export{t};

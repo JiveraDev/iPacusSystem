@@ -1,0 +1,1 @@
+import{t as e}from"./jsx-runtime-CXcWFDqm.js";import{bt as t}from"./index-C9mCYVT6.js";import{t as n}from"./DashboardPageHeader-B3jjEuAu.js";/* empty css                      */var r=e();function i({className:e=``,...i}){return(0,r.jsx)(`div`,{"data-dashboard-heading-plain":!0,children:(0,r.jsx)(n,{...i,petHover:!1,className:t(`care-page-header`,e)})})}export{i as t};

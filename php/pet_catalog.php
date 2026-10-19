@@ -5,8 +5,8 @@ require_once __DIR__ . '/db.php';
 try {
     $stmt = $pdo->query("
         SELECT DISTINCT
-            TRIM(pet_species) AS species,
-            TRIM(pet_breed) AS breed
+            TRIM(species) AS species,
+            TRIM(breed) AS breed
         FROM pet_catalog_options
         WHERE TRIM(COALESCE(species, '')) <> ''
           AND TRIM(COALESCE(breed, '')) <> ''

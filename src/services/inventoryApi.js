@@ -19,14 +19,14 @@ export function getCurrentUser() {
   return JSON.parse(localStorage.getItem("currentUser") || "null");
 }
 
-export function fetchInventoryMeta(params = {}) {
+export function fetchInventoryMeta(params = {}, options = {}) {
   const query = new URLSearchParams(params).toString();
-  return request(`/inventory/meta${query ? `?${query}` : ''}`);
+  return request(`/inventory/meta${query ? `?${query}` : ''}`, options);
 }
 
-export function fetchInventoryItems(params = {}) {
+export function fetchInventoryItems(params = {}, options = {}) {
   const query = new URLSearchParams(params).toString();
-  return request(`/inventory${query ? `?${query}` : ''}`);
+  return request(`/inventory${query ? `?${query}` : ''}`, options);
 }
 
 export function createInventoryItem(payload) {

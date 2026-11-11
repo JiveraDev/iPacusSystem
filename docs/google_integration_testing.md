@@ -1,6 +1,8 @@
 # Google identity integration and testing
 
-Updated: 2026-10-14.
+Updated: 2026-10-18.
+
+October 18 repeat: configuration, matching IDs, extensions, trusted test origin, and verifier checks pass; the normal local database readiness step fails. No real Google sign-in was attempted. The [combined system reference](CURRENT_SYSTEM_CAPABILITIES.md#56-google-sign-in-onboarding-and-explicit-linking) reconciles current source, the historical database findings below, and remaining account/session findings.
 
 October 14 update: Google prerequisites pass against the new isolated database. Stop the interactive sandbox, then run `npm.cmd run sandbox:google`. This includes real schema checks without contacting the original database. Actual Google authentication still needs the sandbox origin authorized in Google Cloud. See [database sandbox](database_sandbox.md).
 
@@ -59,7 +61,7 @@ October 13 result: local configuration, IDs, trusted origin, extensions and veri
 | Different-email connection | Reject with `GOOGLE_EMAIL_MISMATCH` |
 | Identity already linked elsewhere | Reject the conflicting link |
 | Returning owner/admin/super-admin/vet | Preserve database role; navigate to permitted workflows |
-| Deactivated staff profile | Reject sign-in |
+| Deactivated staff profile | Google sign-in rejects it; the password-login/token paths have a separate unresolved inactivity-enforcement finding |
 | Archived account | Preserve documented archive-as-list-marker behavior |
 | Expired/reused onboarding token | Reject without duplicate accounts |
 | Invalid credential/wrong audience/unverified email | Reject without issuing an access token |

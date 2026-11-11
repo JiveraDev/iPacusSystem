@@ -1,3 +1,4 @@
+import ErrorBoundary from './ErrorBoundary.jsx';
 import { useCallback, useEffect, useId, useRef, useState } from 'react';
 import { ArrowLeft, Building2, Camera, CheckCircle2, ChevronDown, ClipboardList, Clock3, PawPrint, Scissors, Search, ShieldAlert, Stethoscope, Upload } from 'lucide-react';
 import { Button } from '../../ui/button';
@@ -487,7 +488,7 @@ function GroomingRecord({ item, mode, onClose, onUpdated, groomingServices = [],
             if (window.confirm(prompt)) save(status);
         };
 
-        return <section
+        return <ErrorBoundary scope="section" title="This section could not be displayed">{() => (<section
             className="overflow-hidden rounded-2xl border border-slate-200 bg-white text-slate-900 shadow-sm dark:border-slate-700 dark:bg-slate-900 dark:text-slate-100"
             aria-label={`Grooming record for ${item.pet_name}`}
             onFocusCapture={() => { formFocusedRef.current = true; }}
@@ -643,10 +644,10 @@ function GroomingRecord({ item, mode, onClose, onUpdated, groomingServices = [],
                     </div>
                 </footer>
             </>}
-        </section>;
+        </section>)}</ErrorBoundary>;
     }
 
-    return <section className={`${PANEL} space-y-5`} aria-label={`Grooming record for ${item.pet_name}`}>
+    return <ErrorBoundary scope="section" title="This section could not be displayed">{() => (<section className={`${PANEL} space-y-5`} aria-label={`Grooming record for ${item.pet_name}`}>
         <div className="flex flex-wrap items-center justify-between gap-3">
             <Button variant="outline" onClick={close} disabled={busy}><ArrowLeft /> Back to list</Button>
             <div className="flex items-center gap-2"><span className={MUTED}>{groomingBookingReference(item)}</span>{job && <State value={job.status} />}</div>
@@ -759,7 +760,7 @@ function GroomingRecord({ item, mode, onClose, onUpdated, groomingServices = [],
                 {dirty && <p role="status" className={MUTED}>You have unsaved changes. Automatic refresh is paused while you edit.</p>}
             </>}
         </>}
-    </section>;
+    </section>)}</ErrorBoundary>;
 }
 
 export default function GroomingWorkspace({ mode = 'admin' }) {
@@ -865,7 +866,7 @@ export default function GroomingWorkspace({ mode = 'admin' }) {
 
                 <div className="overflow-hidden rounded-xl border border-slate-200 bg-white dark:border-slate-700 dark:bg-slate-900">
                     {loading ? <p role="status" className="px-5 py-12 text-center text-sm text-slate-500 dark:text-slate-400">Loading grooming jobs…</p> : !visible.length ? <div className="flex items-start justify-center gap-3 px-5 py-12"><ClipboardList className="mt-0.5 size-5 shrink-0 text-slate-400" /><p className={MUTED}>{error ? 'Records could not be loaded.' : scopedItems.length ? 'No open grooming jobs match this search.' : 'Approve a grooming booking in Booking Management to see it here.'}</p></div> : <div className="overflow-x-auto">
-                        <table className="w-full min-w-[860px] border-collapse text-left text-sm">
+                        <ErrorBoundary scope="section" title="This section could not be displayed">{() => (<table className="w-full min-w-[860px] border-collapse text-left text-sm">
                             <caption className="sr-only">Grooming receiving and work queue</caption>
                             <thead className="border-b border-slate-200 bg-slate-50 text-[11px] font-semibold uppercase tracking-wide text-slate-500 dark:border-slate-700 dark:bg-slate-950/60 dark:text-slate-400">
                                 <tr>
@@ -915,7 +916,7 @@ export default function GroomingWorkspace({ mode = 'admin' }) {
                                     </tr>;
                                 })}
                             </tbody>
-                        </table>
+                        </table>)}</ErrorBoundary>
                     </div>}
                     {!loading && visible.length > 0 && <div className="flex flex-wrap items-center justify-between gap-2 border-t border-slate-200 bg-slate-50/70 px-4 py-2.5 text-xs text-slate-500 dark:border-slate-800 dark:bg-slate-950/40 dark:text-slate-400"><span>{visible.length} open grooming {visible.length === 1 ? 'job' : 'jobs'}</span><span>{branchLabel}</span></div>}
                 </div>

@@ -1,3 +1,4 @@
+import ErrorBoundary from '../shared/ErrorBoundary.jsx';
 import { useCallback, useMemo, useState } from 'react';
 import {
     Download,
@@ -661,7 +662,7 @@ function VaccinationReview({ record }) {
     }
 
     return (
-        <section className="rounded-xl border border-blue-100 bg-blue-50 p-4">
+        <ErrorBoundary scope="section" title="This section could not be displayed">{() => (<section className="rounded-xl border border-blue-100 bg-blue-50 p-4">
             <div className="mb-3 flex items-center gap-2">
                 <Syringe className="size-4 text-blue-700" />
                 <h3 className="text-sm font-black uppercase tracking-widest text-blue-700">Vaccination Record</h3>
@@ -674,7 +675,7 @@ function VaccinationReview({ record }) {
                 <Detail label="License Number" value={record.veterinarianLicense} />
                 <Detail label="Notes" value={record.notes} />
             </div>
-        </section>
+        </section>)}</ErrorBoundary>
     );
 }
 
@@ -688,7 +689,7 @@ function BoardingDetails({ booking, onPreview }) {
 
     return (
         <div className="space-y-4">
-            <section className="rounded-xl border border-amber-100 bg-amber-50 p-4">
+            <ErrorBoundary scope="section" title="This section could not be displayed">{() => (<section className="rounded-xl border border-amber-100 bg-amber-50 p-4">
                 <div className="mb-3 flex items-center gap-2">
                     <Hotel className="size-4 text-amber-700" />
                     <h3 className="text-sm font-black uppercase tracking-widest text-amber-700">Boarding Stay</h3>
@@ -703,7 +704,7 @@ function BoardingDetails({ booking, onPreview }) {
                     <Detail label="Payment" value={booking.price ? `PHP ${booking.price}` : ''} />
                     <Detail label="Booking" value={booking.bookingNumber || booking.id} />
                 </div>
-            </section>
+            </section>)}</ErrorBoundary>
 
             <TextBlock label="Boarding Notes" value={booking.notes} icon={MessageSquare} />
             <TextBlock
@@ -752,7 +753,7 @@ function ConsentDocumentList({ title, forms, booking, onPreview }) {
     }
 
     return (
-        <section className="rounded-xl border border-slate-200 bg-white p-4">
+        <ErrorBoundary scope="section" title="This section could not be displayed">{() => (<section className="rounded-xl border border-slate-200 bg-white p-4">
             <div className="mb-3 flex items-center gap-2">
                 <Paperclip className="size-4 text-slate-400" />
                 <h3 className="text-sm font-black uppercase tracking-widest text-slate-500">{title}</h3>
@@ -767,7 +768,7 @@ function ConsentDocumentList({ title, forms, booking, onPreview }) {
                     />
                 ))}
             </div>
-        </section>
+        </section>)}</ErrorBoundary>
     );
 }
 
@@ -913,7 +914,7 @@ function TextBlock({ label, value, icon, highlight = false }) {
     }
 
     return (
-        <section className={`rounded-xl border p-4 ${highlight ? 'border-blue-100 bg-blue-50' : 'border-slate-200 bg-white'}`}>
+        <ErrorBoundary scope="section" title="This section could not be displayed">{() => (<section className={`rounded-xl border p-4 ${highlight ? 'border-blue-100 bg-blue-50' : 'border-slate-200 bg-white'}`}>
             <div className="mb-2 flex items-center gap-2">
                 <Icon className={`size-4 ${highlight ? 'text-blue-700' : 'text-slate-400'}`} />
                 <h3 className={`text-sm font-black uppercase tracking-widest ${highlight ? 'text-blue-700' : 'text-slate-500'}`}>
@@ -923,7 +924,7 @@ function TextBlock({ label, value, icon, highlight = false }) {
             <p className="whitespace-pre-wrap break-words text-sm font-medium leading-6 text-slate-700">
                 {value}
             </p>
-        </section>
+        </section>)}</ErrorBoundary>
     );
 }
 
@@ -942,14 +943,14 @@ function VitalSigns({ vitalSigns }) {
     };
 
     return (
-        <section className="rounded-xl border border-slate-200 bg-white p-4">
+        <ErrorBoundary scope="section" title="This section could not be displayed">{() => (<section className="rounded-xl border border-slate-200 bg-white p-4">
             <h3 className="mb-3 text-sm font-black uppercase tracking-widest text-slate-500">Vital Signs</h3>
             <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
                 {entries.map(([key, value]) => (
                     <Detail key={key} label={labels[key] || key} value={value} />
                 ))}
             </div>
-        </section>
+        </section>)}</ErrorBoundary>
     );
 }
 
@@ -961,7 +962,7 @@ function PrescriptionList({ prescriptions }) {
     }
 
     return (
-        <section className="rounded-xl border border-slate-200 bg-white p-4">
+        <ErrorBoundary scope="section" title="This section could not be displayed">{() => (<section className="rounded-xl border border-slate-200 bg-white p-4">
             <div className="mb-3 flex items-center gap-2">
                 <Pill className="size-4 text-slate-400" />
                 <h3 className="text-sm font-black uppercase tracking-widest text-slate-500">Prescription</h3>
@@ -979,7 +980,7 @@ function PrescriptionList({ prescriptions }) {
                     </div>
                 ))}
             </div>
-        </section>
+        </section>)}</ErrorBoundary>
     );
 }
 
@@ -991,7 +992,7 @@ function CustomSectionList({ sections, onPreview }) {
     }
 
     return (
-        <section className="space-y-3 rounded-xl border border-slate-200 bg-white p-4">
+        <ErrorBoundary scope="section" title="This section could not be displayed">{() => (<section className="space-y-3 rounded-xl border border-slate-200 bg-white p-4">
             <div className="flex items-center gap-2">
                 <FileText className="size-4 text-slate-400" />
                 <h3 className="text-sm font-black uppercase tracking-widest text-slate-500">Custom Diagnosis Services</h3>
@@ -1013,7 +1014,7 @@ function CustomSectionList({ sections, onPreview }) {
                     <AttachmentList title="Service Uploads" attachments={section.attachments || section.uploads} onPreview={onPreview} compact />
                 </div>
             ))}
-        </section>
+        </section>)}</ErrorBoundary>
     );
 }
 
@@ -1025,7 +1026,7 @@ function AttachmentList({ title, attachments, onPreview, compact = false }) {
     }
 
     return (
-        <section className="rounded-xl border border-slate-200 bg-white p-4">
+        <ErrorBoundary scope="section" title="This section could not be displayed">{() => (<section className="rounded-xl border border-slate-200 bg-white p-4">
             <div className="mb-3 flex items-center gap-2">
                 <Paperclip className="size-4 text-slate-400" />
                 <h3 className="text-sm font-black uppercase tracking-widest text-slate-500">{title}</h3>
@@ -1039,7 +1040,7 @@ function AttachmentList({ title, attachments, onPreview, compact = false }) {
                     />
                 ))}
             </div>
-        </section>
+        </section>)}</ErrorBoundary>
     );
 }
 

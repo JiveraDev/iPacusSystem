@@ -1,3 +1,4 @@
+import ErrorBoundary from '../shared/ErrorBoundary.jsx';
 import { createElement, useState, useEffect } from 'react';
 import { Button } from '../../ui/button';
 import { Input } from '../../ui/input';
@@ -282,7 +283,7 @@ export default function ProfileManagement({ onForgotPassword }) {
                 />
 
                 <TabsContent value="profile" className="m-0">
-                    <Card className="overflow-hidden rounded-none border-0 bg-white shadow-none dark:bg-slate-900">
+                    <ErrorBoundary scope="section" title="This section could not be displayed">{() => (<Card className="overflow-hidden rounded-none border-0 bg-white shadow-none dark:bg-slate-900">
                         <CardContent className="space-y-8 p-4 sm:p-6 lg:p-8">
                             <section>
                                 <h3 className="mb-4 text-[18px] font-bold text-[#101828]">Personal Information</h3>
@@ -371,7 +372,7 @@ export default function ProfileManagement({ onForgotPassword }) {
                                 </div>
                             )}
                         </CardContent>
-                    </Card>
+                    </Card>)}</ErrorBoundary>
                 </TabsContent>
 
                 <TabsContent value="security" className="m-0 bg-slate-50/70 p-4 dark:bg-slate-950/40 sm:p-6">

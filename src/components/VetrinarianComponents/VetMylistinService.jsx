@@ -1,3 +1,4 @@
+import ErrorBoundary from '../shared/ErrorBoundary.jsx';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import {
     AlertTriangle,
@@ -53,6 +54,7 @@ import GroomingWorkspace from '../shared/GroomingWorkspace.jsx';
 import VetBookingDayList from '../shared/VetBookingDayList.jsx';
 import { fetchVeterinarianBookings } from '../../services/bookingService';
 import './vetMyList.css';
+import SectionErrorState from '../shared/SectionErrorState.jsx';
 
 const CONSENT_STORAGE_KEY = 'ipawcus-vet-my-list-consents';
 
@@ -139,6 +141,7 @@ export default function VetMyList() {
     const [bookingViewerDate, setBookingViewerDate] = useState(() => bookingPreviewSelection(window.location.search).date);
     const [previewBookingId, setPreviewBookingId] = useState(() => bookingPreviewSelection(window.location.search).bookingId);
     const [consentForms, setConsentForms] = useState([]);
+    const [consentError, setConsentError] = useState(null);
     const [consentRecords, setConsentRecords] = useState(readStoredConsents);
     const [veterinarianLicense, setVeterinarianLicense] = useState(currentUser?.licenseNumber || currentUser?.prc_license_number || '');
     const [searchQuery, setSearchQuery] = useState('');
@@ -242,12 +245,11 @@ export default function VetMyList() {
 
             setQueue(Array.isArray(data) ? data : []);
             setHasLoadedQueue(true);
+            setErrorMessage('');
             return Array.isArray(data) ? data : [];
         } catch (error) {
-            if (!isAutoRefresh) {
-                setErrorMessage(error.message || 'Failed to load veterinarian list.');
-            }
-            return [];
+            setErrorMessage(error.message || 'Failed to load veterinarian list.');
+            return false;
         } finally {
             setIsLoading(false);
         }
@@ -258,8 +260,10 @@ export default function VetMyList() {
             const data = await fetchConsentFiles();
 
             setConsentForms(Array.isArray(data) ? data : []);
-        } catch {
-            setConsentForms([]);
+            setConsentError(null);
+        } catch (error) {
+            setConsentError(error);
+            return false;
         }
     };
 
@@ -272,6 +276,7 @@ export default function VetMyList() {
             setBookingsError('');
         } catch (error) {
             setBookingsError(error.message || 'Your booking schedule could not be loaded.');
+            return false;
         } finally {
             setIsBookingsLoading(false);
         }
@@ -422,6 +427,7 @@ export default function VetMyList() {
     const selectedConsentRecord = selectedPatient ? getConsentRecord(selectedPatient) : null;
 
     const updateQueueStatus = async (queueId, status) => {
+        if (errorMessage) return toast.error('Refresh the patient list before changing a visit.');
         setUpdatingQueueId(queueId);
 
         try {
@@ -476,6 +482,7 @@ export default function VetMyList() {
     };
 
     const saveConsent = async () => {
+        if (consentError || errorMessage) return toast.error('Refresh consent templates and the patient list before saving.');
         if (!selectedPatient || !selectedConsentId) {
             toast.error('Please select a consent form.');
             return;
@@ -570,6 +577,7 @@ export default function VetMyList() {
     };
 
     const savePhysicalConsent = async () => {
+        if (errorMessage) return toast.error('Refresh the patient list before saving consent.');
         if (!selectedPatient || !uploadedFileName || !previewUrl) {
             toast.error('Please select a consent image first.');
             return;
@@ -723,6 +731,7 @@ export default function VetMyList() {
     };
 
     const startDiagnosis = (item) => {
+        if (errorMessage) return toast.error('Refresh the patient list before starting diagnosis.');
         if (queueScheduleDate(item) !== clinicTodayDate()) {
             toast.error('Diagnosis from My List is available only for today’s patients.');
             return;
@@ -818,7 +827,7 @@ export default function VetMyList() {
                 )}
 
                 <div className="vet-workspace-grid">
-                    <section className="vet-list-panel" aria-labelledby="vet-patients-heading">
+                    <ErrorBoundary scope="section" title="This section could not be displayed">{() => (<section className="vet-list-panel" aria-labelledby="vet-patients-heading">
                         <div className="vet-panel-heading">
                             <div>
                                 <h2 id="vet-patients-heading">In progress <span className="vet-section-count">{filteredReceivedItems.length}</span></h2>
@@ -828,7 +837,7 @@ export default function VetMyList() {
 
                         {isLoading ? (
                             <LoadingState />
-                        ) : errorMessage && !hasLoadedQueue ? (
+                        ) : errorMessage ? (
                             <EmptyState message="Patients could not be loaded." description="Use Retry patients above to reconnect." />
                         ) : filteredReceivedItems.length === 0 ? (
                             <EmptyState message={searchQuery || branchFilter !== 'all' ? 'No patients match your filters.' : 'No patients in progress.'} description={searchQuery || branchFilter !== 'all' ? 'Try another name, queue reference, or clinic.' : 'Assigned patients appear here when their examination begins.'} />
@@ -846,9 +855,9 @@ export default function VetMyList() {
                                 ))}
                             </div>
                         )}
-                    </section>
+                    </section>)}</ErrorBoundary>
 
-                    <section className="vet-list-panel vet-bookings" aria-labelledby="vet-bookings-heading">
+                    <ErrorBoundary scope="section" title="This section could not be displayed">{() => (<section className="vet-list-panel vet-bookings" aria-labelledby="vet-bookings-heading">
                         <div className="vet-panel-heading">
                             <div>
                                 <h2 id="vet-bookings-heading">Today’s bookings <span className="vet-section-count">{todayBookings.length}</span></h2>
@@ -857,10 +866,10 @@ export default function VetMyList() {
                             <CalendarDays className="size-4" aria-hidden="true" />
                         </div>
                         {isBookingsLoading ? <LoadingState /> : bookingsError ? <div role="alert" className="vet-list-error"><p>{bookingsError}</p><Button type="button" variant="outline" size="sm" onClick={() => loadBookings()}>Retry bookings</Button></div> : <VetBookingDayList compact bookings={todayBookings} getStatus={getBookingStatus} onSelect={booking => openBookingPreview(todayKey, booking)} emptyText="No approved bookings for today. Future bookings are in All schedules." />}
-                    </section>
+                    </section>)}</ErrorBoundary>
                 </div>
 
-                <section className="vet-list-panel" aria-labelledby="vet-completed-heading">
+                <ErrorBoundary scope="section" title="This section could not be displayed">{() => (<section className="vet-list-panel" aria-labelledby="vet-completed-heading">
                     <div className="vet-panel-heading">
                         <div>
                             <h2 id="vet-completed-heading">Completed today <span className="vet-section-count">{filteredCompletedItems.length}</span></h2>
@@ -890,7 +899,7 @@ export default function VetMyList() {
                         </div>
                     </div>
 
-                    {isLoading ? <LoadingState /> : filteredCompletedItems.length === 0 ? (
+                    {isLoading ? <LoadingState /> : errorMessage ? <SectionErrorState title="Completed visits could not be updated" error={errorMessage} onRetry={loadQueue} /> : filteredCompletedItems.length === 0 ? (
                         <EmptyState message={searchQuery || branchFilter !== 'all' ? 'No completed patients match your filters.' : 'No completed patients today.'} compact />
                     ) : (
                         <div data-completed-view={completedViewMode}>
@@ -912,7 +921,7 @@ export default function VetMyList() {
                             </div>
                         </div>
                     )}
-                </section>
+                </section>)}</ErrorBoundary>
             </div>
 
             <Button
@@ -962,6 +971,7 @@ export default function VetMyList() {
 
             <Dialog open={consentDialogOpen} onOpenChange={setConsentDialogOpen}>
                 <DialogContent className="max-h-[92vh] max-w-4xl overflow-y-auto p-0">
+                    {consentError ? <SectionErrorState title="Consent templates could not be loaded" error={consentError} onRetry={loadConsentForms} /> : null}
                     <DialogHeader>
                         <div className="px-5 pt-5">
                             <DialogTitle>Consent Signature</DialogTitle>
@@ -998,7 +1008,7 @@ export default function VetMyList() {
                             <div className="grid gap-4 md:grid-cols-2">
                                 <div className="space-y-2">
                                     <Label>Consent Form</Label>
-                                    <Select value={selectedConsentId} onValueChange={setSelectedConsentId}>
+                                    <Select value={selectedConsentId} onValueChange={setSelectedConsentId} disabled={Boolean(consentError)}>
                                         <SelectTrigger>
                                             <SelectValue
                                                 placeholder="Select consent form"
@@ -1044,7 +1054,7 @@ export default function VetMyList() {
                         <Button
                             type="button"
                             onClick={saveConsent}
-                            disabled={isSavingConsent || !selectedConsentId || !signatureImage}
+                            disabled={isSavingConsent || Boolean(consentError) || Boolean(errorMessage) || !selectedConsentId || !signatureImage}
                             className="bg-[#155dfc] text-white hover:bg-[#0d4acf]"
                         >
                             {isSavingConsent ? <Loader2 className="size-4 animate-spin" /> : <FileText className="size-4" />}

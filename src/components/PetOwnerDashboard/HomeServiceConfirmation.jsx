@@ -1,3 +1,4 @@
+import ErrorBoundary from '../shared/ErrorBoundary.jsx';
 import { useEffect, useMemo, useState } from "react";
 import { useNavigate } from "../dashboardRouter.jsx";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "../../ui/card";
@@ -239,14 +240,14 @@ export default function HomeServiceConfirmation() {
   if (!booking) {
     return (
       <div className="mx-auto max-w-4xl space-y-8 p-4 sm:p-8">
-        <Card>
+        <ErrorBoundary scope="section" title="This section could not be displayed">{() => (<Card>
           <CardContent className="pt-6 text-center py-12">
             <AlertCircle className="h-16 w-16 text-red-400 mx-auto mb-4" />
             <h3 className="font-semibold text-lg mb-2">Booking Data Not Found</h3>
             <p className="text-gray-600 mb-4">We couldn't find your booking details.</p>
             <Button onClick={() => navigate("/dashboard/services/home-services")}>Back to Home Services</Button>
           </CardContent>
-        </Card>
+        </Card>)}</ErrorBoundary>
       </div>
     );
   }
@@ -276,7 +277,7 @@ export default function HomeServiceConfirmation() {
       />
 
       <div className="grid grid-cols-1 gap-6 md:grid-cols-2">
-        <Card>
+        <ErrorBoundary scope="section" title="This section could not be displayed">{() => (<Card>
           <CardHeader><CardTitle className="text-lg">Service & Pet</CardTitle></CardHeader>
           <CardContent className="space-y-4">
             <div>
@@ -289,9 +290,9 @@ export default function HomeServiceConfirmation() {
               <p className="text-sm font-medium mt-1">{booking.notes.match(/\[Services: (.*?)\]/)?.[1] || "Home Service"}</p>
             </div>
           </CardContent>
-        </Card>
+        </Card>)}</ErrorBoundary>
 
-        <Card>
+        <ErrorBoundary scope="section" title="This section could not be displayed">{() => (<Card>
           <CardHeader><CardTitle className="text-lg">Schedule & Location</CardTitle></CardHeader>
           <CardContent className="space-y-4">
             <div className="flex items-start gap-3">
@@ -321,9 +322,9 @@ export default function HomeServiceConfirmation() {
               </div>
             </div>
           </CardContent>
-        </Card>
+        </Card>)}</ErrorBoundary>
 
-        <Card className="md:col-span-2">
+        <ErrorBoundary scope="section" title="This section could not be displayed">{() => (<Card className="md:col-span-2">
             <CardHeader>
                 <CardTitle className="text-lg flex items-center gap-2">
                     <ShieldCheck className="h-5 w-5 text-green-600" />
@@ -361,11 +362,11 @@ export default function HomeServiceConfirmation() {
                     />
                 </div>
             </CardContent>
-        </Card>
+        </Card>)}</ErrorBoundary>
 
         {/* Payment Section - Hidden until signature is provided */}
         {signature && (
-          <Card className="md:col-span-2 border-blue-200 bg-blue-50/30 animate-in fade-in slide-in-from-top-4 duration-500">
+          <ErrorBoundary scope="section" title="This section could not be displayed">{() => (<Card className="md:col-span-2 border-blue-200 bg-blue-50/30 animate-in fade-in slide-in-from-top-4 duration-500">
             <CardHeader>
               <CardTitle className="text-lg flex items-center gap-2 text-blue-800">
                 <CheckCircle className="h-5 w-5 text-blue-600" />
@@ -488,7 +489,7 @@ export default function HomeServiceConfirmation() {
                 </Button>
               </form>
             </CardContent>
-          </Card>
+          </Card>)}</ErrorBoundary>
         )}
       </div>
 

@@ -1,3 +1,4 @@
+import ErrorBoundary from '../shared/ErrorBoundary.jsx';
 import { useEffect, useState } from 'react';
 import { AlertCircle, Calendar, Check, PawPrint, User } from 'lucide-react';
 import '../shared/careWorkspace.css';
@@ -168,7 +169,7 @@ function PetDetails({ pet }) {
                 </div>
             </div>
 
-            <section className="rounded-2xl bg-slate-50 p-3 sm:p-5">
+            <ErrorBoundary scope="section" title="This section could not be displayed">{() => (<section className="rounded-2xl bg-slate-50 p-3 sm:p-5">
                 <h4 className="mb-4 text-xs font-black uppercase tracking-[0.2em] text-slate-400">
                     Biological Profile
                 </h4>
@@ -184,9 +185,9 @@ function PetDetails({ pet }) {
                     <BioField icon={Check} label="Microchip ID" value={pet.microchipId} />
                     <BioField icon={User} label="Owner Name" value={pet.ownerName} />
                 </div>
-            </section>
+            </section>)}</ErrorBoundary>
 
-            <section className={`rounded-2xl p-3 sm:p-5 ${allergies.length > 0 ? 'bg-red-50' : 'bg-slate-50'}`}>
+            <ErrorBoundary scope="section" title="This section could not be displayed">{() => (<section className={`rounded-2xl p-3 sm:p-5 ${allergies.length > 0 ? 'bg-red-50' : 'bg-slate-50'}`}>
                 <div className="mb-3 flex items-center gap-2">
                     <AlertCircle className="size-5 text-[#991b1b] dark:text-[#ef4444]" />
                     <h4 className="text-xs font-black uppercase tracking-[0.2em] text-[#991b1b] dark:text-[#ef4444]">Critical Allergies</h4>
@@ -203,7 +204,7 @@ function PetDetails({ pet }) {
                 ) : (
                     <p className="text-sm font-medium text-slate-400">No known clinical allergies recorded.</p>
                 )}
-            </section>
+            </section>)}</ErrorBoundary>
         </div>
     );
 }

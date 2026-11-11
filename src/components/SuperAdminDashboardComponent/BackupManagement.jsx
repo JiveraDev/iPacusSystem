@@ -1,3 +1,4 @@
+import ErrorBoundary from '../shared/ErrorBoundary.jsx';
 import { useCallback, useMemo, useState } from 'react';
 import {
     AlertTriangle,
@@ -184,7 +185,7 @@ export default function BackupManagement({ open, onOpenChange }) {
                     </div>
                 ) : (
                     <div className="space-y-5 p-4 sm:p-6">
-                        <section className="grid gap-4 rounded-xl border border-blue-200 bg-blue-50/60 p-4 dark:border-blue-900 dark:bg-blue-950/20 md:grid-cols-[minmax(0,1fr)_auto] md:items-center">
+                        <ErrorBoundary scope="section" title="This section could not be displayed">{() => (<section className="grid gap-4 rounded-xl border border-blue-200 bg-blue-50/60 p-4 dark:border-blue-900 dark:bg-blue-950/20 md:grid-cols-[minmax(0,1fr)_auto] md:items-center">
                             <div className="flex items-start gap-3">
                                 <ShieldCheck className="mt-0.5 size-5 shrink-0 text-blue-700 dark:text-blue-300" aria-hidden="true" />
                                 <div>
@@ -197,10 +198,10 @@ export default function BackupManagement({ open, onOpenChange }) {
                                 <Download />
                                 {downloading || data.hasRunning ? 'Download in progress' : 'Create & Download ZIP'}
                             </Button>
-                        </section>
+                        </section>)}</ErrorBoundary>
 
                         {runningBackup || downloading ? (
-                            <section className="min-h-40 rounded-xl border border-blue-200 bg-white p-4 dark:border-blue-900 dark:bg-slate-900" aria-live="polite" aria-busy="true">
+                            <ErrorBoundary scope="section" title="This section could not be displayed">{() => (<section className="min-h-40 rounded-xl border border-blue-200 bg-white p-4 dark:border-blue-900 dark:bg-slate-900" aria-live="polite" aria-busy="true">
                                 <div className="flex items-start gap-3">
                                     <Loader2 className="mt-0.5 size-5 shrink-0 animate-spin text-blue-700 dark:text-blue-300" aria-hidden="true" />
                                     <div className="min-w-0 flex-1">
@@ -233,10 +234,10 @@ export default function BackupManagement({ open, onOpenChange }) {
                                         </p>
                                     </div>
                                 </div>
-                            </section>
+                            </section>)}</ErrorBoundary>
                         ) : null}
 
-                        <section className="overflow-hidden rounded-xl border border-slate-200 dark:border-slate-700">
+                        <ErrorBoundary scope="section" title="This section could not be displayed">{() => (<section className="overflow-hidden rounded-xl border border-slate-200 dark:border-slate-700">
                             <div className={`flex items-center gap-2 px-2 py-2 ${historyExpanded ? 'border-b border-slate-200 dark:border-slate-700' : ''}`}>
                                 <button
                                     type="button"
@@ -292,7 +293,7 @@ export default function BackupManagement({ open, onOpenChange }) {
                             )}
                                 </div>
                             ) : null}
-                        </section>
+                        </section>)}</ErrorBoundary>
                     </div>
                 )}
             </DialogContent>

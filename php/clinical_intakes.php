@@ -4,6 +4,7 @@ require_once __DIR__ . '/db.php';
 require_once __DIR__ . '/workflow_guard_helpers.php';
 require_once __DIR__ . '/branch_helpers.php';
 require_once __DIR__ . '/consent_record_helpers.php';
+require_once __DIR__ . '/clinical_intake_storage.php';
 
 header('Content-Type: application/json');
 
@@ -15,7 +16,8 @@ function clinical_intake_schema_ready(PDO $pdo): bool
 function clinical_intake_require_schema(PDO $pdo): void
 {
     if (!clinical_intake_schema_ready($pdo)) {
-        ipawcus_guard_error(503, 'Pet Intake is not installed yet. Run DDL/20261004_01_clinical_intakes.sql, then try again.', [
+        error_log('Pet Intake setup required: apply DDL/20261004_01_clinical_intakes.sql to the application database.');
+        ipawcus_guard_error(503, 'Pet Intake setup is incomplete. Ask your clinic administrator to finish setup, then refresh.', [
             'schemaReady' => false,
             'code' => 'clinical_intake_schema_missing',
         ]);
@@ -174,6 +176,11 @@ if ($method === 'GET') {
         ipawcus_guard_error(403, 'Only clinic staff can view pet intake records.');
     }
 
+    if (($_GET['checkSetup'] ?? '') === '1') {
+        echo json_encode(['success' => true, 'schemaReady' => true]);
+        exit;
+    }
+
     $where = $conditions ? 'WHERE ' . implode(' AND ', $conditions) : '';
     $stmt = $pdo->prepare("SELECT ci.* FROM clinical_intakes ci {$where} ORDER BY ci.updated_at DESC, ci.intake_id DESC");
     $stmt->execute($params);
@@ -268,21 +275,13 @@ if ($method === 'PATCH') {
         }
     }
 
-    $stmt = $pdo->prepare("UPDATE clinical_intakes SET
-        chief_complaint = ?, symptoms = ?, major_symptoms = ?, physical_exam = ?,
-        vital_signs = ?, attachments = ?, status = ?,
-        completed_at = CASE WHEN ? = 'completed' THEN COALESCE(completed_at, NOW()) ELSE NULL END
-        WHERE intake_id = ?");
-    $stmt->execute([
-        clinical_intake_text($input['chief_complaint'] ?? $input['chiefComplaint'] ?? $record['chief_complaint']),
-        clinical_intake_text($input['symptoms'] ?? $record['symptoms']),
-        clinical_intake_text($input['major_symptoms'] ?? $input['majorSymptoms'] ?? $record['major_symptoms']),
-        clinical_intake_text($input['physical_exam'] ?? $input['physicalExam'] ?? $record['physical_exam']),
-        json_encode(clinical_intake_vital_signs($input['vital_signs'] ?? $input['vitalSigns'] ?? $record['vital_signs'])),
-        json_encode(clinical_intake_attachments($input['attachments'] ?? $record['attachments'])),
-        $status,
-        $status,
-        $intakeId,
+    clinical_intake_update($pdo, $intakeId, $status, [
+        'chief_complaint' => clinical_intake_text($input['chief_complaint'] ?? $input['chiefComplaint'] ?? $record['chief_complaint']),
+        'symptoms' => clinical_intake_text($input['symptoms'] ?? $record['symptoms']),
+        'major_symptoms' => clinical_intake_text($input['major_symptoms'] ?? $input['majorSymptoms'] ?? $record['major_symptoms']),
+        'physical_exam' => clinical_intake_text($input['physical_exam'] ?? $input['physicalExam'] ?? $record['physical_exam']),
+        'vital_signs' => json_encode(clinical_intake_vital_signs($input['vital_signs'] ?? $input['vitalSigns'] ?? $record['vital_signs'])),
+        'attachments' => json_encode(clinical_intake_attachments($input['attachments'] ?? $record['attachments'])),
     ]);
 
     $updated = clinical_intake_fetch($pdo, $intakeId);

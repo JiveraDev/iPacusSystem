@@ -1,8 +1,9 @@
 import { apiRequest, getStoredApiUser, postJson } from './apiClient';
 import { assertPetOwnerActionAllowed } from '../lib/accountStatus.js';
+import { requireArray } from '../lib/errorPolicy.js';
 
-export function fetchQueues() {
-    return apiRequest('/queues');
+export function fetchQueues(options = {}) {
+    return apiRequest('/queues', options).then(requireArray);
 }
 
 export function fetchQueuePets() {

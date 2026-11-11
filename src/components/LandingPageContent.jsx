@@ -1,3 +1,4 @@
+import ErrorBoundary from './shared/ErrorBoundary.jsx';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import PropTypes from 'prop-types';
 import { gsap } from 'gsap';
@@ -176,7 +177,7 @@ export default function LandingPageContent({ onLogin, onRegister }) {
             </header>
 
             <main id="top" tabIndex={-1}>
-                <section className="lp-hero" aria-labelledby="lp-hero-title">
+                <ErrorBoundary scope="section" title="This section could not be displayed">{() => (<section className="lp-hero" aria-labelledby="lp-hero-title">
                     <div className="lp-container lp-hero-grid">
                         <div className="lp-hero-copy">
                             <p className="lp-enter lp-overline"><Heart size={15} aria-hidden="true" />For the ones you call family</p>
@@ -195,7 +196,7 @@ export default function LandingPageContent({ onLogin, onRegister }) {
                             <a href="#boarding" className="lp-pet-hotel-link" onClick={(event) => navigate(event, '#boarding')}><span>Staying a little longer?</span><strong>Meet our Pet Hotel <ArrowUpRight size={16} aria-hidden="true" /></strong></a>
                         </div>
                     </div>
-                </section>
+                </section>)}</ErrorBoundary>
 
                 <div className="lp-clinic-strip">
                     <div className="lp-container lp-clinic-strip-inner">
@@ -205,7 +206,7 @@ export default function LandingPageContent({ onLogin, onRegister }) {
                     </div>
                 </div>
 
-                <section id="services" className="lp-section" tabIndex={-1} aria-labelledby="lp-services-title">
+                <ErrorBoundary scope="section" title="This section could not be displayed">{() => (<section id="services" className="lp-section" tabIndex={-1} aria-labelledby="lp-services-title">
                     <div className="lp-container">
                         <div className="lp-section-heading" data-lp-reveal>
                             <div><p className="lp-overline">Good care, every day</p><h2 id="lp-services-title">For all their tomorrows.</h2></div>
@@ -230,9 +231,9 @@ export default function LandingPageContent({ onLogin, onRegister }) {
                             </div>
                         </article>
                     </div>
-                </section>
+                </section>)}</ErrorBoundary>
 
-                <section id="boarding" className="lp-section lp-boarding" tabIndex={-1} aria-labelledby="lp-boarding-title">
+                <ErrorBoundary scope="section" title="This section could not be displayed">{() => (<section id="boarding" className="lp-section lp-boarding" tabIndex={-1} aria-labelledby="lp-boarding-title">
                     <div className="lp-container lp-feature-grid">
                         <div className="lp-feature-copy" data-lp-reveal>
                             <p className="lp-overline">Their home away from home</p>
@@ -243,9 +244,9 @@ export default function LandingPageContent({ onLogin, onRegister }) {
                         </div>
                         <div className="lp-room-selector"><PetHotelLandingRooms onBook={(size, branchId) => bookSelection({ service: 'boarding', branchId, roomType: `hotel-${size}` })} /></div>
                     </div>
-                </section>
+                </section>)}</ErrorBoundary>
 
-                <section id="availability" className="lp-section lp-booking" tabIndex={-1} aria-labelledby="lp-booking-title">
+                <ErrorBoundary scope="section" title="This section could not be displayed">{() => (<section id="availability" className="lp-section lp-booking" tabIndex={-1} aria-labelledby="lp-booking-title">
                     <div className="lp-container">
                         <div className="lp-section-heading" data-lp-reveal>
                             <div><p className="lp-overline">Let’s make a little time</p><h2 id="lp-booking-title">Their next visit starts here.</h2></div>
@@ -253,9 +254,9 @@ export default function LandingPageContent({ onLogin, onRegister }) {
                         </div>
                         <div className="lp-calendar"><ClinicAvailabilityCalendar title="Find your pet’s next appointment" description="Choose your service and clinic to see available times or Pet Hotel rooms." onSelectSlot={bookSelection} onSelectRoom={bookSelection} /></div>
                     </div>
-                </section>
+                </section>)}</ErrorBoundary>
 
-                <section id="journey" className="lp-section lp-journey" tabIndex={-1} aria-labelledby="lp-journey-title">
+                <ErrorBoundary scope="section" title="This section could not be displayed">{() => (<section id="journey" className="lp-section lp-journey" tabIndex={-1} aria-labelledby="lp-journey-title">
                     <div className="lp-container">
                         <div className="lp-section-heading" data-lp-reveal><div><p className="lp-overline">Less fuss. More tail wags.</p><h2 id="lp-journey-title">Good care, kept close.</h2></div><button type="button" className="lp-text-link" onClick={register}>Create a pet profile <ArrowUpRight size={18} aria-hidden="true" /></button></div>
                         <ol className="lp-steps">
@@ -263,9 +264,9 @@ export default function LandingPageContent({ onLogin, onRegister }) {
                         </ol>
                         <div className="lp-record-note"><FileHeart size={21} aria-hidden="true" /><p>From the first visit to the next adventure, their care history stays with them.</p></div>
                     </div>
-                </section>
+                </section>)}</ErrorBoundary>
 
-                <section id="contact" className="lp-section lp-contact" tabIndex={-1} aria-labelledby="lp-contact-title">
+                <ErrorBoundary scope="section" title="This section could not be displayed">{() => (<section id="contact" className="lp-section lp-contact" tabIndex={-1} aria-labelledby="lp-contact-title">
                     <div className="lp-container">
                         <div className="lp-section-heading" data-lp-reveal><div><p className="lp-overline">Your neighborhood care team</p><h2 id="lp-contact-title">See you in Lucena.</h2></div><a href="tel:+63424219086" className="lp-text-link"><Phone size={17} aria-hidden="true" />Let’s talk <ArrowUpRight size={17} aria-hidden="true" /></a></div>
                         <div className="lp-locations">
@@ -273,11 +274,11 @@ export default function LandingPageContent({ onLogin, onRegister }) {
                         </div>
                         <div className="lp-contact-details"><span>Monday–Saturday, 8:00 AM–6:00 PM</span><a href="tel:+639334768522">0933 476 8522</a><a href="mailto:support@ipawcus.com">support@ipawcus.com</a></div>
                     </div>
-                </section>
+                </section>)}</ErrorBoundary>
 
-                <section className="lp-final-cta" aria-labelledby="lp-final-title">
+                <ErrorBoundary scope="section" title="This section could not be displayed">{() => (<section className="lp-final-cta" aria-labelledby="lp-final-title">
                     <div className="lp-container lp-final-inner" data-lp-reveal><div><p>For their everyday. And their everything.</p><h2 id="lp-final-title">A little care goes a long way.</h2></div><a href="#availability" className="lp-button lp-button-light" onClick={(event) => navigate(event, '#availability')}>Let’s find their next visit <ArrowUpRight size={20} aria-hidden="true" /></a></div>
-                </section>
+                </section>)}</ErrorBoundary>
             </main>
 
             <footer className="lp-footer"><div className="lp-container"><div className="lp-footer-top"><a href="#top" className="lp-brand" onClick={(event) => navigate(event, '#top')}><img src={logoImage} alt="" width="44" height="44" /><span><strong>iPawcus<span className="lp-brand-dot">.</span></strong><small>Vetfocus Care Animal Clinic</small></span></a><nav aria-label="Footer navigation">{navigation.map((item) => <a key={item.href} href={item.href} onClick={(event) => navigate(event, item.href)}>{item.label}</a>)}</nav><PwaInstallButton collapsible /></div><div className="lp-footer-bottom"><p>Made for people who love their pets.</p><p>© {new Date().getFullYear()} Vetfocus Care Animal Clinic</p></div></div></footer>

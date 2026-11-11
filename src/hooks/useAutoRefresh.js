@@ -72,8 +72,8 @@ export function useAutoRefresh(callback, {
             clearTimer();
             isRunning = true;
             try {
-                await callbackRef.current({ isAutoRefresh });
-                failureCount = 0;
+                const result = await callbackRef.current({ isAutoRefresh });
+                failureCount = result === false ? failureCount + 1 : 0;
             } catch (error) {
                 failureCount += 1;
                 if (import.meta.env.DEV) {

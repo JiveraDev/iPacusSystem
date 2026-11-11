@@ -1,3 +1,4 @@
+import ErrorBoundary from '../shared/ErrorBoundary.jsx';
 import { useNavigate } from "../dashboardRouter.jsx";
 import { toast } from "../../reusecomponent/toast.jsx";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "../../ui/card";
@@ -260,7 +261,7 @@ export default function PaymentSubmission() {
       </div>
 
       {/* Information Banner */}
-      <Card className="bg-blue-50 border-blue-200">
+      <ErrorBoundary scope="section" title="This section could not be displayed">{() => (<Card className="bg-blue-50 border-blue-200">
         <CardContent className="pt-6">
           <div className="flex gap-3">
             <AlertCircle className="h-5 w-5 text-blue-600 shrink-0 mt-0.5" />
@@ -276,10 +277,10 @@ export default function PaymentSubmission() {
             </div>
           </div>
         </CardContent>
-      </Card>
+      </Card>)}</ErrorBoundary>
 
       {/* Payment Form */}
-      <Card>
+      <ErrorBoundary scope="section" title="This section could not be displayed">{() => (<Card>
         <CardHeader>
           <CardTitle>Payment Details</CardTitle>
           <CardDescription>Fill in your payment information below</CardDescription>
@@ -420,7 +421,7 @@ export default function PaymentSubmission() {
             </Button>
           </form>
         </CardContent>
-      </Card>
+      </Card>)}</ErrorBoundary>
       <PhotoViewer
         open={Boolean(viewer)}
         src={viewer?.src || ""}

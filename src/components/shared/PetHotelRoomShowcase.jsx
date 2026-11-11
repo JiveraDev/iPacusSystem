@@ -1,3 +1,4 @@
+import ErrorBoundary from './ErrorBoundary.jsx';
 import PropTypes from 'prop-types';
 import { useEffect, useId, useMemo, useRef, useState } from 'react';
 import {
@@ -310,7 +311,7 @@ function StayDetails({ stay }) {
             </div>
 
             <div className="space-y-5 p-4 sm:p-5">
-                <section>
+                <ErrorBoundary scope="section" title="This section could not be displayed">{() => (<section>
                     <div className="flex items-center justify-between gap-3">
                         <h4 className="flex items-center gap-2 text-sm font-black text-slate-950 dark:text-white"><Activity className="size-4 text-blue-600" />Observations</h4>
                         <span className="text-xs font-semibold text-slate-500 dark:text-slate-400">{observations.length} update{observations.length === 1 ? '' : 's'}</span>
@@ -336,9 +337,9 @@ function StayDetails({ stay }) {
                             ))}
                         </div>
                     )}
-                </section>
+                </section>)}</ErrorBoundary>
 
-                <section className="border-t border-slate-200 pt-5 dark:border-slate-700">
+                <ErrorBoundary scope="section" title="This section could not be displayed">{() => (<section className="border-t border-slate-200 pt-5 dark:border-slate-700">
                     <div className="flex items-center justify-between gap-3">
                         <h4 className="flex items-center gap-2 text-sm font-black text-slate-950 dark:text-white"><ListChecks className="size-4 text-emerald-600" />Care, feeding & tasks</h4>
                         <span className="text-xs font-semibold text-slate-500 dark:text-slate-400">{tasks.length} task{tasks.length === 1 ? '' : 's'}</span>
@@ -361,7 +362,7 @@ function StayDetails({ stay }) {
                             ))}
                         </ul>
                     )}
-                </section>
+                </section>)}</ErrorBoundary>
             </div>
         </article>
     );

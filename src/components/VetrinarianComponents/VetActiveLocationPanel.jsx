@@ -1,3 +1,4 @@
+import ErrorBoundary from '../shared/ErrorBoundary.jsx';
 import { useEffect, useMemo, useState } from 'react';
 import { Building2, CheckCircle2, Loader2, MapPin } from 'lucide-react';
 
@@ -105,7 +106,7 @@ export default function VetActiveLocationPanel() {
     };
 
     return (
-        <section className="rounded-lg border border-blue-200 bg-white p-4 shadow-sm dark:border-blue-900/70 dark:bg-slate-950 sm:p-5">
+        <ErrorBoundary scope="section" title="This section could not be displayed">{() => (<section className="rounded-lg border border-blue-200 bg-white p-4 shadow-sm dark:border-blue-900/70 dark:bg-slate-950 sm:p-5">
             <div className="flex flex-col gap-4 xl:flex-row xl:items-center xl:justify-between">
                 <div className="flex min-w-0 items-start gap-3">
                     <div className="flex size-10 shrink-0 items-center justify-center rounded-lg bg-blue-50 text-blue-700 dark:bg-blue-950/60 dark:text-blue-300">
@@ -155,6 +156,6 @@ export default function VetActiveLocationPanel() {
                 </div>
             </div>
             {error && <p className="mt-3 text-sm font-medium text-red-600 dark:text-red-400">{error}</p>}
-        </section>
+        </section>)}</ErrorBoundary>
     );
 }

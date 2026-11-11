@@ -1,3 +1,4 @@
+import ErrorBoundary from '../shared/ErrorBoundary.jsx';
 import { useEffect, useMemo, useState } from 'react';
 import { ArrowLeft, FileSpreadsheet, FileText, Loader2, Printer, Search } from 'lucide-react';
 import { Button } from '../../ui/button';
@@ -449,7 +450,7 @@ export default function SuperAdminReportCenter() {
                     )}
                 />
 
-                <Card className="border-slate-200 shadow-sm dark:border-slate-700 dark:bg-slate-900">
+                <ErrorBoundary scope="section" title="This section could not be displayed">{() => (<Card className="border-slate-200 shadow-sm dark:border-slate-700 dark:bg-slate-900">
                     <CardContent className="space-y-5 p-5">
                         <div className="grid gap-3 rounded-lg border border-slate-200 bg-slate-50/80 p-3 dark:border-slate-700 dark:bg-slate-950/60 sm:grid-cols-2 xl:grid-cols-[minmax(14rem,1fr)_minmax(11rem,13rem)_minmax(10rem,11rem)_minmax(10rem,11rem)_minmax(9rem,max-content)_minmax(9rem,max-content)] xl:items-end">
                             <div className="min-w-0">
@@ -620,7 +621,7 @@ export default function SuperAdminReportCenter() {
                             </p>
                         </div>
                     </CardContent>
-                </Card>
+                </Card>)}</ErrorBoundary>
 
                 {error ? (
                     <div className="mt-4 rounded-xl border border-red-200 bg-red-50 p-4 text-sm font-semibold text-red-800">{error}</div>

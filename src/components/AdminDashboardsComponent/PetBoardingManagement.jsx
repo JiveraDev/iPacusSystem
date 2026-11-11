@@ -1,3 +1,4 @@
+import ErrorBoundary from '../shared/ErrorBoundary.jsx';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
     AlertCircle,
@@ -2405,7 +2406,7 @@ export default function PetBoardingManagement() {
         }, {});
 
         return (
-            <section key={roomSize} className="space-y-4">
+            <ErrorBoundary key={roomSize} scope="section" title="This section could not be displayed">{() => (<section key={roomSize} className="space-y-4">
                 <div className="flex flex-col gap-3 border-b border-slate-200 pb-3 lg:flex-row lg:items-end lg:justify-between">
                     <div>
                         <div className="flex items-center gap-3">
@@ -2448,12 +2449,12 @@ export default function PetBoardingManagement() {
                 <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 2xl:grid-cols-6">
                     {groupUnits.map(renderUnitCard)}
                 </div>
-            </section>
+            </section>)}</ErrorBoundary>
         );
     };
 
     const renderRoomsTable = () => (
-        <section className="overflow-hidden rounded-lg border border-slate-200 bg-white shadow-sm">
+        <ErrorBoundary scope="section" title="This section could not be displayed">{() => (<section className="overflow-hidden rounded-lg border border-slate-200 bg-white shadow-sm">
             <Table>
                 <TableHeader>
                     <TableRow className="bg-slate-50 hover:bg-slate-50">
@@ -2545,7 +2546,7 @@ export default function PetBoardingManagement() {
                     )}
                 </TableBody>
             </Table>
-        </section>
+        </section>)}</ErrorBoundary>
     );
 
     const renderAssignmentSelect = (value, onValueChange) => (
@@ -2738,7 +2739,7 @@ export default function PetBoardingManagement() {
                     </div>
 
                     <div className="grid grid-cols-1 gap-6 xl:grid-cols-[minmax(0,1.05fr)_minmax(0,0.95fr)]">
-                        <section className="rounded-lg border border-slate-200 bg-white shadow-sm">
+                        <ErrorBoundary scope="section" title="This section could not be displayed">{() => (<section className="rounded-lg border border-slate-200 bg-white shadow-sm">
                             <div className="border-b border-slate-100 p-5">
                                 <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
                                     <div>
@@ -2803,9 +2804,9 @@ export default function PetBoardingManagement() {
                                     ))}
                                 </div>
                             )}
-                        </section>
+                        </section>)}</ErrorBoundary>
 
-                        <section className="rounded-lg border border-slate-200 bg-white shadow-sm">
+                        <ErrorBoundary scope="section" title="This section could not be displayed">{() => (<section className="rounded-lg border border-slate-200 bg-white shadow-sm">
                             <div className="border-b border-slate-100 p-5">
                                 <div className="flex items-center justify-between gap-3">
                                     <div>
@@ -2866,12 +2867,12 @@ export default function PetBoardingManagement() {
                                     })}
                                 </div>
                             )}
-                        </section>
+                        </section>)}</ErrorBoundary>
                     </div>
                 </TabsContent>
 
                 <TabsContent value="confinement" className="space-y-6">
-                    <section className="overflow-hidden rounded-lg border border-violet-200 bg-white shadow-sm">
+                    <ErrorBoundary scope="section" title="This section could not be displayed">{() => (<section className="overflow-hidden rounded-lg border border-violet-200 bg-white shadow-sm">
                         <div className="flex flex-col gap-4 border-b border-violet-100 bg-violet-50/60 p-5 lg:flex-row lg:items-start lg:justify-between">
                             <div className="flex items-start gap-3">
                                 <span className="flex size-11 shrink-0 items-center justify-center rounded-lg bg-violet-100 text-violet-700">
@@ -2928,9 +2929,9 @@ export default function PetBoardingManagement() {
                                 );
                             })}
                         </div>
-                    </section>
+                    </section>)}</ErrorBoundary>
 
-                    <section className="overflow-hidden rounded-lg border border-slate-200 bg-white shadow-sm">
+                    <ErrorBoundary scope="section" title="This section could not be displayed">{() => (<section className="overflow-hidden rounded-lg border border-slate-200 bg-white shadow-sm">
                         <div className="flex flex-col gap-2 border-b border-slate-100 p-5 sm:flex-row sm:items-center sm:justify-between">
                             <div>
                                 <h4 className="font-black text-[#101828]">Admissions Awaiting Placement</h4>
@@ -3014,9 +3015,9 @@ export default function PetBoardingManagement() {
                                 </Table>
                             </div>
                         )}
-                    </section>
+                    </section>)}</ErrorBoundary>
 
-                    <section className="overflow-hidden rounded-lg border border-slate-200 bg-white shadow-sm">
+                    <ErrorBoundary scope="section" title="This section could not be displayed">{() => (<section className="overflow-hidden rounded-lg border border-slate-200 bg-white shadow-sm">
                         <div className="flex flex-col gap-2 border-b border-slate-100 p-5 sm:flex-row sm:items-center sm:justify-between">
                             <div>
                                 <h4 className="font-black text-[#101828]">Active Clinical Placements</h4>
@@ -3111,11 +3112,11 @@ export default function PetBoardingManagement() {
                                 </Table>
                             </div>
                         )}
-                    </section>
+                    </section>)}</ErrorBoundary>
                 </TabsContent>
 
                 <TabsContent value="rooms" className="space-y-6">
-                    <section className={`overflow-hidden rounded-lg border border-l-4 border-slate-200 bg-white shadow-sm ${currentFacilityMeta.accent}`}>
+                    <ErrorBoundary scope="section" title="This section could not be displayed">{() => (<section className={`overflow-hidden rounded-lg border border-l-4 border-slate-200 bg-white shadow-sm ${currentFacilityMeta.accent}`}>
                         <div className="p-5">
                             <div className="flex flex-col gap-4 xl:flex-row xl:items-start xl:justify-between">
                                 <div className="flex min-w-0 items-start gap-3">
@@ -3206,7 +3207,7 @@ export default function PetBoardingManagement() {
                                 })}
                             </div>
                         </div>
-                    </section>
+                    </section>)}</ErrorBoundary>
 
                     {roomViewMode === 'cards' ? (
                         <div className="space-y-10">
@@ -3216,7 +3217,7 @@ export default function PetBoardingManagement() {
                 </TabsContent>
 
                 <TabsContent value="monitoring" className="space-y-6">
-                    <section className="rounded-lg border border-slate-200 bg-white shadow-sm">
+                    <ErrorBoundary scope="section" title="This section could not be displayed">{() => (<section className="rounded-lg border border-slate-200 bg-white shadow-sm">
                         <div className="flex flex-col gap-4 border-b border-slate-100 p-5 lg:flex-row lg:items-center lg:justify-between">
                             <div className="flex items-start gap-3">
                                 <span className="flex size-11 shrink-0 items-center justify-center rounded-lg bg-blue-50 text-blue-700">
@@ -3313,7 +3314,7 @@ export default function PetBoardingManagement() {
                                 );
                             })}
                         </div>
-                    </section>
+                    </section>)}</ErrorBoundary>
 
                     {documentSchemaMessage && (
                         <div className="rounded-lg border border-amber-200 bg-amber-50 p-4 text-sm font-semibold text-amber-800">
@@ -3322,7 +3323,7 @@ export default function PetBoardingManagement() {
                     )}
 
                     <div className="grid grid-cols-1 gap-6 xl:grid-cols-[minmax(0,1fr)_minmax(0,1fr)]">
-                        <section className="rounded-lg border border-slate-200 bg-white shadow-sm">
+                        <ErrorBoundary scope="section" title="This section could not be displayed">{() => (<section className="rounded-lg border border-slate-200 bg-white shadow-sm">
                             <div className="flex items-center justify-between gap-3 border-b border-slate-100 p-5">
                                 <h4 className="font-black text-[#101828]">Task Alerts</h4>
                                 <Badge className={stats.overdue > 0 ? 'bg-red-50 text-red-700' : 'bg-slate-100 text-slate-700'}>
@@ -3369,9 +3370,9 @@ export default function PetBoardingManagement() {
                                     ))}
                                 </div>
                             )}
-                        </section>
+                        </section>)}</ErrorBoundary>
 
-                        <section className="rounded-lg border border-slate-200 bg-white shadow-sm">
+                        <ErrorBoundary scope="section" title="This section could not be displayed">{() => (<section className="rounded-lg border border-slate-200 bg-white shadow-sm">
                             <div className="flex items-center justify-between gap-3 border-b border-slate-100 p-5">
                                 <h4 className="font-black text-[#101828]">Recent Observations</h4>
                                 <Badge className="bg-blue-50 text-blue-700">{observations.length} records</Badge>
@@ -3400,10 +3401,10 @@ export default function PetBoardingManagement() {
                                     ))}
                                 </div>
                             )}
-                        </section>
+                        </section>)}</ErrorBoundary>
                     </div>
 
-                    <section className="rounded-lg border border-slate-200 bg-white shadow-sm">
+                    <ErrorBoundary scope="section" title="This section could not be displayed">{() => (<section className="rounded-lg border border-slate-200 bg-white shadow-sm">
                         <div className="flex flex-col gap-3 border-b border-slate-100 p-5 sm:flex-row sm:items-center sm:justify-between">
                             <div>
                                 <h4 className="font-black text-[#101828]">Materials Used</h4>
@@ -3456,9 +3457,9 @@ export default function PetBoardingManagement() {
                                 ))}
                             </div>
                         )}
-                    </section>
+                    </section>)}</ErrorBoundary>
 
-                    <section className="rounded-lg border border-slate-200 bg-white shadow-sm">
+                    <ErrorBoundary scope="section" title="This section could not be displayed">{() => (<section className="rounded-lg border border-slate-200 bg-white shadow-sm">
                         <div className="flex flex-col gap-3 border-b border-slate-100 p-5 sm:flex-row sm:items-center sm:justify-between">
                             <div>
                                 <h4 className="font-black text-[#101828]">Boarding Documents</h4>
@@ -3515,7 +3516,7 @@ export default function PetBoardingManagement() {
                                 ))}
                             </div>
                         )}
-                    </section>
+                    </section>)}</ErrorBoundary>
                 </TabsContent>
             </Tabs>
 
@@ -3552,7 +3553,7 @@ export default function PetBoardingManagement() {
                             )}
 
                             {selectedUnit.assignment?.admissionType === 'confinement' && (
-                                <section className="rounded-lg border border-violet-200 bg-violet-50/50 p-4">
+                                <ErrorBoundary scope="section" title="This section could not be displayed">{() => (<section className="rounded-lg border border-violet-200 bg-violet-50/50 p-4">
                                     <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
                                         <div>
                                             <h4 className="font-black text-[#101828]">Clinical Confinement</h4>
@@ -3576,11 +3577,11 @@ export default function PetBoardingManagement() {
                                         <InfoPanel label="Reason for Confinement" value={selectedUnit.assignment.confinementReason || 'No reason recorded'} />
                                         <InfoPanel label="Care Instructions" value={selectedUnit.assignment.careInstructions || 'No special instructions recorded'} />
                                     </div>
-                                </section>
+                                </section>)}</ErrorBoundary>
                             )}
 
                             {selectedUnit.assignment && (
-                                <section className="rounded-lg border border-slate-200 bg-white">
+                                <ErrorBoundary scope="section" title="This section could not be displayed">{() => (<section className="rounded-lg border border-slate-200 bg-white">
                                     <div className="flex flex-col gap-3 border-b border-slate-100 p-4 sm:flex-row sm:items-center sm:justify-between">
                                         <div>
                                             <h4 className="font-black text-[#101828]">Room / Pet Records</h4>
@@ -3746,7 +3747,7 @@ export default function PetBoardingManagement() {
                                             )}
                                         </div>
                                     </div>
-                                </section>
+                                </section>)}</ErrorBoundary>
                             )}
                         </div>
 
@@ -4015,7 +4016,7 @@ export default function PetBoardingManagement() {
                                 onChange={(event) => setDirectCheckInForm({ ...directCheckInForm, checkOutDate: event.target.value })}
                             />
                         </div>
-                        <section className="space-y-4 rounded-lg border border-blue-100 bg-blue-50/40 p-4 sm:col-span-2">
+                        <ErrorBoundary scope="section" title="This section could not be displayed">{() => (<section className="space-y-4 rounded-lg border border-blue-100 bg-blue-50/40 p-4 sm:col-span-2">
                             <div>
                                 <h4 className="font-black text-[#101828]">Catalog Price Selection</h4>
                                 <p className="mt-1 text-sm font-semibold text-slate-500">
@@ -4073,8 +4074,8 @@ export default function PetBoardingManagement() {
                                     This catalog service has a zero base price. Update the Boarding service in Service Catalog if this should produce a paid estimate.
                                 </p>
                             )}
-                        </section>
-                        <section className="space-y-4 rounded-lg border border-slate-200 bg-white p-4 sm:col-span-2">
+                        </section>)}</ErrorBoundary>
+                        <ErrorBoundary scope="section" title="This section could not be displayed">{() => (<section className="space-y-4 rounded-lg border border-slate-200 bg-white p-4 sm:col-span-2">
                             <div className="flex items-start gap-3">
                                 <ShieldCheck className="mt-0.5 size-5 shrink-0 text-[#155dfc]" />
                                 <div>
@@ -4103,7 +4104,7 @@ export default function PetBoardingManagement() {
                                 onUploadFileChange={setDirectConsentFile}
                                 disabled={actionLoading === 'direct-check-in' || !directCheckInForm.petId}
                             />
-                        </section>
+                        </section>)}</ErrorBoundary>
                         <div className="space-y-2">
                             <Label>Emergency Contact</Label>
                             <Input
@@ -4159,7 +4160,7 @@ export default function PetBoardingManagement() {
                     </DialogHeader>
 
                     <div className="space-y-5">
-                        <section className="rounded-xl border border-slate-200 bg-slate-50 p-4">
+                        <ErrorBoundary scope="section" title="This section could not be displayed">{() => (<section className="rounded-xl border border-slate-200 bg-slate-50 p-4">
                             <div className="flex items-center justify-between gap-3">
                                 <div>
                                     <p className="text-xs font-black uppercase tracking-[0.14em] text-slate-500">1 · Choose the active stay</p>
@@ -4191,9 +4192,9 @@ export default function PetBoardingManagement() {
                                     </div>
                                 </div>
                             )}
-                        </section>
+                        </section>)}</ErrorBoundary>
 
-                        <section>
+                        <ErrorBoundary scope="section" title="This section could not be displayed">{() => (<section>
                             <p className="text-xs font-black uppercase tracking-[0.14em] text-slate-500">2 · Choose the update</p>
                             <div className="mt-2 grid grid-cols-2 gap-3">
                                 <button
@@ -4215,10 +4216,10 @@ export default function PetBoardingManagement() {
                                     <span className="mt-1 hidden text-xs font-medium leading-5 opacity-75 sm:block">Feeding, medicine, bathing, play, or inspection.</span>
                                 </button>
                             </div>
-                        </section>
+                        </section>)}</ErrorBoundary>
 
                         {monitoringEntryMode === 'observation' ? (
-                            <section className="space-y-4 rounded-xl border border-blue-100 bg-blue-50/30 p-4">
+                            <ErrorBoundary scope="section" title="This section could not be displayed">{() => (<section className="space-y-4 rounded-xl border border-blue-100 bg-blue-50/30 p-4">
                                 <p className="text-xs font-black uppercase tracking-[0.14em] text-blue-700">3 · Record today’s observation</p>
                                 <div>
                                     <Label>Observation Type</Label>
@@ -4241,9 +4242,9 @@ export default function PetBoardingManagement() {
                                 </div>
                                 <label className="flex cursor-pointer items-start gap-2 rounded-lg border border-amber-200 bg-amber-50 p-3 text-sm font-semibold text-amber-950"><input type="checkbox" className="mt-0.5 size-4" checked={observationForm.requiresVetReview} onChange={(event) => setObservationForm({ ...observationForm, requiresVetReview: event.target.checked })} />This update needs veterinarian review.</label>
                                 <div className="space-y-2"><Label>Observation Notes *</Label><Textarea value={observationForm.notes} onChange={(event) => setObservationForm({ ...observationForm, notes: event.target.value })} rows={4} placeholder="What did the care team observe?" /></div>
-                            </section>
+                            </section>)}</ErrorBoundary>
                         ) : (
-                            <section className="space-y-4 rounded-xl border border-emerald-100 bg-emerald-50/30 p-4">
+                            <ErrorBoundary scope="section" title="This section could not be displayed">{() => (<section className="space-y-4 rounded-xl border border-emerald-100 bg-emerald-50/30 p-4">
                                 <p className="text-xs font-black uppercase tracking-[0.14em] text-emerald-700">3 · Schedule the next care task</p>
                                 <div>
                                     <Label>Task Type</Label>
@@ -4258,7 +4259,7 @@ export default function PetBoardingManagement() {
                                     <div className="space-y-2"><Label>Assigned To</Label><Input value={taskForm.assignedTo} onChange={(event) => setTaskForm({ ...taskForm, assignedTo: event.target.value })} restriction="name" placeholder="Staff name" /></div>
                                 </div>
                                 <div className="space-y-2"><Label>Care Instructions</Label><Textarea value={taskForm.notes} onChange={(event) => setTaskForm({ ...taskForm, notes: event.target.value })} rows={3} placeholder="Meal amount, medication direction, play instructions, or other care details" /></div>
-                            </section>
+                            </section>)}</ErrorBoundary>
                         )}
                     </div>
 

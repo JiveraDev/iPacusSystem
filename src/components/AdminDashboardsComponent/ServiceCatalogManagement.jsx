@@ -1,3 +1,4 @@
+import ErrorBoundary from '../shared/ErrorBoundary.jsx';
 import { Children, cloneElement, isValidElement, useId, useMemo, useState } from 'react';
 import {
     ClipboardList,
@@ -513,7 +514,7 @@ export default function ServiceCatalogManagement() {
             )}
 
             <div className="grid gap-5">
-                <section className="overflow-hidden rounded-xl border border-slate-200 bg-white shadow-sm dark:border-slate-700 dark:bg-slate-900" aria-label="Services">
+                <ErrorBoundary scope="section" title="Services could not be displayed">{() => (<section className="overflow-hidden rounded-xl border border-slate-200 bg-white shadow-sm dark:border-slate-700 dark:bg-slate-900" aria-label="Services">
                     <div className="space-y-3 border-b border-slate-200 p-4 dark:border-slate-700 sm:p-5">
                         <div className="flex flex-col gap-1 sm:flex-row sm:items-center sm:justify-between">
                             <div>
@@ -591,7 +592,7 @@ export default function ServiceCatalogManagement() {
                             </div>
                         )}
                     </div>
-                </section>
+                </section>)}</ErrorBoundary>
 
                 <Dialog open={isServiceModalOpen} onOpenChange={setIsServiceModalOpen}>
                     <DialogContent className="max-h-[90vh] max-w-5xl overflow-y-auto p-0">
@@ -698,7 +699,7 @@ export default function ServiceCatalogManagement() {
                         </label>
                     </div>
 
-                    <section className="rounded-lg border border-slate-200 bg-slate-50 p-4 dark:border-slate-700 dark:bg-slate-800/50">
+                    <ErrorBoundary scope="section" title="This section could not be displayed">{() => (<section className="rounded-lg border border-slate-200 bg-slate-50 p-4 dark:border-slate-700 dark:bg-slate-800/50">
                         <div className="flex items-center justify-between gap-3">
                             <div>
                                 <h4 className="font-black text-[#101828]">Preset Materials</h4>
@@ -795,7 +796,7 @@ export default function ServiceCatalogManagement() {
                                 ))
                             )}
                         </div>
-                    </section>
+                    </section>)}</ErrorBoundary>
                         </fieldset>
                     </DialogContent>
                 </Dialog>

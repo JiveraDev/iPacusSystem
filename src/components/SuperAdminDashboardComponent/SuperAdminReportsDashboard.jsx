@@ -1,3 +1,4 @@
+import ErrorBoundary from '../shared/ErrorBoundary.jsx';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { gsap } from 'gsap';
 import { useGSAP } from '@gsap/react';
@@ -357,6 +358,7 @@ export default function SuperAdminReportsDashboard() {
             setDashboard(data);
         } catch (requestError) {
             setError(requestError.message || 'Reports dashboard could not be loaded.');
+            return false;
         } finally {
             setIsLoading(false);
         }
@@ -564,7 +566,7 @@ export default function SuperAdminReportsDashboard() {
                     </div>
 
                     {Array.isArray(dashboard?.missing_data) && dashboard.missing_data.length ? (
-                        <Card petHover={false} className="report-motion-item border-amber-200 bg-amber-50 shadow-none dark:border-amber-900/70 dark:bg-amber-950/30">
+                        <ErrorBoundary scope="section" title="This section could not be displayed">{() => (<Card petHover={false} className="report-motion-item border-amber-200 bg-amber-50 shadow-none dark:border-amber-900/70 dark:bg-amber-950/30">
                             <CardContent className="flex gap-3 p-4 text-sm font-semibold leading-6 text-amber-900 dark:text-amber-100">
                                 <AlertTriangle className="mt-0.5 size-5 shrink-0 text-amber-700 dark:text-amber-300" />
                                 <div className="min-w-0">
@@ -574,7 +576,7 @@ export default function SuperAdminReportsDashboard() {
                                     ))}
                                 </div>
                             </CardContent>
-                        </Card>
+                        </Card>)}</ErrorBoundary>
                     ) : null}
 
                     <div className="care-context-bar">
@@ -592,7 +594,7 @@ export default function SuperAdminReportsDashboard() {
                             const chartKind = isPieChartItem(chartItem) ? 'Distribution' : 'Trend & performance';
 
                             return (
-                                <section
+                                <ErrorBoundary key={`${chartItem.id}:${dashboard?.date_range?.start_date || ''}:${dashboard?.date_range?.end_date || ''}`} scope="section" title="This section could not be displayed">{() => (<section
                                     key={`${chartItem.id}:${dashboard?.date_range?.start_date || ''}:${dashboard?.date_range?.end_date || ''}`}
                                     id={targetId}
                                     className={`report-motion-item min-w-0 scroll-mt-24 rounded-xl transition-shadow duration-200 ${
@@ -610,12 +612,12 @@ export default function SuperAdminReportsDashboard() {
                                         stableHeight
                                         eyebrow={chartKind}
                                     />
-                                </section>
+                                </section>)}</ErrorBoundary>
                             );
                         })}
                     </div>
 
-                    <section className="report-motion-item space-y-3">
+                    <ErrorBoundary scope="section" title="This section could not be displayed">{() => (<section className="report-motion-item space-y-3">
                         <div className="flex items-start justify-between gap-3">
                             <div className="flex min-w-0 items-start gap-3">
                                 <div className="flex size-9 shrink-0 items-center justify-center rounded-lg bg-amber-50 text-amber-700 dark:bg-amber-500/15 dark:text-amber-200">
@@ -650,7 +652,7 @@ export default function SuperAdminReportsDashboard() {
                                 );
                             })}
                         </div>
-                    </section>
+                    </section>)}</ErrorBoundary>
                 </>
             )}
         </div>
@@ -748,7 +750,7 @@ function OperationalAttentionCard({ table }) {
                     </div>
 
                     <div className="hidden max-h-[23.5rem] overflow-auto sm:block">
-                        <table className="min-w-full text-left text-sm">
+                        <ErrorBoundary scope="section" title="This section could not be displayed">{() => (<table className="min-w-full text-left text-sm">
                             <thead className="sticky top-0 z-10 bg-slate-50 text-[11px] uppercase tracking-wide text-slate-500 shadow-[0_1px_0_0_rgb(226_232_240)] dark:bg-slate-800 dark:text-slate-300 dark:shadow-[0_1px_0_0_rgb(51_65_85)]">
                                 <tr>
                                     {columns.map(column => (
@@ -797,7 +799,7 @@ function OperationalAttentionCard({ table }) {
                                     );
                                 })}
                             </tbody>
-                        </table>
+                        </table>)}</ErrorBoundary>
                     </div>
                 </>
             ) : (

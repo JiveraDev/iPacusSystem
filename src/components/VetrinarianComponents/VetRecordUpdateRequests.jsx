@@ -1,3 +1,4 @@
+import ErrorBoundary from '../shared/ErrorBoundary.jsx';
 import { createElement, useMemo, useState } from 'react';
 import {
     Award,
@@ -185,13 +186,13 @@ export default function VetRecordUpdateRequests() {
 
     if (!veterinarianUserId) {
         return (
-            <Card>
+            <ErrorBoundary scope="section" title="This section could not be displayed">{() => (<Card>
                 <CardContent className="py-12 text-center">
                     <Stethoscope className="mx-auto mb-3 size-10 text-slate-300" />
                     <h2 className="text-xl font-black text-slate-950">Record Update Requests</h2>
                     <p className="mt-2 text-sm font-semibold text-slate-500">Could not identify the current veterinarian account.</p>
                 </CardContent>
-            </Card>
+            </Card>)}</ErrorBoundary>
         );
     }
 
@@ -215,7 +216,7 @@ export default function VetRecordUpdateRequests() {
 
 
 
-            <Card>
+            <ErrorBoundary scope="section" title="This section could not be displayed">{() => (<Card>
                 <CardContent className="p-4">
                     <div>
                         <Input
@@ -226,7 +227,7 @@ export default function VetRecordUpdateRequests() {
                         />
                     </div>
                 </CardContent>
-            </Card>
+            </Card>)}</ErrorBoundary>
 
             <div className="overflow-hidden rounded-xl border border-slate-200 bg-white shadow-sm">
                 <Table>
@@ -316,14 +317,14 @@ export default function VetRecordUpdateRequests() {
                                 <Detail label="Status" value={statusLabel(selectedRequest.status)} />
                             </div>
 
-                            <section className="rounded-xl border border-slate-200 bg-white p-4">
+                            <ErrorBoundary scope="section" title="This section could not be displayed">{() => (<section className="rounded-xl border border-slate-200 bg-white p-4">
                                 <h3 className="mb-2 text-sm font-black uppercase tracking-widest text-slate-500">Requested Update</h3>
                                 <p className="whitespace-pre-wrap text-sm font-semibold leading-6 text-slate-700">
                                     {selectedRequest.requestedChanges || 'No details provided.'}
                                 </p>
-                            </section>
+                            </section>)}</ErrorBoundary>
 
-                            <section className="flex items-start gap-3 rounded-xl border border-blue-100 bg-blue-50/60 p-4">
+                            <ErrorBoundary scope="section" title="This section could not be displayed">{() => (<section className="flex items-start gap-3 rounded-xl border border-blue-100 bg-blue-50/60 p-4">
                                 <Award className="mt-0.5 size-5 shrink-0 text-amber-600" />
                                 <div>
                                     <h3 className="text-sm font-black text-slate-900">Certificates included automatically</h3>
@@ -334,7 +335,7 @@ export default function VetRecordUpdateRequests() {
                                         <p className="mt-1 text-xs font-black text-emerald-700">Issued: {selectedRequest.medicalCertificate.certificateNumber}</p>
                                     ) : null}
                                 </div>
-                            </section>
+                            </section>)}</ErrorBoundary>
 
                         </div>
                     )}
@@ -388,7 +389,7 @@ export default function VetRecordUpdateRequests() {
 
 function Stat({ icon, label, value }) {
     return (
-        <Card>
+        <ErrorBoundary scope="section" title="This section could not be displayed">{() => (<Card>
             <CardContent className="flex items-center gap-3 p-4">
                 <div className="flex size-11 items-center justify-center rounded-lg bg-blue-50 text-[#155dfc]">
                     {createElement(icon, { className: 'size-5' })}
@@ -398,7 +399,7 @@ function Stat({ icon, label, value }) {
                     <p className="text-2xl font-black text-slate-950">{value}</p>
                 </div>
             </CardContent>
-        </Card>
+        </Card>)}</ErrorBoundary>
     );
 }
 

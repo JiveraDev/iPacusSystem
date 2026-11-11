@@ -1,3 +1,4 @@
+import ErrorBoundary from './shared/ErrorBoundary.jsx';
 import React, { useEffect, useRef, useState } from 'react';
 import imgImageVfcLogo from "../assets/logo.png";
 import { Card } from '../ui/card';
@@ -258,7 +259,7 @@ export function PetOwnerProfileForm({ email, initialValues, onBack, onComplete }
                 </div>
 
                 {/* Form Card */}
-                <Card className="p-4 shadow-lg border border-gray-200 sm:p-8">
+                <ErrorBoundary scope="section" title="This section could not be displayed">{() => (<Card className="p-4 shadow-lg border border-gray-200 sm:p-8">
                     <div className="mb-6">
                         <h2 className="text-lg font-semibold text-gray-900 mb-1">
                             Register - Pet Owner Profile
@@ -624,7 +625,7 @@ export function PetOwnerProfileForm({ email, initialValues, onBack, onComplete }
                             </Button>
                         </div>
                     </form>
-                </Card>
+                </Card>)}</ErrorBoundary>
             </div>
 
             <Dialog open={isTermsPreviewOpen} onOpenChange={setIsTermsPreviewOpen}>

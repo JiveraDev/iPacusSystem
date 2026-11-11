@@ -1,6 +1,6 @@
 # iPawcus clinic and pet-owner portal
 
-Updated: 2026-10-14.
+Updated: 2026-10-18.
 
 React 19, Vite 8, Tailwind CSS and PHP/MySQL support pet owners, administrators, veterinarians and super administrators. Features include pets and shared ownership, appointments, queues, clinical records, prescriptions, grooming, boarding, billing, inventory, consent, notifications and reporting.
 
@@ -37,7 +37,7 @@ npm.cmd run check:db
 - [Current audit and four-role workflow checklist](docs/20261013_project_audit.md)
 - [Configured database findings and Pet Hotel clinic selector](docs/20261014_database_verification.md)
 - [Google integration setup and tests](docs/google_integration_testing.md)
-- [Capability and process reference](docs/CURRENT_SYSTEM_CAPABILITIES.md)
+- [Combined capabilities, detailed workflows, and limitations](docs/CURRENT_SYSTEM_CAPABILITIES.md) — revised against current source on October 18; includes role handoffs and linked implementation findings.
 - [User instructions](USER_INSTRUCTIONS_FOR_DIFFERENT_ROLES.md)
 - [Installed skills](docs/installed_skills.md)
 - [Documentation index](docs/README.md)
@@ -54,3 +54,5 @@ The dashboard and dashboard-router debug bypasses are intentionally preserved. P
 ## Verification on 2026-10-13
 
 The full check runner passed 197/197 checks, including build, lint, 178 PHP syntax checks and the selected regressions. All 87 existing frontend tests passed. Added role-policy, Google failure and router checks are described in the audit. Hostinger preview completed with exit code 0; nothing was deployed. Local database readiness failed. Real Google login, SMTP delivery, push, video meetings and complete browser journeys remain unverified.
+
+On October 18, the current runner passed **201/201 checks**, including **114 frontend tests**, lint, build, PHP syntax, selected database-free regressions and local API routing. Google configuration/dependency checks pass, but local database readiness fails. This documentation review did not run new browser journeys, apply schema repairs, deploy, or verify live external services. See the [combined reference](docs/CURRENT_SYSTEM_CAPABILITIES.md) for reconciled capabilities and remaining findings.

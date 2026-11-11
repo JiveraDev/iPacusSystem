@@ -1,3 +1,4 @@
+import ErrorBoundary from '../shared/ErrorBoundary.jsx';
 import { useMemo, useState } from 'react';
 import { Archive, LayoutGrid, List, Loader2, Mail, MapPin, PawPrint, Phone, RefreshCw, RotateCcw, Search, ShieldAlert, ShieldCheck, UserPlus, X } from 'lucide-react';
 import { Badge } from '../../ui/badge';
@@ -345,7 +346,7 @@ export default function PetOwnerAccountsManagement() {
             />
 
             {!statusSupported ? (
-                <Card className="border-amber-200 bg-amber-50 shadow-none">
+                <ErrorBoundary scope="section" title="This section could not be displayed">{() => (<Card className="border-amber-200 bg-amber-50 shadow-none">
                     <CardContent className="space-y-3 p-4">
                         <div className="flex gap-3 text-amber-900">
                             <ShieldAlert className="mt-0.5 size-5 shrink-0" />
@@ -357,7 +358,7 @@ export default function PetOwnerAccountsManagement() {
                             </div>
                         </div>
                     </CardContent>
-                </Card>
+                </Card>)}</ErrorBoundary>
             ) : null}
 
             {isLoading && !owners.length ? (
@@ -367,7 +368,7 @@ export default function PetOwnerAccountsManagement() {
             ) : viewMode === 'cards' ? (
                 <div className="grid gap-4 xl:grid-cols-2">
                     {filteredOwners.map(owner => (
-                        <Card
+                        <ErrorBoundary key={owner.user_id} scope="section" title="This section could not be displayed">{() => (<Card
                             key={owner.user_id}
                             role="button"
                             tabIndex={0}
@@ -400,7 +401,7 @@ export default function PetOwnerAccountsManagement() {
 
                                 <p className="text-xs font-bold text-slate-400">Select to manage pets, ownership, and account status.</p>
                             </CardContent>
-                        </Card>
+                        </Card>)}</ErrorBoundary>
                     ))}
                     {!filteredOwners.length ? (
                         <div className="rounded-xl border border-dashed border-slate-200 bg-white p-8 text-center text-sm font-semibold text-slate-500 xl:col-span-2">
@@ -411,7 +412,7 @@ export default function PetOwnerAccountsManagement() {
             ) : (
                 <div className="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm">
                     <div className="overflow-x-auto">
-                        <table className="min-w-full divide-y divide-slate-200 text-left text-sm">
+                        <ErrorBoundary scope="section" title="This section could not be displayed">{() => (<table className="min-w-full divide-y divide-slate-200 text-left text-sm">
                             <thead className="bg-slate-50 text-xs uppercase tracking-wide text-slate-500">
                                 <tr>
                                     <th className="px-4 py-3 font-black">Owner</th>
@@ -477,7 +478,7 @@ export default function PetOwnerAccountsManagement() {
                                     </tr>
                                 )}
                             </tbody>
-                        </table>
+                        </table>)}</ErrorBoundary>
                     </div>
                 </div>
             )}

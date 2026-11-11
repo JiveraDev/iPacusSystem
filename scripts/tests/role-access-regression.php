@@ -17,6 +17,10 @@ $cases = [
     ['/queues', 'POST', ['pet_owner', 'admin', 'super_admin']],
     ['/queues/assign', 'POST', ['admin', 'super_admin']],
     ['/queues/receive', 'POST', ['veterinarian', 'super_admin']],
+    ['/clinical-intakes', 'GET', ['admin', 'veterinarian', 'super_admin']],
+    ['/clinical-intakes', 'POST', ['admin', 'super_admin']],
+    ['/clinical-intakes', 'PATCH', ['admin', 'super_admin']],
+    ['/veterinarians', 'GET', ['pet_owner', 'admin', 'veterinarian', 'super_admin']],
     ['/vet-diagnoses', 'POST', ['veterinarian', 'super_admin']],
     ['/pets/42/prescriptions', 'POST', ['veterinarian', 'super_admin']],
     ['/online-consultations', 'GET', ['pet_owner', 'veterinarian', 'super_admin']],
@@ -51,5 +55,12 @@ if (empty(ipawcus_route_access_policy('/unknown-private-endpoint', 'GET')['deny'
 $checks++;
 $policy = ipawcus_route_access_policy('/users/42/pets', 'GET');
 if (($policy['resource_user_id'] ?? 0) !== 42) throw new RuntimeException('Owner resource scoping was lost');
+$checks++;
+if (!in_array('pet_intake', ipawcus_admin_feature_keys(), true)) throw new RuntimeException('Pet Intake access choice is missing');
+foreach (['POST', 'PATCH'] as $method) {
+    if (ipawcus_admin_feature_for_mutation('/clinical-intakes', $method) !== 'pet_intake') throw new RuntimeException('Intake mutations must use Pet Intake access');
+    $checks++;
+}
+if (ipawcus_admin_feature_for_mutation('/queues/assign', 'POST') !== 'queue') throw new RuntimeException('Queue access must remain separate');
 $checks++;
 echo "PASS: {$checks} role policy checks; no database access. Record ownership and branch scopes still need runtime tests.\n";

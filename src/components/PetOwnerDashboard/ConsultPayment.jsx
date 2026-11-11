@@ -1,3 +1,4 @@
+import ErrorBoundary from '../shared/ErrorBoundary.jsx';
 import { useState, useEffect, useMemo } from "react";
 import { useNavigate } from "../dashboardRouter.jsx";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "../../ui/card";
@@ -327,7 +328,7 @@ export default function ConsultPayment() {
 
       {/* Information Banner */}
       <ConsultationProgress step={2} />
-      <Card className="bg-blue-50 border-blue-200">
+      <ErrorBoundary scope="section" title="This section could not be displayed">{() => (<Card className="bg-blue-50 border-blue-200">
         <CardContent className="pt-6">
           <div className="flex gap-3">
             <AlertCircle className="h-5 w-5 text-blue-600 shrink-0 mt-0.5" />
@@ -343,9 +344,9 @@ export default function ConsultPayment() {
             </div>
           </div>
         </CardContent>
-      </Card>
+      </Card>)}</ErrorBoundary>
 
-      <Card>
+      <ErrorBoundary scope="section" title="This section could not be displayed">{() => (<Card>
         <CardHeader>
           <CardTitle className="flex items-center gap-2">
             <ShieldCheck className="h-5 w-5 text-green-600" />
@@ -384,10 +385,10 @@ export default function ConsultPayment() {
             />
           </div>
         </CardContent>
-      </Card>
+      </Card>)}</ErrorBoundary>
 
       {/* Payment Form */}
-      <Card>
+      <ErrorBoundary scope="section" title="This section could not be displayed">{() => (<Card>
         <CardHeader>
           <CardTitle>Payment Details</CardTitle>
           <CardDescription>Fill in your payment information below</CardDescription>
@@ -533,7 +534,7 @@ export default function ConsultPayment() {
             </Button>
           </form>
         </CardContent>
-      </Card>
+      </Card>)}</ErrorBoundary>
       <PhotoViewer
         open={Boolean(viewer)}
         src={viewer?.src || ""}

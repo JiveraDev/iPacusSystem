@@ -1,3 +1,4 @@
+import ErrorBoundary from '../shared/ErrorBoundary.jsx';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
     ArrowLeft,
@@ -1918,7 +1919,7 @@ export default function VetDiagnosis() {
                 </div>
             )}
 
-            <section className="flex flex-col gap-3 rounded-xl border border-slate-200 bg-white p-4 shadow-sm dark:border-slate-700 dark:bg-slate-900 md:flex-row md:items-center md:justify-between">
+            <ErrorBoundary scope="section" title="This section could not be displayed">{() => (<section className="flex flex-col gap-3 rounded-xl border border-slate-200 bg-white p-4 shadow-sm dark:border-slate-700 dark:bg-slate-900 md:flex-row md:items-center md:justify-between">
                 <div>
                     <Label className="text-sm font-bold text-slate-900 dark:text-slate-100">Form type</Label>
                     <p className="mt-1 text-xs font-medium text-slate-500 dark:text-slate-400">
@@ -1944,7 +1945,7 @@ export default function VetDiagnosis() {
                         onClick={() => setDiagnosisType('custom')}
                     />
                 </div>
-            </section>
+            </section>)}</ErrorBoundary>
 
             {diagnosisType === 'general' && <DiagnosisProgress formData={formData} />}
 
@@ -1993,7 +1994,7 @@ export default function VetDiagnosis() {
                 setPlan={setConfinementPlan}
             />
 
-            <section className="overflow-hidden rounded-xl border border-slate-200 bg-white shadow-sm dark:border-slate-700 dark:bg-slate-900">
+            <ErrorBoundary scope="section" title="This section could not be displayed">{() => (<section className="overflow-hidden rounded-xl border border-slate-200 bg-white shadow-sm dark:border-slate-700 dark:bg-slate-900">
                 <button
                     type="button"
                     className="flex w-full items-center justify-between gap-4 p-4 text-left hover:bg-slate-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-blue-500 dark:hover:bg-slate-800/70"
@@ -2123,7 +2124,7 @@ export default function VetDiagnosis() {
                         )}
                     </div>
                 )}
-            </section>
+            </section>)}</ErrorBoundary>
 
             <div className="flex flex-col-reverse gap-3 rounded-xl border border-slate-200 bg-white/95 p-4 shadow-sm backdrop-blur dark:border-slate-700 dark:bg-slate-900/95 sm:flex-row sm:justify-between lg:sticky lg:bottom-4 lg:z-20">
                 <Button type="button" variant="outline" onClick={handleCancel} disabled={isSaving} className="sm:w-auto">
@@ -2173,7 +2174,7 @@ function VaccinationRecordSection({ enabled, setEnabled, record, setRecord, sugg
     };
 
     return (
-        <section className={`rounded-xl border p-5 shadow-sm ${enabled ? 'border-blue-200 bg-blue-50/40' : 'border-slate-200 bg-white'}`}>
+        <ErrorBoundary scope="section" title="This section could not be displayed">{() => (<section className={`rounded-xl border p-5 shadow-sm ${enabled ? 'border-blue-200 bg-blue-50/40' : 'border-slate-200 bg-white'}`}>
             <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
                 <div>
                     <div className="flex flex-wrap items-center gap-2">
@@ -2246,7 +2247,7 @@ function VaccinationRecordSection({ enabled, setEnabled, record, setRecord, sugg
                     </Field>
                 </div>
             )}
-        </section>
+        </section>)}</ErrorBoundary>
     );
 }
 
@@ -2282,7 +2283,7 @@ function AdditionalConsentSection({
     };
 
     return (
-        <section className="rounded-xl border border-slate-200 bg-white p-5 shadow-sm">
+        <ErrorBoundary scope="section" title="This section could not be displayed">{() => (<section className="rounded-xl border border-slate-200 bg-white p-5 shadow-sm">
             <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
                 <div>
                     <div className="flex flex-wrap items-center gap-2">
@@ -2430,7 +2431,7 @@ function AdditionalConsentSection({
                     </div>
                 )}
             </div>
-        </section>
+        </section>)}</ErrorBoundary>
     );
 }
 
@@ -2598,7 +2599,7 @@ function VisitChargesSection({
     const selectedService = serviceCatalog.find(service => String(service.serviceId) === String(selectedServiceId));
 
     return (
-        <section className="rounded-xl border border-slate-200 bg-white p-5 shadow-sm">
+        <ErrorBoundary scope="section" title="This section could not be displayed">{() => (<section className="rounded-xl border border-slate-200 bg-white p-5 shadow-sm">
             <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
                 <div>
                     <div className="flex flex-wrap items-center gap-2">
@@ -2697,7 +2698,7 @@ function VisitChargesSection({
                     })
                 )}
             </div>
-        </section>
+        </section>)}</ErrorBoundary>
     );
 }
 
@@ -2721,7 +2722,7 @@ function PatientVisitSummary({
         || 'Not assigned';
 
     return (
-        <section className="grid overflow-hidden rounded-xl border border-slate-200 bg-white shadow-sm dark:border-slate-700 dark:bg-slate-900 lg:grid-cols-[minmax(0,1fr)_360px]">
+        <ErrorBoundary scope="section" title="This section could not be displayed">{() => (<section className="grid overflow-hidden rounded-xl border border-slate-200 bg-white shadow-sm dark:border-slate-700 dark:bg-slate-900 lg:grid-cols-[minmax(0,1fr)_360px]">
             <div className="flex min-w-0 flex-col gap-4 p-4 sm:flex-row sm:items-center">
                 <div className="flex size-20 shrink-0 items-center justify-center overflow-hidden rounded-xl border border-slate-200 bg-slate-50 dark:border-slate-700 dark:bg-slate-800">
                     {context.petProfileImage ? (
@@ -2780,7 +2781,7 @@ function PatientVisitSummary({
                     onPreview={onPreview}
                 />
             </div>
-        </section>
+        </section>)}</ErrorBoundary>
     );
 }
 
@@ -2862,7 +2863,7 @@ function DiagnosisContextSidebar({ context, sourceUploads, consentUploads, addit
                     </SheetHeader>
 
                     <div className="space-y-5">
-                        <section className="rounded-xl border border-slate-200 bg-white p-4">
+                        <ErrorBoundary scope="section" title="This section could not be displayed">{() => (<section className="rounded-xl border border-slate-200 bg-white p-4">
                             <h3 className="mb-3 text-sm font-black uppercase tracking-widest text-slate-400">Pet Details</h3>
                             {context.petProfileImage && (
                                 <div className="mb-4 overflow-hidden rounded-xl border border-slate-200 bg-slate-50">
@@ -2890,9 +2891,9 @@ function DiagnosisContextSidebar({ context, sourceUploads, consentUploads, addit
                                 <SheetDetail label="Owner Phone" value={context.ownerPhone} />
                                 <SheetDetail label="Address" value={context.ownerAddress} className="sm:col-span-2" />
                             </div>
-                        </section>
+                        </section>)}</ErrorBoundary>
 
-                        <section className="rounded-xl border border-slate-200 bg-white p-4">
+                        <ErrorBoundary scope="section" title="This section could not be displayed">{() => (<section className="rounded-xl border border-slate-200 bg-white p-4">
                             <h3 className="mb-3 text-sm font-black uppercase tracking-widest text-slate-400">Visit Details</h3>
                             <div className="grid gap-3 text-sm">
                                 <SheetDetail label="Service" value={context.serviceName} />
@@ -2901,9 +2902,9 @@ function DiagnosisContextSidebar({ context, sourceUploads, consentUploads, addit
                                 <SheetDetail label="Complaint" value={removeBookingMarker(context.complaint)} />
                                 <SheetDetail label="Booking Notes" value={context.bookingNotes} />
                             </div>
-                        </section>
+                        </section>)}</ErrorBoundary>
 
-                        <section className="rounded-xl border border-slate-200 bg-white p-4">
+                        <ErrorBoundary scope="section" title="This section could not be displayed">{() => (<section className="rounded-xl border border-slate-200 bg-white p-4">
                             <div className="mb-3 flex items-center justify-between gap-3">
                                 <h3 className="text-sm font-black uppercase tracking-widest text-slate-400">Related Uploads</h3>
                                 <Badge className="border-0 bg-slate-100 text-slate-700">{sourceUploads.length}</Badge>
@@ -2924,9 +2925,9 @@ function DiagnosisContextSidebar({ context, sourceUploads, consentUploads, addit
                                     ))}
                                 </div>
                             )}
-                        </section>
+                        </section>)}</ErrorBoundary>
 
-                        <section className="rounded-xl border border-slate-200 bg-white p-4">
+                        <ErrorBoundary scope="section" title="This section could not be displayed">{() => (<section className="rounded-xl border border-slate-200 bg-white p-4">
                             <div className="mb-3 flex items-center justify-between gap-3">
                                 <h3 className="text-sm font-black uppercase tracking-widest text-slate-400">Signed Consent</h3>
                                 <Badge className="border-0 bg-slate-100 text-slate-700">{consentUploads.length}</Badge>
@@ -2947,9 +2948,9 @@ function DiagnosisContextSidebar({ context, sourceUploads, consentUploads, addit
                                     ))}
                                 </div>
                             )}
-                        </section>
+                        </section>)}</ErrorBoundary>
 
-                        <section className="rounded-xl border border-slate-200 bg-white p-4">
+                        <ErrorBoundary scope="section" title="This section could not be displayed">{() => (<section className="rounded-xl border border-slate-200 bg-white p-4">
                             <div className="mb-3 flex items-center justify-between gap-3">
                                 <h3 className="text-sm font-black uppercase tracking-widest text-slate-400">Consent Forms</h3>
                                 <Badge className="border-0 bg-slate-100 text-slate-700">{visibleConsentForms.length}</Badge>
@@ -2971,9 +2972,9 @@ function DiagnosisContextSidebar({ context, sourceUploads, consentUploads, addit
                                     ))}
                                 </div>
                             )}
-                        </section>
+                        </section>)}</ErrorBoundary>
 
-                        <section className="rounded-xl border border-slate-200 bg-white p-4">
+                        <ErrorBoundary scope="section" title="This section could not be displayed">{() => (<section className="rounded-xl border border-slate-200 bg-white p-4">
                             <div className="mb-3 flex items-center justify-between gap-3">
                                 <h3 className="text-sm font-black uppercase tracking-widest text-slate-400">Boarding Documents</h3>
                                 <Badge className="border-0 bg-slate-100 text-slate-700">{boardingDocumentUploads.length}</Badge>
@@ -2994,7 +2995,7 @@ function DiagnosisContextSidebar({ context, sourceUploads, consentUploads, addit
                                     ))}
                                 </div>
                             )}
-                        </section>
+                        </section>)}</ErrorBoundary>
                     </div>
                 </div>
             </SheetContent>
@@ -3129,7 +3130,7 @@ function PatientExaminationSummary({ intake, formData, onPreview }) {
     const examinerPosition = intake?.recordedByPosition || '';
 
     return (
-        <section id="diagnosis-examination" className="scroll-mt-6 overflow-hidden rounded-xl border border-slate-200 bg-white shadow-sm dark:border-slate-700 dark:bg-slate-900">
+        <ErrorBoundary scope="section" title="This section could not be displayed">{() => (<section id="diagnosis-examination" className="scroll-mt-6 overflow-hidden rounded-xl border border-slate-200 bg-white shadow-sm dark:border-slate-700 dark:bg-slate-900">
             <header className="flex flex-col gap-3 border-b border-blue-100 bg-blue-50/70 px-4 py-3 dark:border-blue-900/50 dark:bg-blue-950/30 sm:flex-row sm:items-start sm:justify-between sm:px-5">
                 <div className="flex items-start gap-3">
                     <span className="flex size-9 shrink-0 items-center justify-center rounded-lg bg-white text-[#155dfc] shadow-sm ring-1 ring-blue-100 dark:bg-slate-900 dark:text-blue-300 dark:ring-blue-900/60">
@@ -3187,7 +3188,7 @@ function PatientExaminationSummary({ intake, formData, onPreview }) {
                     onPreview={onPreview}
                 />
             </div>
-        </section>
+        </section>)}</ErrorBoundary>
     );
 }
 
@@ -3195,7 +3196,7 @@ function DiagnosisSection({ id, number, icon, title, description, children }) {
     const Icon = icon;
 
     return (
-        <section id={id} className="scroll-mt-6 overflow-hidden rounded-xl border border-slate-200 bg-white shadow-sm dark:border-slate-700 dark:bg-slate-900">
+        <ErrorBoundary scope="section" title="This section could not be displayed">{() => (<section id={id} className="scroll-mt-6 overflow-hidden rounded-xl border border-slate-200 bg-white shadow-sm dark:border-slate-700 dark:bg-slate-900">
             <header className="flex items-start gap-3 border-b border-blue-100 bg-blue-50/70 px-4 py-3 dark:border-blue-900/50 dark:bg-blue-950/30 sm:px-5">
                 <span className="flex size-9 shrink-0 items-center justify-center rounded-lg bg-white text-[#155dfc] shadow-sm ring-1 ring-blue-100 dark:bg-slate-900 dark:text-blue-300 dark:ring-blue-900/60">
                     <Icon className="size-5" aria-hidden="true" />
@@ -3206,7 +3207,7 @@ function DiagnosisSection({ id, number, icon, title, description, children }) {
                 </div>
             </header>
             <div className="space-y-5 p-4 sm:p-5">{children}</div>
-        </section>
+        </section>)}</ErrorBoundary>
     );
 }
 
@@ -3217,7 +3218,7 @@ function ConfinementDispositionSection({ plan, setPlan }) {
     const disposition = plan.requested ? 'confinement' : 'home';
 
     return (
-        <section className="overflow-hidden rounded-xl border border-slate-200 bg-white shadow-sm dark:border-slate-700 dark:bg-slate-900">
+        <ErrorBoundary scope="section" title="This section could not be displayed">{() => (<section className="overflow-hidden rounded-xl border border-slate-200 bg-white shadow-sm dark:border-slate-700 dark:bg-slate-900">
             <header className="flex items-start gap-3 border-b border-slate-200 px-4 py-3 dark:border-slate-700 sm:px-5">
                 <span className="flex size-9 shrink-0 items-center justify-center rounded-lg bg-violet-50 text-violet-700 dark:bg-violet-950/40 dark:text-violet-300">
                     <Building2 className="size-5" aria-hidden="true" />
@@ -3299,7 +3300,7 @@ function ConfinementDispositionSection({ plan, setPlan }) {
                     </div>
                 )}
             </div>
-        </section>
+        </section>)}</ErrorBoundary>
     );
 }
 
@@ -3655,7 +3656,7 @@ function CustomDiagnosisForm({
     const selectedService = serviceCatalog.find(service => String(service.serviceId) === String(selectedCustomServiceId));
 
     return (
-        <section className="space-y-4 rounded-xl border border-slate-200 bg-white p-5 shadow-sm">
+        <ErrorBoundary scope="section" title="This section could not be displayed">{() => (<section className="space-y-4 rounded-xl border border-slate-200 bg-white p-5 shadow-sm">
             <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
                 <div>
                     <h3 className="text-lg font-bold text-slate-900">Custom Diagnosis Services</h3>
@@ -3790,7 +3791,7 @@ function CustomDiagnosisForm({
                 </div>
                 );
             })}
-        </section>
+        </section>)}</ErrorBoundary>
     );
 }
 

@@ -1,3 +1,4 @@
+import ErrorBoundary from './ErrorBoundary.jsx';
 import { useCallback, useEffect, useState } from 'react';
 import { Activity, ChevronDown, ChevronLeft, ChevronRight, Clock3, RotateCcw } from 'lucide-react';
 import { Button } from '../../ui/button';
@@ -261,7 +262,7 @@ export default function StaffActivityHistory({ scope = 'self', lockedUserId = ''
     const { timeline, quietPeriods, currentQuietPeriod } = buildTimeline(rows);
 
     return (
-        <section className="space-y-5 text-slate-900 dark:text-slate-100">
+        <ErrorBoundary scope="section" title="This section could not be displayed">{() => (<section className="space-y-5 text-slate-900 dark:text-slate-100">
             {showHeading && (
                 <div className="min-w-0" data-dashboard-heading-plain>
                     <h2 className="text-base font-semibold text-slate-900 dark:text-slate-100">
@@ -447,6 +448,6 @@ export default function StaffActivityHistory({ scope = 'self', lockedUserId = ''
                     <Button type="button" variant="outline" size="sm" disabled={!hasMore} onClick={() => setOffset(offset + pageSize)} aria-label="Next activity log page">Next <ChevronRight className="size-4" /></Button>
                 </div>
             )}
-        </section>
+        </section>)}</ErrorBoundary>
     );
 }

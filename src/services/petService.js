@@ -1,4 +1,5 @@
 import { apiRequest, patchJson, postJson } from './apiClient';
+import { requireArray } from '../lib/errorPolicy.js';
 
 export function fetchUserPets(userId) {
     return apiRequest(`/users/${userId}/pets`);
@@ -34,12 +35,12 @@ export function updatePetStatus(petId, payload) {
     return patchJson(`/pet_information/${petId}/status`, payload, { apiPrefix: true });
 }
 
-export function fetchPetQueues(petId) {
-    return apiRequest(`/pets/${petId}/queues`);
+export function fetchPetQueues(petId, options = {}) {
+    return apiRequest(`/pets/${petId}/queues`, options).then(requireArray);
 }
 
-export function fetchPetBookings(petId) {
-    return apiRequest(`/pets/${petId}/bookings`);
+export function fetchPetBookings(petId, options = {}) {
+    return apiRequest(`/pets/${petId}/bookings`, options).then(requireArray);
 }
 
 export function cancelPetOverdueActivity(petId) {

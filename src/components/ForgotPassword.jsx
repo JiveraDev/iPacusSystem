@@ -1,3 +1,4 @@
+import ErrorBoundary from './shared/ErrorBoundary.jsx';
 import { useEffect, useState } from "react";
 import PropTypes from "prop-types";
 import { ArrowLeft, CheckCircle2, Clock3, Loader2, Mail, ShieldCheck } from "lucide-react";
@@ -170,7 +171,7 @@ export function ForgotPassword({ initialEmail = "", onBack, onComplete }) {
                     <p className="text-sm font-medium text-slate-600">Reset your password using a code sent to your email.</p>
                 </div>
 
-                <Card className="overflow-hidden border-slate-200 shadow-lg">
+                <ErrorBoundary scope="section" title="This section could not be displayed">{() => (<Card className="overflow-hidden border-slate-200 shadow-lg">
                     <CardHeader className="border-b border-slate-100 bg-white">
                         <CardTitle className="flex items-center gap-2 text-xl font-black text-slate-950">
                             <ShieldCheck className="h-5 w-5 text-[#155dfc]" />
@@ -273,7 +274,7 @@ export function ForgotPassword({ initialEmail = "", onBack, onComplete }) {
                             Back to Login
                         </Button>
                     </CardContent>
-                </Card>
+                </Card>)}</ErrorBoundary>
             </div>
         </div>
     );

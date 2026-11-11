@@ -1,3 +1,4 @@
+import ErrorBoundary from '../shared/ErrorBoundary.jsx';
 import { useState, useEffect } from "react";
 import { useNavigate } from "../dashboardRouter.jsx";
 import { Card, CardContent, CardHeader, CardTitle } from "../../ui/card";
@@ -321,7 +322,7 @@ export default function HomeServices() {
 
       <div className="grid min-w-0 items-start gap-6">
         <div className="min-w-0 space-y-6">
-          <Card className="overflow-hidden">
+          <ErrorBoundary scope="section" title="This section could not be displayed">{() => (<Card className="overflow-hidden">
             <CardHeader>
               <CardTitle className="text-lg flex items-center gap-2">
                 <ImageIcon className="h-5 w-5 text-blue-600" />
@@ -419,9 +420,9 @@ export default function HomeServices() {
                 </div>
               </div>
             </CardContent>
-          </Card>
+          </Card>)}</ErrorBoundary>
 
-          <Card className="overflow-hidden">
+          <ErrorBoundary scope="section" title="This section could not be displayed">{() => (<Card className="overflow-hidden">
             <CardHeader>
               <CardTitle className="text-lg flex items-center gap-2">
                 <MapPin className="h-5 w-5 text-blue-700 dark:text-blue-300" />
@@ -533,9 +534,9 @@ export default function HomeServices() {
                 />
               </div>
             </CardContent>
-          </Card>
+          </Card>)}</ErrorBoundary>
 
-          <Card className="overflow-hidden">
+          <ErrorBoundary scope="section" title="This section could not be displayed">{() => (<Card className="overflow-hidden">
             <CardHeader>
               <CardTitle className="text-lg flex items-center gap-2">
                 <ImageIcon className="h-5 w-5 text-blue-700 dark:text-blue-300" />
@@ -586,10 +587,10 @@ export default function HomeServices() {
                 />
               </div>
             </CardContent>
-          </Card>
+          </Card>)}</ErrorBoundary>
         </div>
 
-        <aside className="min-w-0">
+        <ErrorBoundary scope="section" title="This section could not be displayed">{() => (<aside className="min-w-0">
           <Card className="overflow-hidden">
             <CardHeader>
               <CardTitle className="text-lg">Continue to Consent</CardTitle>
@@ -600,7 +601,7 @@ export default function HomeServices() {
               </Button>
             </CardContent>
           </Card>
-        </aside>
+        </aside>)}</ErrorBoundary>
       </div>
 
       <PhotoViewer

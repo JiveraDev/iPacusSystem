@@ -2,15 +2,14 @@ import { useEffect, useState, useCallback, lazy, Suspense } from 'react';
 
 import { registerUser } from "./services/registerUser.js";
 import { ToastViewport, toast } from "./reusecomponent/toast.jsx";
-import ServerDownPage from "./components/ServerDownPage.jsx";
+import ErrorBoundary from './components/shared/ErrorBoundary.jsx';
+import ServiceStatusNotice from './components/shared/ServiceStatusNotice.jsx';
 import {
   AUTH_EXPIRES_AT_KEY,
   checkServerHealth,
   clearStoredAuthSession,
   expireStoredAuthSession,
-  getServerStatusSnapshot,
   isStoredAuthTokenExpired,
-  subscribeToServerStatus
 } from "./services/apiClient.js";
 import { completeGoogleRegistration, resetGoogleIdentitySession } from './services/googleAuthService.js';
 import { clearPushContext } from "./services/pushNotificationService.js";
@@ -180,8 +179,6 @@ function App() {
     localStorage.getItem('pendingVerificationEmail') || ''
   ));
   const [forgotPasswordEmail, setForgotPasswordEmail] = useState('');
-  const [serverStatus, setServerStatus] = useState(() => getServerStatusSnapshot());
-  const [isCheckingServer, setIsCheckingServer] = useState(false);
 
   useEffect(() => {
     const handlePopState = () => {
@@ -237,42 +234,8 @@ function App() {
   }, []);
 
   useEffect(() => {
-    return subscribeToServerStatus(setServerStatus);
+    checkServerHealth().catch(() => {});
   }, []);
-
-  const retryServerConnection = useCallback(async (options = {}) => {
-    const showChecking = options?.showChecking !== false;
-
-    if (showChecking) {
-      setIsCheckingServer(true);
-    }
-
-    try {
-      await checkServerHealth();
-    } catch (error) {
-      console.error('Server health check failed:', error);
-    } finally {
-      if (showChecking) {
-        setIsCheckingServer(false);
-      }
-    }
-  }, []);
-
-  useEffect(() => {
-    retryServerConnection({ showChecking: false });
-  }, [retryServerConnection]);
-
-  useEffect(() => {
-    if (!serverStatus.isDown) {
-      return undefined;
-    }
-
-    const timerId = window.setInterval(() => {
-      retryServerConnection({ showChecking: false });
-    }, 15000);
-
-    return () => window.clearInterval(timerId);
-  }, [retryServerConnection, serverStatus.isDown]);
 
   useEffect(() => {
     if (view === 'dashboard' && !currentUser) {
@@ -289,16 +252,11 @@ function App() {
   }, [view, registrationData.email]);
 
   useEffect(() => {
-    if (serverStatus.isDown) {
-      setDocumentPageTitle('Service Unavailable');
-      return;
-    }
-
     const nextActiveView = getRouteRedirect(view, currentUser, registrationData.email).view;
     if (nextActiveView !== 'dashboard') {
       setDocumentPageTitle(getPublicPageTitle(nextActiveView));
     }
-  }, [currentUser, registrationData.email, serverStatus.isDown, view]);
+  }, [currentUser, registrationData.email, view]);
 
   const resetRegistrationFlow = useCallback(() => {
     setRegistrationData(initialRegistrationData);
@@ -479,20 +437,12 @@ function App() {
     navigateTo(routes.forgotPassword);
   };
 
-  if (serverStatus.isDown) {
-    return (
-      <ServerDownPage
-        key={`${serverStatus.kind}:${serverStatus.code}:${serverStatus.status}`}
-        isRetrying={isCheckingServer}
-        onRetry={retryServerConnection}
-        serverStatus={serverStatus}
-      />
-    );
-  }
-
   const activeView = getRouteRedirect(view, currentUser, registrationData.email).view;
 
   return (
+    <>
+    <ErrorBoundary title="Service status could not be displayed" scope="service-status"><ServiceStatusNotice /></ErrorBoundary>
+    <ErrorBoundary title="This page could not be displayed" scope="public-page" resetKey={activeView}>
     <Suspense fallback={
       <div className="flex h-screen w-screen items-center justify-center bg-white">
         <div className="flex flex-col items-center gap-4">
@@ -581,6 +531,8 @@ function App() {
         )}
       </div>
     </Suspense>
+    </ErrorBoundary>
+    </>
   );
 }
 

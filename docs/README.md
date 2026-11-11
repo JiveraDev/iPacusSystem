@@ -1,8 +1,14 @@
 # iPawcus Documentation Index
 
-Updated: 2026-10-14
+Updated: 2026-10-18
 
 ## Current audit and testing
+
+- [Combined system capabilities, detailed workflows, and limitations](CURRENT_SYSTEM_CAPABILITIES.md): revised October 18 against current code, with module descriptions, source links, role handoffs, consolidated findings, deployment dependencies, and quality/scope boundaries. Fresh verification: 201/201 runner checks and 114 frontend tests pass; Google configuration passes but local database readiness fails.
+- [September limitations screening](20260922_system_limitations_iso25010_screening.md): historical assessment; current corrections and findings are consolidated in the combined reference.
+
+- [Error isolation implementation](error_isolation.md): implemented boundaries, scoped request states, recovery behavior, test evidence, and validation limits.
+- [System-wide error isolation plan](../proposals/system-error-isolation-plan.md): original source findings, recovery rules, route inventory, and acceptance matrix; implementation progress is recorded separately from fault-test coverage.
 
 - [Configured database verification and Pet Hotel clinic selection](20261014_database_verification.md): the normal database connects, but its metadata import is incomplete; the landing room panel now supports per-clinic selection.
 
@@ -11,10 +17,9 @@ Updated: 2026-10-14
 - [October 13 project audit](20261013_project_audit.md): confirmed fixes, verification evidence, four-role interactions and remaining runtime checks.
 - [Google integration testing](google_integration_testing.md): configuration, identity linking, onboarding and manual scenarios.
 - [Installed skills](installed_skills.md): repository and session-provided skills.
-- [Capability reference](CURRENT_SYSTEM_CAPABILITIES.md): detailed source-backed reference with an October 13 addendum.
 - [Role instructions](../USER_INSTRUCTIONS_FOR_DIFFERENT_ROLES.md): pet-owner and personnel guide.
 
-Current review: `master`, HEAD `a7e9add1`, with uncommitted work. `npm run check` writes logs to ignored `tmp/project-audit/`. Local database readiness failed. Older dated documents retain their original review dates as historical evidence.
+The October 18 documentation review includes current uncommitted work. `npm run check` writes logs to ignored `tmp/project-audit/`. The local Google database-readiness step fails in this review. October 13 audit results and the October 14 configured-database/sandbox findings describe their respective dates and environments; older dated documents retain their original evidence.
 
 This folder contains the current planning, architecture, backlog, deployment, and release notes for the iPawcus React/PHP project.
 
@@ -109,6 +114,6 @@ Completed on 2026-06-25:
 ### Remaining Product Work
 
 - Add PDF and non-image document preview behavior.
-- Complete PDF/Excel report export if required; current report output supports browser print and CSV.
+- Validate report export accuracy and layout; PDF/Excel exports now exist alongside browser printing. The older print/CSV-only description is superseded by the combined reference.
 - Improve inventory/product search and supplier creation.
 - Finish production push-notification and Jitsi environment validation.

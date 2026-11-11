@@ -1,4 +1,5 @@
 import { apiRequest } from './apiClient';
+import { requireArray, requireObject } from '../lib/errorPolicy.js';
 import {
     filterVisibleBranches,
     isVisibleBranch,
@@ -13,7 +14,11 @@ export async function fetchStatusDisplay({ branch, ...options } = {}) {
         ...options
     });
 
-    const branches = filterVisibleBranches(data?.branches);
+    requireObject(data);
+    requireObject(data.sections);
+    requireObject(data.summary);
+    ['queue', 'bookings', 'billing'].forEach(key => requireArray(data.sections[key]));
+    const branches = filterVisibleBranches(requireArray(data.branches));
     const selectedBranch = isVisibleBranch(data?.branch)
         ? data.branch
         : branches.find((item) => normalizeVisibleBranchCode(item) === requestedBranchCode)

@@ -1,3 +1,4 @@
+import ErrorBoundary from './ErrorBoundary.jsx';
 import { Check, Moon, Sun } from 'lucide-react';
 
 import { useTheme } from '../../hooks/useTheme';
@@ -8,7 +9,7 @@ export default function ThemeToggle({ className = '' }) {
     const { theme, palette, setTheme } = useTheme();
 
     return (
-        <section className={cn('theme-chooser', className)} aria-labelledby="theme-chooser-heading">
+        <ErrorBoundary scope="section" title="This section could not be displayed">{() => (<section className={cn('theme-chooser', className)} aria-labelledby="theme-chooser-heading">
             <div className="theme-chooser-heading">
                 <div>
                     <h3 id="theme-chooser-heading">Theme</h3>
@@ -49,6 +50,6 @@ export default function ThemeToggle({ className = '' }) {
                 </div>
             </fieldset>
             <p className="theme-chooser-note">Status colors keep their meaning across themes. Documents and receipts keep their print colors.</p>
-        </section>
+        </section>)}</ErrorBoundary>
     );
 }

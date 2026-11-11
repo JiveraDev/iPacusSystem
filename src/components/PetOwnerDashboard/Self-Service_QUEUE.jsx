@@ -1,3 +1,4 @@
+import ErrorBoundary from '../shared/ErrorBoundary.jsx';
 import { useEffect, useState } from "react";
 
 import { Card, CardContent, CardHeader, CardTitle } from "../../ui/card";
@@ -390,7 +391,7 @@ export default function QueueDashboard() {
     if (isAccessLoading) {
         return (
             <div className="flex min-h-[60vh] items-center justify-center px-4">
-                <Card className="w-full max-w-md" petHover={false}>
+                <ErrorBoundary scope="section" title="This section could not be displayed">{() => (<Card className="w-full max-w-md" petHover={false}>
                     <CardContent className="flex flex-col items-center py-10 text-center">
                         <span className="mb-4 flex size-12 items-center justify-center rounded-full bg-blue-50 text-[#155dfc] dark:bg-blue-950/60 dark:text-blue-300">
                             <Wifi className="size-6 animate-pulse motion-reduce:animate-none" aria-hidden="true" />
@@ -398,7 +399,7 @@ export default function QueueDashboard() {
                         <p className="font-bold text-slate-900 dark:text-white">Checking clinic access</p>
                         <p className="mt-1 text-sm text-slate-500 dark:text-slate-400">Confirming that you are connected to the clinic network.</p>
                     </CardContent>
-                </Card>
+                </Card>)}</ErrorBoundary>
             </div>
         );
     }
@@ -406,7 +407,7 @@ export default function QueueDashboard() {
     if (!isAccessAllowed) {
         return (
             <div className="flex min-h-[60vh] items-center justify-center px-4">
-                <Card className="w-full max-w-2xl border-red-200 dark:border-red-900/70" petHover={false}>
+                <ErrorBoundary scope="section" title="This section could not be displayed">{() => (<Card className="w-full max-w-2xl border-red-200 dark:border-red-900/70" petHover={false}>
                     <CardContent className="flex flex-col items-center px-6 py-12 text-center sm:px-10 sm:py-16">
                         <span className="flex size-16 items-center justify-center rounded-2xl bg-red-50 text-red-600 dark:bg-red-950/60 dark:text-red-300 sm:size-20">
                             <Wifi className="size-8 sm:size-10" aria-hidden="true" />
@@ -420,7 +421,7 @@ export default function QueueDashboard() {
                             </p>
                         </div>
                     </CardContent>
-                </Card>
+                </Card>)}</ErrorBoundary>
             </div>
         );
     }
@@ -477,7 +478,7 @@ export default function QueueDashboard() {
                 />
 
                 <div className="grid items-start gap-5 xl:grid-cols-[minmax(0,1fr)_22rem]">
-                    <Card className="overflow-hidden" petHover={false}>
+                    <ErrorBoundary scope="section" title="This section could not be displayed">{() => (<Card className="overflow-hidden" petHover={false}>
                         <CardHeader className="border-b border-slate-100 bg-white pb-4 dark:border-slate-800 dark:bg-slate-900">
                             <CardTitle className="flex items-center gap-2 text-lg">
                                 <ClipboardList className="size-5 text-[#155dfc]" aria-hidden="true" />
@@ -740,9 +741,9 @@ export default function QueueDashboard() {
                                 </div>
                             </form>
                         </CardContent>
-                    </Card>
+                    </Card>)}</ErrorBoundary>
 
-                    <aside className="space-y-4 xl:sticky xl:top-4">
+                    <ErrorBoundary scope="section" title="This section could not be displayed">{() => (<aside className="space-y-4 xl:sticky xl:top-4">
                         <Card petHover={false}>
                             <CardHeader className="border-b border-slate-100 pb-4 dark:border-slate-800">
                                 <CardTitle className="flex items-center gap-2 text-lg">
@@ -808,7 +809,7 @@ export default function QueueDashboard() {
                             <p className="font-bold">After you join</p>
                             <p className="mt-1 leading-5">Clinic staff will manage the active queue. Ask the front desk if the entry needs to be changed or cancelled.</p>
                         </div>
-                    </aside>
+                    </aside>)}</ErrorBoundary>
                 </div>
             </div>
 

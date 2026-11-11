@@ -1,3 +1,4 @@
+import ErrorBoundary from '../shared/ErrorBoundary.jsx';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import {
     AlertCircle,
@@ -482,14 +483,14 @@ export default function MedicalRecords() {
                     <ArrowLeft className="mr-2 size-4" />
                     Back
                 </Button>
-                <Card>
+                <ErrorBoundary scope="section" title="This section could not be displayed">{() => (<Card>
                     <CardContent className="py-12 text-center">
                         <FileText className="mx-auto mb-4 size-14 text-slate-300" />
                         <h3 className="text-lg font-semibold text-slate-900 dark:text-white">Medical record unavailable</h3>
                         <p className="mt-2 text-sm text-slate-500 dark:text-slate-400">{loadError || 'There is no medical record available for this pet yet.'}</p>
                         <Button type="button" variant="outline" className="mt-4" onClick={() => loadRecords()}>Retry</Button>
                     </CardContent>
-                </Card>
+                </Card>)}</ErrorBoundary>
             </div>
         );
     }
@@ -693,7 +694,7 @@ export default function MedicalRecords() {
                         </div>
                     </div>
                 )}
-                <section className="care-medical-header print-break-inside">
+                <ErrorBoundary scope="section" title="This section could not be displayed">{() => (<section className="care-medical-header print-break-inside">
                     <div className="care-medical-brand"><img src={ipawcusLogo} alt="iPawcus" /><span>Vetfocus Care Animal Clinic · Patient medical record</span></div>
                     <div className="flex flex-col gap-4 md:flex-row md:items-start md:justify-between">
                         <div data-dashboard-heading-plain>
@@ -758,7 +759,7 @@ export default function MedicalRecords() {
                             </div>
                         </div>
                     )}
-	                </section>
+	                </section>)}</ErrorBoundary>
 
                     <VaccinationSection vaccinations={vaccinations} />
                     <ClinicalDocumentsSection documents={clinicalDocuments} onPreview={setViewer} />
@@ -769,7 +770,7 @@ export default function MedicalRecords() {
                     />
 
 	                {organizedRecords.length === 0 ? (
-                    <Card className="print-break-inside">
+                    <ErrorBoundary scope="section" title="This section could not be displayed">{() => (<Card className="print-break-inside">
                         <CardContent className="py-12 text-center">
                             <ClipboardList className="mx-auto mb-4 size-12 text-slate-300" />
                             <h3 className="text-lg font-black text-slate-900">No Organized Records Yet</h3>
@@ -777,9 +778,9 @@ export default function MedicalRecords() {
                                 A veterinarian can organize completed service records into printable summaries.
                             </p>
                         </CardContent>
-                    </Card>
+                    </Card>)}</ErrorBoundary>
                 ) : (
-                    <section className="space-y-5">
+                    <ErrorBoundary scope="section" title="This section could not be displayed">{() => (<section className="space-y-5">
                         {organizedRecords.map((group) => (
                             <OrganizedGroup
                                 key={group.groupId}
@@ -788,7 +789,7 @@ export default function MedicalRecords() {
                                 highlightedTarget={highlightedTarget}
                             />
                         ))}
-                    </section>
+                    </section>)}</ErrorBoundary>
                 )}
             </main>
 
@@ -819,7 +820,7 @@ function ClinicalHistorySection({ records, onPreview, highlightedTarget }) {
     };
 
     return (
-        <section
+        <ErrorBoundary scope="section" title="This section could not be displayed">{() => (<section
             id="medical-clinical-history"
             className={`print-break-inside overflow-hidden rounded-xl border border-slate-200 bg-white shadow-sm ${highlightTargetClass('medical-clinical-history', highlightedTarget)}`}
         >
@@ -946,13 +947,13 @@ function ClinicalHistorySection({ records, onPreview, highlightedTarget }) {
                     })}
                 </div>
             )}
-        </section>
+        </section>)}</ErrorBoundary>
     );
 }
 
 function VaccinationSection({ vaccinations }) {
     return (
-        <section className="print-break-inside overflow-hidden rounded-xl border border-slate-200 bg-white shadow-sm">
+        <ErrorBoundary scope="section" title="This section could not be displayed">{() => (<section className="print-break-inside overflow-hidden rounded-xl border border-slate-200 bg-white shadow-sm">
             <header className="border-b border-slate-100 bg-slate-50 px-5 py-4">
                 <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
                     <div className="flex items-center gap-2">
@@ -996,7 +997,7 @@ function VaccinationSection({ vaccinations }) {
                     ))}
                 </div>
             )}
-        </section>
+        </section>)}</ErrorBoundary>
     );
 }
 
@@ -1006,7 +1007,7 @@ function ClinicalDocumentsSection({ documents, onPreview }) {
     }
 
     return (
-        <section className="print-break-inside overflow-hidden rounded-xl border border-slate-200 bg-white shadow-sm">
+        <ErrorBoundary scope="section" title="This section could not be displayed">{() => (<section className="print-break-inside overflow-hidden rounded-xl border border-slate-200 bg-white shadow-sm">
             <header className="border-b border-slate-100 bg-slate-50 px-5 py-4">
                 <div className="flex items-center justify-between gap-3">
                     <div className="flex items-center gap-2">
@@ -1034,7 +1035,7 @@ function ClinicalDocumentsSection({ documents, onPreview }) {
                     );
                 })}
             </div>
-        </section>
+        </section>)}</ErrorBoundary>
     );
 }
 
@@ -1313,7 +1314,7 @@ function OrganizedItem({ item, onPreview, highlightedTarget }) {
     const prescriptions = collectRecordPrescriptions(source);
 
     return (
-        <section
+        <ErrorBoundary scope="section" title="This section could not be displayed">{() => (<section
             id={targetId}
             className={`scroll-mt-24 p-5 print-break-inside ${highlightTargetClass(targetId, highlightedTarget)}`}
         >
@@ -1408,7 +1409,7 @@ function OrganizedItem({ item, onPreview, highlightedTarget }) {
                     </div>
                 </div>
             )}
-        </section>
+        </section>)}</ErrorBoundary>
     );
 }
 

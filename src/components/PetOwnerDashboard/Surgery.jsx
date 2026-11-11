@@ -1,3 +1,4 @@
+import ErrorBoundary from '../shared/ErrorBoundary.jsx';
 import { useNavigate } from "../dashboardRouter.jsx";
 import { toast } from "../../reusecomponent/toast.jsx";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "../../ui/card";
@@ -207,7 +208,7 @@ export default function Surgery() {
 
       <div className="grid min-w-0 items-start gap-6 xl:grid-cols-[minmax(0,1.8fr)_minmax(18rem,0.8fr)]">
         {/* Booking Form */}
-        <Card className="overflow-hidden">
+        <ErrorBoundary scope="section" title="This section could not be displayed">{() => (<Card className="overflow-hidden">
           <CardHeader>
             <CardTitle>Booking Details</CardTitle>
             <CardDescription>Fill in the information below to schedule a consultation</CardDescription>
@@ -366,10 +367,10 @@ export default function Surgery() {
               </Button>
             </form>
           </CardContent>
-        </Card>
+        </Card>)}</ErrorBoundary>
 
         {/* Service Info */}
-        <aside className="min-w-0 space-y-4">
+        <ErrorBoundary scope="section" title="This section could not be displayed">{() => (<aside className="min-w-0 space-y-4">
           <ServiceSummaryCard icon={Activity} title={serviceDetail?.title || "Surgery"}>
               <ServiceProjectionEditor
                 config={priceProjectionConfig}
@@ -387,7 +388,7 @@ export default function Surgery() {
           </ServiceSummaryCard>
 
           <ServiceProjectionNote detail={serviceDetail} />
-        </aside>
+        </aside>)}</ErrorBoundary>
       </div>
     </ServicePageShell>
   );

@@ -1,3 +1,4 @@
+import ErrorBoundary from './ErrorBoundary.jsx';
 import { useState } from 'react';
 import { Award, Printer, ShieldCheck } from 'lucide-react';
 import navigationLogo from '../../assets/circular_logo.png';
@@ -227,10 +228,10 @@ function CertificateSheet({ certificate }) {
                 </div>
 
                 {isMedical ? (
-                    <section className="mt-6 border border-blue-200 border-t-4 border-t-[#155dfc] bg-blue-50/70 px-4 py-5 text-center sm:px-8 sm:py-6">
+                    <ErrorBoundary scope="section" title="This section could not be displayed">{() => (<section className="mt-6 border border-blue-200 border-t-4 border-t-[#155dfc] bg-blue-50/70 px-4 py-5 text-center sm:px-8 sm:py-6">
                         <p className="text-[10px] font-black uppercase tracking-[0.16em] text-[#155dfc]">Clinical findings</p>
                         <p className="mx-auto mt-3 max-w-2xl whitespace-pre-wrap font-serif text-base font-semibold leading-7 text-slate-800 sm:text-lg sm:leading-8">{finding}</p>
-                    </section>
+                    </section>)}</ErrorBoundary>
                 ) : null}
 
                 <dl className="mt-6 grid grid-cols-1 gap-x-8 gap-y-3 border border-blue-100 bg-blue-50/55 p-4 sm:grid-cols-2 sm:p-6">
@@ -244,7 +245,7 @@ function CertificateSheet({ certificate }) {
 
                 {isMedical ? (
                     <>
-                        <section className="mx-auto mt-auto w-full max-w-xs pt-8 text-center">
+                        <ErrorBoundary scope="section" title="This section could not be displayed">{() => (<section className="mx-auto mt-auto w-full max-w-xs pt-8 text-center">
                             {certificate.signaturePath ? (
                                 <ProtectedImage
                                     src={certificate.signaturePath}
@@ -257,7 +258,7 @@ function CertificateSheet({ certificate }) {
                             <p className="mt-1 text-[10px] font-bold uppercase tracking-wide text-slate-500">
                                 Attending Veterinarian{veterinarian.licenseNumber ? ` - PRC ${veterinarian.licenseNumber}` : ''}
                             </p>
-                        </section>
+                        </section>)}</ErrorBoundary>
                     </>
                 ) : <div className="mt-auto" aria-hidden="true" />}
 

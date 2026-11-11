@@ -1,4 +1,5 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import ErrorBoundary from './ErrorBoundary.jsx';
+import { useMemo, useState } from 'react';
 import {
     Building2,
     CalendarDays,
@@ -20,7 +21,8 @@ import {
     SelectTrigger,
     SelectValue,
 } from '../../ui/select';
-import { useAutoRefresh } from '../../hooks/useAutoRefresh';
+import { useSectionResource } from '../../hooks/useSectionResource';
+import SectionErrorState from './SectionErrorState.jsx';
 import { fetchBookingAvailability } from '../../services/bookingAvailabilityService';
 import { bookingSlotStatusLabel } from '../../lib/bookingSlots';
 import BoardingRoomAvailability, { BoardingAvailabilityLegend } from './BoardingRoomAvailability.jsx';
@@ -129,59 +131,32 @@ export default function ClinicAvailabilityCalendar({
     const [selectedDate, setSelectedDate] = useState(localDateKey(today));
     const [branchId, setBranchId] = useState(String(lockedBranchId || selectedBranchId || ''));
     const [veterinarianId, setVeterinarianId] = useState('');
-    const [availability, setAvailability] = useState(null);
-    const [isLoading, setIsLoading] = useState(true);
-    const [errorMessage, setErrorMessage] = useState('');
     const effectiveBranchId = String(lockedBranchId || selectedBranchId || branchId || '');
     const requestKey = `${service}:${month}:${selectedDate}:${effectiveBranchId}:${veterinarianId}`;
-    const currentRequest = useRef(requestKey);
-    useEffect(() => { currentRequest.current = requestKey; }, [requestKey]);
-
-    const loadAvailability = useCallback(async ({ isAutoRefresh = false } = {}) => {
-        if (!isAutoRefresh) {
-            setIsLoading(true);
-            setErrorMessage('');
-        }
-
-        try {
-            const response = await fetchBookingAvailability({
+    const { data: availability, loading: isLoading, error: errorMessage, retry: loadAvailability, refreshing } = useSectionResource(requestKey,
+        ({ signal }) => fetchBookingAvailability({
                 service,
                 month,
                 date: selectedDate,
                 branchId: effectiveBranchId,
                 veterinarianId,
                 hotel_boarding_type: service === 'boarding' ? 'hotel' : undefined,
-            });
-            if (currentRequest.current !== requestKey) return;
-            setAvailability(response);
-            onBranchesChange?.(response?.filters?.branches || []);
+        }, { signal }), { onSuccess: (response) => {
+            onBranchesChange?.(response.filters.branches);
 
-            const resolvedBranchId = String(response?.selected?.branchId || '');
+            const resolvedBranchId = String(response.selected?.branchId || '');
             if (!lockedBranchId && resolvedBranchId !== branchId) {
                 setBranchId(resolvedBranchId);
             }
             if (!lockedBranchId && resolvedBranchId !== String(selectedBranchId || '')) {
                 onBranchChange?.(resolvedBranchId);
             }
-            const resolvedVetId = response?.selected?.veterinarianId;
+            const resolvedVetId = response.selected?.veterinarianId;
             const resolvedVetValue = resolvedVetId ? String(resolvedVetId) : '';
             if (resolvedVetValue !== veterinarianId) {
                 setVeterinarianId(resolvedVetValue);
             }
-        } catch (error) {
-            if (currentRequest.current !== requestKey) return;
-            if (!isAutoRefresh) {
-                setErrorMessage(error.message || 'Availability could not be loaded.');
-            }
-            throw error;
-        } finally {
-            if (currentRequest.current === requestKey) setIsLoading(false);
-        }
-    }, [branchId, effectiveBranchId, lockedBranchId, month, onBranchChange, onBranchesChange, requestKey, selectedBranchId, selectedDate, service, veterinarianId]);
-
-    useAutoRefresh(loadAvailability, {
-        refreshKey: requestKey,
-    });
+    } });
 
     const services = availability?.filters?.services?.length
         ? availability.filters.services
@@ -225,7 +200,7 @@ export default function ClinicAvailabilityCalendar({
     };
 
     return (
-        <Card className={className}>
+        <ErrorBoundary scope="section" title="This section could not be displayed">{() => (<Card className={className}>
             <CardHeader className={compact ? 'pb-0' : ''}>
                 <div className="flex items-start gap-3">
                     <span className="mt-0.5 flex size-9 shrink-0 items-center justify-center rounded-lg bg-blue-50 text-[#155dfc] dark:bg-blue-950/50 dark:text-blue-300">
@@ -269,7 +244,7 @@ export default function ClinicAvailabilityCalendar({
                             <Select value={effectiveBranchId} onValueChange={handleBranchChange} searchable={false} disabled={isLoading || !branches.length}>
                                 <SelectTrigger aria-label="Availability clinic">
                                     <Building2 className="text-blue-600 dark:text-blue-300" />
-                                    <SelectValue placeholder="Select clinic" displayValue={selectedBranch?.name || (isLoading ? 'Loading clinics...' : branches.length ? 'Select clinic' : 'No clinics available')} />
+                                    <SelectValue placeholder="Select clinic" displayValue={errorMessage ? 'Clinics could not be loaded' : selectedBranch?.name || (isLoading ? 'Loading clinics...' : branches.length ? 'Select clinic' : 'No clinics available')} />
                                 </SelectTrigger>
                                 <SelectContent>
                                     {branches.map((branch) => (
@@ -309,9 +284,7 @@ export default function ClinicAvailabilityCalendar({
                 {availability?.message && !isLoading && !errorMessage && <p role="status" className="text-sm text-slate-600 dark:text-slate-300">{availability.message}</p>}
 
                 {errorMessage ? (
-                    <div className="rounded-lg border border-red-200 bg-red-50 p-3 text-sm text-red-700 dark:border-red-900 dark:bg-red-950/30 dark:text-red-300" role="alert">
-                        {errorMessage}
-                    </div>
+                    <SectionErrorState title="Booking availability could not be loaded" error={errorMessage} onRetry={loadAvailability} retrying={refreshing} retryLabel="Retry availability" />
                 ) : (
                     <div className="grid items-start gap-4 lg:grid-cols-[minmax(0,1fr)_minmax(0,1.15fr)]">
                         <div className="min-w-0 rounded-lg border border-slate-200 p-3 dark:border-slate-800">
@@ -450,6 +423,6 @@ export default function ClinicAvailabilityCalendar({
                     </div>
                 )}
             </CardContent>
-        </Card>
+        </Card>)}</ErrorBoundary>
     );
 }

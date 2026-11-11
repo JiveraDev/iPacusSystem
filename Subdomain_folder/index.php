@@ -31,9 +31,10 @@ header('Pragma: no-cache');
         </header>
 
         <main class="tv-main">
-            <div id="errorBanner" class="error-banner" hidden>
+            <div id="errorBanner" class="error-banner" role="status" hidden>
                 <strong>Unable to load live status.</strong>
                 <span id="errorMessage">Please check the TV display API connection.</span>
+                <button id="retryStatus" type="button">↻ Retry status</button>
             </div>
 
             <section id="loadingPanel" class="loading-panel">
@@ -82,7 +83,7 @@ header('Pragma: no-cache');
         <footer class="tv-footer">
             <div class="live-indicator">
                 <span aria-hidden="true"></span>
-                <strong>Live Status</strong>
+                <strong id="liveStatusLabel">Connecting</strong>
             </div>
             <p>No owner contact details displayed</p>
             <p id="lastUpdated">Waiting for update</p>

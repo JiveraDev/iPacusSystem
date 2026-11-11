@@ -1,3 +1,4 @@
+import ErrorBoundary from '../shared/ErrorBoundary.jsx';
 import { createElement, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
     AlertCircle,
@@ -1128,7 +1129,7 @@ export default function VetPetsEMR() {
                 petAccent="blue"
             />
 
-            <section className="space-y-4">
+            <ErrorBoundary scope="section" title="This section could not be displayed">{() => (<section className="space-y-4">
                 <Card petHover={false} className="relative z-40 overflow-visible border-slate-200 dark:border-slate-700 dark:bg-slate-900">
                     <CardContent className="p-4">
                         <div className="grid gap-4 lg:grid-cols-[16rem_minmax(0,1fr)] lg:items-center">
@@ -1253,7 +1254,7 @@ export default function VetPetsEMR() {
                         onViewMedicalCertificate={() => setCertificateViewer(certificateData.medicalCertificate)}
                     />
                 )}
-            </section>
+            </section>)}</ErrorBoundary>
 
             {!selectedPetId ? (
                 <EmptyPanel
@@ -1270,7 +1271,7 @@ export default function VetPetsEMR() {
             )}
 
             {selectedPetId && (
-                <section className="overflow-hidden rounded-xl border border-slate-200 bg-white shadow-sm dark:border-slate-700 dark:bg-slate-900">
+                <ErrorBoundary scope="section" title="This section could not be displayed">{() => (<section className="overflow-hidden rounded-xl border border-slate-200 bg-white shadow-sm dark:border-slate-700 dark:bg-slate-900">
                     <header className="border-b border-slate-200 bg-slate-50 px-4 py-4 dark:border-slate-700 dark:bg-slate-900/80 sm:px-5">
                         <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
                             <div className="flex min-w-0 items-start gap-3">
@@ -1449,7 +1450,7 @@ export default function VetPetsEMR() {
                             </div>
                         </aside>
                     </div>
-                </section>
+                </section>)}</ErrorBoundary>
             )}
 
             {selectedPetId && (
@@ -1526,15 +1527,15 @@ export default function VetPetsEMR() {
                         </DialogDescription>
                     </DialogHeader>
                     <div className="grid items-start gap-5 lg:grid-cols-2">
-                        <section className="space-y-4 rounded-xl border border-slate-200 bg-slate-50 p-4 dark:border-slate-700 dark:bg-slate-950/50">
+                        <ErrorBoundary scope="section" title="This section could not be displayed">{() => (<section className="space-y-4 rounded-xl border border-slate-200 bg-slate-50 p-4 dark:border-slate-700 dark:bg-slate-950/50">
                             <div>
                                 <p className="text-[11px] font-black uppercase tracking-[0.16em] text-slate-500">Original · Read only</p>
                                 <h3 className="mt-1 font-black text-slate-950 dark:text-white">Preserved source and files</h3>
                                 <p className="mt-1 text-xs text-slate-500 dark:text-slate-400">Use this as the audit reference. Revision changes never overwrite these original details or pictures.</p>
                             </div>
                             <SourceRecordDetails record={editingItem?.sourceSnapshot} petId={selectedPetId} onPreview={setViewer} />
-                        </section>
-                        <section className="space-y-4 rounded-xl border border-blue-200 bg-blue-50/30 p-4 dark:border-blue-900/60 dark:bg-blue-950/10">
+                        </section>)}</ErrorBoundary>
+                        <ErrorBoundary scope="section" title="This section could not be displayed">{() => (<section className="space-y-4 rounded-xl border border-blue-200 bg-blue-50/30 p-4 dark:border-blue-900/60 dark:bg-blue-950/10">
                             <div>
                                 <p className="text-[11px] font-black uppercase tracking-[0.16em] text-[#155dfc]">Revision · Editable</p>
                                 <h3 className="mt-1 font-black text-slate-950 dark:text-white">Current medical record</h3>
@@ -1610,7 +1611,7 @@ export default function VetPetsEMR() {
                                     placeholder="Explain what was revised without rewriting the source diagnosis."
                                 />
                             </div>
-                        </section>
+                        </section>)}</ErrorBoundary>
                     </div>
                     <DialogFooter>
                         <Button variant="outline" onClick={() => setEditingItem(null)}>Cancel</Button>
@@ -1789,7 +1790,7 @@ function PetPreviewCard({ pet, onEdit, medicalCertificate, certificateSchemaRead
     const petId = pet?.id || pet?.pet_sharable_ID || pet?.dbId || pet?.db_id || 'N/A';
 
     return (
-        <Card className="overflow-hidden border-slate-200 dark:border-slate-700 dark:bg-slate-900">
+        <ErrorBoundary scope="section" title="This section could not be displayed">{() => (<Card className="overflow-hidden border-slate-200 dark:border-slate-700 dark:bg-slate-900">
             <div className="flex flex-col gap-4 border-b border-slate-100 bg-white p-4 dark:border-slate-700 dark:bg-slate-900 lg:flex-row lg:items-center lg:justify-between">
                 <div className="flex min-w-0 items-start gap-3">
                     <div className="flex size-14 shrink-0 items-center justify-center overflow-hidden rounded-lg border border-slate-200 bg-slate-50 dark:border-slate-700 dark:bg-slate-800">
@@ -1852,7 +1853,7 @@ function PetPreviewCard({ pet, onEdit, medicalCertificate, certificateSchemaRead
                     <PreviewInfo label="Microchip" value={pet?.microchipId || 'N/A'} />
                 </div>
             </CardContent>
-        </Card>
+        </Card>)}</ErrorBoundary>
     );
 }
 
@@ -2013,7 +2014,7 @@ function VaccinationPanel({ vaccinations, petId, veterinarian, onSaved }) {
 
     return (
         <>
-            <section className="overflow-hidden rounded-xl border border-slate-200 bg-white shadow-sm">
+            <ErrorBoundary scope="section" title="This section could not be displayed">{() => (<section className="overflow-hidden rounded-xl border border-slate-200 bg-white shadow-sm">
                 <header className="border-b border-slate-100 bg-slate-50 px-5 py-4">
                     <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
                         <div className="flex items-center gap-2">
@@ -2075,7 +2076,7 @@ function VaccinationPanel({ vaccinations, petId, veterinarian, onSaved }) {
                         })}
                     </div>
                 )}
-            </section>
+            </section>)}</ErrorBoundary>
 
             <Dialog open={isDialogOpen} onOpenChange={(open) => !isSaving && setIsDialogOpen(open)}>
                 <DialogContent className="max-h-[90vh] overflow-y-auto sm:max-w-2xl">
@@ -2302,7 +2303,7 @@ function GroupedItem({ item, onEdit, onRemove, onPreview }) {
     const attachments = recordAttachments(source);
 
     return (
-        <section className="p-4">
+        <ErrorBoundary scope="section" title="This section could not be displayed">{() => (<section className="p-4">
             <div className="flex flex-col gap-3 md:flex-row md:items-start md:justify-between">
                 <div className="min-w-0">
                     <p className="text-xs font-black uppercase tracking-widest text-slate-400">{formatDisplayDate(item.serviceDate || source.serviceDate)}</p>
@@ -2329,7 +2330,7 @@ function GroupedItem({ item, onEdit, onRemove, onPreview }) {
             {attachments.length > 0 && (
                 <AttachmentStrip attachments={attachments} onPreview={onPreview} />
             )}
-        </section>
+        </section>)}</ErrorBoundary>
     );
 }
 
@@ -2675,11 +2676,11 @@ function SourceRecordDetails({ record, petId, onPreview }) {
                 </div>
             )}
             {attachments.length > 0 && (
-                <section className="rounded-lg border border-slate-200 bg-white p-3">
+                <ErrorBoundary scope="section" title="This section could not be displayed">{() => (<section className="rounded-lg border border-slate-200 bg-white p-3">
                     <p className="text-xs font-black uppercase tracking-widest text-slate-400">Related files · {attachments.length}</p>
                     <p className="mt-1 text-xs text-slate-500">Diagnosis attachments, grooming photos, and boarding uploads remain linked to their original source.</p>
                     <AttachmentStrip attachments={attachments} onPreview={onPreview} />
-                </section>
+                </section>)}</ErrorBoundary>
             )}
         </div>
     );

@@ -1,3 +1,4 @@
+import ErrorBoundary from '../shared/ErrorBoundary.jsx';
 import { createElement } from 'react';
 import { ArrowLeft, ChevronRight } from 'lucide-react';
 
@@ -50,7 +51,7 @@ export function ServicePageHeader({
 
 export function ServiceSummaryCard({ icon, title, children }) {
     return (
-        <Card className="gap-0 overflow-hidden">
+        <ErrorBoundary scope="section" title="This section could not be displayed">{() => (<Card className="gap-0 overflow-hidden">
             <span className="h-0.5 w-full bg-gradient-to-r from-[#155dfc] via-blue-400 to-blue-100 dark:to-blue-950" aria-hidden="true" />
             <CardHeader className="pb-4">
                 <div className="flex items-center gap-3">
@@ -66,6 +67,6 @@ export function ServiceSummaryCard({ icon, title, children }) {
                 </div>
             </CardHeader>
             <CardContent>{children}</CardContent>
-        </Card>
+        </Card>)}</ErrorBoundary>
     );
 }

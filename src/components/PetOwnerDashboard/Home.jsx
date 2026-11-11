@@ -1,3 +1,5 @@
+import ErrorBoundary from '../shared/ErrorBoundary.jsx';
+import SectionErrorState from '../shared/SectionErrorState.jsx';
 import PropTypes from "prop-types";
 import { useCallback, useMemo, useState } from "react";
 import {
@@ -282,7 +284,7 @@ function formatShortDate(dateValue, timeValue = "") {
 function valueArray(response, key) {
   if (Array.isArray(response)) return response;
   if (Array.isArray(response?.[key])) return response[key];
-  return [];
+  throw new Error('This information could not be read. Please refresh this section.');
 }
 
 function formatCount(value) {
@@ -566,17 +568,17 @@ export default function Home({ user }) {
       tasks.push(loadTask("recordRequests", fetchRecordUpdateRequests(), response => valueArray(response, "requests")));
     }
 
-    const results = await Promise.all(tasks);
-    const nextData = {
-      ...emptyHomeData,
-      errors: results.filter(result => result.error).map(result => result.label),
-    };
-
-    results.forEach((result) => {
-      nextData[result.label] = result.value;
-    });
-
-    setHomeData(nextData);
+    const results = await Promise.all(tasks.map(task => task.then(result => {
+      setHomeData(current => ({
+        ...current,
+        [result.label]: result.error ? current[result.label] : result.value,
+        errors: result.error
+          ? [...new Set([...current.errors, result.label])]
+          : current.errors.filter(label => label !== result.label),
+      }));
+      return result;
+    })));
+    return results.every(result => !result.error);
   }, [roleKey, userId, userRole]);
 
   useAutoRefresh(loadHomeData, {
@@ -593,7 +595,7 @@ export default function Home({ user }) {
       {roleKey === "veterinarian" && <VetActiveLocationPanel />}
       {roleKey === "admin" && <AdminAssignedLocationPanel />}
       {isArchivedOwner && (
-        <section className="flex items-start gap-3 rounded-lg border border-amber-200 bg-amber-50 p-4 text-amber-950" role="status">
+        <ErrorBoundary scope="section" title="This section could not be displayed">{() => (<section className="flex items-start gap-3 rounded-lg border border-amber-200 bg-amber-50 p-4 text-amber-950" role="status">
           <Info className="mt-0.5 size-5 shrink-0 text-amber-700" aria-hidden="true" />
           <div>
             <h2 className="font-black">Booking and self-service queue access is paused</h2>
@@ -601,9 +603,9 @@ export default function Home({ user }) {
               Your archived account remains available for viewing pet records. Contact the clinic to restore booking access, or ask clinic staff to place your pet in the queue.
             </p>
           </div>
-        </section>
+        </section>)}</ErrorBoundary>
       )}
-      <section data-header-pet="enabled" className="home-dashboard-header-pet relative isolate overflow-hidden rounded-lg border border-slate-200 bg-white shadow-sm">
+      <ErrorBoundary scope="section" title="This section could not be displayed">{() => (<section data-header-pet="enabled" className="home-dashboard-header-pet relative isolate overflow-hidden rounded-lg border border-slate-200 bg-white shadow-sm">
         <ServicePetPeek kind="dog" accent="blue" />
         <div className="relative z-20 grid gap-0 lg:grid-cols-[minmax(0,1fr)_340px]">
           <div className="p-5 sm:p-6 lg:p-8">
@@ -639,11 +641,11 @@ export default function Home({ user }) {
             </div>
           </div>
         </div>
-      </section>
+      </section>)}</ErrorBoundary>
 
       {roleKey === "petowner" && <VetPresenceSign variant="home" branchId={ownerClinicId} scheduleHref="#owner-availability" />}
 
-      <section>
+      <ErrorBoundary scope="section" title="This section could not be displayed">{() => (<section>
         <div className="mb-4 flex flex-col gap-1 sm:flex-row sm:items-end sm:justify-between">
           <div>
             <p className="text-sm font-black uppercase tracking-[0.16em] text-slate-500">Quick actions</p>
@@ -675,7 +677,7 @@ export default function Home({ user }) {
             );
           })}
         </div>
-      </section>
+      </section>)}</ErrorBoundary>
 
       {roleKey === "petowner" && !isArchivedOwner && (
         <PetHotelOwnerRooms
@@ -685,7 +687,7 @@ export default function Home({ user }) {
         />
       )}
 
-      <section>
+      <ErrorBoundary scope="section" title="This section could not be displayed">{() => (<section>
         {roleKey === "petowner" ? isArchivedOwner && (
           <Card className="border-amber-200 bg-amber-50 shadow-sm">
             <CardContent className="flex items-start gap-3 p-5 text-sm font-semibold leading-6 text-amber-900">
@@ -702,7 +704,8 @@ export default function Home({ user }) {
               </CardTitle>
             </CardHeader>
             <CardContent>
-              {roleSummary.attentionItems.length === 0 ? (
+              {homeData.errors.length > 0 && <SectionErrorState title="Some worklist information could not be loaded" onRetry={loadHomeData} retryLabel="Retry worklist" />}
+              {roleSummary.attentionItems.length === 0 && homeData.errors.length === 0 ? (
                 <div className="rounded-lg border border-dashed border-slate-200 bg-slate-50 p-6 text-center text-sm font-semibold text-slate-500">
                   No active items need attention right now.
                 </div>
@@ -729,9 +732,9 @@ export default function Home({ user }) {
             </CardContent>
           </Card>
         )}
-      </section>
+      </section>)}</ErrorBoundary>
 
-      <section>
+      <ErrorBoundary scope="section" title="This section could not be displayed">{() => (<section>
         <Card className="border-slate-200 shadow-sm">
           <CardHeader>
             <CardTitle className="flex items-center gap-2 text-xl font-black text-slate-950">
@@ -750,7 +753,7 @@ export default function Home({ user }) {
             <InfoBlock icon={CheckCircle2} label="Contact" value={CLINIC_DETAILS.phone} />
           </CardContent>
         </Card>
-      </section>
+      </section>)}</ErrorBoundary>
     </div>
   );
 }

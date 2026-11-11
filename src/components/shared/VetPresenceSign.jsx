@@ -1,3 +1,4 @@
+import ErrorBoundary from './ErrorBoundary.jsx';
 import { useRef, useState } from 'react';
 import { Loader2, Stethoscope } from 'lucide-react';
 import { useAutoRefresh } from '../../hooks/useAutoRefresh';
@@ -23,6 +24,7 @@ export default function VetPresenceSign({ editable = false, variant = 'home', sc
             setError(false);
         } catch {
             if (version === requestVersion.current) setError(true);
+            return false;
         }
     };
     useAutoRefresh(refresh, { refreshKey: `vet-presence:${branchId}` });
@@ -56,7 +58,7 @@ export default function VetPresenceSign({ editable = false, variant = 'home', sc
     }
 
     return (
-        <section aria-label="Today's vet status" className="flex flex-col gap-3 rounded-lg border border-slate-200 bg-white p-4 dark:border-slate-700 dark:bg-slate-900 sm:flex-row sm:items-center sm:justify-between">
+        <ErrorBoundary scope="section" title="Today's vet status could not be displayed">{() => (<section aria-label="Today's vet status" className="flex flex-col gap-3 rounded-lg border border-slate-200 bg-white p-4 dark:border-slate-700 dark:bg-slate-900 sm:flex-row sm:items-center sm:justify-between">
             <div className="flex min-w-0 items-start gap-3">
                 <Stethoscope className={`mt-0.5 size-5 shrink-0 ${tone}`} aria-hidden="true" />
                 <div className="min-w-0">
@@ -80,6 +82,6 @@ export default function VetPresenceSign({ editable = false, variant = 'home', sc
                     </span>
                 </button>
             )}
-        </section>
+        </section>)}</ErrorBoundary>
     );
 }

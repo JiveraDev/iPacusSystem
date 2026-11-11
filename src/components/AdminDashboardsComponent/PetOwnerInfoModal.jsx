@@ -1,3 +1,4 @@
+import ErrorBoundary from '../shared/ErrorBoundary.jsx';
 import { useEffect, useMemo, useState } from 'react';
 import { Calendar, Mail, MapPin, Phone, Shield, User } from 'lucide-react';
 import { calculateAge, formatDisplayDate } from '../../lib/date';
@@ -117,7 +118,7 @@ export default function PetOwnerProfileModal({
                 </div>
             </div>
 
-            <section className="rounded-2xl bg-slate-50 p-4 sm:p-6">
+            <ErrorBoundary scope="section" title="This section could not be displayed">{() => (<section className="rounded-2xl bg-slate-50 p-4 sm:p-6">
                 <div className="mb-4 flex items-center gap-2">
                     <User className="size-5 text-[#155dfc]" />
                     <h4 className="text-lg font-bold text-[#101828]">Personal Information</h4>
@@ -136,7 +137,7 @@ export default function PetOwnerProfileModal({
                     />
                     <InfoField icon={MapPin} label="Residential Address" value={owner.address} className="sm:col-span-2" />
                 </div>
-            </section>
+            </section>)}</ErrorBoundary>
         </div>
     );
 }

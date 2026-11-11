@@ -1,4 +1,6 @@
+import ErrorBoundary from '../shared/ErrorBoundary.jsx';
 import { useMemo, useState } from 'react';
+import { useSectionResource } from '../../hooks/useSectionResource.js';
 import {
     AlertCircle,
     ArrowRight,
@@ -33,13 +35,13 @@ import { resolveImageUrl } from '../../lib/image';
 import { formatQueueReference } from '../../lib/referenceNumbers';
 import { getServiceDisplayName } from '../../lib/serviceLabels';
 import { useAutoRefresh } from '../../hooks/useAutoRefresh';
-import { fetchAccounts } from '../../services/accountService';
+import { fetchVeterinarians } from '../../services/accountService';
 import { fetchBookings, receiveBooking } from '../../services/bookingService';
 import { createAndUploadConsentDocumentPdf } from '../../services/consentDocumentPdf';
 import { fetchConsentFiles } from '../../services/consentFileService';
 import { saveConsentFormRecord } from '../../services/consentRecordService';
 import { assignQueueToVeterinarian, fetchQueues } from '../../services/queueService';
-import { saveClinicalIntake, startClinicalIntake } from '../../services/clinicalIntakeService';
+import { fetchClinicalIntakes, saveClinicalIntake, startClinicalIntake } from '../../services/clinicalIntakeService';
 import { uploadDocumentFile } from '../../services/uploadService';
 import CarePageHeader from '../shared/CarePageHeader.jsx';
 import ConsentDocument from '../shared/ConsentDocument.jsx';
@@ -343,15 +345,22 @@ function VitalSignsEvidence({ draft, updateVital, attachments, onUpload, onRemov
 export default function PetIntake() {
     const staff = useMemo(currentStaff, []);
     const today = clinicTodayDate();
-    const [queues, setQueues] = useState([]);
-    const [bookings, setBookings] = useState([]);
+    // Matching queue entries to bookings is one dependency group: partial data
+    // could offer an already-arrived booking as a second examination.
+    const intakeResource = useSectionResource(`intake:${staff.id}:${today}`, async ({ signal }) => {
+        await fetchClinicalIntakes({ checkSetup: 1 }, { signal, suppressServerUnavailable: true });
+        const [queues, bookings] = await Promise.all([fetchQueues({ signal }), fetchBookings({ signal })]);
+        return { queues, bookings };
+    }, { initialData: { queues: [], bookings: [] } });
+    const { queues, bookings } = intakeResource.data;
+    const isLoading = intakeResource.loading;
+    const isRefreshing = intakeResource.refreshing;
+    const loadError = intakeResource.error;
+    const setupRequired = loadError?.data?.code === 'clinical_intake_schema_missing';
+    const loadData = intakeResource.retry;
     const [search, setSearch] = useState('');
     const [stageFilter, setStageFilter] = useState('all');
     const [sourceFilter, setSourceFilter] = useState('all');
-    const [isLoading, setIsLoading] = useState(true);
-    const [isRefreshing, setIsRefreshing] = useState(false);
-    const [loadError, setLoadError] = useState('');
-    const [lastRefreshed, setLastRefreshed] = useState(null);
     const [startingKey, setStartingKey] = useState('');
     const [selected, setSelected] = useState(null);
     const [isContextExpanded, setIsContextExpanded] = useState(false);
@@ -369,24 +378,6 @@ export default function PetIntake() {
     const [selectedVeterinarianId, setSelectedVeterinarianId] = useState('');
     const [isReassigning, setIsReassigning] = useState(false);
 
-    const loadData = async ({ isAutoRefresh = false } = {}) => {
-        if (!isAutoRefresh) setIsRefreshing(true);
-        try {
-            const [queueData, bookingData] = await Promise.all([fetchQueues(), fetchBookings()]);
-            setQueues(Array.isArray(queueData) ? queueData : []);
-            setBookings(Array.isArray(bookingData) ? bookingData : []);
-            setLoadError('');
-            setLastRefreshed(new Date());
-        } catch (error) {
-            setLoadError(error.message || 'Pet Intake could not be loaded.');
-        } finally {
-            setIsLoading(false);
-            if (!isAutoRefresh) setIsRefreshing(false);
-        }
-    };
-
-    useAutoRefresh(loadData);
-
     const loadConsentForms = async ({ isAutoRefresh = false } = {}) => {
         try {
             const data = await fetchConsentFiles();
@@ -402,7 +393,7 @@ export default function PetIntake() {
 
     const loadVeterinarians = async ({ isAutoRefresh = false } = {}) => {
         try {
-            const data = await fetchAccounts();
+            const data = await fetchVeterinarians();
             setVeterinarians((Array.isArray(data?.veterinarians) ? data.veterinarians : [])
                 .filter((veterinarian) => Number(veterinarian.is_active ?? 1) === 1));
         } catch (error) {
@@ -502,6 +493,7 @@ export default function PetIntake() {
     };
 
     const startExamination = async (item) => {
+        if (loadError) return toast.error('Refresh the intake list before starting an examination.');
         if (!item.veterinarianId) {
             toast.error('Assign a veterinarian before starting the physical examination.');
             return;
@@ -546,6 +538,7 @@ export default function PetIntake() {
     };
 
     const reassignVeterinarian = async () => {
+        if (loadError) return toast.error('Refresh the intake list before changing the assignment.');
         if (!selected?.queueId || !selectedVeterinarianId) {
             toast.error('Select the veterinarian who is currently available.');
             return;
@@ -645,6 +638,7 @@ export default function PetIntake() {
     };
 
     const saveSignedConsent = async () => {
+        if (loadError) return toast.error('Refresh the intake list before saving consent. Your draft is still here.');
         if (!selected?.queueId || !selectedConsent) {
             toast.error('Select a consent form before capturing the owner signature.');
             return;
@@ -715,6 +709,7 @@ export default function PetIntake() {
     };
 
     const persistIntake = async (status) => {
+        if (loadError) return toast.error('Refresh the intake list before saving this examination. Your draft is still here.');
         if (!draft.intakeId) return;
         if (status === 'completed' && !savedConsent?.path) {
             toast.error('Capture and save the pet owner consent before completing the physical examination.');
@@ -768,7 +763,7 @@ export default function PetIntake() {
                     return (
                         <button key={option.value} type="button" className="intake-stage-filter" aria-pressed={stageFilter === option.value} onClick={() => setStageFilter(option.value)}>
                             <span className="intake-stage-label"><Icon className="size-4" aria-hidden="true" />{option.label}</span>
-                            <span className="intake-stage-count">{isLoading ? '—' : option.count}</span>
+                            <span className="intake-stage-count">{isLoading || loadError ? '—' : option.count}</span>
                         </button>
                     );
                 })}
@@ -778,14 +773,14 @@ export default function PetIntake() {
                 <div className="intake-error" role="alert">
                     <AlertCircle className="size-5 shrink-0" aria-hidden="true" />
                     <div>
-                        <p className="font-semibold">We couldn&apos;t update the intake list.</p>
-                        <p className="mt-1 text-xs">{lastRefreshed ? 'The last loaded list is still shown. Try refreshing to get the latest updates.' : 'Check your connection and try again.'}</p>
+                        <p className="font-semibold">{setupRequired ? 'Pet Intake setup is incomplete.' : 'We couldn\'t update the intake list.'}</p>
+                        <p className="mt-1 text-xs">{setupRequired ? 'Ask your clinic administrator to finish setup, then refresh.' : 'Refresh to load the latest arrivals. Examination drafts are kept while you reconnect.'}</p>
                     </div>
                     <Button type="button" variant="outline" size="sm" onClick={() => loadData()} disabled={isRefreshing}>Try again</Button>
                 </div>
             )}
 
-            <section className="intake-worklist" aria-labelledby="intake-worklist-heading" aria-busy={isLoading}>
+            <ErrorBoundary scope="section" title="This section could not be displayed">{() => (<section className="intake-worklist" aria-labelledby="intake-worklist-heading" aria-busy={isLoading}>
                 <header className="intake-worklist-heading">
                     <div>
                         <h2 id="intake-worklist-heading">Today&apos;s intake list</h2>
@@ -818,7 +813,7 @@ export default function PetIntake() {
                         <span className="sr-only">Loading pet intake...</span>
                         {[1, 2, 3, 4].map((row) => <div key={row} className="intake-skeleton motion-safe:animate-pulse"><span /><span /><span /></div>)}
                     </div>
-                ) : visibleItems.length === 0 ? (
+                ) : loadError || visibleItems.length === 0 ? (
                     <div className="intake-empty">
                         {loadError ? <AlertCircle className="size-8" aria-hidden="true" /> : hasFilters ? <Search className="size-8" aria-hidden="true" /> : <PawPrint className="size-8" aria-hidden="true" />}
                         <h3>{loadError ? 'The intake list is unavailable' : hasFilters ? 'No pets match these filters' : 'No pets in today’s intake list'}</h3>
@@ -876,10 +871,10 @@ export default function PetIntake() {
                     </>
                 )}
                 <footer className="intake-list-footer">
-                    <span aria-live="polite">{isLoading ? 'Loading pets…' : `${visibleItems.length} of ${workItems.length} ${workItems.length === 1 ? 'pet' : 'pets'}`}</span>
+                    <span aria-live="polite">{loadError ? 'Intake counts unavailable' : isLoading ? 'Loading pets…' : `${visibleItems.length} of ${workItems.length} ${workItems.length === 1 ? 'pet' : 'pets'}`}</span>
                     <span className="flex items-center gap-1.5"><RefreshCw className="size-3" aria-hidden="true" />{loadError ? 'Update failed · try refresh' : 'Updates automatically'}</span>
                 </footer>
-            </section>
+            </section>)}</ErrorBoundary>
 
             <Dialog open={Boolean(selected)} onOpenChange={(open) => { if (!open && !isSaving && !isSavingConsent && !isReassigning) setSelected(null); }}>
                 <DialogContent className="care-workspace intake-editor max-w-6xl p-0 sm:p-0">
@@ -895,7 +890,7 @@ export default function PetIntake() {
 
                     <div className="intake-editor-scroll">
                         <div className="intake-editor-layout">
-                            <aside className="intake-editor-context" aria-label="Pet and care team">
+                            <ErrorBoundary scope="section" title="Pet and care team could not be displayed">{() => (<aside className="intake-editor-context" aria-label="Pet and care team">
                                 {selected && <PetIdentity item={selected} />}
                                 <Button type="button" variant="ghost" className="intake-context-toggle" aria-expanded={isContextExpanded} aria-controls="intake-pet-context-details" onClick={() => setIsContextExpanded((current) => !current)}>
                                     Pet details & care team
@@ -957,10 +952,10 @@ export default function PetIntake() {
                                     </section>
                                     <p className="intake-handoff-note"><ArrowRight className="size-4 shrink-0" aria-hidden="true" /><span>Completed intake is ready for the assigned veterinarian&apos;s diagnosis.</span></p>
                                 </div>
-                            </aside>
+                            </aside>)}</ErrorBoundary>
 
                             <div className="intake-editor-form">
-                                <section className="intake-form-section" aria-labelledby="intake-visit-notes">
+                                <ErrorBoundary scope="section" title="This section could not be displayed">{() => (<section className="intake-form-section" aria-labelledby="intake-visit-notes">
                                     <div className="intake-section-heading"><span aria-hidden="true">01</span><div><h3 id="intake-visit-notes">Visit notes</h3><p>Record the reason for the visit and any symptoms. Add photos where helpful.</p></div></div>
 
                                     <div className="grid gap-5 lg:grid-cols-2">
@@ -1005,9 +1000,9 @@ export default function PetIntake() {
                                         onPreview={setPreviewPhoto}
                                         uploading={uploadingField === 'majorSymptoms'}
                                     />
-                                </section>
+                                </section>)}</ErrorBoundary>
 
-                                <section className="intake-form-section" aria-labelledby="intake-findings">
+                                <ErrorBoundary scope="section" title="This section could not be displayed">{() => (<section className="intake-form-section" aria-labelledby="intake-findings">
                                     <div className="intake-section-heading"><span aria-hidden="true">02</span><div><h3 id="intake-findings">Examination findings</h3><p>Enter measured vital signs and physical examination observations.</p></div></div>
 
                                     <VitalSignsEvidence
@@ -1033,9 +1028,9 @@ export default function PetIntake() {
                                         onPreview={setPreviewPhoto}
                                         uploading={uploadingField === 'physicalExam'}
                                     />
-                                </section>
+                                </section>)}</ErrorBoundary>
 
-                                <section className="intake-form-section" aria-labelledby="intake-owner-consent">
+                                <ErrorBoundary scope="section" title="This section could not be displayed">{() => (<section className="intake-form-section" aria-labelledby="intake-owner-consent">
                                     <div className="intake-section-heading"><span aria-hidden="true">03</span><div><h3 id="intake-owner-consent">Owner consent</h3><p>Save a signed consent form before completing this examination.</p></div></div>
                                     <div>
                                         {savedConsent?.path ? (
@@ -1138,7 +1133,7 @@ export default function PetIntake() {
                                             </Button>
                                         </div>
                                     </div>
-                                </section>
+                                </section>)}</ErrorBoundary>
                             </div>
                         </div>
                     </div>

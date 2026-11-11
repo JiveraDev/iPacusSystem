@@ -1,3 +1,4 @@
+import ErrorBoundary from '../shared/ErrorBoundary.jsx';
 import { History, Printer } from 'lucide-react';
 import { Button } from '../../ui/button';
 import DashboardPageHeader from '../shared/DashboardPageHeader.jsx';
@@ -111,13 +112,13 @@ export default function SuperAdminActivityLog() {
                 />
             </div>
 
-            <section className="activity-log-report rounded-xl border border-slate-200 bg-white p-4 shadow-sm dark:border-slate-700 dark:bg-slate-900 sm:p-6">
+            <ErrorBoundary scope="section" title="This section could not be displayed">{() => (<section className="activity-log-report rounded-xl border border-slate-200 bg-white p-4 shadow-sm dark:border-slate-700 dark:bg-slate-900 sm:p-6">
                 <div className="activity-log-print-heading hidden border-b border-slate-300 pb-4">
                     <h1 className="text-xl font-bold">Activity Log Report</h1>
                     <p className="mt-1 text-sm">Prepared {new Date().toLocaleString()}</p>
                 </div>
                 <StaffActivityHistory scope="all" pageSize={250} showHeading={false} />
-            </section>
+            </section>)}</ErrorBoundary>
         </div>
     );
 }

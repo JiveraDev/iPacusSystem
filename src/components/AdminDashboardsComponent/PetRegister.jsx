@@ -1,3 +1,4 @@
+import ErrorBoundary from '../shared/ErrorBoundary.jsx';
 import { useState, useCallback, useMemo, useEffect } from 'react';
 import { Button } from '../../ui/button';
 import { Input } from '../../ui/input';
@@ -787,7 +788,7 @@ export default function PetRegister() {
                 </div>
 
                 <div className="hidden overflow-x-auto sm:block">
-                    <table className="w-full min-w-[520px] table-fixed text-left border-collapse lg:min-w-[820px] xl:min-w-[960px]">
+                    <ErrorBoundary scope="section" title="This section could not be displayed">{() => (<table className="w-full min-w-[520px] table-fixed text-left border-collapse lg:min-w-[820px] xl:min-w-[960px]">
                         <colgroup>
                             <col className="w-[140px]" />
                             <col className="w-[160px]" />
@@ -888,7 +889,7 @@ export default function PetRegister() {
                                 </tr>
                             )}
                         </tbody>
-                    </table>
+                    </table>)}</ErrorBoundary>
                 </div>
                 {!isLoading && filteredRegisteredPets.length > 0 ? (
                     <div className="flex flex-col gap-3 border-t border-slate-200 pt-4 dark:border-slate-700 sm:flex-row sm:items-center sm:justify-between">
@@ -971,7 +972,7 @@ export default function PetRegister() {
                             </div>
                         </div>
 
-                        <section className="rounded-xl border-2 border-blue-200 bg-blue-50/60 p-4 dark:border-blue-900 dark:bg-blue-950/30" aria-labelledby="shareable-pet-id-label">
+                        <ErrorBoundary scope="section" title="This section could not be displayed">{() => (<section className="rounded-xl border-2 border-blue-200 bg-blue-50/60 p-4 dark:border-blue-900 dark:bg-blue-950/30" aria-labelledby="shareable-pet-id-label">
                             <div className="mb-3">
                                 <h3 id="shareable-pet-id-label" className="flex items-center gap-2 text-sm font-black text-slate-950 dark:text-white">
                                     <Link2 className="size-4 text-[#155dfc] dark:text-blue-300" />
@@ -1003,9 +1004,9 @@ export default function PetRegister() {
                                     {copiedPetId ? 'Copied' : 'Copy Pet ID'}
                                 </Button>
                             </div>
-                        </section>
+                        </section>)}</ErrorBoundary>
 
-                        <section className="rounded-xl border border-slate-200 p-4 dark:border-slate-700" aria-labelledby="owner-linking-instructions">
+                        <ErrorBoundary scope="section" title="This section could not be displayed">{() => (<section className="rounded-xl border border-slate-200 p-4 dark:border-slate-700" aria-labelledby="owner-linking-instructions">
                             <div className="mb-3 flex items-center gap-2">
                                 <ListTodo className="size-4 text-slate-500 dark:text-slate-400" />
                                 <h3 id="owner-linking-instructions" className="text-sm font-black text-slate-950 dark:text-white">
@@ -1026,7 +1027,7 @@ export default function PetRegister() {
                                     <span>Confirm the pet details to finish linking the profile.</span>
                                 </li>
                             </ol>
-                        </section>
+                        </section>)}</ErrorBoundary>
                     </div>
 
                     <DialogFooter className="m-0 border-t border-slate-200 bg-slate-50 px-4 py-4 dark:border-slate-700 dark:bg-slate-800/50 sm:px-6">

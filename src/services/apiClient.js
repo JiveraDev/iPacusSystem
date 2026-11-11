@@ -5,6 +5,7 @@ import {
     logHiddenTechnicalError,
     sanitizeErrorPayload
 } from '../lib/errorPresentation.js';
+import { createServiceHealthCoordinator } from './serviceHealth.js';
 
 export const API_BASE_URL = import.meta.env?.VITE_API_BASE_URL || '/api';
 export const SERVER_STATUS_EVENT = 'ipawcus:server-status-change';
@@ -37,6 +38,11 @@ let serverStatus = {
     checkedAt: ''
 };
 let isRedirectingToLogin = false;
+const healthCoordinator = createServiceHealthCoordinator({
+    probe: () => apiRequest('/health', { timeoutMs: 5000, transientRetryCount: 0, suppressServerUnavailable: true, dedupe: false }),
+    onDown: (error) => updateServerStatus(getUnavailableDetails(error, { requestPath: '/health', requestMethod: 'GET' })),
+    onUp: () => reportServerAvailable(),
+});
 
 export class ApiError extends Error {
     constructor(message, details = {}) {
@@ -221,17 +227,8 @@ export function subscribeToServerStatus(listener) {
     return () => window.removeEventListener(SERVER_STATUS_EVENT, handleStatusChange);
 }
 
-export function reportServerUnavailable(error, details = {}) {
-    const code = details?.data?.code || details?.code || error?.data?.code || '';
-
-    // A single slow request is transient and must not replace the whole app
-    // with the server-unavailable screen. GET requests retry below and
-    // GET-backed screens continue their normal quiet refresh cycle.
-    if (code === 'request_timeout') {
-        return;
-    }
-
-    updateServerStatus(getUnavailableDetails(error, details));
+export function reportServerUnavailable() {
+    healthCoordinator.reportFailure();
 }
 
 export function reportServerAvailable() {
@@ -526,7 +523,7 @@ export async function apiFetch(path, options = {}) {
             signal: timeoutController ? timeoutController.signal : signal
         });
 
-        if (response.status >= 500) {
+        if (response.status >= 500 && !suppressServerUnavailable) {
             const errorData = await readJsonResponse(response.clone(), {});
 
             if (errorData.code === 'database_unavailable') {
@@ -539,7 +536,7 @@ export async function apiFetch(path, options = {}) {
                     requestPath: path,
                     requestMethod: method
                 });
-            } else if (!suppressServerUnavailable && path === '/health') {
+            } else {
                 reportServerUnavailable(new ApiError(SERVER_UNAVAILABLE_MESSAGE, {
                     status: response.status,
                     data: { ...errorData, code: errorData.code || 'server_unavailable' }
@@ -550,8 +547,6 @@ export async function apiFetch(path, options = {}) {
                     requestMethod: method
                 });
             }
-        } else {
-            reportServerAvailable();
         }
 
         if (response.status === 401) {
@@ -630,33 +625,25 @@ async function performApiRequest(path, options = {}) {
                 ...requestOptions,
                 suppressServerUnavailable: Boolean(requestOptions.suppressServerUnavailable) || attempt < retryCount
             });
-            const data = await readJsonResponse(response);
+            const data = response.status === 204 ? null : await response.json().catch(() => {
+                throw new ApiError('The server returned unreadable information. Please try again.', { status: response.status, data: { code: 'invalid_response' } });
+            });
 
             if (!response.ok) {
-                const fallbackMessage = data.code === 'database_unavailable'
+                const fallbackMessage = data?.code === 'database_unavailable'
                     ? DATABASE_UNAVAILABLE_MESSAGE
                     : getHttpErrorMessage(response.status, DEFAULT_ERROR_MESSAGE);
-                const error = new ApiError(data.message || data.error || fallbackMessage, {
+                const error = new ApiError(data?.message || data?.error || fallbackMessage, {
                     status: response.status,
                     data,
                     fallbackMessage
                 });
 
-                if (data.code === 'database_unavailable') {
-                    reportServerUnavailable(error, {
-                        status: response.status,
-                        data,
-                        requestPath: path,
-                        requestMethod: method
-                    });
-                }
-
-                handleAuthRequired(data, requestAuthToken);
+                handleAuthRequired(data || {}, requestAuthToken);
 
                 throw error;
             }
 
-            reportServerAvailable();
             return data;
         } catch (error) {
             const canRetry = attempt < retryCount
@@ -664,6 +651,9 @@ async function performApiRequest(path, options = {}) {
                 && isTransientConnectionError(error);
 
             if (!canRetry) {
+                if (method !== 'GET' && ['request_timeout', 'server_unreachable', 'client_offline', 'invalid_response'].includes(error?.data?.code)) {
+                    throw new ApiError('We could not confirm whether this change was saved. Refresh the record before trying again.', { data: { code: 'mutation_result_unknown' } });
+                }
                 throw error;
             }
 
@@ -695,36 +685,8 @@ export async function apiRequest(path, options = {}) {
     }
 }
 
-export async function checkServerHealth(options = {}) {
-    try {
-        const data = await apiRequest('/health', {
-            timeoutMs: 10000,
-            ...options
-        });
-
-        if (data?.ok === true) {
-            return data;
-        }
-
-        const error = new ApiError(SERVER_UNAVAILABLE_MESSAGE, {
-            status: 503,
-            data: { code: 'server_unavailable' }
-        });
-        reportServerUnavailable(error, { requestPath: '/health', requestMethod: 'GET' });
-        throw error;
-    } catch (error) {
-        const data = error?.data || {};
-        const healthError = error instanceof ApiError
-            ? new ApiError(data.code === 'database_unavailable' ? DATABASE_UNAVAILABLE_MESSAGE : (error.message || SERVER_UNAVAILABLE_MESSAGE), {
-                status: error.status,
-                data: { ...data, code: data.code || 'server_unavailable' },
-                fallbackMessage: SERVER_UNAVAILABLE_MESSAGE
-            })
-            : error;
-
-        reportServerUnavailable(healthError, { requestPath: '/health', requestMethod: 'GET' });
-        throw healthError;
-    }
+export function checkServerHealth() {
+    return healthCoordinator.check();
 }
 
 export function jsonRequest(path, payload, options = {}) {

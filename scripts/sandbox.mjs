@@ -114,7 +114,7 @@ async function stop() {
 }
 async function startApi() {
     await freePort(apiPort);
-    child('php-api', php, ['-d', 'date.timezone=Asia/Manila', '-d', 'upload_max_filesize=8M', '-d', 'post_max_size=10M', '-S', `127.0.0.1:${apiPort}`, '-t', root, 'scripts/local-api-router.php']);
+    child('php-api', php, ['-d', 'date.timezone=Asia/Manila', '-d', 'display_errors=0', '-d', 'display_startup_errors=0', '-d', 'upload_max_filesize=8M', '-d', 'post_max_size=10M', '-S', `127.0.0.1:${apiPort}`, '-t', root, 'scripts/local-api-router.php']);
     for (let attempt=0; attempt<40; attempt++) {
         try {
             const result = await fetch(`http://127.0.0.1:${apiPort}/php/index.php/health`, { signal: AbortSignal.timeout(1000) });
@@ -179,7 +179,7 @@ try {
                 if (action === 'test') {
                     const { smoke } = await import('./sandbox/smoke.mjs');
                     await smoke(`http://127.0.0.1:${apiPort}/php/index.php`);
-                    for (const script of ['service-catalog-regression.php','grooming-db-regression.php','grooming-storage.php']) {
+                    for (const script of ['service-catalog-regression.php','grooming-db-regression.php','grooming-storage.php','pet-intake-db-regression.php']) {
                         const result = spawnSync(php, [`scripts/tests/${script}`], { cwd:root, env:sandboxEnv(), windowsHide:true, encoding:'utf8' });
                         writeFileSync(path.join(directory,`${script}.log`), `${result.stdout || ''}${result.stderr || ''}`);
                         if (result.status !== 0) throw new Error(`Sandbox regression failed: ${script}; inspect its tmp/db-sandbox log.`);

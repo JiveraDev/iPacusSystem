@@ -1,3 +1,4 @@
+import ErrorBoundary from './ErrorBoundary.jsx';
 import {
     Bell,
     CalendarCheck,
@@ -126,7 +127,7 @@ export default function NotificationFeed({
                     </div>
                 ) : (
                     notificationGroups.map(group => (
-                        <section key={group.key}>
+                        <ErrorBoundary key={group.key} scope="section" title="This section could not be displayed">{() => (<section key={group.key}>
                             <div className={sectionHeaderClassName}>
                                 {group.key}
                             </div>
@@ -174,7 +175,7 @@ export default function NotificationFeed({
                                     </button>
                                 );
                             })}
-                        </section>
+                        </section>)}</ErrorBoundary>
                     ))
                 )}
                 {!isLoading && !errorMessage && canLoadMoreVisible && (

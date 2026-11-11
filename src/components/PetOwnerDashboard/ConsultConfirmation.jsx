@@ -1,3 +1,4 @@
+import ErrorBoundary from '../shared/ErrorBoundary.jsx';
 import { useState } from "react";
 import { useNavigate, useParams } from "../dashboardRouter.jsx";
 import { Card, CardContent, CardHeader, CardTitle } from "../../ui/card";
@@ -238,7 +239,7 @@ export default function ConsultConfirmation() {
     if (submissionReceipt) {
       return (
         <div className="mx-auto max-w-3xl space-y-6">
-          <Card petHover="always" petKind="dog" petAccent="mint" petPosition="top-right" className="border-emerald-200 bg-emerald-50/50">
+          <ErrorBoundary scope="section" title="This section could not be displayed">{() => (<Card petHover="always" petKind="dog" petAccent="mint" petPosition="top-right" className="border-emerald-200 bg-emerald-50/50">
             <CardContent className="py-10 text-center sm:py-12">
               <span className="mx-auto flex size-16 items-center justify-center rounded-full bg-emerald-100 text-emerald-700">
                 <CheckCircle className="size-9" aria-hidden="true" />
@@ -283,14 +284,14 @@ export default function ConsultConfirmation() {
                 <Button onClick={() => navigate("/dashboard")}>Go to Dashboard</Button>
               </div>
             </CardContent>
-          </Card>
+          </Card>)}</ErrorBoundary>
         </div>
       );
     }
 
     return (
       <div className="space-y-6 max-w-3xl mx-auto">
-        <Card petHover="always" petKind="cat" petAccent="coral" petPosition="top-right">
+        <ErrorBoundary scope="section" title="This section could not be displayed">{() => (<Card petHover="always" petKind="cat" petAccent="coral" petPosition="top-right">
           <CardContent className="py-12 text-center">
             <h1 className="text-2xl font-bold text-gray-900">Consultation Not Found</h1>
             <p className="mt-2 text-gray-600">The consultation booking could not be loaded.</p>
@@ -298,7 +299,7 @@ export default function ConsultConfirmation() {
               Back to Consultations
             </Button>
           </CardContent>
-        </Card>
+        </Card>)}</ErrorBoundary>
       </div>
     );
   }
@@ -370,7 +371,7 @@ export default function ConsultConfirmation() {
 
       <ConsultationProgress step={3} />
 
-      <Card>
+      <ErrorBoundary scope="section" title="This section could not be displayed">{() => (<Card>
         <CardHeader>
           <CardTitle>Consultation Details</CardTitle>
         </CardHeader>
@@ -475,10 +476,10 @@ export default function ConsultConfirmation() {
             </div>
           </div>
         </CardContent>
-      </Card>
+      </Card>)}</ErrorBoundary>
 
       {isCompleted && (
-        <Card className="border-emerald-200 bg-white dark:border-emerald-900/70 dark:bg-slate-900">
+        <ErrorBoundary scope="section" title="This section could not be displayed">{() => (<Card className="border-emerald-200 bg-white dark:border-emerald-900/70 dark:bg-slate-900">
           <CardHeader>
             <CardTitle>Consultation outcome</CardTitle>
             <p className="text-sm font-medium text-slate-600 dark:text-slate-300">
@@ -505,11 +506,11 @@ export default function ConsultConfirmation() {
               </div>
             )}
           </CardContent>
-        </Card>
+        </Card>)}</ErrorBoundary>
       )}
 
       {showJoinCard && (
-        <Card className={canJoin ? "border-green-300 bg-green-50" : "border-blue-300 bg-blue-50"}>
+        <ErrorBoundary scope="section" title="This section could not be displayed">{() => (<Card className={canJoin ? "border-green-300 bg-green-50" : "border-blue-300 bg-blue-50"}>
           <CardContent className="pt-6">
             <div className="flex items-start gap-4">
               <div className={`flex-shrink-0 h-12 w-12 rounded-full flex items-center justify-center ${
@@ -547,11 +548,11 @@ export default function ConsultConfirmation() {
               </div>
             </div>
           </CardContent>
-        </Card>
+        </Card>)}</ErrorBoundary>
       )}
 
       {!isCompleted && !isCancelled && !isScheduledTimePast && (
-        <Card className="border-red-200 bg-red-50">
+        <ErrorBoundary scope="section" title="This section could not be displayed">{() => (<Card className="border-red-200 bg-red-50">
           <CardContent className="pt-6">
             <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
               <div className="space-y-1">
@@ -566,21 +567,21 @@ export default function ConsultConfirmation() {
               </Button>
             </div>
           </CardContent>
-        </Card>
+        </Card>)}</ErrorBoundary>
       )}
 
       {isScheduledTimePast && !isCompleted && !isCancelled && !vetHasStarted && (
-        <Card className="border-gray-300 bg-gray-50">
+        <ErrorBoundary scope="section" title="This section could not be displayed">{() => (<Card className="border-gray-300 bg-gray-50">
           <CardContent className="pt-6 text-center">
             <Clock className="h-12 w-12 text-gray-400 mx-auto mb-3" />
             <h3 className="font-semibold text-lg mb-2">Scheduled time has passed</h3>
             <p className="text-gray-600">Contact the clinic if this consultation still needs an updated status.</p>
           </CardContent>
-        </Card>
+        </Card>)}</ErrorBoundary>
       )}
 
       {!isCompleted && !isCancelled && !isScheduledTimePast && (
-        <Card>
+        <ErrorBoundary scope="section" title="This section could not be displayed">{() => (<Card>
           <CardHeader>
             <CardTitle>What to Prepare</CardTitle>
           </CardHeader>
@@ -599,7 +600,7 @@ export default function ConsultConfirmation() {
               ))}
             </ul>
           </CardContent>
-        </Card>
+        </Card>)}</ErrorBoundary>
       )}
 
       <div className="flex gap-4">

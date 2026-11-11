@@ -1,3 +1,4 @@
+import ErrorBoundary from '../shared/ErrorBoundary.jsx';
 import { useEffect, useMemo, useState } from 'react';
 import { Building2, Clock3, Loader2, LockKeyhole, MapPin } from 'lucide-react';
 
@@ -37,7 +38,7 @@ export default function AdminAssignedLocationPanel() {
     );
 
     return (
-        <section className="rounded-lg border border-slate-200 bg-white p-4 shadow-sm dark:border-slate-800 dark:bg-slate-950 sm:p-5">
+        <ErrorBoundary scope="section" title="This section could not be displayed">{() => (<section className="rounded-lg border border-slate-200 bg-white p-4 shadow-sm dark:border-slate-800 dark:bg-slate-950 sm:p-5">
             <div className="flex items-start gap-3">
                 <div className="flex size-10 shrink-0 items-center justify-center rounded-lg bg-slate-100 text-slate-700 dark:bg-slate-800 dark:text-slate-200">
                     {isLoading ? <Loader2 className="size-5 animate-spin" /> : <Building2 className="size-5" />}
@@ -60,6 +61,6 @@ export default function AdminAssignedLocationPanel() {
                     {error && <p className="mt-2 text-sm font-medium text-red-600 dark:text-red-400">{error}</p>}
                 </div>
             </div>
-        </section>
+        </section>)}</ErrorBoundary>
     );
 }

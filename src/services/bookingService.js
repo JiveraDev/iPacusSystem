@@ -1,5 +1,6 @@
 import { apiRequest, getStoredApiUser, patchJson, postJson } from './apiClient';
 import { assertPetOwnerActionAllowed } from '../lib/accountStatus.js';
+import { requireArray } from '../lib/errorPolicy.js';
 
 function assertBookableDate(payload = {}) {
     const value = payload.booking_date || payload.bookingDate || payload.date || payload.new_date || payload.newDate;
@@ -12,11 +13,11 @@ function assertBookableDate(payload = {}) {
 }
 
 export function fetchBookings(options = {}) {
-    return apiRequest('/bookings', options);
+    return apiRequest('/bookings', options).then(requireArray);
 }
 
 export function fetchVeterinarianBookings(options = {}) {
-    return apiRequest('/bookings?assignedToMe=1', options);
+    return apiRequest('/bookings?assignedToMe=1', options).then(requireArray);
 }
 
 export function fetchBookingById(bookingId, options = {}) {
@@ -37,7 +38,7 @@ export function postBookingPaymentRefund(bookingId, payload, options = {}) {
 }
 
 export function fetchUserBookings(userId, options = {}) {
-    return apiRequest(`/users/${userId}/bookings`, options);
+    return apiRequest(`/users/${userId}/bookings`, options).then(requireArray);
 }
 
 export function createBooking(payload, options = {}) {

@@ -1,3 +1,4 @@
+import ErrorBoundary from '../shared/ErrorBoundary.jsx';
 import { createContext, useContext, useEffect, useMemo, useRef, useState } from 'react';
 import dayjs from 'dayjs';
 import updateLocale from 'dayjs/plugin/updateLocale';
@@ -689,7 +690,7 @@ export default function Todos({ user }) {
                 />
             )}
 
-            <Card className="overflow-hidden rounded-lg border-slate-200 bg-white shadow-sm">
+            <ErrorBoundary scope="section" title="This section could not be displayed">{() => (<Card className="overflow-hidden rounded-lg border-slate-200 bg-white shadow-sm">
                 <CardHeader className="border-b border-slate-100">
                     <div className="flex flex-col gap-4 xl:flex-row xl:items-center xl:justify-between">
                         <div>
@@ -775,7 +776,7 @@ export default function Todos({ user }) {
                     </div>
 
                 </CardContent>
-            </Card>
+            </Card>)}</ErrorBoundary>
 
             <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
                 <DialogContent className="max-w-3xl">

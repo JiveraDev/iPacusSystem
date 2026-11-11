@@ -568,3 +568,7 @@ body {
         font-size: 30px;
     }
 }
+.error-banner button { min-height: 40px; padding: 8px 14px; color: inherit; background: transparent; border: 1px solid currentColor; border-radius: 6px; cursor: pointer; }
+.error-banner button:hover { background: #ffffff18; }
+.error-banner button:focus-visible { outline: 3px solid currentColor; outline-offset: 3px; }
+.error-banner button:disabled { opacity: .65; cursor: wait; }

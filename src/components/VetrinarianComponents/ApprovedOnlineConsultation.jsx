@@ -1,3 +1,4 @@
+import ErrorBoundary from '../shared/ErrorBoundary.jsx';
 import { useCallback, useMemo, useState } from 'react';
 import {
     Calendar,
@@ -512,11 +513,11 @@ export default function ApprovedOnlineConsultation() {
 
     if (!vetId) {
         return (
-            <Card>
+            <ErrorBoundary scope="section" title="This section could not be displayed">{() => (<Card>
                 <CardContent className="p-8 text-center text-slate-600">
                     Could not identify the current veterinarian account. Please log in again.
                 </CardContent>
-            </Card>
+            </Card>)}</ErrorBoundary>
         );
     }
 
@@ -582,7 +583,7 @@ export default function ApprovedOnlineConsultation() {
                 )}
             />
 
-            <section className="overflow-hidden rounded-xl border border-slate-200 bg-white shadow-sm shadow-slate-950/[0.03] dark:border-slate-800 dark:bg-slate-900 dark:shadow-black/10">
+            <ErrorBoundary scope="section" title="This section could not be displayed">{() => (<section className="overflow-hidden rounded-xl border border-slate-200 bg-white shadow-sm shadow-slate-950/[0.03] dark:border-slate-800 dark:bg-slate-900 dark:shadow-black/10">
                 <div className="border-b border-slate-200 bg-slate-50/80 p-2 dark:border-slate-800 dark:bg-slate-950/50">
                     <div
                         role="tablist"
@@ -734,7 +735,7 @@ export default function ApprovedOnlineConsultation() {
                         )}
                     </div>
                 )}
-            </section>
+            </section>)}</ErrorBoundary>
             <PhotoViewer
                 src={viewerImage?.src}
                 alt={viewerImage?.alt}

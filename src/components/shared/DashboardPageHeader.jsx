@@ -1,3 +1,4 @@
+import ErrorBoundary from './ErrorBoundary.jsx';
 import ServicePetPeek from './ServicePetPeek.jsx';
 
 const HEADER_PET_KINDS = ['dog', 'cat', 'bunny', 'parrot'];
@@ -60,7 +61,7 @@ export default function DashboardPageHeader({
     ) : null;
 
     return (
-        <section
+        <ErrorBoundary scope="section" title="This section could not be displayed">{() => (<section
             data-slot="dashboard-page-header"
             data-header-pet={petHover ? 'enabled' : 'disabled'}
             className={`dashboard-page-header-pet relative isolate min-w-0 overflow-hidden pb-5 ${className}`}
@@ -90,6 +91,6 @@ export default function DashboardPageHeader({
                     {toolbar ? <div className="w-full xl:w-auto">{toolbar}</div> : actionBlock}
                 </div>
             )}
-        </section>
+        </section>)}</ErrorBoundary>
     );
 }

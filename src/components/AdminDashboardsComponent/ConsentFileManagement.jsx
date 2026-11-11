@@ -1,3 +1,4 @@
+import ErrorBoundary from '../shared/ErrorBoundary.jsx';
 import { useRef, useState } from 'react';
 import { Button } from '../../ui/button';
 import { Input } from '../../ui/input';
@@ -404,7 +405,7 @@ export default function ConsentFilesManagement() {
                             onInsertCode={insertCodeIntoActiveEditor}
                         />
                         {uploadPreviewOpen && (
-                        <aside id="new-consent-preview" className="min-w-0">
+                        <ErrorBoundary scope="section" title="This section could not be displayed">{() => (<aside id="new-consent-preview" className="min-w-0">
                             <div className="mb-2 flex items-center justify-between gap-3">
                                 <p className="text-xs font-black uppercase tracking-wider text-slate-500">Live document preview</p>
                                 <Button
@@ -436,7 +437,7 @@ export default function ConsentFilesManagement() {
                                     }}
                                 />
                             </div>
-                        </aside>
+                        </aside>)}</ErrorBoundary>
                         )}
                     </div>
                 )}
@@ -456,7 +457,7 @@ export default function ConsentFilesManagement() {
 
             )}
 
-            <section className="care-consent-library overflow-hidden rounded-xl border border-slate-200 bg-white dark:border-slate-700 dark:bg-slate-900" aria-labelledby="consent-library-title">
+            <ErrorBoundary scope="section" title="This section could not be displayed">{() => (<section className="care-consent-library overflow-hidden rounded-xl border border-slate-200 bg-white dark:border-slate-700 dark:bg-slate-900" aria-labelledby="consent-library-title">
                 <div className="flex flex-col gap-3 border-b border-slate-200 p-4 dark:border-slate-700 sm:flex-row sm:items-center sm:justify-between sm:p-5">
                     <div><h2 id="consent-library-title" className="text-base font-semibold">Consent templates</h2><p className="mt-1 text-sm text-slate-500 dark:text-slate-400">Review letters and their assigned booking flows.</p></div>
                     <Input value={searchQuery} onChange={(event) => setSearchQuery(event.target.value)} placeholder="Search title or category" aria-label="Search consent templates" className="sm:max-w-xs" />
@@ -479,7 +480,7 @@ export default function ConsentFilesManagement() {
                         })}
                     </ul>
                 ) : <div className="p-8 text-center"><FileText className="mx-auto mb-3 size-8 text-slate-300" aria-hidden="true" /><p className="text-sm font-semibold">{files.length ? 'No matching templates' : 'No consent templates yet'}</p><p className="mt-1 text-sm text-slate-500">{files.length ? 'Try another title or category.' : 'Select New template to write a letter or import a TXT file.'}</p></div>}
-            </section>
+            </section>)}</ErrorBoundary>
 
             {/* View Modal */}
             <Dialog open={viewModalOpen} onOpenChange={setViewModalOpen}>
@@ -591,7 +592,7 @@ export default function ConsentFilesManagement() {
                                     onInsertCode={insertCodeIntoActiveEditor}
                                 />
                                 {editPreviewOpen && (
-                                <aside id="edit-consent-preview" className="min-w-0">
+                                <ErrorBoundary scope="section" title="This section could not be displayed">{() => (<aside id="edit-consent-preview" className="min-w-0">
                                     <div className="mb-2 flex items-center justify-between gap-3">
                                         <p className="text-xs font-black uppercase tracking-wider text-slate-500">Live document preview</p>
                                         <Button
@@ -617,7 +618,7 @@ export default function ConsentFilesManagement() {
                                             }}
                                         />
                                     </div>
-                                </aside>
+                                </aside>)}</ErrorBoundary>
                                 )}
                             </div>
                         )}

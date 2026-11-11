@@ -1,3 +1,4 @@
+import ErrorBoundary from '../shared/ErrorBoundary.jsx';
 import { createElement, useCallback, useEffect, useState } from 'react';
 import {
     ArrowLeft,
@@ -471,7 +472,7 @@ export default function VetOnlineConsultDiagnosis() {
             <div className="relative flex min-h-[42rem] flex-1 flex-col overflow-hidden rounded-xl border border-slate-200 bg-white dark:border-slate-800 dark:bg-slate-950 lg:min-h-0">
 
                 <div className="flex min-h-0 flex-1 flex-col overflow-auto lg:flex-row lg:overflow-hidden">
-                    <section className="flex min-h-[18rem] min-w-0 flex-1 flex-col bg-[#101828] sm:min-h-[24rem] lg:min-h-0">
+                    <ErrorBoundary scope="section" title="This section could not be displayed">{() => (<section className="flex min-h-[18rem] min-w-0 flex-1 flex-col bg-[#101828] sm:min-h-[24rem] lg:min-h-0">
                     <div className="flex items-center justify-between border-b border-white/10 px-5 py-3 text-white">
                         <div>
                             <p className="text-sm font-semibold">Private veterinary consultation</p>
@@ -523,9 +524,9 @@ export default function VetOnlineConsultDiagnosis() {
                             </div>
                         )}
                     </div>
-                    </section>
+                    </section>)}</ErrorBoundary>
                     {isClinicalPanelOpen && (
-                        <aside
+                        <ErrorBoundary scope="section" title="Clinical consultation notes could not be displayed">{() => (<aside
                             id="online-consult-clinical-panel"
                             className="w-full shrink-0 border-t border-slate-200 bg-slate-50 dark:border-slate-700 dark:bg-slate-900 lg:h-full lg:w-[26rem] lg:border-l lg:border-t-0 xl:w-[30rem] 2xl:w-[34rem]"
                             aria-label="Clinical consultation notes"
@@ -684,7 +685,7 @@ export default function VetOnlineConsultDiagnosis() {
                             </Button>
                     </div>}
                 </section>
-                        </aside>
+                        </aside>)}</ErrorBoundary>
                     )}
                 </div>
             </div>

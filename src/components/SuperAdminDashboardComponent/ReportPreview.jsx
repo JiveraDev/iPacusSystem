@@ -1,3 +1,4 @@
+import ErrorBoundary from '../shared/ErrorBoundary.jsx';
 import { FileText } from 'lucide-react';
 import ReportTable from './ReportTable';
 import { getReportNarrative, getReportSections, reportMetadata } from '../../lib/reportPresentation';
@@ -53,16 +54,16 @@ export default function ReportPreview({ report, reportTitle = 'report' }) {
                 {narrative.scope ? <p className="mt-3 text-sm leading-6 text-slate-600 dark:text-slate-300 print:text-slate-600">{narrative.scope}</p> : null}
             </header>
 
-            <section className="report-print-section space-y-2" aria-labelledby="report-executive-summary">
+            <ErrorBoundary scope="section" title="This section could not be displayed">{() => (<section className="report-print-section space-y-2" aria-labelledby="report-executive-summary">
                 <h2 id="report-executive-summary" className="text-base font-semibold text-slate-950 dark:text-white print:text-slate-950">Executive Summary</h2>
                 <p className="max-w-[100ch] text-sm leading-7 text-slate-700 dark:text-slate-200 print:text-slate-700">{narrative.executive}</p>
-            </section>
+            </section>)}</ErrorBoundary>
 
             {narrative.discussion.length ? (
-                <section className="report-discussion space-y-2" aria-labelledby="report-discussion">
+                <ErrorBoundary scope="section" title="This section could not be displayed">{() => (<section className="report-discussion space-y-2" aria-labelledby="report-discussion">
                     <h2 id="report-discussion" className="text-base font-semibold text-slate-950 dark:text-white print:text-slate-950">Discussion</h2>
                     {narrative.discussion.map((paragraph, index) => <p key={index} className="max-w-[100ch] text-sm leading-7 text-slate-700 dark:text-slate-200 print:text-slate-700">{paragraph}</p>)}
-                </section>
+                </section>)}</ErrorBoundary>
             ) : null}
 
             {narrative.breakdowns.length ? (
@@ -78,39 +79,39 @@ export default function ReportPreview({ report, reportTitle = 'report' }) {
             ) : null}
 
             {comparison.text || comparisonRows.length ? (
-                <section className="space-y-3">
+                <ErrorBoundary scope="section" title="This section could not be displayed">{() => (<section className="space-y-3">
                     <div className="report-section-heading space-y-1">
                         <h2 className="text-base font-semibold text-slate-950 dark:text-white print:text-slate-950">Comparison with the Previous Period</h2>
                         {comparison.text ? <p className="max-w-[100ch] text-sm leading-6 text-slate-600 dark:text-slate-300 print:text-slate-600">{comparison.text}</p> : null}
                     </div>
                     {comparisonRows.length ? <ReportTable columns={comparisonColumns} rows={comparisonRows} title="Comparison with the Previous Period" /> : null}
-                </section>
+                </section>)}</ErrorBoundary>
             ) : null}
 
             {sections.map(section => (
-                <section key={section.id} className="report-record-section space-y-3">
+                <ErrorBoundary key={section.id} scope="section" title="This section could not be displayed">{() => (<section key={section.id} className="report-record-section space-y-3">
                     <div className="report-section-heading space-y-1">
                         <h2 className="text-base font-semibold text-slate-950 dark:text-white print:text-slate-950">{section.title}</h2>
                         {section.description ? <p className="max-w-[100ch] text-sm leading-6 text-slate-600 dark:text-slate-300 print:text-slate-600">{section.description}</p> : null}
                     </div>
                     <ReportTable title={section.title} columns={section.columns} rows={section.rows} footer={section.footer} rowDetails={section.row_details} emptyMessage={section.empty_message} />
-                </section>
+                </section>)}</ErrorBoundary>
             ))}
 
             {narrative.actions.length ? (
-                <section className="report-print-section space-y-2">
+                <ErrorBoundary scope="section" title="This section could not be displayed">{() => (<section className="report-print-section space-y-2">
                     <h2 className="text-base font-semibold text-slate-950 dark:text-white print:text-slate-950">Follow-Up Actions</h2>
                     <ol className="list-decimal space-y-2 pl-5 text-sm leading-6 text-slate-700 dark:text-slate-200 print:text-slate-700">
                         {narrative.actions.map((action, index) => <li key={index}>{action}</li>)}
                     </ol>
-                </section>
+                </section>)}</ErrorBoundary>
             ) : null}
 
             {narrative.missing.length ? (
-                <section className="report-print-section space-y-2 border-l-2 border-amber-400 pl-4">
+                <ErrorBoundary scope="section" title="This section could not be displayed">{() => (<section className="report-print-section space-y-2 border-l-2 border-amber-400 pl-4">
                     <h2 className="text-sm font-semibold text-slate-950 dark:text-white print:text-slate-950">Data Notes</h2>
                     {narrative.missing.map((note, index) => <p key={index} className="text-sm leading-6 text-slate-600 dark:text-slate-300 print:text-slate-600">{note}</p>)}
-                </section>
+                </section>)}</ErrorBoundary>
             ) : null}
 
             <footer className="border-t border-slate-200 pt-4 text-xs text-slate-500 dark:border-slate-700 dark:text-slate-400 print:border-slate-200 print:text-slate-600">

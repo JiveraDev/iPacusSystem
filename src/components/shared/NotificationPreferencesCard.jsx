@@ -1,3 +1,4 @@
+import ErrorBoundary from './ErrorBoundary.jsx';
 import { useEffect, useState } from 'react';
 import { BellOff, BellPlus, BellRing, Check, Loader2, Mail, MonitorCheck, Smartphone } from 'lucide-react';
 import { Card, CardContent, CardTitle } from '../../ui/card';
@@ -368,17 +369,17 @@ export default function NotificationPreferencesCard({ user }) {
 
     if (isLoading) {
         return (
-            <Card className="rounded-lg border-slate-200 bg-white shadow-sm">
+            <ErrorBoundary scope="section" title="This section could not be displayed">{() => (<Card className="rounded-lg border-slate-200 bg-white shadow-sm">
                 <CardContent className="flex items-center gap-2 p-6 text-sm font-semibold text-slate-500">
                     <Loader2 className="size-4 animate-spin text-[#155dfc]" />
                     Loading notification settings...
                 </CardContent>
-            </Card>
+            </Card>)}</ErrorBoundary>
         );
     }
 
     return (
-        <Card className="rounded-lg border-slate-200 bg-white shadow-sm">
+        <ErrorBoundary scope="section" title="This section could not be displayed">{() => (<Card className="rounded-lg border-slate-200 bg-white shadow-sm">
             <CardContent className="space-y-6 p-5 sm:p-6">
                 <div className="border-b border-slate-100 pb-5">
                     <div className="min-w-0">
@@ -500,6 +501,6 @@ export default function NotificationPreferencesCard({ user }) {
                 </div>
 
             </CardContent>
-        </Card>
+        </Card>)}</ErrorBoundary>
     );
 }

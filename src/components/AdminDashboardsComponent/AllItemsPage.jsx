@@ -14,7 +14,7 @@ import InventoryStatusBadge from './InventoryStatusBadge';
 import { createStockOut, deleteInventoryItem, fetchInventoryItems, fetchInventoryMeta, getCurrentUser, transferInventoryStock, updateInventoryItem } from '../../services/inventoryApi';
 import { formatDisplayDate } from '../../lib/date';
 import { formatPhpCurrency } from '../../lib/currency';
-import { useAutoRefresh } from '../../hooks/useAutoRefresh';
+import { useSectionResource } from '../../hooks/useSectionResource.js';
 import { toast } from '../../reusecomponent/toast.jsx';
 import TablePagination from '../shared/TablePagination.jsx';
 import DashboardPageHeader from '../shared/DashboardPageHeader.jsx';
@@ -24,6 +24,9 @@ import InventoryLocationFields from './InventoryLocationFields.jsx';
 import { DEFAULT_STORAGE_AREA, matchingLocation } from './inventoryLocationUtils.js';
 import InventoryBranchScope from './InventoryBranchScope.jsx';
 import { useInventoryBranchScope } from '../../hooks/useInventoryBranchScope.js';
+import ErrorBoundary from '../shared/ErrorBoundary.jsx';
+import SectionErrorState from '../shared/SectionErrorState.jsx';
+import { requireArray } from '../../lib/errorPolicy.js';
 
 const REPORT_INVENTORY_SELECTION_KEY = 'ipawcus-inventory-report-selection';
 const INVENTORY_PAGE_SIZE = 20;
@@ -51,10 +54,14 @@ export default function AllItemsPage() {
   const navigate = useNavigate();
   const branchScope = useInventoryBranchScope();
   const { branchId } = branchScope;
-  const [inventoryItems, setInventoryItems] = useState([]);
-  const [locations, setLocations] = useState([]);
-  const [isLoading, setIsLoading] = useState(false);
   const [errorMessage, setErrorMessage] = useState('');
+  const itemsResource = useSectionResource(`inventory-items:${branchId}`, ({ signal }) => fetchInventoryItems({ branchId }, { signal }).then(response => requireArray(response?.items)), { initialData: [], enabled: Boolean(branchId) });
+  const locationsResource = useSectionResource(`inventory-locations:${branchId}`, ({ signal }) => fetchInventoryMeta({ branchId }, { signal }).then(response => requireArray(response?.locations)), { initialData: [], enabled: Boolean(branchId) });
+  const inventoryItems = itemsResource.data;
+  const locations = locationsResource.data;
+  const isLoading = itemsResource.loading;
+  const itemsError = itemsResource.error;
+  const locationsError = locationsResource.error;
   const [searchQuery, setSearchQuery] = useState('');
   const [categoryFilter, setCategoryFilter] = useState('Select Categories');
   const [locationFilter, setLocationFilter] = useState('Select Location');
@@ -79,37 +86,11 @@ export default function AllItemsPage() {
   const [selectedInventoryItemIds, setSelectedInventoryItemIds] = useState([]);
 
   const loadInventory = async ({ isAutoRefresh = false } = {}) => {
-    if (!isAutoRefresh) {
-      setIsLoading(true);
-      setErrorMessage('');
-    }
-    try {
-      const [itemsData, metaData] = await Promise.all([
-        fetchInventoryItems({ branchId }),
-        fetchInventoryMeta({ branchId })
-      ]);
-      const loadedItems = itemsData.items || [];
-      setInventoryItems(loadedItems);
-      setLocations(metaData.locations || []);
-      return loadedItems;
-    } catch (error) {
-      if (!isAutoRefresh) {
-        setErrorMessage(error.message || 'Failed to load inventory.');
-      }
-      return [];
-    } finally {
-      setIsLoading(false);
-    }
+    const results = await Promise.all([itemsResource.retry({ isAutoRefresh }), locationsResource.retry({ isAutoRefresh })]);
+    return results.every(Boolean) ? itemsResource.getSnapshot().data : false;
   };
 
-  useAutoRefresh(loadInventory, {
-    enabled: Boolean(branchId),
-    refreshKey: `inventory-items-${branchId || 'unassigned'}`
-  });
-
   useEffect(() => {
-    setInventoryItems([]);
-    setLocations([]);
     setSelectedItem(null);
     setIsDetailModalOpen(false);
     setStockOutItem(null);
@@ -456,6 +437,7 @@ export default function AllItemsPage() {
   };
 
   const handleConfirmInventoryAction = async (confirmation) => {
+    if (itemsError || locationsError || !itemsResource.hasData || !locationsResource.hasData) return toast.error('Refresh inventory and locations before changing stock.');
     if (!inventoryConfirmation) return;
     const action = inventoryConfirmation;
     const currentUser = getCurrentUser();
@@ -475,7 +457,7 @@ export default function AllItemsPage() {
       if (action.type === 'bulk-delete') await deleteInventoryItem(payload);
 
       const updatedItems = await loadInventory();
-      const updatedItem = updatedItems.find((item) => String(item.itemId || item.id) === String(action.itemId));
+      const updatedItem = (updatedItems || []).find((item) => String(item.itemId || item.id) === String(action.itemId));
       if (updatedItem) {
         setSelectedItem(updatedItem);
         setEditItemForm(createEditItemForm(updatedItem));
@@ -599,9 +581,9 @@ export default function AllItemsPage() {
         toolbar={(
           <div className="flex flex-col gap-3 border-t border-slate-100 pt-3 dark:border-slate-800 sm:flex-row sm:items-center sm:justify-between">
             <div className="flex flex-wrap items-center gap-x-4 gap-y-2 text-sm text-slate-600 dark:text-slate-300" aria-label="Inventory summary">
-              <span><strong className="font-bold text-slate-950 dark:text-white">{activeInventoryItems.length}</strong> total products</span>
-              <span><strong className="font-bold text-amber-700 dark:text-amber-300">{lowStockCount}</strong> low stock</span>
-              <span><strong className="font-bold text-red-700 dark:text-red-300">{nearExpiryCount}</strong> near expiry</span>
+              <span><strong className="font-bold text-slate-950 dark:text-white">{isLoading || itemsError ? '—' : activeInventoryItems.length}</strong> total products</span>
+              <span><strong className="font-bold text-amber-700 dark:text-amber-300">{isLoading || itemsError ? '—' : lowStockCount}</strong> low stock</span>
+              <span><strong className="font-bold text-red-700 dark:text-red-300">{isLoading || itemsError ? '—' : nearExpiryCount}</strong> near expiry</span>
             </div>
             <Button
               className="gap-2 bg-[#155dfc] hover:bg-[#0d4acf]"
@@ -742,6 +724,9 @@ export default function AllItemsPage() {
         </div>
       )}
 
+      {itemsError ? <SectionErrorState title="Inventory could not be loaded" error={itemsError} onRetry={loadInventory} retrying={isLoading} /> : null}
+      {locationsError ? <SectionErrorState title="Inventory locations could not be loaded" error={locationsError} onRetry={loadInventory} retrying={isLoading}><p>Stock changes are paused until locations can be verified.</p></SectionErrorState> : null}
+
       {isLoading && (
         <div className="rounded-[14px] border border-[rgba(0,0,0,0.1)] bg-white p-6 text-center sm:p-12">
           <Package className="size-10 text-[#4a5565] mx-auto mb-3" />
@@ -750,7 +735,8 @@ export default function AllItemsPage() {
       )}
 
       {/* Content - List View */}
-      {!isLoading && viewMode === 'list' && (
+      {!isLoading && !itemsError && viewMode === 'list' && (
+        <ErrorBoundary scope="inventory-table">{() => (
         <div className="bg-white rounded-[14px] border border-[rgba(0,0,0,0.1)] overflow-hidden">
           <div className="overflow-x-auto">
             <Table className="min-w-[950px]">
@@ -853,6 +839,7 @@ export default function AllItemsPage() {
           </div>
 
         </div>
+        )}</ErrorBoundary>
       )}
 
       {/* Content - Card View */}
@@ -988,7 +975,7 @@ export default function AllItemsPage() {
         </div>
       )}
 
-      {!isLoading && filteredItems.length > 0 && (
+      {!isLoading && !itemsError && filteredItems.length > 0 && (
         <TablePagination
           currentPage={activePage}
           totalItems={filteredItems.length}
@@ -1000,7 +987,7 @@ export default function AllItemsPage() {
       )}
 
       {/* Empty State */}
-      {!isLoading && filteredItems.length === 0 && (
+      {!isLoading && !itemsError && filteredItems.length === 0 && (
         <div className="rounded-[14px] border border-[rgba(0,0,0,0.1)] bg-white p-6 text-center sm:p-12">
           <Package className="size-12 text-[#4a5565] mx-auto mb-4" />
           <h3 className="font-['Arimo:Bold',sans-serif] text-[18px] text-[#101828] mb-2">

@@ -1,3 +1,4 @@
+import ErrorBoundary from './shared/ErrorBoundary.jsx';
 import { useState } from 'react';
 import imgImageVfcLogo from "../assets/circular_logo.png";
 import { Card } from '../ui/card.jsx';
@@ -68,7 +69,7 @@ export function RegistrationForm({
         </div>
 
             {/* Form Card */}
-            <Card className="p-4 shadow-lg border border-gray-200 sm:p-6">
+            <ErrorBoundary scope="section" title="This section could not be displayed">{() => (<Card className="p-4 shadow-lg border border-gray-200 sm:p-6">
                 <div className="mb-6">
                     <h2 className="text-lg font-semibold text-gray-900 mb-1">Register - Create Account</h2>
                     <p className="text-gray-500">Step 1 of 2: Account Credentials</p>
@@ -149,7 +150,7 @@ export function RegistrationForm({
                         </button>
                     </div>
                 </form>
-            </Card>
+            </Card>)}</ErrorBoundary>
 
             {!embedded && (
                 <div className="text-center mt-6">

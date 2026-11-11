@@ -1,3 +1,4 @@
+import ErrorBoundary from './ErrorBoundary.jsx';
 export const REGISTRATION_TERMS_LAST_UPDATED = '22 September 2026';
 export const REGISTRATION_TERMS_DOCUMENT_ID = 'ipawcus-registration-terms-and-privacy-2026-09-22';
 
@@ -1158,7 +1159,7 @@ function PolicyTable({ rows }) {
 
     return (
         <div className="overflow-x-auto rounded-xl border border-slate-200 bg-white shadow-sm">
-            <table className="min-w-[44rem] w-full border-collapse text-left text-sm leading-6">
+            <ErrorBoundary scope="section" title="This section could not be displayed">{() => (<table className="min-w-[44rem] w-full border-collapse text-left text-sm leading-6">
                 <thead className="bg-blue-50 text-slate-950">
                     <tr>
                         {headings.map((heading, index) => (
@@ -1183,7 +1184,7 @@ function PolicyTable({ rows }) {
                         </tr>
                     ))}
                 </tbody>
-            </table>
+            </table>)}</ErrorBoundary>
         </div>
     );
 }

@@ -1,3 +1,4 @@
+import ErrorBoundary from './shared/ErrorBoundary.jsx';
 import { useState } from "react";
 import PropTypes from "prop-types";
 import { ArrowLeft, Loader2, MailCheck, RefreshCw } from "lucide-react";
@@ -67,7 +68,7 @@ export function EmailVerification({ initialEmail = "", onBack, onVerified }) {
                     <p className="text-sm font-medium text-slate-600">Verify your email to activate your account.</p>
                 </div>
 
-                <Card className="overflow-hidden border-slate-200 shadow-lg">
+                <ErrorBoundary scope="section" title="This section could not be displayed">{() => (<Card className="overflow-hidden border-slate-200 shadow-lg">
                     <CardHeader className="border-b border-slate-100 bg-white">
                         <CardTitle className="flex items-center gap-2 text-xl font-black text-slate-950">
                             <MailCheck className="h-5 w-5 text-[#155dfc]" />
@@ -118,7 +119,7 @@ export function EmailVerification({ initialEmail = "", onBack, onVerified }) {
                             </Button>
                         </div>
                     </CardContent>
-                </Card>
+                </Card>)}</ErrorBoundary>
             </div>
         </div>
     );

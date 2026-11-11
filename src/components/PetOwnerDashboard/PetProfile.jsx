@@ -1,3 +1,4 @@
+import ErrorBoundary from '../shared/ErrorBoundary.jsx';
 import { useEffect, useMemo, useRef, useState } from "react";
 import '../shared/careWorkspace.css';
 import { useNavigate, useParams } from "../dashboardRouter.jsx";
@@ -15,6 +16,8 @@ import { formatPhpCurrency } from "../../lib/currency";
 import { formatQueueReference } from "../../lib/referenceNumbers";
 import { getServiceDisplayName } from "../../lib/serviceLabels";
 import { useAutoRefresh } from "../../hooks/useAutoRefresh";
+import { useSectionResource } from '../../hooks/useSectionResource.js';
+import SectionErrorState from '../shared/SectionErrorState.jsx';
 import {
   canReconstructConsentDocument,
   consentDocumentPath,
@@ -79,12 +82,7 @@ function isTemporaryOwnerManagerRole(role) {
 export default function PetProfile() {
   const navigate = useNavigate();
   const { petId } = useParams();
-  const [pet, setPet] = useState(null);
-  const [isLoading, setIsLoading] = useState(true);
-  const [isActivityLoading, setIsActivityLoading] = useState(false);
   const [isUploadingPhoto, setIsUploadingPhoto] = useState(false);
-  const [queueRecords, setQueueRecords] = useState([]);
-  const [bookingRecords, setBookingRecords] = useState([]);
   const [bookingPage, setBookingPage] = useState({ petId: "", limit: BOOKING_PAGE_SIZE });
   const [confirmAction, setConfirmAction] = useState(null);
   const [isCancelling, setIsCancelling] = useState(false);
@@ -100,8 +98,16 @@ export default function PetProfile() {
   const [isConsentPanelOpen, setIsConsentPanelOpen] = useState(false);
   const [isBookingsPanelOpen, setIsBookingsPanelOpen] = useState(false);
   const [certificates, setCertificates] = useState({ registrationCertificate: null, medicalCertificate: null });
+  const [certificateError, setCertificateError] = useState(null);
   const [certificateViewer, setCertificateViewer] = useState(null);
   const hasHandledCertificateDeepLink = useRef(false);
+  const petResource = useSectionResource(`pet-profile:${petId}`, ({ signal }) => findPetService(petId, { signal }), {
+    enabled: Boolean(petId),
+    onSuccess: data => { if (!isEditingTempOwner) setTempOwnerDraft(data.tempOwnerName || ''); },
+  });
+  const pet = petResource.data;
+  const setPet = petResource.updateData;
+  const isLoading = petResource.loading;
 
   const backTargetLabel = useMemo(() => {
     try {
@@ -161,58 +167,14 @@ export default function PetProfile() {
     return () => { isMounted = false; };
   }, [canRequestRecordUpdate, petId]);
 
-  useEffect(() => {
-    async function fetchPet() {
-      try {
-        const data = await findPetService(petId);
-        // data is now formatted correctly by the backend
-        setPet(data);
-        setTempOwnerDraft(data.tempOwnerName || "");
-        setIsEditingTempOwner(false);
-      } catch (error) {
-        console.error("Error fetching pet:", error);
-        toast.error("Could not load pet profile");
-      } finally {
-        setIsLoading(false);
-      }
-    }
-
-    if (petId) {
-      fetchPet();
-    }
-  }, [petId]);
-
-  const fetchPetActivity = async ({ isAutoRefresh = false } = {}) => {
-    if (!pet?.db_id) return;
-
-    if (!isAutoRefresh) {
-      setIsActivityLoading(true);
-    }
-    try {
-      const [queuesResult, bookingsResult] = await Promise.allSettled([
-        fetchPetQueues(pet.db_id),
-        fetchPetBookings(pet.db_id)
-      ]);
-
-      const queuesData = queuesResult.status === "fulfilled" ? queuesResult.value : [];
-      const bookingsData = bookingsResult.status === "fulfilled" ? bookingsResult.value : [];
-
-      setQueueRecords(Array.isArray(queuesData) ? queuesData : []);
-      setBookingRecords(Array.isArray(bookingsData) ? bookingsData : []);
-    } catch (error) {
-      console.error("Error fetching pet activity:", error);
-      if (!isAutoRefresh) {
-        toast.error("Could not load queue and booking activity");
-      }
-    } finally {
-      setIsActivityLoading(false);
-    }
-  };
-
-  useAutoRefresh(fetchPetActivity, {
-    enabled: Boolean(pet?.db_id),
-    refreshKey: pet?.db_id
-  });
+  const queueActivity = useSectionResource(`pet-queues:${pet?.db_id || petId}`,
+    ({ signal }) => fetchPetQueues(pet.db_id, { signal }), { initialData: [], enabled: Boolean(pet?.db_id) });
+  const bookingActivity = useSectionResource(`pet-bookings:${pet?.db_id || petId}`,
+    ({ signal }) => fetchPetBookings(pet.db_id, { signal }), { initialData: [], enabled: Boolean(pet?.db_id) });
+  const queueRecords = queueActivity.data;
+  const bookingRecords = bookingActivity.data;
+  const setBookingRecords = bookingActivity.updateData;
+  const isActivityLoading = queueActivity.loading || bookingActivity.loading;
 
   const certificatePetId = pet?.db_id || petId;
 
@@ -228,6 +190,7 @@ export default function PetProfile() {
         registrationCertificate: response.registrationCertificate || null,
         medicalCertificate: response.medicalCertificate || null
       });
+      setCertificateError(null);
       setCertificateViewer((current) => {
         if (!current) return current;
         return current.type === 'medical'
@@ -235,9 +198,8 @@ export default function PetProfile() {
           : (response.registrationCertificate || current);
       });
     } catch (error) {
-      if (!isAutoRefresh) {
-        console.error('Could not load pet certificates:', error);
-      }
+      setCertificateError(error);
+      return false;
     }
   };
 
@@ -247,12 +209,13 @@ export default function PetProfile() {
   });
 
   const openRegistrationCertificate = () => {
-    if (certificates.registrationCertificate) {
+    if (!certificateError && certificates.registrationCertificate) {
       setCertificateViewer(certificates.registrationCertificate);
     }
   };
 
   const openMedicalCertificate = () => {
+    if (certificateError) return;
     const medicalCertificate = certificates.medicalCertificate;
     if (!medicalCertificate) return;
 
@@ -734,6 +697,10 @@ export default function PetProfile() {
     );
   }
 
+  if (petResource.error) {
+    return <div className="space-y-4"><Button variant="ghost" onClick={() => navigate('/dashboard/my-pets')}>Back to {backTargetLabel}</Button><SectionErrorState title="Pet information could not be loaded" error={petResource.error} onRetry={petResource.retry} retrying={petResource.refreshing} /></div>;
+  }
+
   if (!pet) {
     return (
       <div className="space-y-8 animate-in fade-in duration-300">
@@ -741,7 +708,7 @@ export default function PetProfile() {
           <ArrowLeft className="h-4 w-4 mr-2" />
           Back to {backTargetLabel}
         </Button>
-        <Card className="border-slate-200">
+        <ErrorBoundary scope="section" title="This section could not be displayed">{() => (<Card className="border-slate-200">
           <CardContent className="pt-12 pb-12 text-center">
             <div className="w-20 h-20 bg-slate-50 rounded-full flex items-center justify-center mx-auto mb-6">
                 <PawPrint className="h-10 w-10 text-slate-300" />
@@ -755,13 +722,14 @@ export default function PetProfile() {
               Return to {backTargetLabel}
             </Button>
           </CardContent>
-        </Card>
+        </Card>)}</ErrorBoundary>
       </div>
     );
   }
 
   return (
     <div className="care-workspace care-pet-profile space-y-6 pb-28">
+      {certificateError ? <SectionErrorState title="Certificates could not be loaded" error={certificateError} onRetry={refreshCertificates} retryLabel="Retry certificates" /> : null}
       <CarePageHeader
         title="Pet information"
         description="Patient details, vaccination history, and medical records."
@@ -813,7 +781,7 @@ export default function PetProfile() {
         {/* Supporting pet details */}
         <div className="lg:col-span-1 space-y-8">
           {pet.hasOwnership && (
-            <Card className="overflow-hidden rounded-2xl border-slate-200 shadow-sm">
+            <ErrorBoundary scope="section" title="This section could not be displayed">{() => (<Card className="overflow-hidden rounded-2xl border-slate-200 shadow-sm">
               <CardHeader className="border-b border-slate-100 bg-slate-50/50">
                 <CardTitle className="flex items-center gap-2 text-xs font-black uppercase tracking-[0.2em] text-slate-400">
                   <UserPlus className="size-4 text-[#155dfc]" />
@@ -861,11 +829,11 @@ export default function PetProfile() {
                   )}
                 </div>
               </CardContent>
-            </Card>
+            </Card>)}</ErrorBoundary>
           )}
 
           {canEditTemporaryOwner && (
-            <Card className="rounded-2xl border-slate-200 shadow-sm overflow-hidden">
+            <ErrorBoundary scope="section" title="This section could not be displayed">{() => (<Card className="rounded-2xl border-slate-200 shadow-sm overflow-hidden">
               <CardHeader className="bg-slate-50/50 border-b border-slate-100">
                 <div className="flex items-center justify-between gap-3">
                   <CardTitle className="text-xs font-black uppercase tracking-[0.2em] text-slate-400">
@@ -927,11 +895,11 @@ export default function PetProfile() {
                   <PetInfoRow label="Name" value={pet.tempOwnerName || 'Not set'} />
                 )}
               </CardContent>
-            </Card>
+            </Card>)}</ErrorBoundary>
           )}
 
           {pet.microchipId && (
-            <Card className="bg-blue-600 border-none shadow-lg shadow-blue-200 rounded-2xl overflow-hidden">
+            <ErrorBoundary scope="section" title="This section could not be displayed">{() => (<Card className="bg-blue-600 border-none shadow-lg shadow-blue-200 rounded-2xl overflow-hidden">
               <CardContent className="p-6 relative">
                 <div className="absolute right-0 top-0 h-full w-1/2 bg-white/10 skew-x-[-20deg] translate-x-8" />
                 <div className="flex items-center gap-4 relative z-10">
@@ -944,11 +912,11 @@ export default function PetProfile() {
                   </div>
                 </div>
               </CardContent>
-            </Card>
+            </Card>)}</ErrorBoundary>
           )}
 
           {/* Allergies Card */}
-          <Card className={`rounded-2xl shadow-sm overflow-hidden ${pet.allergies?.length > 0 ? "border-red-100" : "border-slate-200"}`}>
+          <ErrorBoundary scope="section" title="This section could not be displayed">{() => (<Card className={`rounded-2xl shadow-sm overflow-hidden ${pet.allergies?.length > 0 ? "border-red-100" : "border-slate-200"}`}>
             <CardHeader className="bg-red-50/50 border-b border-red-100 dark:bg-[#2a1517] dark:border-[#7f1d1d]">
               <CardTitle className="flex items-center gap-2 text-xs font-black uppercase tracking-[0.2em] text-[#991b1b] dark:text-[#ef4444]">
                 <AlertCircle className="h-4 w-4 text-[#991b1b] dark:text-[#ef4444]" />
@@ -971,7 +939,7 @@ export default function PetProfile() {
                 </div>
               )}
             </CardContent>
-          </Card>
+          </Card>)}</ErrorBoundary>
 
         </div>
 
@@ -984,7 +952,7 @@ export default function PetProfile() {
 
           {canViewPetOwnerActivity && (
             <>
-              <Card className="rounded-2xl border-slate-200 shadow-sm overflow-hidden bg-white">
+              <ErrorBoundary scope="section" title="This section could not be displayed">{() => (<Card className="rounded-2xl border-slate-200 shadow-sm overflow-hidden bg-white">
                 <CardHeader className="bg-slate-50/50 border-b border-slate-100 px-4 py-5 sm:px-8 sm:py-6">
                   <CardTitle className="text-xl font-black text-slate-800 flex items-center gap-3">
                     <ClipboardList className="h-6 w-6 text-[#155dfc]" />
@@ -992,7 +960,7 @@ export default function PetProfile() {
                   </CardTitle>
                 </CardHeader>
                 <CardContent className="p-4 sm:p-8">
-                  {isActivityLoading ? (
+                  {queueActivity.error ? <SectionErrorState title="Queue activity could not be loaded" error={queueActivity.error} onRetry={queueActivity.retry} retrying={queueActivity.refreshing} retryLabel="Retry queue activity" /> : queueActivity.loading ? (
                     <div className="flex items-center gap-3 text-slate-500">
                       <Loader2 className="h-5 w-5 animate-spin" />
                       Loading queue status...
@@ -1029,9 +997,9 @@ export default function PetProfile() {
                     </div>
                   )}
                 </CardContent>
-              </Card>
+              </Card>)}</ErrorBoundary>
 
-              <Card className="rounded-2xl border-slate-200 shadow-sm overflow-hidden bg-white">
+              <ErrorBoundary scope="section" title="This section could not be displayed">{() => (<Card className="rounded-2xl border-slate-200 shadow-sm overflow-hidden bg-white">
                 <CardHeader className="bg-slate-50/50 border-b border-slate-100 px-4 py-5 sm:px-8 sm:py-6">
                   <CardTitle className="text-xl font-black text-slate-800 flex items-center gap-3">
                     <CalendarClock className="h-6 w-6 text-[#155dfc]" />
@@ -1039,7 +1007,7 @@ export default function PetProfile() {
                   </CardTitle>
                 </CardHeader>
                 <CardContent className="p-0">
-                  {isActivityLoading ? (
+                  {bookingActivity.error ? <SectionErrorState title="Bookings could not be loaded" error={bookingActivity.error} onRetry={bookingActivity.retry} retrying={bookingActivity.refreshing} retryLabel="Retry bookings" /> : bookingActivity.loading ? (
                     <div className="flex items-center gap-3 p-4 text-slate-500 sm:p-8">
                       <Loader2 className="h-5 w-5 animate-spin" />
                       Loading bookings...
@@ -1104,13 +1072,15 @@ export default function PetProfile() {
                     </div>
                   )}
                 </CardContent>
-              </Card>
+              </Card>)}</ErrorBoundary>
             </>
           )}
         </div>
       </div>
 
       <ConsentImagesPanel
+        activityError={queueActivity.error || bookingActivity.error}
+        onRetryActivity={() => { queueActivity.retry(); bookingActivity.retry(); }}
         petId={pet.db_id || petId}
         allowPrescriptionStart={canRequestRecordUpdate}
         records={consentRecords}
@@ -1125,6 +1095,8 @@ export default function PetProfile() {
       />
 
       <PetBookingsDialog
+        error={bookingActivity.error}
+        onRetry={bookingActivity.retry}
         open={isBookingsPanelOpen}
         onOpenChange={setIsBookingsPanelOpen}
         isLoading={isActivityLoading}
@@ -1556,7 +1528,7 @@ function PetIdentityCard({ pet, copied, flipped, canEdit, canChangeOwner, queueR
     : [];
 
   return (
-    <section className="care-pet-identity pet-id-entrance" aria-label={`${pet.name} pet identification card`}>
+    <ErrorBoundary scope="section" title="This section could not be displayed">{() => (<section className="care-pet-identity pet-id-entrance" aria-label={`${pet.name} pet identification card`}>
       <div className="pet-id-flip-shell">
         <div className={`pet-id-flip-card ${flipped ? 'is-flipped' : ''}`}>
           <article
@@ -1764,7 +1736,7 @@ function PetIdentityCard({ pet, copied, flipped, canEdit, canChangeOwner, queueR
           </article>
         </div>
       </div>
-    </section>
+    </section>)}</ErrorBoundary>
   );
 }
 
@@ -1844,7 +1816,7 @@ function PetProfileActionDock({ canRequestRecordUpdate, activeRecordUpdateReques
   );
 }
 
-function PetBookingsDialog({ open, onOpenChange, isLoading, bookings, totalCount, remainingCount, getStatusBadge, onView, onCancel, onLoadMore }) {
+function PetBookingsDialog({ open, onOpenChange, isLoading, bookings, totalCount, remainingCount, getStatusBadge, onView, onCancel, onLoadMore, error, onRetry }) {
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="flex max-h-[85vh] max-w-3xl flex-col overflow-hidden p-0">
@@ -1856,7 +1828,7 @@ function PetBookingsDialog({ open, onOpenChange, isLoading, bookings, totalCount
           <DialogDescription>{totalCount} booking {totalCount === 1 ? 'record' : 'records'} linked to this pet.</DialogDescription>
         </DialogHeader>
         <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain px-4 pb-5 sm:px-5">
-          {isLoading ? (
+          {error ? <SectionErrorState title="Bookings could not be loaded" error={error} onRetry={onRetry} retryLabel="Retry bookings" /> : isLoading ? (
             <div className="flex min-h-48 items-center justify-center gap-3 text-sm font-semibold text-slate-500 dark:text-slate-400">
               <Loader2 className="size-5 animate-spin text-[#155dfc]" />
               Loading bookings...
@@ -1909,7 +1881,7 @@ function PetBookingsDialog({ open, onOpenChange, isLoading, bookings, totalCount
   );
 }
 
-function ConsentImagesPanel({ petId, allowPrescriptionStart, records, documents, isLoading, open, onOpenChange, onPreview }) {
+function ConsentImagesPanel({ petId, allowPrescriptionStart, records, documents, isLoading, open, onOpenChange, onPreview, activityError, onRetryActivity }) {
   return (
     <Sheet open={open} onOpenChange={onOpenChange}>
       <SheetContent side="right" className="overflow-y-auto sm:max-w-xl">
@@ -1926,12 +1898,12 @@ function ConsentImagesPanel({ petId, allowPrescriptionStart, records, documents,
 
           <div className="mt-6 space-y-6">
             <PrescriptionPlanPanel petId={petId} allowStart={allowPrescriptionStart} title="Live medication plan" />
-            <section>
+            <ErrorBoundary scope="section" title="This section could not be displayed">{() => (<section>
               <div className="mb-3 flex items-center justify-between gap-3">
                 <h3 className="text-xs font-black uppercase tracking-[0.14em] text-slate-500 dark:text-slate-400">Consent documents</h3>
                 <Badge className="border-slate-200 bg-white text-slate-600 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-300">{records.length}</Badge>
               </div>
-              {isLoading ? (
+              {activityError ? <SectionErrorState title="Consent activity could not be loaded" error={activityError} onRetry={onRetryActivity} retryLabel="Retry consent activity" /> : isLoading ? (
                 <div className="flex items-center gap-3 rounded-xl border border-slate-200 bg-slate-50 p-4 text-sm font-semibold text-slate-500 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-400">
                   <Loader2 className="size-4 animate-spin text-[#155dfc]" />
                   Loading consent documents...
@@ -1945,7 +1917,7 @@ function ConsentImagesPanel({ petId, allowPrescriptionStart, records, documents,
               ) : (
                 <p className="rounded-xl border border-dashed border-slate-200 bg-slate-50 p-4 text-sm font-semibold text-slate-500 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-400">No signed consent document has been recorded yet.</p>
               )}
-            </section>
+            </section>)}</ErrorBoundary>
             <PrescriptionDocumentsPanel documents={documents} onPreview={onPreview} />
           </div>
         </div>
@@ -2067,7 +2039,7 @@ function ConsentRecordCard({ record, onPreview }) {
 
 function VaccinationRecordsPanel({ vaccinations }) {
   return (
-    <Card className="overflow-hidden rounded-2xl border-slate-200 bg-white shadow-sm">
+    <ErrorBoundary scope="section" title="This section could not be displayed">{() => (<Card className="overflow-hidden rounded-2xl border-slate-200 bg-white shadow-sm">
       <CardHeader className="border-b border-blue-100 bg-blue-50/50 px-4 py-4 sm:px-6">
         <CardTitle className="flex items-center gap-3 text-lg font-black text-slate-800">
           <Syringe className="h-6 w-6 text-[#155dfc]" />
@@ -2095,13 +2067,13 @@ function VaccinationRecordsPanel({ vaccinations }) {
           </div>
         )}
       </CardContent>
-    </Card>
+    </Card>)}</ErrorBoundary>
   );
 }
 
 function PrescriptionDocumentsPanel({ documents, onPreview }) {
   return (
-    <Card className="overflow-hidden rounded-2xl border-slate-200 bg-white shadow-sm">
+    <ErrorBoundary scope="section" title="This section could not be displayed">{() => (<Card className="overflow-hidden rounded-2xl border-slate-200 bg-white shadow-sm">
       <CardHeader className="border-b border-blue-100 bg-blue-50/50 px-4 py-4 sm:px-6">
         <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
           <CardTitle className="flex items-center gap-3 text-lg font-black text-slate-800">
@@ -2128,7 +2100,7 @@ function PrescriptionDocumentsPanel({ documents, onPreview }) {
           </p>
         )}
       </CardContent>
-    </Card>
+    </Card>)}</ErrorBoundary>
   );
 }
 

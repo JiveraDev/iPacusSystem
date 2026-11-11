@@ -1,3 +1,4 @@
+import ErrorBoundary from './ErrorBoundary.jsx';
 import { useState } from 'react';
 import { Button } from '../../ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '../../ui/card';
@@ -94,7 +95,7 @@ export default function PasswordChangeCard({ userId, onForgotPassword }) {
     };
 
     return (
-        <Card className="border-slate-200 shadow-xl rounded-2xl overflow-hidden bg-white">
+        <ErrorBoundary scope="section" title="This section could not be displayed">{() => (<Card className="border-slate-200 shadow-xl rounded-2xl overflow-hidden bg-white">
             <CardHeader className="bg-slate-50/80 border-b border-slate-100 px-4 py-5 sm:px-8 sm:py-6">
                 <CardTitle className="flex items-center gap-3 text-xl font-bold text-slate-800 sm:text-2xl">
                     <KeyRound className="h-5 w-5 text-[#155dfc]" />
@@ -186,6 +187,6 @@ export default function PasswordChangeCard({ userId, onForgotPassword }) {
                     </DialogFooter>
                 </DialogContent>
             </Dialog>
-        </Card>
+        </Card>)}</ErrorBoundary>
     );
 }

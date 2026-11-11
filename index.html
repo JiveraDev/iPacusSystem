@@ -39,7 +39,37 @@
     </script>
   </head>
   <body>
-    <div id="root"></div>
+    <div id="root">
+      <div id="startup-fallback" role="status" style="max-width:34rem;margin:12vh auto;padding:2rem;background:#fff;color:#10213f;font:16px/1.6 system-ui,sans-serif">
+        <p id="startup-message">Loading iPawcus…</p>
+        <button id="startup-retry" type="button" hidden style="padding:.6rem 1rem;border:1px solid #536782;border-radius:.4rem">Reload application</button>
+        <noscript>Enable JavaScript to use iPawcus.</noscript>
+      </div>
+    </div>
+    <script>
+      (() => {
+        // Module/chunk failures can happen before React mounts its root boundary.
+        const root = document.getElementById('root');
+        const fallback = document.getElementById('startup-fallback');
+        const showRecovery = () => {
+          if (!fallback.isConnected) return;
+          document.getElementById('startup-message').textContent = 'iPawcus could not finish loading. Reload to try again.';
+          document.getElementById('startup-retry').hidden = false;
+        };
+        document.getElementById('startup-retry').addEventListener('click', () => location.reload());
+        const timer = setTimeout(showRecovery, 20000);
+        const observer = new MutationObserver(() => {
+          if (fallback.isConnected) return;
+          clearTimeout(timer);
+          window.removeEventListener('error', showRecovery, true);
+          window.removeEventListener('unhandledrejection', showRecovery);
+          observer.disconnect();
+        });
+        observer.observe(root, { childList: true });
+        window.addEventListener('error', showRecovery, true);
+        window.addEventListener('unhandledrejection', showRecovery);
+      })();
+    </script>
     <script type="module" src="/src/main.jsx"></script>
   </body>
 </html>

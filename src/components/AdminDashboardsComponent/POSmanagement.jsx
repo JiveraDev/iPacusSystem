@@ -1,3 +1,4 @@
+import ErrorBoundary from '../shared/ErrorBoundary.jsx';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { createPortal, flushSync } from 'react-dom';
 import {
@@ -2387,7 +2388,7 @@ export default function ServicePOS() {
         className={`care-pos-layout grid grid-cols-1 gap-5 ${invoicePanelOpen ? 'xl:grid-cols-[minmax(300px,var(--invoice-panel-width))_12px_minmax(0,1fr)] xl:gap-0' : ''}`}
         style={invoicePanelOpen ? { '--invoice-panel-width': `${invoicePanelWidth}px` } : undefined}
       >
-        {invoicePanelOpen && <aside id="pos-products-panel" className="order-3 w-full min-w-0 space-y-4 xl:sticky xl:top-4 xl:max-h-[calc(100vh-2rem)] xl:overflow-y-auto">
+        {invoicePanelOpen && <ErrorBoundary scope="section" title="This section could not be displayed">{() => (<aside id="pos-products-panel" className="order-3 w-full min-w-0 space-y-4 xl:sticky xl:top-4 xl:max-h-[calc(100vh-2rem)] xl:overflow-y-auto">
           <section className="care-pos-products overflow-hidden rounded-lg border border-slate-200 bg-white shadow-none">
             <div className="border-b border-slate-200 p-4 text-center sm:text-left">
               <div className="flex items-center justify-center gap-2 sm:justify-start">
@@ -2446,7 +2447,7 @@ export default function ServicePOS() {
               </Tabs>
             </div>
           </section>
-        </aside>}
+        </aside>)}</ErrorBoundary>}
 
         {invoicePanelOpen && (
           <div
@@ -2461,7 +2462,7 @@ export default function ServicePOS() {
         )}
 
         <main className="order-1 min-w-0 space-y-4 xl:sticky xl:top-24 xl:z-10 xl:self-start">
-            <section className="overflow-hidden rounded-lg border border-slate-200 bg-white shadow-sm">
+            <ErrorBoundary scope="section" title="This section could not be displayed">{() => (<section className="overflow-hidden rounded-lg border border-slate-200 bg-white shadow-sm">
               <div className="care-pos-invoice-heading bg-[#155dfc] p-3 text-white">
                 <div className="flex items-center justify-between gap-3">
                   <h2 className="flex items-center gap-2 text-base font-black">
@@ -2526,7 +2527,7 @@ export default function ServicePOS() {
                   Review Invoice
                 </Button>
               </div>
-            </section>
+            </section>)}</ErrorBoundary>
           </main>
       </div>
 
@@ -2581,7 +2582,7 @@ export default function ServicePOS() {
               )}
 
               <div className="overflow-x-auto">
-                <table className="w-full min-w-[560px] text-left">
+                <ErrorBoundary scope="section" title="This section could not be displayed">{() => (<table className="w-full min-w-[560px] text-left">
                   <thead>
                     <tr className="border-b border-slate-200 text-xs font-black uppercase tracking-widest text-slate-400">
                       <th className="py-3 pr-3">Category</th>
@@ -2600,7 +2601,7 @@ export default function ServicePOS() {
                       </tr>
                     ))}
                   </tbody>
-                </table>
+                </table>)}</ErrorBoundary>
               </div>
 
               <div className="mt-4 flex flex-col gap-3 sm:items-end">
@@ -2769,7 +2770,7 @@ function PatientVisitBar({
     : `${selectedVisit?.petName || 'Patient'} - ${selectedVisit?.visitType || 'Visit'}`;
 
   return (
-    <section className="rounded-xl border border-slate-200 bg-white p-3 shadow-sm lg:sticky lg:top-3 lg:z-20">
+    <ErrorBoundary scope="section" title="This section could not be displayed">{() => (<section className="rounded-xl border border-slate-200 bg-white p-3 shadow-sm lg:sticky lg:top-3 lg:z-20">
       <div className="flex min-w-0 flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
         <div className="min-w-0 flex-1">
           <p className="mb-1 text-[10px] font-black uppercase tracking-[0.18em] text-slate-400">Patient Visit</p>
@@ -2852,7 +2853,7 @@ function PatientVisitBar({
           })}
         </div>
       )}
-    </section>
+    </section>)}</ErrorBoundary>
   );
 }
 

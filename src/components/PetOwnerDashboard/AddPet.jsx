@@ -1,3 +1,4 @@
+import ErrorBoundary from '../shared/ErrorBoundary.jsx';
 import { useState } from "react";
 import { useNavigate } from "../dashboardRouter.jsx";
 import { Card, CardContent, CardHeader, CardTitle } from "../../ui/card";
@@ -64,7 +65,7 @@ export default function AddPet() {
         )}
       />
 
-      <Card className="border-2 border-blue-100">
+      <ErrorBoundary scope="section" title="This section could not be displayed">{() => (<Card className="border-2 border-blue-100">
         <CardHeader className="bg-blue-50">
           <CardTitle className="flex items-center gap-2">
             <PawPrint className="h-5 w-5 text-blue-600" />
@@ -136,9 +137,9 @@ export default function AddPet() {
             </div>
           </form>
         </CardContent>
-      </Card>
+      </Card>)}</ErrorBoundary>
 
-      <Card className="border border-gray-200">
+      <ErrorBoundary scope="section" title="This section could not be displayed">{() => (<Card className="border border-gray-200">
         <CardContent className="pt-6">
           <h3 className="font-semibold text-gray-900 mb-3">Need Help?</h3>
           <div className="text-sm text-gray-600 space-y-2">
@@ -153,7 +154,7 @@ export default function AddPet() {
             </p>
           </div>
         </CardContent>
-      </Card>
+      </Card>)}</ErrorBoundary>
     </div>
   );
 }

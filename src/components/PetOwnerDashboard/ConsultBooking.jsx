@@ -1,3 +1,4 @@
+import ErrorBoundary from '../shared/ErrorBoundary.jsx';
 import { useState } from "react";
 import { useNavigate } from "../dashboardRouter.jsx";
 import { Card, CardContent, CardHeader, CardTitle } from "../../ui/card";
@@ -273,7 +274,7 @@ export default function ConsultBooking() {
           <ArrowLeft className="h-4 w-4 mr-2" />
           Back to Consultations
         </Button>
-        <section className="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm">
+        <ErrorBoundary scope="section" title="This section could not be displayed">{() => (<section className="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm">
           <div className="grid md:grid-cols-[0.9fr_1.1fr]">
             <div className="bg-slate-950 p-6 text-white sm:p-8">
               <div className="flex size-14 items-center justify-center rounded-xl bg-white/10 text-white">
@@ -319,7 +320,7 @@ export default function ConsultBooking() {
               </div>
             </div>
           </div>
-        </section>
+        </section>)}</ErrorBoundary>
       </div>
     );
   }
@@ -338,7 +339,7 @@ export default function ConsultBooking() {
       />
 
       <ConsultationProgress step={1} />
-      <Card petHover={false}>
+      <ErrorBoundary scope="section" title="This section could not be displayed">{() => (<Card petHover={false}>
         <CardHeader>
           <CardTitle>Consultation Details</CardTitle>
         </CardHeader>
@@ -592,7 +593,7 @@ export default function ConsultBooking() {
             </div>
           </form>
         </CardContent>
-      </Card>
+      </Card>)}</ErrorBoundary>
       <PhotoViewer
         open={Boolean(viewingImage)}
         src={viewingImage || ""}

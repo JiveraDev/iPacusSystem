@@ -1,3 +1,4 @@
+import ErrorBoundary from '../shared/ErrorBoundary.jsx';
 import { useEffect, useMemo, useState } from "react";
 import { useNavigate } from "../dashboardRouter.jsx";
 import { Card, CardContent, CardHeader, CardTitle } from "../../ui/card";
@@ -534,7 +535,7 @@ export default function PetHotel() {
         onSave={savePriceProjectionConfig}
       />
 
-      <Card className="overflow-hidden">
+      <ErrorBoundary scope="section" title="This section could not be displayed">{() => (<Card className="overflow-hidden">
         <CardHeader>
           <CardTitle>Booking Details</CardTitle>
         </CardHeader>
@@ -772,7 +773,7 @@ export default function PetHotel() {
             </Button>
           </form>
         </CardContent>
-      </Card>
+      </Card>)}</ErrorBoundary>
     </ServicePageShell>
   );
 }

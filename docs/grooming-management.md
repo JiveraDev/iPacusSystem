@@ -1,5 +1,7 @@
 # Grooming Management — first release
 
+Rechecked against current source: 2026-10-18. See the [combined system reference](CURRENT_SYSTEM_CAPABILITIES.md#15-grooming-management) for the full lifecycle and limitations.
+
 ## Routing and responsibility
 
 An approved grooming booking appears automatically in **Admin → Grooming**. Opening the list does not create a second booking or write a job. The first save or photo upload creates its linked job, uniquely keyed by booking ID. Routine grooming is excluded from the vet’s approved booking lists and cannot be received through the clinical booking endpoint.
@@ -8,7 +10,7 @@ The working form asks for the grooming service, an optional assisting-nurse name
 
 Normal flow: receive pet -> required before photo -> start grooming -> optional notes -> required after photo -> finish -> verified full payment in the existing POS -> automatic release. Start requires an active catalog service and confirmed intake/owner approval. Finish confirms completion and prepares billing without marking the invoice paid. The payment handler releases a ready job only when its billing status is paid; routine status edits and pickup confirmation flags cannot release it. The booking owner name is recorded automatically, with the clinic actor as fallback. Closed-job history and vet-clearance restrictions remain enforced.
 
-POS search, invoice selection, billing, payment recording, and refund handling are unchanged. Open POS is ordinary navigation, without an invoice shortcut or prefilled transaction. Finishing still prepares/reuses the invoice through the existing grooming billing integration; it never marks the invoice paid. Staff use the existing POS workflow to verify payment before releasing the pet.
+Open POS is ordinary navigation, without an invoice shortcut or prefilled transaction. Finishing prepares/reuses the invoice through the existing grooming billing integration; it never marks the invoice paid. Staff use POS to verify payment before releasing the pet. The current POS has no Record Refund action; backend refund handlers are a separate capability. Payment-controlled pickup flags do not independently establish physical collection, so staff must still verify the collector.
 
 ## Vet review
 
@@ -17,20 +19,21 @@ From checked in or in progress, the admin saves the record, chooses an active br
 - **Resume:** the admin may resume grooming.
 - **Stop:** grooming stays paused until the admin closes it.
 - **Separate consultation:** grooming stays paused; staff arrange a separate consultation with owner approval.
+- **Confinement:** creates or updates a source-linked pending clinical confinement admission and charge on the grooming visit, changes the job to transferred, and completes the grooming booking. Boarding still obtains required consent/approval and handles actual unit allocation/check-in and care.
 
-Review does not create a diagnosis, book a consultation, charge a consultation fee, or complete the grooming booking. If the job is stopped while review is pending, the pending review closes without inventing a vet assessment.
+Resume, stop, and separate-consultation outcomes do not create a diagnosis, consultation booking, or consultation fee. Confinement is the explicit transfer/billing exception above. If the job is stopped while review is pending, the pending review closes without inventing a vet assessment. Clinical confinement requires `DDL/20260923_01_clinical_confinement.sql`, an identified pet/owner, source visit, active Boarding price, and valid discharge/room details.
 
 ## Pricing, photos, and sharing
 
 There is no grooming price input or price override. Staff may select one or more active Grooming items from Service Catalog. Each selected item keeps its official catalog price and becomes a separate POS invoice line; the displayed total is the sum of those items. Grooming no longer writes bookings.price or trusts a client-supplied agreedTotal. Existing invoices and payments are reused without repricing; the invoice total is stored as a read-only historical snapshot. Free-text notes and legacy add-on text describe the work but do not define prices or override the catalog. A missing positive official price produces a Service Catalog setup message. Registered pet linkage is still required, and no payment or automatic refund is invented.
 
-Photo categories are owner reference, before, and after; an owner reference may be presented to a veterinarian as concern evidence. Staff keep one current before photo and one current after photo, replacing the matching image when they upload again. JPG/PNG/WebP only, actual MIME validation, maximum 8 MB per image. PHP is configured for an 8 MB file and a 10 MB multipart request. Stored names use a sanitized pet token, category, timestamp, and random suffix; the database stores only `grooming_photos/<filename>`, never the private physical path. Owner concern/reference photos remain clinic-only. Owners can access only their own explicitly shared before/after photos after publication. Vets need a review assignment and branch access. Admin feature permissions and branch boundaries apply. Photos use the existing authenticated `/upload` and protected `/uploads/media` endpoints, but are stored outside the website tree to prevent direct static access. No photo-delete endpoint is introduced.
+The current upload handler accepts before and after photos; owner reference/concern evidence comes from the booking context. Staff keep one current before photo and one current after photo, replacing the matching image when they upload again. JPG/PNG/WebP only, actual MIME validation, maximum 8 MB per image. PHP is configured for an 8 MB file and a 10 MB multipart request. Stored names use a sanitized pet token, category, timestamp, and random suffix; the database stores only `grooming_photos/<filename>`, never the private physical path. Owner concern/reference photos remain clinic-only. Owners can access only their own explicitly shared before/after photos after publication. The media helper requires vet branch access and allows either an assigned review or a ready/released/transferred job; the review workspace itself still requires its assigned vet. Admin feature permissions and branch boundaries apply. Photos use authenticated `/upload` and protected `/uploads/media`, with private storage outside the website tree. No photo-delete endpoint is introduced.
 
 The admin explicitly shares a ready/picked-up summary. Owner Home then shows the package, add-ons, summary, and selected photos. Internal notes, audit records, and vet assessments are excluded. Ready status locks service/pricing fields; the pickup name is system-assigned. Photos lock on publication or closure, so add final photos before sharing or completing payment-controlled release.
 
 ## Booking and staffing scope
 
-Grooming is bookable during **12:00–1:00 PM**, subject to branch hours and free slots. Other vet appointments retain their lunch restriction. Estimated work time is documentation only; it does not reserve a groomer’s capacity or change the existing booking-slot duration. Staffing calendars, concurrent-groomer capacity, itemized package pricing, inventory consumption, and dedicated nurse accounts are future work. Walk-ins should use an approved grooming booking to enter this workflow; historical generic queue entries are not automatically migrated.
+Grooming is bookable during **12:00–1:00 PM**, subject to branch hours and free slots. On-site/home medical appointments retain their lunch restriction; online calls follow their separate vet calendar and are exempt. Estimated work time is documentation only; it does not reserve a groomer's capacity or change the existing booking-slot duration. Multiple selected catalog services already produce separate priced invoice lines. Dedicated groomer staffing/capacity, free-text add-on pricing, a complete grooming-specific inventory subsystem, and verified assistant assignments remain outside this workflow. Walk-ins should use an approved grooming booking; historical generic queues are not automatically migrated.
 
 ## Setup and rollout
 
@@ -51,6 +54,8 @@ Historical implementation notes reported a migrated local database; the October 
 - `node scripts/tests/vet-presence-display.mjs` — server-rendered sign states and landing removals.
 - `npm run lint`, `npm run build`, and PHP syntax checks.
 
-Manual acceptance still required with signed-in test accounts: approve → intake → start → photo → review → vet clearance → resume → finish/invoice → payment → pickup → publish → owner summary. Also test concurrent edits (409 reload), other-branch access, another owner’s photo URL, malformed files, invoice mismatch, unpaid pickup policy, cancellation, and mobile/tablet/desktop in both themes. Browser interaction was unavailable during implementation; static rendering checks do not replace these flow and visual checks.
+Manual acceptance still required with signed-in test accounts: approve → intake/before photo → start → review/clearance if needed → resume → after photo → finish/invoice → payment-controlled release → physical pickup check → publish → owner summary. Also test confinement transfer, concurrent edits (409 reload), other-branch access, another owner's photo URL, malformed files, invoice mismatch, unpaid release, cancellation, and mobile/tablet/desktop in both themes. Earlier static checks do not replace these flow and visual checks.
+
+Current source: [grooming actions and confinement transfer](../php/grooming.php), [photo replacement](../php/grooming_upload.php), [media access](../php/grooming_helpers.php), [confinement helper](../php/clinical_confinement_helpers.php), and [POS release helper](../php/visit_billing.php). The October 18 default checks pass; this revision did not run new database-backed grooming or browser journeys.
 
 The UI follows the existing shared controls and restrained dashboard styling; no new runtime dependencies or decorative animation were introduced.

@@ -1,3 +1,4 @@
+import ErrorBoundary from '../shared/ErrorBoundary.jsx';
 import { useEffect, useState } from "react";
 import { useNavigate, useParams } from "../dashboardRouter.jsx";
 import { Card, CardContent, CardHeader, CardTitle } from "../../ui/card";
@@ -277,7 +278,7 @@ export default function PetProfileEdit() {
       </div>
 
       {/* Main Profile Header */}
-      <Card
+      <ErrorBoundary scope="section" title="This section could not be displayed">{() => (<Card
         petHover={false}
         petKind={String(pet.species || '').toLowerCase().includes('cat') ? 'cat' : 'dog'}
         petAccent="blue"
@@ -348,12 +349,12 @@ export default function PetProfileEdit() {
             </div>
           </div>
         </CardContent>
-      </Card>
+      </Card>)}</ErrorBoundary>
 
       <div className="grid min-w-0 grid-cols-1 gap-8 lg:grid-cols-3">
         {/* Left Column: Biological Profile & Allergies */}
         <div className="lg:col-span-1 space-y-8">
-          <Card className="rounded-2xl border-slate-200 shadow-sm overflow-hidden">
+          <ErrorBoundary scope="section" title="This section could not be displayed">{() => (<Card className="rounded-2xl border-slate-200 shadow-sm overflow-hidden">
             <CardHeader className="bg-slate-50/50 border-b border-slate-100">
               <CardTitle className="text-xs font-black uppercase tracking-[0.2em] text-slate-400">
                 Biological Profile
@@ -369,10 +370,10 @@ export default function PetProfileEdit() {
               <BioField label="Coloration" name="color" value={formData.color} isEdit={isEditMode} onChange={handleInputChange} restriction="pet-markings" />
               <BioField label="Microchip ID" name="microchipId" value={formData.microchipId} isEdit={isEditMode} onChange={handleInputChange} restriction="pet-microchip" />
             </CardContent>
-          </Card>
+          </Card>)}</ErrorBoundary>
 
           {/* Allergies Card */}
-          <Card className="rounded-2xl shadow-sm overflow-hidden border-slate-200">
+          <ErrorBoundary scope="section" title="This section could not be displayed">{() => (<Card className="rounded-2xl shadow-sm overflow-hidden border-slate-200">
             <CardHeader className="bg-red-50/50 border-b border-red-100 flex flex-row items-center justify-between py-3 dark:bg-[#2a1517] dark:border-[#7f1d1d]">
               <CardTitle className="flex items-center gap-2 text-xs font-black uppercase tracking-[0.2em] text-[#991b1b] dark:text-[#ef4444]">
                 <AlertCircle className="h-4 w-4 text-[#991b1b] dark:text-[#ef4444]" />
@@ -403,7 +404,7 @@ export default function PetProfileEdit() {
                 )}
               </div>
             </CardContent>
-          </Card>
+          </Card>)}</ErrorBoundary>
         </div>
 
         {/* Right Column: Immunization Records */}
@@ -499,7 +500,7 @@ export default function PetProfileEdit() {
 
 function VaccinationRecordsPanel({ vaccinations, isLoading, onAdd, onDelete, canEdit = false }) {
   return (
-    <Card className="overflow-hidden rounded-2xl border-slate-200 bg-white shadow-sm">
+    <ErrorBoundary scope="section" title="This section could not be displayed">{() => (<Card className="overflow-hidden rounded-2xl border-slate-200 bg-white shadow-sm">
       <CardHeader className="flex flex-col gap-3 border-b border-blue-100 bg-blue-50/50 px-4 py-4 sm:flex-row sm:items-center sm:justify-between sm:px-6">
         <CardTitle className="flex items-center gap-3 text-lg font-black text-slate-800">
           <Syringe className="h-5 w-5 text-[#155dfc]" />
@@ -542,13 +543,13 @@ function VaccinationRecordsPanel({ vaccinations, isLoading, onAdd, onDelete, can
           </div>
         )}
       </CardContent>
-    </Card>
+    </Card>)}</ErrorBoundary>
   );
 }
 
 function PrescriptionDocumentsPanel({ documents }) {
   return (
-    <Card className="overflow-hidden rounded-2xl border-slate-200 bg-white shadow-sm">
+    <ErrorBoundary scope="section" title="This section could not be displayed">{() => (<Card className="overflow-hidden rounded-2xl border-slate-200 bg-white shadow-sm">
       <CardHeader className="border-b border-blue-100 bg-blue-50/50 px-4 py-4 sm:px-6">
         <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
           <CardTitle className="flex items-center gap-3 text-lg font-black text-slate-800">
@@ -593,7 +594,7 @@ function PrescriptionDocumentsPanel({ documents }) {
           </p>
         )}
       </CardContent>
-    </Card>
+    </Card>)}</ErrorBoundary>
   );
 }
 

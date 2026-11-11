@@ -13,25 +13,28 @@ import ThemeProvider from './context/ThemeProvider.jsx'
 import { applyTheme, getStoredTheme } from './lib/theme.js'
 import ThemedMantineProvider from './context/ThemedMantineProvider.jsx'
 import ProtectedDocumentPreview from './components/shared/ProtectedDocumentPreview.jsx'
+import ErrorBoundary from './components/shared/ErrorBoundary.jsx'
 import { ensurePwaHeadTags, initializePwaInstallPromptCapture } from './pwa/pwaConfig.js'
 import { registerPwaServiceWorker } from './pwa/registerPwaServiceWorker.js'
 
-applyTheme(getStoredTheme())
-ensurePwaHeadTags()
-initializePwaInstallPromptCapture()
-registerPwaServiceWorker().catch((error) => {
-  console.error('[iPawcus push] PWA service worker setup failed.', error)
-})
+try { applyTheme(getStoredTheme()) } catch { /* The provider can still render using its defaults. */ }
+try {
+  ensurePwaHeadTags()
+  initializePwaInstallPromptCapture()
+  registerPwaServiceWorker().catch(() => console.warn('[iPawcus] Service worker setup is unavailable.'))
+} catch { console.warn('[iPawcus] Installation features are unavailable.') }
 
 createRoot(document.getElementById('root')).render(
   <StrictMode>
+    <ErrorBoundary root scope="application">
     <ThemeProvider>
       <ThemedMantineProvider>
         <AppMotionSystem>
           <App />
-          <ProtectedDocumentPreview />
+          <ErrorBoundary title="Document preview could not be displayed" scope="document-preview"><ProtectedDocumentPreview /></ErrorBoundary>
         </AppMotionSystem>
       </ThemedMantineProvider>
     </ThemeProvider>
+    </ErrorBoundary>
   </StrictMode>,
 )

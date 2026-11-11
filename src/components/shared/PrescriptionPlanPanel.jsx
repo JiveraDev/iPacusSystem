@@ -1,3 +1,4 @@
+import ErrorBoundary from './ErrorBoundary.jsx';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { CalendarClock, Check, Clock3, History, Loader2, Pill, Play, Plus, RotateCcw, SkipForward } from 'lucide-react';
 import { Badge } from '../../ui/badge';
@@ -252,7 +253,7 @@ export default function PrescriptionPlanPanel({
     if (onlyNeedsStart && visiblePlans.length === 0 && !recentlyStartedPlan) return null;
 
     return (
-        <section className="space-y-3" aria-label={title}>
+        <ErrorBoundary scope="section" title="This section could not be displayed">{() => (<section className="space-y-3" aria-label={title}>
             {!compact && (
                 <div className="flex flex-wrap items-center justify-between gap-3">
                     <h3 className="flex items-center gap-2 text-sm font-black text-slate-900 dark:text-white"><Pill className="size-4 text-[#155dfc]" /> {title}</h3>
@@ -497,6 +498,6 @@ export default function PrescriptionPlanPanel({
                     </DialogFooter>
                 </DialogContent>
             </Dialog>
-        </section>
+        </section>)}</ErrorBoundary>
     );
 }

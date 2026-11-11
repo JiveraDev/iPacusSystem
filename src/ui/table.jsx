@@ -1,7 +1,9 @@
 import React from 'react';
 import { cn } from './utils';
+import ErrorBoundary from '../components/shared/ErrorBoundary.jsx';
 
 const Table = ({ children, className, ...props }) => (
+  <ErrorBoundary scope="table" title="This table could not be displayed">
   <div
     data-slot="table-scroll"
     className="relative w-full min-w-0 overflow-x-auto overscroll-x-contain scrollbar-hide"
@@ -10,6 +12,7 @@ const Table = ({ children, className, ...props }) => (
       {children}
     </table>
   </div>
+  </ErrorBoundary>
 );
 
 const TableHeader = ({ className, ...props }) => (

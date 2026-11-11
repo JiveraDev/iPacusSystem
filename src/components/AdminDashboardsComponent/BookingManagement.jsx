@@ -1,3 +1,6 @@
+import ErrorBoundary from '../shared/ErrorBoundary.jsx';
+import { useSectionResource } from '../../hooks/useSectionResource.js';
+import ResourceSection from '../shared/ResourceSection.jsx';
 import { useEffect, useMemo, useState } from 'react';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '../../ui/table';
 import { Badge } from '../../ui/badge';
@@ -588,7 +591,9 @@ export default function BookingsManagement() {
         saveConfig: saveBookingDisplayConfig
     } = useBookingPriceProjections();
     const canConfigureBookingDisplay = currentUserCanConfigureBookingDisplay();
-    const [bookings, setBookings] = useState([]);
+    const bookingResource = useSectionResource(`booking-management:${dashboardUser?.id || dashboardUser?.user_id || ''}:${lockedBranchId || ''}`,
+        ({ signal }) => fetchBookingsService({ signal }), { initialData: [] });
+    const { data: bookings, updateData: setBookings, retry: fetchBookings } = bookingResource;
     const [searchQuery, setSearchQuery] = useState('');
     const [filterType, setFilterType] = useState('all');
     const [filterStatus, setFilterStatus] = useState('all');
@@ -653,16 +658,6 @@ export default function BookingsManagement() {
         }
     }, [bookingDisplayConfig, displayConfigOpen]);
 
-    const fetchBookings = async () => {
-        try {
-            const data = await fetchBookingsService();
-            setBookings(data);
-        } catch (error) {
-            console.error('Error fetching bookings:', error);
-        }
-    };
-
-    useAutoRefresh(fetchBookings);
 
     useEffect(() => {
         fetchBranches({ assignedOnly: branchFilterLocked })
@@ -740,6 +735,7 @@ export default function BookingsManagement() {
     }, [bookingPetSearch, bookingPets]);
 
     const updateBookingStatus = async (id, newStatus, extraPayload = {}) => {
+        if (bookingResource.error) { toast.error('Refresh bookings before changing this visit.'); return false; }
         try {
             const result = await updateBookingStatusService(id, { status: newStatus, ...extraPayload });
             setBookings(bookings =>
@@ -1701,7 +1697,7 @@ export default function BookingsManagement() {
                 </div>
                 <div className="mt-4 flex flex-col gap-3 border-t border-slate-200 pt-3 text-sm sm:flex-row sm:items-center sm:justify-between dark:border-slate-700">
                     <p className="text-slate-500 dark:text-slate-400">
-                        Showing <span className="font-semibold text-slate-700 dark:text-slate-200">{filteredBookings.length}</span> matching bookings
+                        {bookingResource.error ? 'Booking count unavailable' : bookingResource.loading ? 'Loading bookings…' : <>Showing <span className="font-semibold text-slate-700 dark:text-slate-200">{filteredBookings.length}</span> matching bookings</>}
                     </p>
                     <Button
                         type="button"
@@ -1717,7 +1713,7 @@ export default function BookingsManagement() {
                 </div>
             </div>
 
-            <div className="rounded-md border overflow-x-auto bg-white">
+            <ResourceSection resource={bookingResource} title="Bookings">{() => (<><div className="rounded-md border overflow-x-auto bg-white">
                 <Table>
                     <TableHeader>
                         <TableRow>
@@ -2409,6 +2405,7 @@ export default function BookingsManagement() {
                 onPageChange={setCurrentPage}
                 itemLabel="bookings"
             />
+            </>)}</ResourceSection>
             <PhotoViewer src={viewerImage?.src} alt={viewerImage?.alt} open={!!viewerImage} onOpenChange={() => setViewerImage(null)} />
 
             {BOOKING_DISPLAY_SETTINGS_VISIBLE && <Dialog open={displayConfigOpen} onOpenChange={setDisplayConfigOpen}>
@@ -2423,7 +2420,7 @@ export default function BookingsManagement() {
                     </DialogHeader>
 
                     <div className="space-y-6">
-                        <section className="space-y-3">
+                        <ErrorBoundary scope="section" title="This section could not be displayed">{() => (<section className="space-y-3">
                             <div>
                                 <h3 className="text-sm font-bold uppercase tracking-wide text-slate-500">Service Price Display</h3>
                                 <p className="mt-1 text-sm text-slate-500">These labels appear on pet-owner booking screens.</p>
@@ -2440,9 +2437,9 @@ export default function BookingsManagement() {
                                     </div>
                                 ))}
                             </div>
-                        </section>
+                        </section>)}</ErrorBoundary>
 
-                        <section className="space-y-3">
+                        <ErrorBoundary scope="section" title="This section could not be displayed">{() => (<section className="space-y-3">
                             <div>
                                 <h3 className="text-sm font-bold uppercase tracking-wide text-slate-500">Service Detail Display</h3>
                                 <p className="mt-1 text-sm text-slate-500">Edit the included rows, duration, and review note shown beside booking forms.</p>
@@ -2494,9 +2491,9 @@ export default function BookingsManagement() {
                                     );
                                 })}
                             </div>
-                        </section>
+                        </section>)}</ErrorBoundary>
 
-                        <section className="space-y-3">
+                        <ErrorBoundary scope="section" title="This section could not be displayed">{() => (<section className="space-y-3">
                             <div>
                                 <h3 className="text-sm font-bold uppercase tracking-wide text-slate-500">Home-Service Slots</h3>
                                 <p className="mt-1 text-sm text-slate-500">Edit the visible home-service item names and price labels.</p>
@@ -2523,9 +2520,9 @@ export default function BookingsManagement() {
                                     </div>
                                 ))}
                             </div>
-                        </section>
+                        </section>)}</ErrorBoundary>
 
-                        <section className="space-y-3">
+                        <ErrorBoundary scope="section" title="This section could not be displayed">{() => (<section className="space-y-3">
                             <div>
                                 <h3 className="text-sm font-bold uppercase tracking-wide text-slate-500">Grooming Size Table</h3>
                                 <p className="mt-1 text-sm text-slate-500">Edit the projected grooming prices shown to clients.</p>
@@ -2563,9 +2560,9 @@ export default function BookingsManagement() {
                                     </TableBody>
                                 </Table>
                             </div>
-                        </section>
+                        </section>)}</ErrorBoundary>
 
-                        <section className="space-y-3">
+                        <ErrorBoundary scope="section" title="This section could not be displayed">{() => (<section className="space-y-3">
                             <div>
                                 <h3 className="text-sm font-bold uppercase tracking-wide text-slate-500">Kapon Procedure Table</h3>
                                 <p className="mt-1 text-sm text-slate-500">Edit the visible starting prices for Kapon / Spay-Neuter procedures.</p>
@@ -2598,9 +2595,9 @@ export default function BookingsManagement() {
                                     </TableBody>
                                 </Table>
                             </div>
-                        </section>
+                        </section>)}</ErrorBoundary>
 
-                        <section className="space-y-3">
+                        <ErrorBoundary scope="section" title="This section could not be displayed">{() => (<section className="space-y-3">
                             <div>
                                 <h3 className="text-sm font-bold uppercase tracking-wide text-slate-500">Instructions</h3>
                                 <p className="mt-1 text-sm text-slate-500">Optional notes shown under matching price displays.</p>
@@ -2618,7 +2615,7 @@ export default function BookingsManagement() {
                                     </div>
                                 ))}
                             </div>
-                        </section>
+                        </section>)}</ErrorBoundary>
                     </div>
 
                     <DialogFooter className="gap-2 sm:justify-between">

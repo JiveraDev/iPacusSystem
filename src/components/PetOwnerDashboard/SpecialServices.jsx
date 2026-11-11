@@ -1,3 +1,4 @@
+import ErrorBoundary from '../shared/ErrorBoundary.jsx';
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { useNavigate } from "../dashboardRouter.jsx";
 import { Card, CardContent, CardHeader, CardTitle } from "../../ui/card";
@@ -102,7 +103,7 @@ function KaponPriceProjection({ config, service }) {
     return (
         <div className="mt-3 space-y-2">
             <div className="overflow-x-auto rounded-lg border border-blue-100 dark:border-blue-900/60">
-                <table className="min-w-full text-xs">
+                <ErrorBoundary scope="section" title="This section could not be displayed">{() => (<table className="min-w-full text-xs">
                     <thead className="bg-blue-50 text-blue-800 dark:bg-blue-950/40 dark:text-blue-200">
                         <tr>
                             <th className="px-3 py-2 text-left font-semibold">Procedure</th>
@@ -117,7 +118,7 @@ function KaponPriceProjection({ config, service }) {
                             </tr>
                         ))}
                     </tbody>
-                </table>
+                </table>)}</ErrorBoundary>
             </div>
             {instruction && (
                 <p className="text-xs font-medium text-blue-700 dark:text-blue-300">{instruction}</p>
@@ -724,7 +725,7 @@ export default function SpecialServices({ user }) {
             />
 
             {isAdminUser && showAdminForm && (
-                <Card className="overflow-hidden border-blue-200 bg-blue-50 dark:border-blue-900/60 dark:bg-blue-950/20">
+                <ErrorBoundary scope="section" title="This section could not be displayed">{() => (<Card className="overflow-hidden border-blue-200 bg-blue-50 dark:border-blue-900/60 dark:bg-blue-950/20">
                     <CardHeader>
                         <CardTitle className="flex items-center gap-2">
                             <ShieldCheck className="h-5 w-5 text-blue-600" />
@@ -852,7 +853,7 @@ export default function SpecialServices({ user }) {
                             </Button>
                         </div>
                     </CardContent>
-                </Card>
+                </Card>)}</ErrorBoundary>
             )}
 
             <Dialog
@@ -1100,7 +1101,7 @@ export default function SpecialServices({ user }) {
                 </DialogContent>
             </Dialog>
 
-            <Card className="overflow-hidden">
+            <ErrorBoundary scope="section" title="This section could not be displayed">{() => (<Card className="overflow-hidden">
                 <CardHeader>
                     <CardTitle className="flex items-center gap-2">
                         <Sparkles className="h-5 w-5 text-blue-700 dark:text-blue-300" />
@@ -1237,9 +1238,9 @@ export default function SpecialServices({ user }) {
                         </div>
                     )}
                 </CardContent>
-            </Card>
+            </Card>)}</ErrorBoundary>
 
-            <Card className="overflow-hidden">
+            <ErrorBoundary scope="section" title="This section could not be displayed">{() => (<Card className="overflow-hidden">
                 <CardHeader>
                     <CardTitle>Selected Service</CardTitle>
                 </CardHeader>
@@ -1269,9 +1270,9 @@ export default function SpecialServices({ user }) {
                         </div>
                     )}
                 </CardContent>
-            </Card>
+            </Card>)}</ErrorBoundary>
 
-            <Card className="overflow-hidden">
+            <ErrorBoundary scope="section" title="This section could not be displayed">{() => (<Card className="overflow-hidden">
                 <CardHeader>
                     <BookingFieldLabel className="font-semibold" help="Special service requests require admin approval. The clinic confirms the final amount and any preparation instructions after reviewing your request.">Booking details</BookingFieldLabel>
                 </CardHeader>
@@ -1468,7 +1469,7 @@ export default function SpecialServices({ user }) {
                         </Button>
                     </form>
                 </CardContent>
-            </Card>
+            </Card>)}</ErrorBoundary>
         </ServicePageShell>
     );
 }

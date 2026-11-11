@@ -1,3 +1,4 @@
+import ErrorBoundary from '../shared/ErrorBoundary.jsx';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
     AlertTriangle,
@@ -307,7 +308,7 @@ export default function PetMediaMonitoring() {
                 layout="stacked"
             />
 
-            <section className="rounded-xl border border-slate-200 bg-white p-4 shadow-sm dark:border-slate-700 dark:bg-slate-900">
+            <ErrorBoundary scope="section" title="This section could not be displayed">{() => (<section className="rounded-xl border border-slate-200 bg-white p-4 shadow-sm dark:border-slate-700 dark:bg-slate-900">
                 <div className="grid gap-4 lg:grid-cols-[14rem_minmax(0,1fr)] lg:items-center">
                     <div>
                         <h2 className="flex items-center gap-2 text-base font-black text-slate-950 dark:text-white">
@@ -415,7 +416,7 @@ export default function PetMediaMonitoring() {
                         <Button type="button" variant="outline" size="sm" onClick={() => loadPets()}>Retry</Button>
                     </div>
                 ) : null}
-            </section>
+            </section>)}</ErrorBoundary>
 
             {!selectedPetId ? (
                 <div className="flex min-h-[22rem] items-center justify-center rounded-xl border border-dashed border-slate-300 bg-slate-50/60 p-8 text-center dark:border-slate-700 dark:bg-slate-900/40">
@@ -573,7 +574,7 @@ function MediaFileExplorer({
         }));
 
     return (
-        <section className="overflow-hidden rounded-xl border border-slate-200 bg-white dark:border-slate-700 dark:bg-slate-900" aria-label="Pet file explorer">
+        <ErrorBoundary scope="section" title="Pet file explorer could not be displayed">{() => (<section className="overflow-hidden rounded-xl border border-slate-200 bg-white dark:border-slate-700 dark:bg-slate-900" aria-label="Pet file explorer">
             <header className="flex min-w-0 flex-wrap items-center gap-2 border-b border-slate-200 bg-slate-50 px-2 py-2 dark:border-slate-700 dark:bg-slate-950 sm:px-3">
                 <Button
                     type="button"
@@ -718,7 +719,7 @@ function MediaFileExplorer({
                     />
                 )}
             </div>
-        </section>
+        </section>)}</ErrorBoundary>
     );
 }
 

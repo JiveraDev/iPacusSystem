@@ -1,3 +1,6 @@
+import ErrorBoundary from '../shared/ErrorBoundary.jsx';
+import { useSectionResource } from '../../hooks/useSectionResource.js';
+import ResourceSection from '../shared/ResourceSection.jsx';
 import { useState, useMemo } from 'react';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '../../ui/table';
 import { Badge } from '../../ui/badge';
@@ -86,14 +89,15 @@ export default function QueueManagement() {
     const dashboardUser = useMemo(() => storedDashboardUser(), []);
     const lockedBranchId = assignedBranchId(dashboardUser);
     const branchFilterLocked = isBranchSelectionLocked(dashboardUser);
-    const [queue, setQueue] = useState([]);
+    const queueResource = useSectionResource(`queue-management:${dashboardUser?.id || dashboardUser?.user_id || ''}:${lockedBranchId || ''}`,
+        ({ signal }) => fetchQueuesService({ signal }), { initialData: [] });
+    const { data: queue, updateData: setQueue, retry: fetchQueues, loading } = queueResource;
     const [expandedRows, setExpandedRows] = useState(new Set());
     const [searchTerm, setSearchTerm] = useState('');
     const [priorityFilter, setPriorityFilter] = useState('all');
     const [serviceFilter, setServiceFilter] = useState('all');
     const [branchFilter, setBranchFilter] = useState(() => branchFilterLocked && lockedBranchId ? lockedBranchId : 'all');
     const [branches, setBranches] = useState([]);
-    const [loading, setLoading] = useState(true);
     const [viewingImage, setViewingImage] = useState(null);
     const [veterinarians, setVeterinarians] = useState([]);
     const [selectedVetByQueue, setSelectedVetByQueue] = useState({});
@@ -101,20 +105,6 @@ export default function QueueManagement() {
     const [updatingQueueId, setUpdatingQueueId] = useState(null);
     const [queueToCancel, setQueueToCancel] = useState(null);
 
-    const fetchQueues = async () => {
-        try {
-            const data = await fetchQueuesService();
-            if (Array.isArray(data)) {
-                setQueue(data);
-            }
-        } catch (error) {
-            console.error('Error fetching queues:', error);
-        } finally {
-            setLoading(false);
-        }
-    };
-
-    useAutoRefresh(fetchQueues);
 
     useAutoRefresh(async () => {
         try {
@@ -189,6 +179,7 @@ export default function QueueManagement() {
     };
 
     const updateStatus = async (id, newStatus, reason = '') => {
+        if (queueResource.error) { toast.error('Refresh the queue before changing a visit.'); return false; }
         setUpdatingQueueId(id);
 
         try {
@@ -260,6 +251,7 @@ export default function QueueManagement() {
         reason = 'Assigned from queue management',
         successMessage = 'Queue assigned. It will enter the veterinarian My List when the physical examination starts.'
     ) => {
+        if (queueResource.error) return toast.error('Refresh the queue before assigning a veterinarian.');
         const vet = veterinarians.find(item => getVetId(item) === String(veterinarianUserId));
         const veterinarianName = vet ? getVetName(vet) : '';
         setAssigningQueueId(queueId);
@@ -426,9 +418,11 @@ export default function QueueManagement() {
                 layout="stacked"
                 meta={(
                     <div className="flex flex-wrap items-center gap-3 text-xs font-bold text-slate-600 dark:text-slate-300">
+                        {queueResource.error ? <span>Queue counts unavailable</span> : <>
                         <span><span className="text-blue-700 dark:text-blue-300">{activeCount}</span> active</span>
                         <span><span className="text-emerald-700 dark:text-emerald-300">{completedCount}</span> completed</span>
                         <span><span className="text-rose-700 dark:text-rose-300">{cancelledCount}</span> cancelled</span>
+                        </>}
                     </div>
                 )}
                 actions={<AddQueueDialog onAddToQueue={fetchQueues} />}
@@ -486,7 +480,8 @@ export default function QueueManagement() {
                 )}
             />
 
-            <section
+            <ResourceSection resource={queueResource} title="Queue">{() => (<>
+            <ErrorBoundary scope="section" title="This section could not be displayed">{() => (<section
                 aria-labelledby="active-queue-heading"
                 className="overflow-hidden rounded-xl border border-slate-200 bg-white shadow-sm dark:border-slate-800 dark:bg-slate-900"
             >
@@ -725,9 +720,9 @@ export default function QueueManagement() {
                         })}
                     </TableBody>
                 </Table>
-            </section>
+            </section>)}</ErrorBoundary>
 
-            <section
+            <ErrorBoundary scope="section" title="This section could not be displayed">{() => (<section
                 aria-labelledby="completed-queue-heading"
                 className="overflow-hidden rounded-xl border border-slate-200 bg-white shadow-sm dark:border-slate-800 dark:bg-slate-900"
             >
@@ -787,7 +782,9 @@ export default function QueueManagement() {
                         ))}
                     </TableBody>
                 </Table>
-            </section>
+            </section>)}</ErrorBoundary>
+
+            </>)}</ResourceSection>
 
             <Dialog
                 open={Boolean(queueToCancel)}

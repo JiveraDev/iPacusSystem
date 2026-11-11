@@ -1,3 +1,4 @@
+import ErrorBoundary from './ErrorBoundary.jsx';
 import PropTypes from 'prop-types';
 import { ArrowUpRight, Clock3, DoorOpen, Loader2, LockKeyhole, PawPrint } from 'lucide-react';
 
@@ -59,7 +60,7 @@ export default function BoardingRoomAvailability({
                 let availableRemaining = available;
 
                 return (
-                    <section key={room.roomType || `${room.type || 'hotel'}-${size}`} className="min-w-0">
+                    <ErrorBoundary key={room.roomType || `${room.type || 'hotel'}-${size}`} scope="section" title="This section could not be displayed">{() => (<section key={room.roomType || `${room.type || 'hotel'}-${size}`} className="min-w-0">
                         <div className="mb-3 flex flex-wrap items-start justify-between gap-2">
                             <div className="min-w-0">
                                 <h4 className="text-sm font-semibold text-slate-900 dark:text-slate-100">{room.label}</h4>
@@ -128,7 +129,7 @@ export default function BoardingRoomAvailability({
                                 {loading ? 'Checking rooms…' : availabilityUnavailable ? 'Room status could not be loaded.' : 'No rooms configured.'}
                             </p>
                         )}
-                    </section>
+                    </section>)}</ErrorBoundary>
                 );
             })}
         </div>

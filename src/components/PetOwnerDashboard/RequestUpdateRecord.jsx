@@ -1,3 +1,4 @@
+import ErrorBoundary from '../shared/ErrorBoundary.jsx';
 import { useEffect, useState } from "react";
 import { useNavigate, useParams } from "../dashboardRouter.jsx";
 import { Card, CardContent, CardHeader, CardTitle } from "../../ui/card";
@@ -149,7 +150,7 @@ export default function RequestUpdateRecord() {
           Back to Pet Profile
         </Button>
 
-        <Card className="border-green-200">
+        <ErrorBoundary scope="section" title="This section could not be displayed">{() => (<Card className="border-green-200">
           <CardContent className="pt-6 text-center py-12">
             <CheckCircle2 className="h-16 w-16 text-green-600 mx-auto mb-4" />
             <h3 className="font-semibold text-2xl mb-2">Request Submitted Successfully!</h3>
@@ -173,7 +174,7 @@ export default function RequestUpdateRecord() {
               </Button>
             </div>
           </CardContent>
-        </Card>
+        </Card>)}</ErrorBoundary>
       </div>
     );
   }
@@ -186,7 +187,7 @@ export default function RequestUpdateRecord() {
           Back to Pet Profile
         </Button>
 
-        <Card className="border-slate-200">
+        <ErrorBoundary scope="section" title="This section could not be displayed">{() => (<Card className="border-slate-200">
           <CardContent className="py-12 text-center">
             <X className="mx-auto mb-4 h-12 w-12 text-slate-400" />
             <h3 className="mb-2 text-2xl font-bold text-slate-900">Pet Owner Access Only</h3>
@@ -194,7 +195,7 @@ export default function RequestUpdateRecord() {
               Record update requests can only be submitted by pet owner accounts.
             </p>
           </CardContent>
-        </Card>
+        </Card>)}</ErrorBoundary>
       </div>
     );
   }
@@ -213,7 +214,7 @@ export default function RequestUpdateRecord() {
         <Button variant="ghost" onClick={() => navigate(`/dashboard/my-pets/${petId}`)}>
           <ArrowLeft className="mr-2 size-4" /> Back to Pet Profile
         </Button>
-        <Card className="border-blue-200">
+        <ErrorBoundary scope="section" title="This section could not be displayed">{() => (<Card className="border-blue-200">
           <CardContent className="py-10 text-center">
             <AlertCircle className="mx-auto mb-4 size-12 text-[#155dfc]" />
             <h1 className="text-2xl font-black text-slate-950">Update request already in progress</h1>
@@ -224,7 +225,7 @@ export default function RequestUpdateRecord() {
               {activeRequest.shortRequestNumber || `RUR-${String(activeRequest.requestId || 0).padStart(5, "0")}`} · {String(activeRequest.status || "in progress").replaceAll("_", " ")}
             </div>
           </CardContent>
-        </Card>
+        </Card>)}</ErrorBoundary>
       </div>
     );
   }
@@ -242,7 +243,7 @@ export default function RequestUpdateRecord() {
         )}
       />
 
-      <Card className="border-blue-200">
+      <ErrorBoundary scope="section" title="This section could not be displayed">{() => (<Card className="border-blue-200">
         <CardHeader className="bg-blue-50">
           <CardTitle>Service Fee</CardTitle>
         </CardHeader>
@@ -257,9 +258,9 @@ export default function RequestUpdateRecord() {
             <p className="text-2xl font-bold text-blue-600">PHP {convenienceFee.toLocaleString()}</p>
           </div>
         </CardContent>
-      </Card>
+      </Card>)}</ErrorBoundary>
 
-      <Card className="border-slate-200">
+      <ErrorBoundary scope="section" title="This section could not be displayed">{() => (<Card className="border-slate-200">
         <CardContent className="pt-6">
           <div className="flex items-start gap-3">
             <span className="flex size-10 shrink-0 items-center justify-center rounded-full bg-blue-50 text-[#155dfc]">
@@ -271,7 +272,7 @@ export default function RequestUpdateRecord() {
             </div>
           </div>
         </CardContent>
-      </Card>
+      </Card>)}</ErrorBoundary>
 
       <form onSubmit={handleSubmit} noValidate className="space-y-6">
         {errorMessage && (
@@ -281,7 +282,7 @@ export default function RequestUpdateRecord() {
           </div>
         )}
 
-        <Card>
+        <ErrorBoundary scope="section" title="This section could not be displayed">{() => (<Card>
           <CardHeader>
             <CardTitle>Select Payment Method</CardTitle>
           </CardHeader>
@@ -316,12 +317,12 @@ export default function RequestUpdateRecord() {
               </div>
             )}
           </CardContent>
-        </Card>
+        </Card>)}</ErrorBoundary>
 
         {selectedPaymentMethod && (
           <>
             {selectedQrUrl && (
-              <Card>
+              <ErrorBoundary scope="section" title="This section could not be displayed">{() => (<Card>
                 <CardHeader>
                   <CardTitle>Scan QR Code</CardTitle>
                 </CardHeader>
@@ -347,10 +348,10 @@ export default function RequestUpdateRecord() {
                     </div>
                   </div>
                 </CardContent>
-              </Card>
+              </Card>)}</ErrorBoundary>
             )}
 
-            <Card>
+            <ErrorBoundary scope="section" title="This section could not be displayed">{() => (<Card>
               <CardHeader>
                 <CardTitle>Upload Payment Proof</CardTitle>
               </CardHeader>
@@ -393,9 +394,9 @@ export default function RequestUpdateRecord() {
                   </div>
                 </div>
               </CardContent>
-            </Card>
+            </Card>)}</ErrorBoundary>
 
-            <Card>
+            <ErrorBoundary scope="section" title="This section could not be displayed">{() => (<Card>
               <CardHeader>
                 <CardTitle>Purpose</CardTitle>
               </CardHeader>
@@ -411,9 +412,9 @@ export default function RequestUpdateRecord() {
                   Describe the changes or updates you'd like to make to your pet's medical records.
                 </p>
               </CardContent>
-            </Card>
+            </Card>)}</ErrorBoundary>
 
-            <Card className="border-amber-200 bg-amber-50">
+            <ErrorBoundary scope="section" title="This section could not be displayed">{() => (<Card className="border-amber-200 bg-amber-50">
               <CardContent className="pt-6">
                 <div className="flex gap-3">
                   <AlertCircle className="h-5 w-5 text-amber-600 flex-shrink-0 mt-0.5" />
@@ -428,7 +429,7 @@ export default function RequestUpdateRecord() {
                   </div>
                 </div>
               </CardContent>
-            </Card>
+            </Card>)}</ErrorBoundary>
 
             <div className="flex flex-col-reverse gap-4 sm:flex-row">
               <Button

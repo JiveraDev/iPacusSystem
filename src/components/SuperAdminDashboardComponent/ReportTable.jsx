@@ -1,3 +1,4 @@
+import ErrorBoundary from '../shared/ErrorBoundary.jsx';
 import { Fragment } from 'react';
 import { ClipboardList } from 'lucide-react';
 import { formatReportValue, reportColumnAlignment, reportColumnFormat, reportColumnWidths, reportRowDetails, reportSecondaryFields } from '../../lib/reportPresentation';
@@ -15,7 +16,11 @@ function statusClass(value) {
     return 'text-slate-700 dark:text-slate-200 print:text-slate-700';
 }
 
-export default function ReportTable({ columns = [], rows = [], maxRows, compact = false, footer, rowDetails = [], emptyMessage = 'No matching records are available.', title }) {
+export default function ReportTable(props) {
+    return <ErrorBoundary scope="report-table" title="This table could not be displayed"><ReportTableContent {...props} /></ErrorBoundary>;
+}
+
+function ReportTableContent({ columns = [], rows = [], maxRows, compact = false, footer, rowDetails = [], emptyMessage = 'No matching records are available.', title }) {
     const visibleRows = Number.isFinite(maxRows) ? rows.slice(0, maxRows) : rows;
     const widths = reportColumnWidths(columns);
     const hasFooter = footer && typeof footer === 'object' && Object.keys(footer).length > 0;
@@ -31,7 +36,7 @@ export default function ReportTable({ columns = [], rows = [], maxRows, compact 
 
     return (
         <div className="report-table-wrap overflow-x-auto rounded-lg border border-slate-200 dark:border-slate-700 print:rounded-none print:border-slate-200">
-            <table className="report-data-table w-full border-collapse text-sm" style={{ minWidth: columns.length > 3 ? `${columns.length * (compact ? 90 : 105)}px` : undefined }}>
+            <ErrorBoundary scope="section" title="This section could not be displayed">{() => (<table className="report-data-table w-full border-collapse text-sm" style={{ minWidth: columns.length > 3 ? `${columns.length * (compact ? 90 : 105)}px` : undefined }}>
                 {title ? <caption className="sr-only">{title}</caption> : null}
                 <colgroup>
                     {columns.map((column, index) => <col key={column.key} style={{ width: `${widths[index] * 100}%` }} />)}
@@ -105,7 +110,7 @@ export default function ReportTable({ columns = [], rows = [], maxRows, compact 
                         </tr>
                     </tfoot>
                 ) : null}
-            </table>
+            </table>)}</ErrorBoundary>
             {visibleRows.length < rows.length ? <p className="border-t border-slate-200 px-3 py-2 text-xs text-slate-500 dark:border-slate-700 dark:text-slate-400">Showing {visibleRows.length} of {rows.length} records.</p> : null}
         </div>
     );

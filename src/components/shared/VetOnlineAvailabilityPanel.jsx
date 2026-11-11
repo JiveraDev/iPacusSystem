@@ -1,3 +1,4 @@
+import ErrorBoundary from './ErrorBoundary.jsx';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { AlertCircle, Clock3, Loader2, Video } from 'lucide-react';
 import { Button } from '../../ui/button';
@@ -106,7 +107,7 @@ export default function VetOnlineAvailabilityPanel({ veterinarianId, disabled = 
     const error = saveError || loadError;
 
     return (
-        <section className="w-full max-w-5xl space-y-4 border-t border-slate-200 pt-5 dark:border-slate-700" aria-label="Online consultation availability">
+        <ErrorBoundary scope="section" title="Online consultation availability could not be displayed">{() => (<section className="w-full max-w-5xl space-y-4 border-t border-slate-200 pt-5 dark:border-slate-700" aria-label="Online consultation availability">
             <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
                 <div className="min-w-0">
                     <h3 className="flex items-center gap-2 text-base font-bold text-slate-900 dark:text-slate-100"><Video className="size-4 text-blue-600 dark:text-blue-300" />Online Consultation Availability</h3>
@@ -172,6 +173,6 @@ export default function VetOnlineAvailabilityPanel({ veterinarianId, disabled = 
                     </div>
                 </Tabs>
             )}
-        </section>
+        </section>)}</ErrorBoundary>
     );
 }

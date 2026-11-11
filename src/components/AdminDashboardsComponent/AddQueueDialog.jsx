@@ -1,3 +1,4 @@
+import ErrorBoundary from '../shared/ErrorBoundary.jsx';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import {
     AlertTriangle,
@@ -224,7 +225,7 @@ export default function AddQueueDialog({ onAddToQueue }) {
 
                 <div className="space-y-5 px-4 py-5 sm:px-6">
                     <div className="grid gap-5 lg:grid-cols-2">
-                        <section className="space-y-4" aria-labelledby="queue-patient-heading">
+                        <ErrorBoundary scope="section" title="This section could not be displayed">{() => (<section className="space-y-4" aria-labelledby="queue-patient-heading">
                             <div className="flex items-center gap-2 border-b border-slate-200 pb-2 dark:border-slate-700">
                                 <PawPrint className="size-4 text-slate-500 dark:text-slate-400" />
                                 <h3 id="queue-patient-heading" className="text-sm font-black text-slate-900 dark:text-white">
@@ -315,9 +316,9 @@ export default function AddQueueDialog({ onAddToQueue }) {
                                     Urgent entries send this information to all active veterinarians.
                                 </p>
                             </div>
-                        </section>
+                        </section>)}</ErrorBoundary>
 
-                        <section className="space-y-4" aria-labelledby="queue-visit-heading">
+                        <ErrorBoundary scope="section" title="This section could not be displayed">{() => (<section className="space-y-4" aria-labelledby="queue-visit-heading">
                             <div className="flex items-center gap-2 border-b border-slate-200 pb-2 dark:border-slate-700">
                                 <Stethoscope className="size-4 text-slate-500 dark:text-slate-400" />
                                 <h3 id="queue-visit-heading" className="text-sm font-black text-slate-900 dark:text-white">
@@ -410,7 +411,7 @@ export default function AddQueueDialog({ onAddToQueue }) {
                                     </div>
                                 </div>
                             </div>
-                        </section>
+                        </section>)}</ErrorBoundary>
                     </div>
 
                     {bookingConflict && (

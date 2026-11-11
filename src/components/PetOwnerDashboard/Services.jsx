@@ -1,3 +1,4 @@
+import ErrorBoundary from '../shared/ErrorBoundary.jsx';
 import {
     Activity,
     ArrowUpRight,
@@ -122,7 +123,7 @@ export default function Services({ user }) {
                 actions={canViewPersonalBookings ? <MyBookings user={user} /> : null}
             />
 
-            <section aria-labelledby="services-heading">
+            <ErrorBoundary scope="section" title="This section could not be displayed">{() => (<section aria-labelledby="services-heading">
                 <div className="mb-4">
                     <p className="text-xs font-black uppercase tracking-[0.14em] text-blue-700 dark:text-blue-300">Care directory</p>
                     <h2 id="services-heading" className="mt-1 text-lg font-black text-slate-950 dark:text-white">Select a service</h2>
@@ -166,9 +167,9 @@ export default function Services({ user }) {
                         );
                     })}
                 </div>
-            </section>
+            </section>)}</ErrorBoundary>
 
-            <Card className="border-blue-100 bg-blue-50/60 shadow-none dark:border-blue-900/60 dark:bg-blue-950/20">
+            <ErrorBoundary scope="section" title="This section could not be displayed">{() => (<Card className="border-blue-100 bg-blue-50/60 shadow-none dark:border-blue-900/60 dark:bg-blue-950/20">
                 <CardHeader className="pb-2">
                     <CardTitle className="flex items-center gap-2 text-base font-black text-slate-950 dark:text-white">
                         <Info className="size-4 text-blue-700 dark:text-blue-300" aria-hidden="true" />
@@ -187,7 +188,7 @@ export default function Services({ user }) {
                         ))}
                     </ul>
                 </CardContent>
-            </Card>
+            </Card>)}</ErrorBoundary>
         </div>
     );
 }

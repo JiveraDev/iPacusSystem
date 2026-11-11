@@ -1,3 +1,4 @@
+import ErrorBoundary from '../shared/ErrorBoundary.jsx';
 import {
     Activity,
     CalendarDays,
@@ -63,7 +64,11 @@ function kpiVisual(label) {
     return { icon: Activity, className: 'bg-slate-100 text-slate-700 dark:bg-slate-800 dark:text-slate-200' };
 }
 
-export default function ReportKpiCard({ label, value, format, direction = 'neutral', percentageChange, comparisonLabel, comparisonText, onSelectChart, targetTitle, compact = false, isSelected = false }) {
+export default function ReportKpiCard(props) {
+    return <ErrorBoundary scope="report-metric" title="This metric could not be displayed"><ReportKpiContent {...props} /></ErrorBoundary>;
+}
+
+function ReportKpiContent({ label, value, format, direction = 'neutral', percentageChange, comparisonLabel, comparisonText, onSelectChart, targetTitle, compact = false, isSelected = false }) {
     const trend = trendConfig(direction);
     const visual = kpiVisual(label);
     const TrendIcon = trend.icon;
@@ -84,7 +89,7 @@ export default function ReportKpiCard({ label, value, format, direction = 'neutr
     };
 
     return (
-        <Card
+        <ErrorBoundary scope="section" title="This section could not be displayed">{() => (<Card
             petHover={false}
             role={isInteractive ? 'button' : undefined}
             tabIndex={isInteractive ? 0 : undefined}
@@ -108,6 +113,6 @@ export default function ReportKpiCard({ label, value, format, direction = 'neutr
                     <span>{supportingText}</span>
                 </p>
             </CardContent>
-        </Card>
+        </Card>)}</ErrorBoundary>
     );
 }

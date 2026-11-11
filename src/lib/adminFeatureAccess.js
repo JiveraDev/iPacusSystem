@@ -7,6 +7,7 @@ export const ADMIN_FEATURE_GROUPS = [
             { key: 'pets', label: 'Pets Directory', description: 'Review linked pets and their clinic information.' },
             { key: 'pet_register', label: 'Pet Registration', description: 'Register pets and update pet profiles.' },
             { key: 'bookings', label: 'Booking Management', description: 'Review, schedule, approve, and update bookings.' },
+            { key: 'pet_intake', label: 'Pet Intake', description: 'Record physical examinations and prepare patients for diagnosis.' },
             { key: 'record_requests', label: 'Record Update Requests', description: 'Review owner requests and payment proofs.' },
         ],
     },
@@ -51,6 +52,11 @@ export function normalizeAdminFeaturePermissions(value) {
         }
     });
 
+    // Before Pet Intake had its own switch, it followed Queue access.
+    if (!Object.prototype.hasOwnProperty.call(source, 'pet_intake')) {
+        defaults.pet_intake = defaults.queue;
+    }
+
     return defaults;
 }
 
@@ -66,7 +72,7 @@ export function getAdminFeatureForDashboardPath(path) {
     if (normalized.startsWith('/dashboard/boarding')) return 'boarding';
     if (normalized.startsWith('/dashboard/grooming')) return 'grooming';
     if (normalized.startsWith('/dashboard/queue')) return 'queue';
-    if (normalized.startsWith('/dashboard/pet-intake') || normalized.startsWith('/dashboard/patient-intake')) return 'queue';
+    if (normalized.startsWith('/dashboard/pet-intake') || normalized.startsWith('/dashboard/patient-intake')) return 'pet_intake';
     if (normalized.startsWith('/dashboard/pos')) return 'pos';
     if (normalized.startsWith('/dashboard/inventory')) return 'inventory';
     if (normalized.startsWith('/dashboard/consent')) return 'consent';

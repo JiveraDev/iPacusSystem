@@ -1,3 +1,4 @@
+import ErrorBoundary from '../shared/ErrorBoundary.jsx';
 import { useNavigate } from "../dashboardRouter.jsx";
 import { Card, CardContent } from "../../ui/card";
 import { Button } from "../../ui/button";
@@ -215,7 +216,7 @@ export default function Consult() {
       {loadError && <div role="status" className="flex flex-wrap items-center justify-between gap-3 rounded-lg border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800 dark:border-amber-900 dark:bg-amber-950/30 dark:text-amber-200"><p>{loadError}</p><Button variant="outline" size="sm" onClick={fetchConsultations}>Retry</Button></div>}
 
       {activeConsultation && (
-        <section
+        <ErrorBoundary scope="section" title="Active online consultation could not be displayed">{() => (<section
           className="flex flex-col gap-4 rounded-xl border border-emerald-200 bg-emerald-50 p-4 dark:border-emerald-900 dark:bg-emerald-950/35 sm:flex-row sm:items-center sm:justify-between"
           aria-label="Active online consultation"
           aria-live="polite"
@@ -246,13 +247,13 @@ export default function Consult() {
               : <Video className="size-4" />}
             {joiningConsultationId === activeConsultation.booking.id ? "Joining..." : "Join call now"}
           </Button>
-        </section>
+        </section>)}</ErrorBoundary>
       )}
 
-      <section className="care-consult-overview" aria-label="Consultation overview">
+      <ErrorBoundary scope="section" title="Consultation overview could not be displayed">{() => (<section className="care-consult-overview" aria-label="Consultation overview">
         <div><h2>Care from wherever you are</h2><p>Select your pet and an available veterinary schedule, complete consent and payment, then return here to join your call.<br />Consultation fee: <strong>{servicePrices.onlineConsultation}</strong></p></div>
         <div className="text-right"><p className="text-xs">Recent bookings</p><p className="text-2xl font-semibold tabular-nums text-slate-900 dark:text-white">{upcomingConsultations.length}</p></div>
-      </section>
+      </section>)}</ErrorBoundary>
 
       {upcomingConsultations.length > 0 && (
         <div>
@@ -270,7 +271,7 @@ export default function Consult() {
               const isJoining = joiningConsultationId === consultation.id;
 
               return (
-                <Card key={consultation.id}>
+                <ErrorBoundary key={consultation.id} scope="section" title="This section could not be displayed">{() => (<Card key={consultation.id}>
                   <CardContent className="pt-6">
                     <div className="flex flex-col items-start justify-between gap-4 sm:flex-row">
                       <div className="min-w-0 flex-1 space-y-2">
@@ -326,7 +327,7 @@ export default function Consult() {
                       </div>
                     </div>
                   </CardContent>
-                </Card>
+                </Card>)}</ErrorBoundary>
               );
             })}
           </div>
@@ -334,7 +335,7 @@ export default function Consult() {
       )}
 
       {upcomingConsultations.length === 0 && !loadError && (
-        <Card>
+        <ErrorBoundary scope="section" title="This section could not be displayed">{() => (<Card>
           <CardContent className="pt-6 text-center py-12">
             <Video className="h-16 w-16 text-gray-400 mx-auto mb-4" />
             <h3 className="font-semibold text-lg mb-2">No Recent Consultations</h3>
@@ -343,7 +344,7 @@ export default function Consult() {
               Book Your First Consultation
             </Button>
           </CardContent>
-        </Card>
+        </Card>)}</ErrorBoundary>
       )}
     </div>
   );

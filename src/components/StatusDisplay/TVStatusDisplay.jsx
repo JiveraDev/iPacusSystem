@@ -1,7 +1,7 @@
+import ErrorBoundary from '../shared/ErrorBoundary.jsx';
 import { createElement, useCallback, useEffect, useMemo, useState } from 'react';
 import {
     Activity,
-    AlertTriangle,
     Building2,
     CalendarDays,
     CheckCircle2,
@@ -17,7 +17,8 @@ import {
 } from 'lucide-react';
 
 import logo from '../../assets/circular_logo.png';
-import { useAutoRefresh } from '../../hooks/useAutoRefresh';
+import { useSectionResource } from '../../hooks/useSectionResource.js';
+import SectionErrorState from '../shared/SectionErrorState.jsx';
 import { normalizeVisibleBranchCode } from '../../services/branchService';
 import { fetchStatusDisplay } from '../../services/statusDisplayService';
 
@@ -260,18 +261,23 @@ function PaymentCard({ item, index }) {
 
 function StatusPanel({ children, className = '' }) {
     return (
-        <section className={`tv-board-enter min-h-0 overflow-hidden rounded-2xl border border-slate-200 bg-slate-50/70 shadow-sm dark:border-slate-700 dark:bg-slate-800/60 ${className}`}>
+        <ErrorBoundary scope="section" title="This section could not be displayed">{() => (<section className={`tv-board-enter min-h-0 overflow-hidden rounded-2xl border border-slate-200 bg-slate-50/70 shadow-sm dark:border-slate-700 dark:bg-slate-800/60 ${className}`}>
             <div className="flex h-full min-h-0 flex-col">{children}</div>
-        </section>
+        </section>)}</ErrorBoundary>
     );
 }
 
 export default function TVStatusDisplay() {
     const [branchCode, setBranchCode] = useState(getInitialBranchCode);
     const [branches, setBranches] = useState([]);
-    const [statusData, setStatusData] = useState(null);
-    const [error, setError] = useState('');
-    const [isInitialLoading, setIsInitialLoading] = useState(true);
+    const statusResource = useSectionResource(`status-display:${branchCode}`,
+        ({ signal }) => fetchStatusDisplay({ branch: branchCode, signal }), {
+            intervalMs: 8000,
+            onSuccess: data => { if (data.branches.length) setBranches(data.branches); },
+        });
+    const statusData = statusResource.data;
+    const error = statusResource.error;
+    const isInitialLoading = statusResource.loading;
     const [clock, setClock] = useState(() => new Date());
 
     useEffect(() => {
@@ -283,26 +289,6 @@ export default function TVStatusDisplay() {
         return () => window.clearInterval(timerId);
     }, []);
 
-    const loadStatus = useCallback(async ({ isAutoRefresh = false } = {}) => {
-        try {
-            const data = await fetchStatusDisplay({ branch: branchCode });
-            setStatusData(data);
-            if (Array.isArray(data?.branches) && data.branches.length > 0) {
-                setBranches(data.branches);
-            }
-            setError('');
-        } catch (loadError) {
-            setError(loadError.message || 'Unable to load status display.');
-        } finally {
-            if (!isAutoRefresh) setIsInitialLoading(false);
-        }
-    }, [branchCode]);
-
-    useAutoRefresh(loadStatus, {
-        intervalMs: Math.max(4000, Number(statusData?.refreshSeconds || 8) * 1000),
-        refreshKey: `${branchCode}:${statusData?.refreshSeconds || 'initial'}`,
-    });
-
     const handleBranchChange = useCallback((event) => {
         const nextBranchCode = normalizeVisibleBranchCode(event.target.value);
         if (!nextBranchCode || nextBranchCode === branchCode) return;
@@ -311,9 +297,6 @@ export default function TVStatusDisplay() {
         nextUrl.searchParams.set('branch', nextBranchCode);
         window.history.replaceState({}, '', `${nextUrl.pathname}${nextUrl.search}${nextUrl.hash}`);
         setBranchCode(nextBranchCode);
-        setStatusData(null);
-        setError('');
-        setIsInitialLoading(true);
     }, [branchCode]);
 
     const sections = statusData?.sections || {};
@@ -384,7 +367,7 @@ export default function TVStatusDisplay() {
                 </header>
 
                 <main className="mx-auto flex w-full max-w-[2400px] min-h-0 flex-1 flex-col gap-3 p-3 sm:p-4 xl:px-6 xl:py-4">
-                    <section className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-slate-200 bg-white px-4 py-2.5 shadow-sm dark:border-slate-700 dark:bg-slate-900" aria-label="Selected clinic location">
+                    <ErrorBoundary scope="section" title="Selected clinic location could not be displayed">{() => (<section className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-slate-200 bg-white px-4 py-2.5 shadow-sm dark:border-slate-700 dark:bg-slate-900" aria-label="Selected clinic location">
                         <div className="flex min-w-0 items-center gap-3">
                             <span className="flex size-9 shrink-0 items-center justify-center rounded-xl bg-blue-50 text-[#155dfc] dark:bg-blue-950 dark:text-blue-300"><MapPin className="size-4" aria-hidden="true" /></span>
                             <div className="min-w-0">
@@ -394,29 +377,26 @@ export default function TVStatusDisplay() {
                         </div>
                         <div className="flex items-center gap-2 text-[9px] font-black uppercase tracking-[0.14em] text-emerald-700 dark:text-emerald-300">
                             <span className="relative flex size-2.5" aria-hidden="true"><span className="absolute inline-flex size-full animate-ping rounded-full bg-emerald-400 opacity-40" /><span className="relative inline-flex size-2.5 rounded-full bg-emerald-500" /></span>
-                            Live · automatic refresh
+                            {error ? 'Updates interrupted' : isInitialLoading ? 'Connecting' : 'Live · automatic refresh'}
                         </div>
-                    </section>
+                    </section>)}</ErrorBoundary>
 
                     {error ? (
-                        <div className="flex items-center gap-3 rounded-xl border border-rose-200 bg-rose-50 px-4 py-3 text-rose-800 dark:border-rose-900 dark:bg-rose-950/50 dark:text-rose-200" role="alert">
-                            <AlertTriangle className="size-5 shrink-0" aria-hidden="true" />
-                            <div><p className="text-sm font-black">Live update interrupted</p><p className="text-xs font-semibold opacity-75">{error} Existing status remains visible while reconnecting.</p></div>
-                        </div>
+                        <SectionErrorState title="Live update interrupted" error={error} stale={Boolean(statusData)} onRetry={statusResource.retry} retrying={statusResource.refreshing} />
                     ) : null}
 
                     {isInitialLoading && !statusData ? (
                         <div className="flex min-h-[58vh] flex-1 items-center justify-center rounded-2xl border border-slate-200 bg-white dark:border-slate-700 dark:bg-slate-900">
                             <div className="text-center"><span className="mx-auto flex size-14 items-center justify-center rounded-2xl bg-blue-50 text-[#155dfc] dark:bg-blue-950 dark:text-blue-300"><Activity className="size-7 animate-pulse" aria-hidden="true" /></span><p className="mt-4 text-xl font-black">Preparing the patient board</p><p className="mt-1 text-xs font-semibold text-slate-400">Connecting to today&apos;s clinic activity</p></div>
                         </div>
-                    ) : (
+                    ) : !statusData ? null : (
                         <>
-                            <section className="grid grid-cols-2 gap-2.5 lg:grid-cols-4" aria-label="Today at a glance">
+                            <ErrorBoundary scope="section" title="Today at a glance could not be displayed">{() => (<section className="grid grid-cols-2 gap-2.5 lg:grid-cols-4" aria-label="Today at a glance">
                                 <Metric icon={UsersRound} label="Waiting" value={waiting.length} detail="Walk-ins and scheduled" tone="cyan" />
                                 <Metric icon={Stethoscope} label="In care" value={nowServing.length} detail="Currently with the team" tone="blue" />
                                 <Metric icon={CreditCard} label="For payment" value={billing.length} detail="Please proceed to cashier" tone="amber" />
                                 <Metric icon={CheckCircle2} label="Completed" value={completedToday} detail="Finished today" tone="emerald" />
-                            </section>
+                            </section>)}</ErrorBoundary>
 
                             <div className="grid min-h-0 flex-1 gap-3 xl:grid-cols-12" aria-live="polite">
                                 <StatusPanel className="xl:col-span-5">

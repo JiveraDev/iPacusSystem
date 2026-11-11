@@ -1,3 +1,4 @@
+import ErrorBoundary from './ErrorBoundary.jsx';
 import { ArrowLeft } from 'lucide-react';
 import { Button } from '../../ui/button';
 import { useNotificationCenter } from '../../hooks/useNotificationCenter';
@@ -60,7 +61,7 @@ export default function NotificationsPage({ user }) {
     };
 
     return (
-        <section className="mx-auto flex w-full max-w-4xl flex-col gap-4">
+        <ErrorBoundary scope="section" title="This section could not be displayed">{() => (<section className="mx-auto flex w-full max-w-4xl flex-col gap-4">
             <DashboardPageHeader
                 title="Notifications"
                 description={unreadCount > 0 ? `${unreadCount} unread update${unreadCount === 1 ? '' : 's'}` : 'All caught up'}
@@ -98,6 +99,6 @@ export default function NotificationsPage({ user }) {
                 notificationControl={<BrowserNotificationButton user={user} />}
                 onNotificationClick={handleNotificationClick}
             />
-        </section>
+        </section>)}</ErrorBoundary>
     );
 }

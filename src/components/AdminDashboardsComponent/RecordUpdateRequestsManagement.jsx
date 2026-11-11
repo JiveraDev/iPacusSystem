@@ -1,3 +1,4 @@
+import ErrorBoundary from '../shared/ErrorBoundary.jsx';
 import { createElement, useMemo, useState } from 'react';
 import {
     Award,
@@ -373,14 +374,14 @@ export default function RecordUpdateRequestsManagement() {
                             </div>
 
                             <div className="grid gap-4 lg:grid-cols-[minmax(0,1fr)_18rem]">
-                                <section className="rounded-xl border border-slate-200 bg-white p-4">
+                                <ErrorBoundary scope="section" title="This section could not be displayed">{() => (<section className="rounded-xl border border-slate-200 bg-white p-4">
                                     <h3 className="mb-2 text-sm font-black uppercase tracking-widest text-slate-500">Requested Update</h3>
                                     <p className="whitespace-pre-wrap text-sm font-semibold leading-6 text-slate-700">
                                         {selectedRequest.requestedChanges || 'No details provided.'}
                                     </p>
-                                </section>
+                                </section>)}</ErrorBoundary>
 
-                                <section className="rounded-xl border border-slate-200 bg-white p-4">
+                                <ErrorBoundary scope="section" title="This section could not be displayed">{() => (<section className="rounded-xl border border-slate-200 bg-white p-4">
                                     <h3 className="mb-3 text-sm font-black uppercase tracking-widest text-slate-500">Payment Proof</h3>
                                     {selectedRequest.paymentProofUrl ? (
                                         <button
@@ -422,10 +423,10 @@ export default function RecordUpdateRequestsManagement() {
                                             Compare this number with the uploaded payment proof before updating the payment status.
                                         </p>
                                     </div>
-                                </section>
+                                </section>)}</ErrorBoundary>
                             </div>
 
-                            <section className="flex items-start gap-3 rounded-xl border border-blue-100 bg-blue-50/60 p-4">
+                            <ErrorBoundary scope="section" title="This section could not be displayed">{() => (<section className="flex items-start gap-3 rounded-xl border border-blue-100 bg-blue-50/60 p-4">
                                 <Award className="mt-0.5 size-5 shrink-0 text-amber-600" />
                                 <div>
                                     <h3 className="text-sm font-black text-slate-900">Certificate records included</h3>
@@ -436,7 +437,7 @@ export default function RecordUpdateRequestsManagement() {
                                         <p className="mt-1 text-xs font-black text-emerald-700">Issued: {selectedRequest.medicalCertificate.certificateNumber}</p>
                                     ) : null}
                                 </div>
-                            </section>
+                            </section>)}</ErrorBoundary>
 
                             <div className="grid gap-4 lg:grid-cols-2">
                                 <div className="space-y-2">
@@ -528,7 +529,7 @@ export default function RecordUpdateRequestsManagement() {
 
 function Stat({ icon, label, value }) {
     return (
-        <Card>
+        <ErrorBoundary scope="section" title="This section could not be displayed">{() => (<Card>
             <CardContent className="flex items-center gap-3 p-4">
                 <div className="flex size-11 items-center justify-center rounded-lg bg-blue-50 text-[#155dfc]">
                     {createElement(icon, { className: 'size-5' })}
@@ -538,7 +539,7 @@ function Stat({ icon, label, value }) {
                     <p className="text-2xl font-black text-slate-950">{value}</p>
                 </div>
             </CardContent>
-        </Card>
+        </Card>)}</ErrorBoundary>
     );
 }
 

@@ -1,3 +1,4 @@
+import ErrorBoundary from '../shared/ErrorBoundary.jsx';
 import { useEffect, useMemo, useState } from "react";
 import { useNavigate } from "../dashboardRouter.jsx";
 import { Card, CardContent } from "../../ui/card";
@@ -694,7 +695,7 @@ function CoparentRequestDialog({
 
 function EmptyPetsState({ isAdminView, navigate }) {
   return (
-    <Card className="border-2 border-dashed border-slate-200 bg-slate-50/50">
+    <ErrorBoundary scope="section" title="This section could not be displayed">{() => (<Card className="border-2 border-dashed border-slate-200 bg-slate-50/50">
       <CardContent className="pb-10 pt-10 text-center">
         <div className="mx-auto mb-6 flex h-20 w-20 items-center justify-center rounded-full bg-white shadow-sm">
           <PawPrint className="h-10 w-10 text-slate-300" />
@@ -717,29 +718,29 @@ function EmptyPetsState({ isAdminView, navigate }) {
           </Button>
         )}
       </CardContent>
-    </Card>
+    </Card>)}</ErrorBoundary>
   );
 }
 
 function DirectorySearchLoading() {
   return (
-    <Card className="border-slate-200">
+    <ErrorBoundary scope="section" title="This section could not be displayed">{() => (<Card className="border-slate-200">
       <CardContent className="flex min-h-40 items-center justify-center gap-3 py-10 text-slate-500">
         <Loader2 className="size-5 animate-spin text-[#155dfc]" />
         <p className="text-sm font-semibold">Searching pet profiles and medical history...</p>
       </CardContent>
-    </Card>
+    </Card>)}</ErrorBoundary>
   );
 }
 
 function DirectorySearchError({ message }) {
   return (
-    <Card className="border-amber-200 bg-amber-50/40">
+    <ErrorBoundary scope="section" title="This section could not be displayed">{() => (<Card className="border-amber-200 bg-amber-50/40">
       <CardContent className="flex min-h-32 items-center justify-center gap-3 py-8 text-amber-800">
         <AlertCircle className="size-5 shrink-0" />
         <p className="text-sm font-semibold">{message}</p>
       </CardContent>
-    </Card>
+    </Card>)}</ErrorBoundary>
   );
 }
 
@@ -776,7 +777,7 @@ function HighlightedText({ text, query }) {
 
 function PetClinicalSearchResults({ pets, query, onOpenPet, onOpenMatch }) {
   return (
-    <section className="overflow-hidden rounded-[14px] border border-slate-200 bg-white shadow-sm" aria-label="Pet health search results">
+    <ErrorBoundary scope="section" title="Pet health search results could not be displayed">{() => (<section className="overflow-hidden rounded-[14px] border border-slate-200 bg-white shadow-sm" aria-label="Pet health search results">
       <div className="divide-y divide-slate-100">
         {pets.map((pet) => (
           <article key={petKey(pet)} className="p-4 sm:p-5">
@@ -828,13 +829,13 @@ function PetClinicalSearchResults({ pets, query, onOpenPet, onOpenMatch }) {
           </article>
         ))}
       </div>
-    </section>
+    </section>)}</ErrorBoundary>
   );
 }
 
 function NoDirectoryMatches({ clinical = false }) {
   return (
-    <Card className="border-2 border-dashed border-slate-200 bg-slate-50/50">
+    <ErrorBoundary scope="section" title="This section could not be displayed">{() => (<Card className="border-2 border-dashed border-slate-200 bg-slate-50/50">
       <CardContent className="py-10 text-center">
         <PawPrint className="mx-auto mb-3 size-10 text-slate-300" />
         <h3 className="mb-1 text-lg font-bold text-slate-900">No matching pets found</h3>
@@ -844,7 +845,7 @@ function NoDirectoryMatches({ clinical = false }) {
             : "Try another pet name, owner, species, breed, status, or clinic ID."}
         </p>
       </CardContent>
-    </Card>
+    </Card>)}</ErrorBoundary>
   );
 }
 
@@ -920,7 +921,7 @@ function PetDirectoryTable({ pets, onOpenPet, canManageArchives, onToggleArchive
 
 function PetCard({ pet, compact, onOpen, canManageArchives = false, onToggleArchive }) {
   return (
-    <Card
+    <ErrorBoundary scope="section" title="This section could not be displayed">{() => (<Card
       petHover="always"
       petKind={petCardHoverKind(pet)}
       petAccent={petCardHoverAccent(pet)}
@@ -1024,13 +1025,13 @@ function PetCard({ pet, compact, onOpen, canManageArchives = false, onToggleArch
           {pet.isArchived && <Badge className="mt-2 border-0 bg-slate-100 text-slate-600">Archived</Badge>}
         </div>
       </CardContent>
-    </Card>
+    </Card>)}</ErrorBoundary>
   );
 }
 
 function LinkPetCard({ navigate }) {
   return (
-    <Card
+    <ErrorBoundary scope="section" title="This section could not be displayed">{() => (<Card
       petHover="always"
       petKind="bunny"
       petAccent="sun"
@@ -1046,6 +1047,6 @@ function LinkPetCard({ navigate }) {
           <p className="mt-1 text-sm text-slate-400">Register another clinic ID</p>
         </div>
       </CardContent>
-    </Card>
+    </Card>)}</ErrorBoundary>
   );
 }

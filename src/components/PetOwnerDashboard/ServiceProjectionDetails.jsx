@@ -1,3 +1,4 @@
+import ErrorBoundary from '../shared/ErrorBoundary.jsx';
 import { Card, CardContent } from "../../ui/card";
 import { cn } from "../../ui/utils";
 
@@ -6,7 +7,7 @@ export function ServiceProjectionDetails({ detail, children }) {
 
     return (
         <div className="space-y-5 text-sm text-slate-700 dark:text-slate-300">
-            <section>
+            <ErrorBoundary scope="section" title="This section could not be displayed">{() => (<section>
                 <h4 className="mb-2 text-xs font-black uppercase tracking-[0.1em] text-slate-500 dark:text-slate-400">
                     {detail?.includedTitle || "What's Included:"}
                 </h4>
@@ -18,15 +19,15 @@ export function ServiceProjectionDetails({ detail, children }) {
                         </li>
                     ))}
                 </ul>
-            </section>
-            <section className="rounded-lg border border-slate-200 bg-slate-50/70 p-3 dark:border-slate-700 dark:bg-slate-950/30">
+            </section>)}</ErrorBoundary>
+            <ErrorBoundary scope="section" title="This section could not be displayed">{() => (<section className="rounded-lg border border-slate-200 bg-slate-50/70 p-3 dark:border-slate-700 dark:bg-slate-950/30">
                 <h4 className="text-xs font-black uppercase tracking-[0.1em] text-slate-500 dark:text-slate-400">Duration</h4>
                 <p className="mt-1 font-semibold text-slate-900 dark:text-slate-100">{detail?.duration || "To be announced"}</p>
-            </section>
-            <section>
+            </section>)}</ErrorBoundary>
+            <ErrorBoundary scope="section" title="This section could not be displayed">{() => (<section>
                 <h4 className="mb-2 text-xs font-black uppercase tracking-[0.1em] text-slate-500 dark:text-slate-400">Price</h4>
                 {children}
-            </section>
+            </section>)}</ErrorBoundary>
         </div>
     );
 }
@@ -37,7 +38,7 @@ export function ServiceProjectionNote({ detail, className = "" }) {
     }
 
     return (
-        <Card className={cn(
+        <ErrorBoundary scope="section" title="This section could not be displayed">{() => (<Card className={cn(
             "border-blue-100 bg-blue-50/70 shadow-none dark:border-blue-900/60 dark:bg-blue-950/20",
             className
         )}>
@@ -47,6 +48,6 @@ export function ServiceProjectionNote({ detail, className = "" }) {
                     {detail.reviewNote}
                 </p>
             </CardContent>
-        </Card>
+        </Card>)}</ErrorBoundary>
     );
 }

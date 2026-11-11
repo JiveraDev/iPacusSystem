@@ -1,3 +1,4 @@
+import ErrorBoundary from './ErrorBoundary.jsx';
 import { ArrowUpRight, CalendarDays, Coffee, RefreshCw, Stethoscope } from 'lucide-react';
 
 // Public status follows clinic hours; the admin switch remains a separate daily setting.
@@ -40,7 +41,7 @@ export default function VetPresenceDisplay({ presence, error = false, variant = 
     }
 
     return (
-        <section aria-label="Today's clinic update" className="rounded-lg border border-slate-200 bg-white p-4 dark:border-slate-700 dark:bg-slate-900 sm:p-5">
+        <ErrorBoundary scope="section" title="Today's clinic update could not be displayed">{() => (<section aria-label="Today's clinic update" className="rounded-lg border border-slate-200 bg-white p-4 dark:border-slate-700 dark:bg-slate-900 sm:p-5">
             <div className="grid gap-5 xl:grid-cols-[minmax(0,1fr)_auto] xl:items-center">
                 <div className="flex min-w-0 items-start gap-3 sm:gap-4">
                     <span aria-hidden="true" className={`flex size-11 shrink-0 items-center justify-center rounded-xl ${iconTone}`}><Stethoscope className="size-5" /></span>
@@ -62,6 +63,6 @@ export default function VetPresenceDisplay({ presence, error = false, variant = 
                     )}
                 </div>
             </div>
-        </section>
+        </section>)}</ErrorBoundary>
     );
 }

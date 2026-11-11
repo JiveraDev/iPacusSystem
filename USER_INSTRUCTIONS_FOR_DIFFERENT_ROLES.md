@@ -1,6 +1,6 @@
 # User Instructions for Different Roles
 
-Updated: 2026-10-13. [Current testing status and role checklist](docs/20261013_project_audit.md). These instructions describe connected workflows; live deployment readiness must be checked separately.
+Updated: 2026-10-18. [Combined capabilities, workflows, limitations, and source references](docs/CURRENT_SYSTEM_CAPABILITIES.md). [Historical October audit checklist](docs/20261013_project_audit.md). These instructions describe connected workflows; live deployment readiness must be checked separately.
 
 This guide explains how each iPawcus user role uses the Vetfocus clinic system. It follows the usual care journey from selecting a service, booking or joining the queue, receiving a diagnosis or boarding care, and completing payment and medical records.
 
@@ -9,9 +9,9 @@ This guide explains how each iPawcus user role uses the Vetfocus clinic system. 
 | Role | Main responsibility | Main work areas |
 | --- | --- | --- |
 | Pet Owner | Register pets, request services, submit payments, attend consultations, and review records | Services, Online Consultations, My Pets, Self-Service Queue, Medical Records, Schedule / TODOs |
-| Admin | Run daily clinic operations and review transactions | Bookings, Record Update Requests, Queue, Boarding, POS, Service Catalog, Consent Files, Inventory |
+| Admin | Run daily clinic operations and review transactions | Bookings, Record Update Requests, Pet Intake, Queue, Grooming, Boarding, POS, Service Catalog, Consent Files, Inventory |
 | Veterinarian | Receive patients, document consent, diagnose, prescribe, and maintain clinical records | Approved List, My List, Diagnosis, Medical Records, Record Requests, Online Consults, Histories, Schedule / TODOs |
-| Super Admin | Manage the whole clinic configuration and supervise all operational areas | Reports, Accounts, Pet Owners, Payment Methods, Services, plus admin workflows |
+| Super Admin | Manage clinic configuration and supervise permitted operational areas | Reports, Activity Log, Accounts, Pet Owners, Payment Methods, Services, backup export, plus permitted admin workflows |
 
 Archived users retain their normal system permissions. Archive status is an administrative marker and is not a separate restricted role.
 
@@ -25,6 +25,7 @@ Archived users retain their normal system permissions. Archive status is an admi
 5. For payment references, enter exactly 18 digits. Letters, spaces, and shorter or longer values are rejected.
 6. Use image previews to inspect uploaded receipts, payment proofs, pet photos, and clinical attachments before approving or submitting them.
 7. Confirm the selected branch whenever the page provides a branch selector. Personnel with a locked assigned branch will see that branch instead of an editable selector.
+8. Use the affected section's retry control after a read/display failure. If a save times out or its result is uncertain, refresh and inspect the record before submitting again; a lost response can occur after the server saves successfully.
 
 ## Pet Owner Instructions
 
@@ -129,7 +130,28 @@ Completed, cancelled, or no-show consultation rooms cannot be reopened using the
 6. Track the request while it is under review or assigned to a veterinarian.
 7. Open **Schedule / TODOs** to review appointments, boarding tasks, payments, follow-ups, and reminders.
 
+### 9. Track Prescriptions and Open Certificates
+
+1. Open the pet's medical/prescription view or medication task in **Schedule / TODOs**.
+2. Confirm the start of each new medicine according to the veterinarian's directions.
+3. Record scheduled doses as **Taken** or **Skipped**; correct a mistaken checklist entry to **Pending** when needed.
+4. Review finished medicines in **History**. An as-needed medicine uses **Mark finished** after it has started.
+5. Open the pet's certificate view for clinic-registration data and an issued medical certificate when available.
+
+An added prescription has its own start and does not restart older courses. Checklist completion does not mean every dose was taken. The registration certificate proves clinic registration only; a medical certificate has separate veterinarian findings and validity dates.
+
 ## Admin Instructions
+
+### Before clinic diagnosis: Pet Intake
+
+1. Match the booking or walk-in queue to the correct patient and clinic.
+2. Assign an eligible veterinarian and approve/receive the queue through the available workflow.
+3. Open **Pet Intake** for the assigned patient.
+4. Record complaint, symptoms, vital signs, physical examination, and relevant attachments.
+5. Capture and save the required signed or physical consent document.
+6. Complete the physical examination so the assigned veterinarian can finalize diagnosis.
+
+The current intake GET endpoint has a branch-filter finding recorded in the combined reference; seeing a clinic filter in the page does not establish complete backend read isolation.
 
 ### 1. Review and Manage Bookings
 
@@ -227,7 +249,7 @@ Both Admin and Super Admin roles can edit service content directly from the serv
 
 ### 3. Diagnose and Complete the Clinic Visit
 
-1. From **My List**, select **Start Diagnosis** after consent is ready.
+1. From **My List**, select **Start Diagnosis** after consent is ready. Where Pet Intake is installed, the assigned assistant/Admin must complete the physical examination before diagnosis can be finalized.
 2. Record the complaint, findings, diagnosis, treatment, recommendations, prescriptions, attachments, and required clinical fields.
 3. Save progress when the visit is still being handled.
 4. Review all clinical content before completing the diagnosis.
@@ -280,6 +302,16 @@ Spaces and normal multi-word typing are supported in Group Summary and Source Di
 3. Preview attachments, consent documents, images, prescriptions, and record details.
 4. Open **Schedule / TODOs** to manage clinic schedules, payments, follow-ups, boarding tasks, and personal reminders.
 
+### 8. Manage Booking Preferences, Prescriptions, and Certificates
+
+1. In **Profile**, enable **Accept bookings** for each assigned clinic where on-site appointments should be offered. Super Admin controls clinic assignments.
+2. Configure **Online Consultation Availability** separately. Each selected online start reserves one hour, even though buttons appear every 30 minutes. Booked intervals conflict across clinics and calls.
+3. To prescribe an additional course from EMR or a saved diagnosis, create a fresh prescription and review all medicines before issuing. Issued directions cannot be edited in place; earlier courses and pending doses remain intact.
+4. To issue a medical certificate, enter examination date, findings, certification statement, signature, and a valid-until date 1–30 days after examination. A linked record request must belong to the pet and assigned veterinarian.
+5. When confinement is clinically needed, complete the recommendation from diagnosis or an assigned grooming review, including reason, care instructions, facility/size, and expected discharge. Admin handles consent/approval and actual room check-in.
+
+Published branch visits are retired. The current scheduler follows clinic hours and per-clinic acceptance, without a per-vet leave editor. Medical-certificate issuance is restricted to the actual Veterinarian role; Super Admin access to a route does not confer clinical issuance authority.
+
 ## Super Admin Instructions
 
 The Super Admin supervises system-wide configuration while also supporting clinic operations.
@@ -328,15 +360,24 @@ Admin and Super Admin have the same service-content editing access on service ch
 3. Open **Report Center** for focused exports and detailed reporting.
 4. Use the Admin workflows in this guide when supervising bookings, queues, boarding, POS, consent, and inventory.
 
+### 6. Review Activity and Export a Backup
+
+1. Open the separate **Activity Log** page for operational history across users and branches; choose module, time, user, role, or clinic filters as needed.
+2. Use **Print Activity Log** for the current printable view. This is separate from the 15 Report Center business reports.
+3. Open **Profile**, then **Download Backup**, when the backup module and storage are configured.
+4. Select **Create & Download ZIP**, wait for the browser download, and keep it in protected storage.
+
+The ZIP includes SQL, uploaded media, an emergency workbook, and manifest/checksum/restore instructions. The app retains audit metadata rather than historical downloadable ZIPs. A trained operator must separately test restoration; there is no in-app restore button. Archive is not an access-revocation mechanism.
+
 ## End-to-End Workflow Reference
 
 ### Clinic Appointment
 
-Pet Owner booking request → Admin booking and payment review → Confirmed appointment → Queue entry → Veterinarian receives patient → Consent recorded → Diagnosis completed → POS payment or receipt finalized → Medical history available
+Pet Owner booking request → Admin booking and payment review → Confirmed appointment → Queue/vet assignment → Consent and Admin physical intake completed → Veterinarian diagnosis/prescription → POS payment or receipt finalized → Owner-visible medical history
 
 ### Self-Service Queue
 
-Pet Owner submits queue request → Admin monitors queue → Veterinarian receives patient from Approved List → Patient enters My List → Consent recorded → Diagnosis completed → History updated
+Pet Owner submits queue request → Admin coordinates queue/vet assignment → Consent and physical intake completed where installed → Assigned veterinarian handles My List/diagnosis → Billing and permitted history updated
 
 ### Online Consultation
 

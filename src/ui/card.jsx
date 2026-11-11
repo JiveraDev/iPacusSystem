@@ -2,6 +2,7 @@ import * as React from "react";
 
 import { cn } from "./utils";
 import ServicePetPeek from "../components/shared/ServicePetPeek.jsx";
+import ErrorBoundary from '../components/shared/ErrorBoundary.jsx';
 
 const PET_KINDS = ["dog", "cat", "bunny", "parrot"];
 const PET_ACCENTS = ["blue", "coral", "sun", "mint"];
@@ -104,7 +105,7 @@ function Card({ className, children, petHover = true, petKind, petAccent, petPos
           accent={petAccent || automaticVariant.accent}
         />
       ) : null}
-      {children}
+      <ErrorBoundary scope="card" title="This panel could not be displayed">{children}</ErrorBoundary>
     </div>
   );
 }

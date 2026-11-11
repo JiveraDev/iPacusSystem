@@ -1,5 +1,7 @@
 # iPawcus System Limitations and ISO/IEC 25010 Screening
 
+> Historical assessment dated September 22. Use the [combined capability and limitations reference](CURRENT_SYSTEM_CAPABILITIES.md), revised October 18, for current conclusions and source links. Staff-directory password hashes have since been removed, but profile serialization remains open. Shared veterinarian capacity, newer prescription/certificate/intake workflows, current recovery behavior, and fresh test evidence are reconciled there. This dated report is retained as provenance, not a list of findings all assumed unchanged.
+
 Review date: 2026-09-22  
 Scope: Current repository, connected workflows, and project documentation.  
 Method: Clinic-facing functional assessment supported by source inspection. No production database, live clinic observation, load test, or complete browser acceptance test was performed.

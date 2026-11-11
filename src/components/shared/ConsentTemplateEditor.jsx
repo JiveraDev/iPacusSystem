@@ -1,3 +1,4 @@
+import ErrorBoundary from './ErrorBoundary.jsx';
 import { useMemo, useState } from 'react';
 import { AlertTriangle, CheckCircle2, CircleHelp, Code2, Sparkles } from 'lucide-react';
 
@@ -132,7 +133,7 @@ export function ConsentCodeReference({ onInsertCode }) {
                         </div>
 
                         {Object.entries(groupedCodes).map(([group, items]) => (
-                            <section key={group}>
+                            <ErrorBoundary key={group} scope="section" title="This section could not be displayed">{() => (<section key={group}>
                                 <h3 className="mb-2 text-xs font-black uppercase tracking-wider text-slate-500 dark:text-slate-400">{group}</h3>
                                 <div className="divide-y divide-slate-100 overflow-hidden rounded-lg border border-slate-200 dark:divide-slate-800 dark:border-slate-700">
                                     {items.map((item) => (
@@ -148,7 +149,7 @@ export function ConsentCodeReference({ onInsertCode }) {
                                         </button>
                                     ))}
                                 </div>
-                            </section>
+                            </section>)}</ErrorBoundary>
                         ))}
                     </div>
                 </DialogContent>

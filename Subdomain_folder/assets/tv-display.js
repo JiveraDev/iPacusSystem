@@ -10,12 +10,16 @@
 
     let refreshTimer = null;
     let hasLoadedOnce = false;
+    let isLoading = false;
+    let failures = 0;
 
     const elements = {
         clockTime: document.getElementById('clockTime'),
         clockDate: document.getElementById('clockDate'),
         errorBanner: document.getElementById('errorBanner'),
         errorMessage: document.getElementById('errorMessage'),
+        retryStatus: document.getElementById('retryStatus'),
+        liveStatusLabel: document.getElementById('liveStatusLabel'),
         loadingPanel: document.getElementById('loadingPanel'),
         statusGrid: document.getElementById('statusGrid'),
         lastUpdated: document.getElementById('lastUpdated'),
@@ -229,6 +233,8 @@
     function showError(message) {
         elements.errorMessage.textContent = message || 'Please check the TV display API connection.';
         elements.errorBanner.hidden = false;
+        elements.liveStatusLabel.textContent = 'Updates interrupted';
+        if (hasLoadedOnce) elements.lastUpdated.textContent = 'Showing last loaded status · reconnecting';
 
         if (!hasLoadedOnce) {
             elements.loadingPanel.hidden = true;
@@ -238,18 +244,26 @@
 
     function clearError() {
         elements.errorBanner.hidden = true;
+        elements.liveStatusLabel.textContent = 'Live Status';
     }
 
     function scheduleNextLoad(refreshSeconds) {
         const refreshMs = Math.max(4000, Number(refreshSeconds || 0) * 1000 || defaultRefreshMs);
         window.clearTimeout(refreshTimer);
-        refreshTimer = window.setTimeout(loadStatus, refreshMs);
+        refreshTimer = window.setTimeout(loadStatus, Math.min(30000, refreshMs * 2 ** Math.min(failures, 3)));
     }
 
     async function loadStatus() {
+        if (isLoading) return;
+        window.clearTimeout(refreshTimer);
+        isLoading = true;
+        elements.retryStatus.disabled = true;
+        const controller = new AbortController();
+        const timeout = window.setTimeout(() => controller.abort(), 12000);
         try {
             const response = await window.fetch(apiUrl, {
                 cache: 'no-store',
+                signal: controller.signal,
                 headers: {
                     Accept: 'application/json',
                 },
@@ -258,18 +272,29 @@
             const data = await response.json();
 
             if (!response.ok || data.success === false) {
-                throw new Error(data.message || 'Unable to load TV status display.');
+                throw new Error('Status is temporarily unavailable. Please try again.');
             }
 
-            clearError();
+            if (!data.sections || !['queue', 'bookings', 'billing'].every(key => Array.isArray(data.sections[key]))) {
+                throw new Error('Status information could not be read. Please try again.');
+            }
+
             renderStatus(data);
+            clearError();
+            failures = 0;
             scheduleNextLoad(data.refreshSeconds);
-        } catch (error) {
-            showError(error.message);
+        } catch {
+            failures += 1;
+            showError('Status could not be updated. Retry to reconnect.');
             scheduleNextLoad(defaultRefreshMs / 1000);
+        } finally {
+            window.clearTimeout(timeout);
+            isLoading = false;
+            elements.retryStatus.disabled = false;
         }
     }
 
+    elements.retryStatus.addEventListener('click', loadStatus);
     updateClock();
     window.setInterval(updateClock, 1000);
     loadStatus();

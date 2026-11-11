@@ -1,3 +1,4 @@
+import ErrorBoundary from '../components/shared/ErrorBoundary.jsx';
 import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState } from 'react';
 import { ExternalLink, Maximize2, Minimize2, Video, X } from 'lucide-react';
 import { Button } from '../ui/button';
@@ -297,7 +298,7 @@ function FloatingVideoCall({ meetingRef }) {
     };
 
     return (
-        <section className={shellClassName} style={shellStyle} aria-label="Active online consultation">
+        <ErrorBoundary scope="section" title="Active online consultation could not be displayed">{() => (<section className={shellClassName} style={shellStyle} aria-label="Active online consultation">
             <div className="relative flex h-full min-h-0 flex-col">
                 {!isMinimized && !isDocked && (
                     <header className="flex min-h-14 items-center gap-3 border-b border-white/10 px-3 py-2 sm:px-4">
@@ -408,6 +409,6 @@ function FloatingVideoCall({ meetingRef }) {
                     </footer>
                 )}
             </div>
-        </section>
+        </section>)}</ErrorBoundary>
     );
 }

@@ -1,22 +1,40 @@
-# iPawcus Current System Capability and Process Reference
+# iPawcus System Capabilities, Detailed Workflows, and Limitations
 
-Reviewed from the active program source on September 16, 2026.
+Revised and cross-referenced: **October 18, 2026**. Basis: the current local working tree, including uncommitted implementation changes. This is the combined functional reference for the system. It incorporates the detailed capability catalogue, the September limitations review, newer module guides, and a fresh comparison with connected screens, frontend services, PHP dispatch/policies, and selected handler rules.
 
-## October 13, 2026 review addendum
+The original module catalogue was reviewed on September 16. The September 22 limitations report and October 13–16 audits remain dated evidence; their conclusions are reconciled here rather than all being treated as current. This revision changes documentation only. Dashboard and dashboard-router debug bypasses are preserved.
 
-October 14: an isolated 88-table database sandbox is available from the user's latest export, with synthetic accounts for all four roles. Database-backed API smoke tests, service-catalog/grooming regressions and Google prerequisite checks pass there. Production state and full browser journeys remain unverified. [Run and test the sandbox](database_sandbox.md).
+## Current review and evidence boundaries
 
-See [the current audit](20261013_project_audit.md) for verified checks and four-role runtime scenarios. This is a source-backed capability reference; database and browser journeys were not certified in the October review.
+The system supports pet owners, administrators, veterinarians, and super administrators. Its core workflow connects pet registration, ownership, booking, intake/queue, veterinarian care, records, billing, and material traceability. Grooming, clinical confinement, Pet Hotel, online calls, prescriptions, certificates, consent, reports, notifications, and backup export extend that workflow.
 
-Google sign-in is connected through `GoogleContinueButton`, `googleAuthService`, `/auth/google`, `/auth/google/complete` and `/account/google`. A new identity completes a pet-owner profile. Existing password accounts must sign in and explicitly connect the matching Google email. Returning identities use the existing account role. Setup requires matching public/server client IDs, trusted origins, Composer dependencies and identity/onboarding/access-token schema. [Setup and test guide](google_integration_testing.md).
+**Implemented** means an active connection exists in the program. It does not mean the deployed server, database, external provider, or every role-specific browser journey was verified. This review followed the route dispatcher and access policy, sampled the relevant implementation rules, and rechecked changes that conflict with older documentation. It is not an exhaustive security audit of every line.
 
-Root configuration must be named `.env`. The October review copied the supplied local `env` settings to ignored `.env` and added local development origins. Local database readiness still failed. Onboarding expiry now uses the database clock; malformed credentials return 401. No database migration was applied.
+Fresh verification on October 18:
 
-API handlers must be entered through `php/index.php`. Apache blocks direct handlers; the local PHP server uses a controller-only router because it ignores `.htaccess`. Account-directory responses exclude password hashes. Dashboard debug bypasses remain unchanged.
+- `npm.cmd run check`: **201/201 runner checks passed**, including **114 frontend tests**, lint, production build, PHP syntax, selected database-free regressions, and local API routing. The runner count is not a count of full business journeys. Logs are local ignored artifacts in `tmp/project-audit/`.
+- `npm.cmd run check:google`: configuration, matching public/server client IDs, PHP extensions, trusted local origin, and the installed verifier pass. The local database readiness step fails. This probe does not establish that a real Google sign-in succeeds.
+- Documentation validation passes across nine revised files: 324 relative/internal links, 70 source line anchors, and all 39 numbered main sections; no broken targets or unresolved draft markers were found. `git diff --check` also passes.
+- No database migration, production record change, live payment, mail/push delivery, video meeting, restore, or deployment was performed for this revision. No new browser journey was run.
 
-Grooming completion is `scheduled -> checked_in -> in_progress -> ready`; verified full payment in POS controls `ready -> released`. Manual status edits cannot release a pet. The stale regression and guide were updated to reflect this rule. Database-backed payment/refund behavior still needs integration tests.
+Database findings must be read with their dates and environments: the October 14 isolated 88-table sandbox passed its documented synthetic API checks; the normal configured database connected on that date but lacked required keys, constraints, and auto-increment metadata. Today's Google prerequisite probe cannot establish current database readiness. The October 14 missing-schema SQL was review-only, not proof that a repair was applied. See [configured database findings](20261014_database_verification.md) and [sandbox isolation](database_sandbox.md).
 
-`npm test` and `npm run check` expose existing frontend/PHP regressions. Logs live in ignored `tmp/project-audit/`; `npm run check:google` validates read-only local readiness.
+Key corrections from the older documents:
+
+| Area | Reconciled current description |
+| --- | --- |
+| Staff-account directory | `get_accounts.php` now removes `user_password`. The separate profile endpoint still serializes all user columns; that finding remains open. |
+| Account inactivity | Archive does not revoke access. Google sign-in checks inactive staff profiles; password login does not call its staff-deactivation helpers, and token lookup does not enforce staff inactivity. |
+| Booking capacity | Medical services share the actual accepting veterinarian roster across clinics. A pending appointment reserves a vet. Ordinary medical durations remain fixed at 30 minutes; online/home intervals are 60 minutes. |
+| Online versus clinic hours | Online starts follow the vet's separate call calendar and are exempt from clinic opening/lunch/closure gates. Cross-service veterinarian interval conflicts still apply. |
+| Published branch visits | Retired. The legacy endpoint returns an empty list and rejects publishing. Per-clinic booking acceptance is current. |
+| Intake | Admin physical-examination records and signed consent precede diagnosis finalization where the intake schema is installed. The intake GET query has a branch-scoping gap described in section 36. |
+| Prescriptions and certificates | Independent immutable prescription additions, dose checklists, registration certificates, and veterinarian-issued medical certificates are implemented. |
+| Grooming | Before/after evidence and active catalog selections are required at the relevant transitions. Verified full POS payment releases ready jobs. A confinement review can transfer care into Boarding. |
+| Activity Log | There is a separate Super Admin Activity Log page. The current API returns selected operational action modules; the old guide's navigation/sign-in and Report Center placement descriptions are not current. |
+| Request failures | Section recovery and a confirmed service-status notice are implemented. One failed endpoint does not replace the entire application. |
+
+Source references for these corrections appear beside the relevant sections and in the [cross-reference map](#34-source-evidence-map). All open limitations are consolidated in [section 36](#36-consolidated-limitations-and-findings).
 
 ## Contents
 
@@ -32,6 +50,10 @@ Grooming completion is `scheduled -> checked_in -> in_progress -> ready`; verifi
 - [31–33. State machines, data authority, and API map](#31-state-machine-reference)
 - [34. Source-evidence map](#34-source-evidence-map)
 - [35. Validation status](#35-validation-status-of-this-document)
+- [36. Consolidated limitations and findings](#36-consolidated-limitations-and-findings)
+- [37. Complete workflow and role handoffs](#37-complete-workflow-and-role-handoffs)
+- [38. Suggested scope and quality assessment](#38-suggested-scope-and-quality-assessment)
+- [39. Document provenance and maintenance](#39-document-provenance-and-maintenance)
 
 ## 1. Purpose and reading rules
 
@@ -54,7 +76,7 @@ iPawcus is a multi-role veterinary-clinic operations system with these active bu
 
 - Pet-owner registration, email verification, login, password recovery, profiles, preferences, pets, shared ownership, bookings, self-service queue entry, medical-record viewing, update requests, online consultations, consent documents, notifications, and schedule/TODO views.
 - Administrator pet registration, booking review, queue coordination, point of sale, inventory, grooming, boarding, record-request review, service catalog, consent-template management, and branch-scoped operations.
-- Veterinarian approved queues, personal work list, diagnoses, vaccination records, online consultations, medical records, histories, grooming review, record-update work, recurring availability, branch schedules, notifications, and TODOs.
+- Veterinarian approved queues, personal work list, diagnoses, vaccination records, online consultations, medical records, prescriptions, medical certificates, histories, grooming review, clinical confinement, record-update work, online availability, per-clinic booking acceptance, notifications, and TODOs.
 - Super Administrator reports, report exports, account management, pet-owner account review, payment-method configuration, media monitoring, admin feature permissions, and inherited clinic access where the backend permits it.
 
 The program uses a React 19/Vite frontend and a PHP/MySQL API. The backend is the source of truth for identity, roles, record ownership, branch access, state changes, prices, payment state, stock movement, and clinical completion.
@@ -83,8 +105,8 @@ The frontend:
 - De-duplicates equivalent GET requests that are already in flight.
 - Applies request timeouts and retries transient failures when appropriate.
 - Clears local authentication and redirects when authentication expires.
-- Raises a shared server-availability state so the application can show its maintenance/server-down experience.
-- Uses the shared ThemeProvider and ThemeToggle; the selected light/dark mode is stored under ipawcus-theme.
+- Signals coordinated health checks after endpoint failures. A service-status notice appears only after confirmed health-probe failures; page and section error boundaries contain rendering failures.
+- Uses the shared ThemeProvider and ThemeToggle; the selected named palette is stored under ipawcus-theme, with the document dark class following its appearance. The palette library includes Light, Islands Light/Dark, Dracula, Alucard, Solarized Light/Dark, Nightfall, and a legacy Dark alias.
 - Uses shared UI primitives and responsive layouts for phone, tablet, desktop, and wide screens.
 
 ### 3.2 Backend dispatch
@@ -140,6 +162,8 @@ PWA registration is deployment-dependent and gated by the PWAACTIVATOR setting. 
 
 Browser push is also deployment-dependent. It needs HTTPS, a registered service worker, VAPID configuration, browser permission, and a valid stored subscription.
 
+**Current source cross-reference:** [src/services/apiClient.js](../src/services/apiClient.js#L41); [php/index.php](../php/index.php#L54); [src/hooks/useAutoRefresh.js](../src/hooks/useAutoRefresh.js#L3); [src/lib/theme.js](../src/lib/theme.js#L1).
+
 ## 4. Roles, navigation, and authority
 
 ### 4.1 Effective roles
@@ -183,9 +207,11 @@ Current limitation: if the admin_feature_permissions table is absent or its look
 
 ### 4.4 Branch scope
 
-The program supports multiple branches, operating hours, closures, per-branch service availability, user assignments, veterinarian branch schedules, inventory location, booking transfers, and branch-aware operational data.
+The program supports multiple branches, operating hours, closures, per-branch service availability, user assignments, per-clinic veterinarian booking acceptance, inventory location, booking transfers, and branch-aware operational data. Published branch-visit scheduling has been retired.
 
 Regular administrators are restricted to assigned branches in branch-sensitive workflows. Super Admin can operate across branches. Veterinarian access is also checked against the clinical assignment or branch context in relevant workflows.
+
+**Current source cross-reference:** [php/role_access.php](../php/role_access.php#L17); [php/role_access.php](../php/role_access.php#L56); [php/branch_helpers.php](../php/branch_helpers.php#L193).
 
 ## 5. Authentication, registration, and password processes
 
@@ -253,7 +279,7 @@ Important current behavior: login calculates whether the account is archived and
 
 ### 5.4 Password recovery and change
 
-Password recovery uses an email OTP before accepting the new password. Authenticated profile password changes use the current workflow and password policy. A notification email is sent after a password change so an unexpected change can be reported.
+Password recovery uses an email OTP before accepting the new password. An authenticated password change requires the current password and a valid new password. Notification delivery is attempted after the change. Neither password handler revokes existing API tokens, and token lookup does not use password_changed_at to invalidate them. Recovery therefore does not terminate an already issued session.
 
 ### 5.5 Session failure handling
 
@@ -261,9 +287,24 @@ Password recovery uses an email OTP before accepting the new password. Authentic
 - Disallowed roles cause HTTP 403.
 - The frontend clears stale session data and returns to authentication when necessary.
 - Transient network failures can be retried by the API client.
-- A shared server-down page can submit a limited maintenance problem report.
+- Service availability is checked independently of an individual feature failure. The maintenance reporting endpoint remains available for a limited diagnostic report; see sections 27.4–27.5.
 
 The general login endpoint does not contain a comparable per-IP/password-attempt rate limiter. OTP and public maintenance-report endpoints have their own limiting behavior.
+
+### 5.6 Google sign-in, onboarding, and explicit linking
+
+`GoogleContinueButton` obtains the identity credential and sends it to `/auth/google`. The server verifies its signature through the installed Google library and checks the configured audience, expiry, issuer, and verified identity data.
+
+1. A returning linked identity receives an iPawcus session with its stored role.
+2. An existing password account with the same email receives link-required guidance; accounts are not silently merged.
+3. A new identity receives a short-lived onboarding token. Completing contact/profile fields and accepting terms creates a pet-owner account transactionally.
+4. A signed-in user can connect a matching Google identity from Profile through `/account/google`; conflicting identities and mismatched email are rejected.
+
+Setup requires matching client IDs, trusted frontend origins, the Composer verifier, email-verification/access-token schema, identity/onboarding tables, and a nullable password column for Google-only accounts. Onboarding expiry uses the database clock. Google sign-in checks inactive Admin/Veterinarian profiles; this differs from the current password-login path. Archive remains an administrative marker in both the public user payload and token policy.
+
+Live Google credentials, browser callbacks, origin registration, and successful database writes were not tested in this revision. See [Google integration testing](google_integration_testing.md).
+
+**Current source cross-reference:** [php/register.php](../php/register.php#L16); [php/login.php](../php/login.php#L155); [php/update_password.php](../php/update_password.php#L47); [php/google_auth_helpers.php](../php/google_auth_helpers.php#L293).
 
 ## 6. Account administration and profiles
 
@@ -329,8 +370,10 @@ Veterinarian profile information includes:
 - Total years of experience.
 - Professional-experience history.
 - Active branch assignment.
-- Recurring weekly availability.
-- Published branch visit schedules.
+- Recurring weekly online-consultation start selections.
+- Per-assigned-clinic Accept bookings preferences.
+
+Published branch visits are retired; the old branch-schedule endpoint is a compatibility response, not an active visit-publishing workflow.
 
 Veterinarian education history was removed by the personnel cleanup migration. Professional experience remains for veterinarians.
 
@@ -343,6 +386,12 @@ Veterinarian education history was removed by the personnel cleanup migration. P
 - Profile screens warn about unsaved changes.
 - Staff profile updates produce a governance notification for Super Admin when the notification schema is available.
 - Shared theme controls are used on profile screens.
+
+### 6.5 Current profile-response limitation
+
+The staff directory removes password hashes before serialization. `GET /profile` uses `u.*` or `SELECT u.*`, then serializes the fetched profile without removing `user_password`. Owner/Super Admin scope checks exist, but they do not justify exposing the stored hash. This remains an implementation issue and must not be described as fixed by the directory change.
+
+**Current source cross-reference:** [php/get_accounts.php](../php/get_accounts.php#L46); [php/get_user_profile.php](../php/get_user_profile.php#L62); [php/update_account_profile.php](../php/update_account_profile.php).
 
 ## 7. Branch, operating-hour, and veterinarian availability processes
 
@@ -361,25 +410,25 @@ Branch information is used by:
 
 ### 7.2 Booking calendar safeguards
 
-The availability engine checks:
+For on-site and home medical appointments, the engine checks the active clinic, service support, opening hours, closure dates, past times, accepting assigned active veterinarians, and actual reserved intervals. On-site/home appointments must fit clinic hours and avoid 12:00–1:00 PM lunch. Ordinary clinic booking excludes Sunday. Grooming uses its own service-slot availability and is exempt from the veterinarian lunch rule. Boarding uses room/date-range capacity.
 
-- Active branch.
-- Branch operating hours.
-- Branch closure dates.
-- Whether the requested service is available at that branch.
-- Past date/time exclusion.
-- Existing booking conflicts.
-- Relevant veterinarian schedule for online consultation.
-- Sunday closure.
-- The veterinarian lunch period from 12:00 PM to 1:00 PM for clinical appointments.
-
-Grooming is intentionally excluded from the veterinarian lunch-overlap rule.
+Online consultation uses a separate weekly call-start calendar, independent of clinic assignment, clinic acceptance, opening hours, lunch, and closure dates. Selecting a start reserves a full 60-minute interval. The same veterinarian cannot have overlapping online, home, or on-site appointments across branches. A half-hour display step is not a half-hour online consultation duration.
 
 ### 7.3 Veterinarian presence
 
-The current-day presence control is an operational signal that an administrator can toggle. It resets by clinic day using Asia/Manila time. The public/read side can display whether a veterinarian is currently accepting visits.
+Admin Home can change a daily Vet is in / Vet is out setting. The public landing page and owner Home combine that setting with the selected clinic's hours, closure dates, Sunday, and lunch to display in, out, closed, lunch, or unavailable. The daily setting resets at midnight in Asia/Manila; a reset does not make a closed clinic appear open.
 
-Presence is informational and operational; it is not a substitute for the booking slot conflict and schedule checks.
+The sign is informational. It does not cancel appointments, allocate a particular vet, or override the separate appointment rules. A failed availability/presence request is shown as unavailable.
+
+### 7.4 Shared veterinarian capacity and booking preferences
+
+Super Admin assigns one or more active clinics to a veterinarian. The vet can enable Accept bookings for each assigned clinic. Each accepting active vet contributes one simultaneous medical appointment; capacity is shared across medical service types, rather than separately inventing capacity for each service. Pending bookings already reserve a veterinarian. The calendar checks that vet's booked interval across all locations and online calls.
+
+Assignment/preference changes are rejected if they would remove required coverage for existing future appointments. Removing a booked online start is likewise rejected until the call is moved or cancelled. Schedule and appointment changes use the shared medical-calendar lock.
+
+The current system has no per-vet working-hours or time-off editor. Clinic hours supply the on-site schedule, and unassigned legacy bookings conservatively consume capacity until reconciled. Published branch visits are retired: legacy GET returns an empty list, and writes return a replacement-workflow conflict. See [shared veterinarian booking](shared-veterinarian-booking.md).
+
+**Current source cross-reference:** [php/clinic_booking_helpers.php](../php/clinic_booking_helpers.php#L26); [php/veterinarian_booking_schedule.php](../php/veterinarian_booking_schedule.php#L35); [php/booking_slot_helpers.php](../php/booking_slot_helpers.php#L55); [php/veterinarian_branch_schedules.php](../php/veterinarian_branch_schedules.php#L14); [php/vet_presence.php](../php/vet_presence.php).
 
 ## 8. Pet registration, ownership, and pet profile
 
@@ -459,6 +508,16 @@ It does not send ownership fields or arbitrary clinical fields. Clinical/medical
 Deceased status is used to block future clinical booking confirmation/receipt and active queue creation. The maintenance endpoint can also close overdue bookings and queues for a selected pet.
 
 The current status model records Emergency and Deceased, but it does not provide a complete emergency-triage, DNR, euthanasia, remains-release, or incident-management workflow.
+
+### 8.6 Registration and veterinary medical certificates
+
+Authorized pet/clinic views can prepare a Certificate of Clinic Registration from the existing patient record. It has no expiration and proves clinic registration only; it does not certify current health, vaccination, or fitness for travel.
+
+Medical certificates are a separate stored clinical document. The handler permits issuance only by the actual `veterinarian` role; Super Admin route access does not grant issuance. The vet supplies an examination date, findings, certification statement, signature path, and validity of 1–30 days after examination. Future examination dates are rejected. A linked record-update request must match the pet, assigned vet, and an assigned/in-progress request state.
+
+Issuance locks the pet, supersedes prior active certificates, stores the numbered certificate, and attempts an owner notification after commit. Owner views identify new certificates and can mark them viewed. Expired status is derived from validity dates. The current certificate API returns registration data and the latest non-revoked medical certificate; it is not a complete public certificate-verification or revocation-management service. Medical issuance requires `DDL/20261002_03_pet_certificates.sql`.
+
+**Current source cross-reference:** [php/add_pet.php](../php/add_pet.php); [php/link_pet.php](../php/link_pet.php); [php/coparent_requests.php](../php/coparent_requests.php); [php/pet_certificates.php](../php/pet_certificates.php#L325).
 
 ## 9. Booking and appointment process
 
@@ -542,12 +601,12 @@ Confirmation repeats critical checks instead of trusting the original browser st
 
 ### 9.5 Scheduling rules
 
-Typical clinical slots use 30-minute scheduling. Home Service uses a longer service interval, and Boarding uses date/capacity rules instead of an ordinary single appointment slot. Online Consultation also checks the assigned veterinarian schedule.
+Ordinary clinical services reserve 30 minutes. Home Service and Online Consultation reserve 60 minutes; online starts can be displayed every 30 minutes. Boarding uses room/date-range capacity. Medical bookings reserve an actual vet against the shared cross-clinic/cross-service calendar, including while pending. Editable service-catalog duration does not automatically change these fixed reservation lengths. Procedure-specific people, equipment, travel time, and room scheduling are not a complete resource-planning workflow.
 
 Rescheduling:
 
 - Locks the booking before modification.
-- Revalidates operating hours, closure, Sunday, lunch, service availability, vet availability, and conflicts.
+- Revalidates the service-specific rules: clinic hours/closures/lunch for on-site/home work, the independent call calendar for online work, and applicable veterinarian/room/service conflicts.
 - Does not allow grooming to be rescheduled after the grooming job has moved beyond its early state.
 - Preserves the booking identity while recording the new schedule.
 
@@ -580,6 +639,14 @@ The program uses combinations of:
 - Duplicate-reference checks.
 
 If the record changes before a decision is written, the server returns a conflict instead of silently overwriting the newer state.
+
+### 9.9 Public-to-login booking handoff and Pet Hotel clinic selection
+
+Landing service actions/calendar selections save an allowlisted one-time destination in tab-scoped storage. Pet-owner login can restore service, date, time, clinic, vet, and selected room size. The intent expires after 30 minutes. Plain login/register actions clear an old intent; staff keep their normal Home destination. This selection does not reserve capacity before booking submission.
+
+The landing Pet Hotel room panel selects a clinic and reloads that branch's room availability. Choosing a room preserves clinic and size through login. The booking form rechecks the actual stay dates; a room count shown on the landing page does not guarantee a reservation.
+
+**Current source cross-reference:** [php/add_booking.php](../php/add_booking.php); [php/update_booking_status.php](../php/update_booking_status.php); [php/booking_availability.php](../php/booking_availability.php#L121); [src/lib/landingBookingIntent.js](../src/lib/landingBookingIntent.js).
 
 ## 10. Queue and patient handoff process
 
@@ -678,6 +745,16 @@ The generic queue-status endpoint rejects direct completion. Clinical completion
 
 If any required database write fails inside that transaction, all of those changes roll back.
 
+### 10.8 Pet Intake and assistant physical examination
+
+The Admin Pet Intake workspace matches booking and queue sources, coordinates assignment/consent, and records a physical examination before the veterinarian finalizes diagnosis. Intake stores the complaint, symptoms, major symptoms, physical examination, temperature, heart/respiratory rate, weight, attachments, assigned vet, recording staff identity/position, timestamps, and in-progress/completed state.
+
+Starting intake requires an in-progress queue with a received veterinarian assignment. Existing intake for that queue is reused. Completing the examination requires a saved signed or physical consent document. Where the intake table is installed, diagnosis finalization requires a completed examination assigned to the diagnosing vet. Missing intake deployment is reported by the intake endpoint rather than silently creating its table.
+
+Current access limitation: POST/PATCH verify the Admin's queue branch, but the GET query only adds an assigned-vet condition for veterinarian actors. It does not add an equivalent branch predicate for Admin actors. A branch-scoped frontend list is therefore insufficient to establish branch isolation for direct intake GET requests. This source finding has not been demonstrated against live patient data; see finding SEC-06.
+
+**Current source cross-reference:** [php/add_to_queue.php](../php/add_to_queue.php); [php/assign_queue_vet.php](../php/assign_queue_vet.php); [php/receive_queue.php](../php/receive_queue.php); [php/clinical_intakes.php](../php/clinical_intakes.php#L151).
+
 ## 11. Veterinarian diagnosis and clinical completion
 
 ### 11.1 Access
@@ -691,6 +768,7 @@ The backend verifies:
 - The veterinarian has the relevant assignment.
 - The case is in an allowed state.
 - Required diagnosis schema is present.
+- If clinical intake storage is installed, its examination is complete and its assigned vet matches the diagnosing vet.
 
 ### 11.2 General diagnosis mode
 
@@ -776,6 +854,8 @@ Saving a diagnosis does not mark its invoice paid. Payment requires a real verif
 
 Veterinarians can browse diagnosis histories and reopen protected files through authenticated media links. Owners obtain allowed clinical content through the organized Medical Records view rather than unrestricted access to every internal field.
 
+**Current source cross-reference:** [php/vet_diagnoses.php](../php/vet_diagnoses.php#L812); [php/vet_diagnoses.php](../php/vet_diagnoses.php#L949).
+
 ## 12. Online consultation
 
 ### 12.1 Creation
@@ -796,11 +876,13 @@ The online-consultation backend supports session operations to start/join, maint
 
 The owner and assigned veterinarian can access the consultation route; record-level identity checks prevent unrelated owners or veterinarians from joining it.
 
-The video screen uses the configured meeting integration. Camera, microphone, supported browser behavior, network quality, and any third-party meeting availability are external dependencies.
+The video screen uses the configured Jitsi meeting integration. Camera, microphone, supported browser behavior, network quality, and meeting-host availability are external dependencies. The owner can join a confirmed consultation as soon as the assigned veterinarian marks it ready; there is no ten-minute join gate. Completed, cancelled, and no-show sessions reject reopening. The shared VideoCallProvider supports minimizing/restoring a call while navigating and capturing the remote participant when authorized. A successful call does not prove that the clinical record or invoice is complete.
 
 ### 12.3 Clinical closure
 
 The online diagnosis uses the same required-field presentation and clinical validation principles as the standard veterinarian diagnosis. Ending a video call alone does not invent a diagnosis or a paid invoice; the clinical and billing records must still be saved through their respective workflows.
+
+**Current source cross-reference:** [php/online_consultations.php](../php/online_consultations.php#L361); [src/context/VideoCallProvider.jsx](../src/context/VideoCallProvider.jsx).
 
 ## 13. Medical records and health history
 
@@ -852,6 +934,18 @@ The program supports canonical allergy records with legacy synchronization/impor
 ### 13.6 Change notifications
 
 Changes to owner-visible groups/items can notify owners. Notification delivery is supplementary: the database change remains the authoritative record even if a later email or push attempt fails.
+
+### 13.7 Issued prescriptions and medication checklists
+
+Veterinarian workflows can issue prescriptions from a saved diagnosis or the pet EMR. A new additional prescription is independent: it does not replace an earlier issued course, cancel its pending doses, or restart its medicines. Repeated submission of the same draft is deduplicated. Issued directions are immutable; the former amendment action is rejected. Reopening a diagnosis preserves its issued medicines.
+
+Medication schedules support times per day, interval hours, weekly, monthly, and as-needed directions. Owners of the pet and authorized clinic roles can start eligible items and record scheduled doses as Taken, Skipped, or Pending. Starting scheduled medicine generates occurrences. Start/checklist changes lock the relevant plan/items; the records retain their action history.
+
+The Active view includes medicines awaiting start and unfinished courses. A scheduled medicine moves to History when all its scheduled doses are Taken or Skipped. This describes checklist resolution, not proof every dose was taken. Pending/missed doses retain active work, and correcting a dose to Pending restores the item to Active. Completing one medicine does not hide another unfinished medicine. As-needed items create no artificial dose schedule and have an explicit Mark finished action after starting. Stopped/superseded legacy plans retain history and reject checklist changes.
+
+Dose tasks can appear in the owner's schedule. This is a recording/reminder aid; it does not verify administration, check drug interactions, dispense controlled drugs, or automatically diagnose the patient. The existing prescription schedule migration must be installed. See [prescription workflow](prescription-workflow.md).
+
+**Current source cross-reference:** [php/pet_medical_records.php](../php/pet_medical_records.php); [php/prescriptions.php](../php/prescriptions.php#L214); [php/prescription_helpers.php](../php/prescription_helpers.php#L316); [src/components/shared/PrescriptionPlanPanel.jsx](../src/components/shared/PrescriptionPlanPanel.jsx).
 
 ## 14. Paid pet-record update requests
 
@@ -930,6 +1024,8 @@ Completion requires veterinarian evidence/notes. When snapshot support is deploy
 - Only the assigned veterinarian can start or complete.
 - Notifications are sent after successful commit.
 
+**Current source cross-reference:** [php/record_update_requests.php](../php/record_update_requests.php#L576); [php/record_update_requests.php](../php/record_update_requests.php#L236).
+
 ## 15. Grooming management
 
 ### 15.1 Entry into Grooming
@@ -951,6 +1047,7 @@ Normal operational sequence:
 Other states:
 
 - vet_review
+- transferred
 - cancelled
 - no_show
 
@@ -973,22 +1070,22 @@ The grooming workspace supports:
 - Confirming work completion.
 - Preparing the owner summary.
 - Publishing allowed results.
-- Recording pickup/collector confirmation and release.
+- Recording pickup information; release is completed automatically through verified full POS payment after the job is ready.
 
 When work starts, the backend records the authenticated Admin as the handler. The browser cannot override that identity.
 
 ### 15.4 Photos and sharing
 
-Photo purposes include reference, before, after, and concern.
+The current grooming upload handler accepts before and after photos. Reference/concern material comes from the booking/context rather than a new general concern-photo upload control.
 
 Controls:
 
 - JPG, PNG, and WebP are accepted based on actual MIME content.
 - Maximum eight MB per photo.
-- Maximum 20 photos per grooming job.
+- One current before photo and one current after photo; re-upload replaces the matching category record/file while preserving its action history.
 - Concern photos are never owner-shared.
 - An owner can see only their own explicitly shared non-concern photos after publication.
-- A veterinarian can see grooming photos when assigned to that job’s review and allowed by branch context.
+- A veterinarian must satisfy branch access. The media helper allows assigned-review access and also allows ready/released/transferred job photos; this is broader than pending-review-only access.
 - Grooming photos use private storage and authenticated delivery.
 - Published/closed photo records are locked against ordinary changes.
 
@@ -1003,21 +1100,23 @@ Only the assigned veterinarian can record one of the supported outcomes:
 - Resume grooming.
 - Stop grooming.
 - Recommend consultation.
+- Recommend confinement.
 
-This review records advice and controls the grooming state. It does not itself create a clinical diagnosis, new booking, or extra charge.
+Resume/stop/consultation record the review outcome; they do not automatically create a separate clinical diagnosis or consultation booking. Confinement is an explicit exception: it creates or updates linked clinical confinement and billing context, marks the grooming job transferred, and completes its grooming booking. Boarding still handles consent/approval, actual unit placement, and the stay.
 
 ### 15.6 Finish, billing, publish, and release
 
 Finishing:
 
-- Requires a valid service/package and intake/owner approval.
+- Requires valid active-catalog service selection and intake/owner approval.
+- Starting requires a before photo; finishing requires an after photo.
 - Requires explicit completion confirmation.
 - Uses or creates the existing visit/invoice context.
 - Requires a positive authoritative active-catalog price.
 - Produces a neutral default owner summary if needed.
 - Does not mark the invoice paid.
 
-When ready, the service and pricing details are locked. Release requires collector information and explicit pickup confirmation.
+When ready, service and pricing details are locked. Generic manual status changes to released are rejected. The linked visit must become fully paid through verified POS payments; the billing helper then releases the job and completes linked grooming booking/queue records. It fills pickup confirmation and a default collector identity from the owner/staff context. Physical collection must still be checked by clinic staff; payment-driven flags are not independent evidence that the pet was actually collected.
 
 Publishing exposes only the intended package/add-ons, owner summary, and selected shareable photos. Internal notes, audit details, and the private review concern remain hidden.
 
@@ -1031,6 +1130,8 @@ Grooming jobs carry a version value. Updates use optimistic concurrency; a stale
 - The assistant field is a name field, not a verified personnel assignment.
 - Itemized grooming add-on billing and automatic inventory consumption are not a complete dedicated grooming subsystem.
 - Veterinarian review is not a substitute for a formal diagnosis.
+
+**Current source cross-reference:** [php/grooming.php](../php/grooming.php#L156); [php/grooming.php](../php/grooming.php#L239); [php/grooming_upload.php](../php/grooming_upload.php#L11); [php/visit_billing.php](../php/visit_billing.php#L945).
 
 ## 16. Boarding and Pet Hotel management
 
@@ -1115,6 +1216,16 @@ Before a Boarding invoice is considered complete, billing checks recorded materi
 
 Structured observations, tasks, room controls, consent records, and material traceability require their current database migrations. Missing integrity-critical schema produces a deployment error rather than a partial write.
 
+### 16.9 Clinical confinement from diagnosis or grooming review
+
+A veterinarian can recommend confinement from a saved diagnosis or the assigned grooming review. The clinical helper requires an identified visit, pet, owner, vet, branch, one source case, reason, facility/room size, expected discharge after today, and an active Boarding price. It prevents overlapping stays and reuses the source-linked confinement when allowed.
+
+The recommendation creates a pending boarding admission with source diagnosis/grooming/visit references, owner approval pending, care instructions, expected dates, and a linked boarding charge on the original clinical/grooming visit. Settled invoices cannot be silently repriced through the recommendation editor. Admin then manages approval, consent, reservation/check-in, monitoring, materials, billing, and checkout in Boarding.
+
+This records a clinical recommendation and operational stay. It does not establish ICU staffing, emergency spending authority, DNR, abandonment, or end-of-life governance. `DDL/20260923_01_clinical_confinement.sql` is required.
+
+**Current source cross-reference:** [php/boarding_management.php](../php/boarding_management.php#L469); [php/clinical_confinement_helpers.php](../php/clinical_confinement_helpers.php#L76); [src/components/AdminDashboardsComponent/PetBoardingManagement.jsx](../src/components/AdminDashboardsComponent/PetBoardingManagement.jsx).
+
 ## 17. Service catalog and owner-facing services
 
 ### 17.1 Catalog management
@@ -1159,7 +1270,9 @@ Owners can view active offerings and book them when their restrictions and branc
 
 ### 17.4 Service display settings
 
-Service display settings control owner-facing presentation and selected operational display values. All roles can read active settings; Admin/Super Admin mutations are protected. These settings do not override backend booking, catalog, or billing validation.
+Service display settings control owner-facing descriptions, inclusions, duration labels, prices/instructions, and selected operational display values. Current service child pages expose edit modals to Admin/Super Admin. All roles can read active settings; mutations are protected. These settings do not override backend booking, catalog, or billing validation, including fixed booking durations. The older Booking Management display-settings block is not the current editing location.
+
+**Current source cross-reference:** [php/service_catalog.php](../php/service_catalog.php); [php/service_display_settings.php](../php/service_display_settings.php); [php/special_services.php](../php/special_services.php); [src/components/PetOwnerDashboard/ServicePageLayout.jsx](../src/components/PetOwnerDashboard/ServicePageLayout.jsx).
 
 ## 18. Inventory management
 
@@ -1269,6 +1382,8 @@ The Inventory Status report reflects current active inventory and therefore excl
 - Missing audit/integrity schema blocks writes.
 - Archived inventory does not currently have a self-service restore control.
 
+**Current source cross-reference:** [php/inventory.php](../php/inventory.php); [php/inventory_invoice_helpers.php](../php/inventory_invoice_helpers.php); [src/components/AdminDashboardsComponent/AllItemsPage.jsx](../src/components/AdminDashboardsComponent/AllItemsPage.jsx).
+
 ## 19. Point of Sale, visits, invoices, payments, and refunds
 
 ### 19.1 Visit/billing context
@@ -1333,6 +1448,8 @@ Payment submissions and final visit payments are distinct records. Submission st
 
 ### 19.6 Refunds
 
+The backend exposes visit-payment and booking-payment refund handlers with audited processing. The current POS component has no Record Refund action; the older role guide explicitly described that action as hidden. Backend support must not be presented as a complete staff-accessible refund UI or automatic provider refund.
+
 Refund processing:
 
 - Requires an eligible verified/refunded payment.
@@ -1362,6 +1479,8 @@ This stored PDF is the appropriate durable “copy of the receipt/invoice” for
 
 The feature requires DDL/20260819_01_invoice_pdf_documents.sql and working private media storage.
 
+**Current source cross-reference:** [php/visit_billing.php](../php/visit_billing.php#L945); [php/booking_payment_refund.php](../php/booking_payment_refund.php); [src/services/visitBillingService.js](../src/services/visitBillingService.js#L25); [src/components/AdminDashboardsComponent/POSmanagement.jsx](../src/components/AdminDashboardsComponent/POSmanagement.jsx).
+
 ## 20. Payment-method administration
 
 All authenticated roles can read enabled payment instructions needed for their workflow. Only Super Admin can change payment settings.
@@ -1376,6 +1495,8 @@ Changes require:
 - Reference checks before an in-use method is deactivated.
 
 Sensitive account details are encrypted using a server secret that must be at least 32 characters. If the secret, OTP migration, or required payment schema is missing, updates fail.
+
+**Current source cross-reference:** [php/payment_methods.php](../php/payment_methods.php#L160); [php/payment_methods.php](../php/payment_methods.php#L418).
 
 ## 21. Consent Form Management
 
@@ -1440,6 +1561,8 @@ A signature image alone is not automatically promoted to a completed signed docu
 - Missing consent schema blocks the operation with deployment guidance.
 
 Consent management records agreement evidence. It is not a legal guarantee by itself; clinic policy must still define retention, withdrawal, versioning, and signature acceptance requirements.
+
+**Current source cross-reference:** [php/consent_form_records.php](../php/consent_form_records.php); [php/consent_record_helpers.php](../php/consent_record_helpers.php); [php/upload_receipt_helpers.php](../php/upload_receipt_helpers.php).
 
 ## 22. Notifications, reminders, and Schedule/TODOs
 
@@ -1517,12 +1640,15 @@ For a pet owner it aggregates:
 - Diagnosis follow-up dates.
 - Unpaid/partial visit balances.
 - Boarding-care tasks relevant to their booking.
+- Prescription medication occurrences where the schedule schema is available.
 
 For a veterinarian it aggregates:
 
 - Personal custom tasks.
-- Assigned upcoming online consultations.
+- Assigned pending/confirmed medical bookings within the selected range, including clinic visits, home visits, and online calls.
 - Diagnosis follow-up recording tasks.
+
+The vet calendar uses actual assigned appointments and counts each booking once. My List focuses on today in Philippine time; a read-only next-booked-day preview can show the next future approved appointments without starting their diagnosis early. It does not invent recurring clinic-shift tasks.
 
 Clinic-generated items are read-only and link to their source screen. Personal tasks are editable.
 
@@ -1537,6 +1663,8 @@ Users can:
 - Delete their own personal task.
 
 Required schema is checked. A user cannot edit another user’s tasks. Admin-like cross-user access is limited to the effective-user rules in the handler, and the route itself is not available to ordinary Admin.
+
+**Current source cross-reference:** [php/notifications.php](../php/notifications.php#L47); [php/mail_queue_worker.php](../php/mail_queue_worker.php); [php/pet_owner_todos.php](../php/pet_owner_todos.php#L387); [php/pet_owner_todos.php](../php/pet_owner_todos.php#L586).
 
 ## 23. Reports Dashboard and Report Center
 
@@ -1633,6 +1761,18 @@ Report handlers check which tables/columns exist. If a source is unavailable, th
 
 This makes partial reporting understandable, but it also means a report can be technically generated while incomplete. The missing-data notice must be reviewed before relying on totals.
 
+### 23.7 Staff Activity Log and printable governance history
+
+Admin, veterinarian, and Super Admin profiles expose personal activity history. Super Admin also has a dedicated `/dashboard/activity-log` page with printable organization-wide history. This is separate from the 15 business report types above.
+
+Successful authenticated staff mutations through the controller are appended to per-user JSONL files, with the relative file reference stored on `users.activity_log_file`. Reads authorize the actor: staff can read their own actions; only Super Admin can request another user or the all-users scope. Current API filters expose major operational modules: inventory, bookings, queues, POS, medical-record updates, diagnosis, and online consultations. The retained `/activity/view` POST returns `recorded: false`; it is not proof of current page-navigation tracking.
+
+Rows can show actor/role, timestamp, module/action, safe patient/product context, branch, record reference, method/normalized route, successful response, selected operational changes, and planned/not-planned state. Detail capture is allowlisted and excludes credentials, password hashes, access tokens, contact details, payment references, attachment paths, and diagnostic content. Selected operational reasons are retained for supported workflows. The interface filters by module/time and, for Super Admin, user/role/branch; the API also accepts a planning filter. Pagination supports up to 250 rows per request. Quiet periods are derived from timestamps, not staff-attendance measurements.
+
+The schema column and persistent writable private file storage are required. History starts when deployed; logging failure is logged and does not undo a committed clinic action. Files are not a tamper-proof ledger, failed attempts are outside the successful-mutation feed, and filtered views are not an exhaustive security/access log. See [activity history](staff_activity_history.md).
+
+**Current source cross-reference:** [src/services/reportService.js](../src/services/reportService.js#L57); [php/reports_common.php](../php/reports_common.php#L785); [php/staff_activity.php](../php/staff_activity.php#L46); [src/components/SuperAdminDashboardComponent/SuperAdminActivityLog.jsx](../src/components/SuperAdminDashboardComponent/SuperAdminActivityLog.jsx).
+
 ## 24. Pet Files & Media Monitoring
 
 ### 24.1 Access
@@ -1667,6 +1807,8 @@ When a visit invoice PDF has been saved in visit_invoice_documents, it is includ
 - Missing source schema is reported.
 - A listed protected URL still passes authenticated media access when opened.
 - Monitoring does not bypass owner, veterinarian, or clinic media rules.
+
+**Current source cross-reference:** [php/pet_media_monitoring.php](../php/pet_media_monitoring.php); [src/components/SuperAdminDashboardComponent/PetMediaMonitoring.jsx](../src/components/SuperAdminDashboardComponent/PetMediaMonitoring.jsx).
 
 ## 25. Upload and protected-media handling
 
@@ -1714,7 +1856,7 @@ General upload controls:
 - Images allow supported JPG, PNG, GIF, or WebP according to field type.
 - Mixed evidence fields can also allow PDF.
 - Consent, prescription, and invoice documents are PDF-only.
-- Filenames use timestamp plus random bytes instead of the user’s original name.
+- Filenames combine sanitized readable context/original-name tokens with timestamp and randomness; the original uploaded filename is never used as an unrestricted storage path.
 
 ### 25.3 Runtime storage
 
@@ -1741,11 +1883,15 @@ Owner access to concerns, diagnosis, invoices, payments, and signatures is match
 
 Grooming media uses its own publication/ownership/reviewer access decision.
 
+**Current source cross-reference:** [php/upload.php](../php/upload.php#L32); [php/upload_media.php](../php/upload_media.php#L69); [php/runtime_media.php](../php/runtime_media.php).
+
 ## 26. Public status display and clinic availability
 
 The public status/TV routes provide a clinic-facing waiting/in-service/upcoming/billing/completed display by branch. The display is designed for queue operations and avoids exposing diagnosis text or complete private medical records.
 
 The public availability endpoints expose only information needed to select an allowed branch/date/time/service. Final booking creation always repeats protected validation.
+
+**Current source cross-reference:** [php/status_display.php](../php/status_display.php); [src/components/StatusDisplay/TVStatusDisplay.jsx](../src/components/StatusDisplay/TVStatusDisplay.jsx); [Subdomain_folder/assets/tv-display.js](../Subdomain_folder/assets/tv-display.js).
 
 ## 27. Lifecycle maintenance and operational recovery checks
 
@@ -1793,6 +1939,22 @@ The maintenance screen can submit a deliberately limited public problem report. 
 
 If the recipient or mail transport is not configured, delivery fails with a clear error.
 
+### 27.5 Section recovery, uncertain writes, and confirmed outages
+
+Error boundaries protect startup/provider, page, section, shared table/card/dialog/sheet, and report-widget rendering. Retry display remounts the failed subtree; independent sibling content and its state can remain usable. State inside a remounted failed subtree may be lost. Reload remains appropriate for stale assets or failed lazy imports. Boundaries do not automatically catch asynchronous/event-handler failures.
+
+Selected independent GET loaders use `useSectionResource` / `createSectionResource` to distinguish initial load, refresh, valid/stale data, last success, failure, cancellation, and retry. Keys include the relevant user/pet/branch/date scope; obsolete responses cannot publish into a changed scope. Access/missing-resource failures clear protected data. Access, validation, conflict, and missing failures stop automatic polling until explicit recovery or a changed scope. Transient failures follow the auto-refresh backoff.
+
+Booking/queue worklists hide actionable rows after a failed refresh. Inventory items and locations load independently, but stock changes need verified dependencies. Intake keeps booking/queue matching in one required group. Successful independent dashboard sources can remain visible with a recovery notice. A failed source is not reported as a verified zero count or empty list.
+
+API responses must contain readable JSON except intentional HTTP 204. Write requests are not automatically retried. A timeout, lost connection, or unreadable mutation response can mean the server committed without delivering confirmation; the user is told to refresh and inspect the result before submitting again.
+
+Feature failures schedule a shared health probe after a debounce. Two failed probes confirm an outage; only successful health validation clears the shared notice. The notice supports manual checks and periodic recovery checks without replacing healthy content. The standalone TV display also has timeout, stale/unknown, retry, and backoff handling.
+
+This is implemented recovery behavior, not offline operation or a repair mechanism for invalid business records. Only selected loaders use the resource abstraction; other screens retain their own request handling plus rendering boundaries. The October 16 guide records 51 browser fault checks using synthetic intercepted responses, not every real role transaction. See [error isolation](error_isolation.md).
+
+**Current source cross-reference:** [php/booking_maintenance.php](../php/booking_maintenance.php#L9); [php/lifecycle_recovery_report.php](../php/lifecycle_recovery_report.php); [src/services/serviceHealth.js](../src/services/serviceHealth.js#L3); [src/lib/sectionResource.js](../src/lib/sectionResource.js); [src/lib/errorPolicy.js](../src/lib/errorPolicy.js#L7).
+
 ## 28. Cross-cutting restrictions and fail-safes
 
 | Risk | Current handling | Remaining caution |
@@ -1819,10 +1981,12 @@ If the recipient or mail transport is not configured, delivery fails with a clea
 | Missing schema | Many integrity-critical modules fail closed with migration guidance | Reports may remain partially available and disclose missing_data |
 | Notification failure | Main action commits; delivery error is logged/retryable | Users may not receive external notification |
 | Hidden browser tab refresh load | Auto-refresh pauses and resumes on visibility | Very large datasets still need server pagination |
-| Transient network/API outage | Retry, timeout, shared server-down state | Offline private operations are not supported |
+| Transient network/API outage | Local request recovery, read retry/backoff, confirmed health notice; writes are not auto-retried | An uncertain write must be checked before resubmission; offline private operations are not supported |
 | Sensitive form draft | Password/payment/signature/upload fields excluded | Browser/session storage remains a device-local concern |
 | Accidental inventory removal | Password, acknowledgement, reason, reference check, report-safe archival, audit | Archived inventory has no self-service restore control |
 | Archived user access | Status is returned for administrative display | Archive does not currently block login or existing token use |
+
+**Current source cross-reference:** [php/role_access.php](../php/role_access.php#L424); [php/workflow_guard_helpers.php](../php/workflow_guard_helpers.php); [src/services/apiClient.js](../src/services/apiClient.js).
 
 ## 29. Configuration and deployment dependencies
 
@@ -1846,6 +2010,7 @@ The following checklist determines whether source-level capabilities work on a d
 - VITE_MASTER_KEY for operations that intentionally require it.
 - Payment encryption secret of at least 32 characters.
 - Correct CORS/host policy.
+- Google identity/onboarding migration, matching Google client IDs, trusted frontend origins, and installed verifier when Google sign-in is enabled.
 
 ### 29.3 Messaging
 
@@ -1874,6 +2039,8 @@ The deployment must include the current migrations for:
 - Boarding rooms, assignments, observations, tasks, documents, materials, and overstay fields.
 - Notifications, preferences, email queue, push subscriptions, and TODOs.
 - Admin feature permissions.
+- Clinical intake, shared veterinarian clinic preferences, clinical confinement, medical certificates, and prescription schedules/events.
+- Staff activity file-reference column and system-backup audit metadata.
 
 ### 29.5 File storage
 
@@ -1882,18 +2049,22 @@ The deployment must include the current migrations for:
 - Confirm the web server cannot directly serve the private root.
 - Confirm protected /api/uploads/media requests reach PHP.
 - Confirm uploaded files survive application deployments.
+- Provision the configured private grooming-photo directory and staff activity storage with persistent PHP write access.
+- Backup export needs its enabled module, audit schema, writable temporary workspace, and the resources to assemble a complete ZIP.
 
 ### 29.6 Clinic-specific settings
 
 - Active branches.
 - Operating hours and closure dates.
 - Per-branch service availability.
-- Veterinarian branch assignments and schedules.
+- Veterinarian branch assignments, per-clinic booking acceptance, and separate online start selections.
 - Veterinarian current-day presence process.
 - Clinic network/IP allowlist for self-service queue.
 - Active service catalog with authoritative prices.
 - Active payment methods and instructions.
 - Current consent templates and assigned contexts.
+
+**Current source cross-reference:** [php/config.php](../php/config.php); [scripts/local-api-router.php](../scripts/local-api-router.php); [scripts/deploy-hostinger.mjs](../scripts/deploy-hostinger.mjs).
 
 ## 30. Inactive, incomplete, or not implemented
 
@@ -1921,6 +2092,8 @@ The application intentionally does **not** provide:
 - Automated media restoration or server-failure self-recovery.
 
 Hostinger's hosting backup remains separate from this local export. A trained IT administrator must perform and test restoration on a clean environment. The Excel workbook supports emergency reading but cannot replace the SQL database recovery source.
+
+The ZIP is not password encrypted and excludes application source, `.env`, database credentials, and previous backup ZIPs. Protect its destination storage. The current ZIP writer requires fewer than 65,536 entries, individual files below 4 GB, and archive offsets below 4 GB. Operational workbook sheets are limited to 250,000 rows; SQL remains the recovery source. Export generation, interrupted-download cleanup, and a complete clean-environment restoration were not re-tested in this revision. See [backup contents and recovery](BACKUP_RECOVERY.md).
 
 ### 30.2 Proposed disease-occurrence report
 
@@ -1969,11 +2142,13 @@ These may be handled outside the application, but they must not be claimed as iP
 ### 30.7 Operational/testing gaps
 
 - No unified automated end-to-end test framework is configured in package.json.
-- Some standalone JavaScript/PHP regression scripts exist, but they are not a complete suite.
+- The unified default runner covers frontend tests, lint/build, PHP syntax, selected database-free regressions, and local API routing. Separate sandbox/API checks also exist; these do not form a complete browser/end-to-end suite.
 - Static source review does not prove all current migrations are applied on production.
 - Static source review does not prove SMTP, push, meeting, cron, or secure storage are functioning.
 - Malware/antivirus scanning is not part of upload handling.
 - General login brute-force throttling was not found.
+
+**Current source cross-reference:** [php/system_backups.php](../php/system_backups.php#L43); [php/system_backup_common.php](../php/system_backup_common.php); [src/services/reportService.js](../src/services/reportService.js#L57); [public/ipawcus-push-sw.js](../public/ipawcus-push-sw.js).
 
 ## 31. State-machine reference
 
@@ -2008,6 +2183,10 @@ Admin can reject from eligible open states. Payment must be verified or waived b
 scheduled → checked_in → in_progress → ready → released
 
 checked_in or in_progress → vet_review → resume/stop/consultation outcome
+
+vet_review → confinement recommendation → transferred; the linked stay is managed in Boarding
+
+ready → verified full POS payment → released; manual release is rejected
 
 Early/eligible work can become cancelled or no_show.
 
@@ -2057,11 +2236,14 @@ The following principles summarize who is authoritative:
 | API family | Purpose | Main access |
 | --- | --- | --- |
 | /login, /register, /auth/* | Authentication, verification, recovery | Public with validation |
-| /profile, /users/{id}/* | Profile/password and scoped owner data | Authenticated; owner scope |
+| /profile, /users/{id}/*, /account/google | Profiles/password, scoped owner data, explicit Google linking | Authenticated; owner/Super Admin scope as applicable |
 | /pet_information, /pet_ownership/*, /pets/* | Pet register, linking, ownership, profile records | Owner/clinic by action |
 | /bookings/*, /booking-availability | Booking lifecycle and slots | Availability public; writes scoped |
 | /queues/*, /self-service/access | Queue creation, assignment, receive, return, reentry | Owner/Admin/Vet by action |
+| /clinical-intakes | Physical examination before diagnosis | Clinic read; Admin/Super Admin write, with current GET branch gap |
 | /vet-diagnoses/* | Clinical diagnosis and completion | Veterinarian/Super Admin |
+| /pets/{id}/prescriptions, /prescriptions/*, /prescription-items/*, /prescription-occurrences/* | Issue independent prescriptions, start courses, record doses/completion | Issuance Vet-group; other actions owner/clinic with handler checks |
+| /pets/{id}/certificates | Registration data, latest medical certificate, issue/view actions | Owner/clinic read; only actual Veterinarian issues medical certificates |
 | /online-consultations/* | Online appointment/session/diagnosis | Owner or assigned Veterinarian |
 | /record-update-requests/* | Paid controlled record correction | Owner/clinic by action |
 | /grooming | Grooming workspace and review | Read by allowed roles; writes clinic-scoped |
@@ -2076,7 +2258,10 @@ The following principles summarize who is authoritative:
 | /reports/* | Dashboard and report generation | Super Admin |
 | /pet-media-monitoring | Pet image/PDF source inventory | Veterinarian/Super Admin |
 | /upload, /uploads/media | Validated upload and protected retrieval | Authenticated and record-scoped |
-| /branches, /veterinarian-branch-schedules | Branch and schedule context | Authenticated; mutations restricted |
+| /branches, /veterinarian-booking-schedule, /vet_schedules | Branch context, clinic assignment/acceptance, online starts | Authenticated reads; Super Admin clinic assignment, vet own preferences/online starts |
+| /veterinarian-branch-schedules | Retired branch-visit compatibility endpoint | Authenticated empty read; publishing rejected |
+| /activity, /activity/options, /activity/view | Scoped staff action history/filter options; retired view-event compatibility | Clinic own history; Super Admin all; view POST does not record |
+| /system-backups | Generate/download local ZIP and list export audit metadata | Super Admin; deployment-dependent |
 | /vet-presence | Current visit availability signal | Public read; Admin/Super Admin write |
 | /status-display, /tv-status | Public queue status display | Public limited data |
 | /lifecycle/recovery-report | Finds completed cases missing billing | Super Admin, read-only |
@@ -2088,129 +2273,161 @@ The principal active sources inspected for this reference include:
 
 ### Application and access
 
-- src/App.jsx
-- src/main.jsx
-- src/components/Dashboard.jsx
-- src/components/dashboardRouter.jsx
-- src/services/apiClient.js
-- src/hooks/useAutoRefresh.js
-- src/hooks/useSessionFormPersistence.js
-- src/context/ThemeProvider.jsx
-- php/index.php
-- php/role_access.php
-- php/auth_access_helpers.php
-- php/workflow_guard_helpers.php
+- [src/App.jsx](../src/App.jsx)
+- [src/main.jsx](../src/main.jsx)
+- [src/components/Dashboard.jsx](../src/components/Dashboard.jsx)
+- [src/components/dashboardRouter.jsx](../src/components/dashboardRouter.jsx)
+- [src/services/apiClient.js](../src/services/apiClient.js)
+- [src/hooks/useAutoRefresh.js](../src/hooks/useAutoRefresh.js)
+- [src/hooks/useSessionFormPersistence.js](../src/hooks/useSessionFormPersistence.js)
+- [src/context/ThemeProvider.jsx](../src/context/ThemeProvider.jsx)
+- [php/index.php](../php/index.php)
+- [php/role_access.php](../php/role_access.php)
+- [php/auth_access_helpers.php](../php/auth_access_helpers.php)
+- [php/workflow_guard_helpers.php](../php/workflow_guard_helpers.php)
 
 ### Authentication, profiles, and accounts
 
-- php/login.php
-- php/register.php
-- php/auth_otp_helpers.php
-- php/password_policy_helpers.php
-- php/get_accounts.php
-- php/create_account.php
-- php/delete_account.php
-- php/update_account_status.php
-- php/update_account_profile.php
-- php/get_user_profile.php
-- php/update_user_profile.php
-- src/components/SuperAdminDashboardComponent/AccountManagement.jsx
-- src/components/SuperAdminDashboardComponent/PetOwnerAccountsManagement.jsx
-- src/components/AdminDashboardsComponent/adminprofile.jsx
-- src/components/VetrinarianComponents/VetProfile.jsx
-- src/components/PetOwnerDashboard/PetOwnerProfile.jsx
-- DDL/20260914_01_personnel_profile_cleanup.sql
+- [php/login.php](../php/login.php)
+- [php/register.php](../php/register.php)
+- [php/auth_otp_helpers.php](../php/auth_otp_helpers.php)
+- [php/password_policy_helpers.php](../php/password_policy_helpers.php)
+- [php/get_accounts.php](../php/get_accounts.php)
+- [php/create_account.php](../php/create_account.php)
+- [php/delete_account.php](../php/delete_account.php)
+- [php/update_account_status.php](../php/update_account_status.php)
+- [php/update_account_profile.php](../php/update_account_profile.php)
+- [php/get_user_profile.php](../php/get_user_profile.php)
+- [php/update_user_profile.php](../php/update_user_profile.php)
+- [src/components/SuperAdminDashboardComponent/AccountManagement.jsx](../src/components/SuperAdminDashboardComponent/AccountManagement.jsx)
+- [src/components/SuperAdminDashboardComponent/PetOwnerAccountsManagement.jsx](../src/components/SuperAdminDashboardComponent/PetOwnerAccountsManagement.jsx)
+- [src/components/AdminDashboardsComponent/adminprofile.jsx](../src/components/AdminDashboardsComponent/adminprofile.jsx)
+- [src/components/VetrinarianComponents/VetProfile.jsx](../src/components/VetrinarianComponents/VetProfile.jsx)
+- [src/components/PetOwnerDashboard/PetOwnerProfile.jsx](../src/components/PetOwnerDashboard/PetOwnerProfile.jsx)
+- [DDL/20260914_01_personnel_profile_cleanup.sql](../DDL/20260914_01_personnel_profile_cleanup.sql)
 
 ### Pets, booking, queue, and clinical records
 
-- php/add_pet.php
-- php/get_pet.php
-- php/get_pets.php
-- php/update_pet.php
-- php/update_pet_status.php
-- php/link_pet.php
-- php/coparent_requests.php
-- php/add_booking.php
-- php/get_bookings.php
-- php/booking_availability.php
-- php/update_booking_status.php
-- php/update_booking_schedule.php
-- php/receive_booking.php
-- php/add_to_queue.php
-- php/get_queues.php
-- php/update_queue_status.php
-- php/assign_queue_vet.php
-- php/receive_queue.php
-- php/return_queue.php
-- php/reenter_queue.php
-- php/vet_diagnoses.php
-- php/pet_medical_records.php
-- php/record_update_requests.php
-- php/online_consultations.php
-- php/booking_maintenance.php
-- php/lifecycle_recovery_report.php
-- src/components/PetOwnerDashboard/PetProfile.jsx
-- src/components/AdminDashboardsComponent/PetRegister.jsx
-- src/components/AdminDashboardsComponent/BookingManagement.jsx
-- src/components/AdminDashboardsComponent/QueueManagement.jsx
-- src/components/VetrinarianComponents/VetDiagnosis.jsx
-- src/components/VetrinarianComponents/VetMylistinService.jsx
-- src/components/VetrinarianComponents/VetPetsEMR.jsx
+- [php/add_pet.php](../php/add_pet.php)
+- [php/get_pet.php](../php/get_pet.php)
+- [php/get_pets.php](../php/get_pets.php)
+- [php/update_pet.php](../php/update_pet.php)
+- [php/update_pet_status.php](../php/update_pet_status.php)
+- [php/link_pet.php](../php/link_pet.php)
+- [php/coparent_requests.php](../php/coparent_requests.php)
+- [php/add_booking.php](../php/add_booking.php)
+- [php/get_bookings.php](../php/get_bookings.php)
+- [php/booking_availability.php](../php/booking_availability.php)
+- [php/update_booking_status.php](../php/update_booking_status.php)
+- [php/update_booking_schedule.php](../php/update_booking_schedule.php)
+- [php/receive_booking.php](../php/receive_booking.php)
+- [php/add_to_queue.php](../php/add_to_queue.php)
+- [php/get_queues.php](../php/get_queues.php)
+- [php/update_queue_status.php](../php/update_queue_status.php)
+- [php/assign_queue_vet.php](../php/assign_queue_vet.php)
+- [php/receive_queue.php](../php/receive_queue.php)
+- [php/return_queue.php](../php/return_queue.php)
+- [php/reenter_queue.php](../php/reenter_queue.php)
+- [php/vet_diagnoses.php](../php/vet_diagnoses.php)
+- [php/pet_medical_records.php](../php/pet_medical_records.php)
+- [php/record_update_requests.php](../php/record_update_requests.php)
+- [php/online_consultations.php](../php/online_consultations.php)
+- [php/booking_maintenance.php](../php/booking_maintenance.php)
+- [php/lifecycle_recovery_report.php](../php/lifecycle_recovery_report.php)
+- [src/components/PetOwnerDashboard/PetProfile.jsx](../src/components/PetOwnerDashboard/PetProfile.jsx)
+- [src/components/AdminDashboardsComponent/PetRegister.jsx](../src/components/AdminDashboardsComponent/PetRegister.jsx)
+- [src/components/AdminDashboardsComponent/BookingManagement.jsx](../src/components/AdminDashboardsComponent/BookingManagement.jsx)
+- [src/components/AdminDashboardsComponent/QueueManagement.jsx](../src/components/AdminDashboardsComponent/QueueManagement.jsx)
+- [src/components/VetrinarianComponents/VetDiagnosis.jsx](../src/components/VetrinarianComponents/VetDiagnosis.jsx)
+- [src/components/VetrinarianComponents/VetMylistinService.jsx](../src/components/VetrinarianComponents/VetMylistinService.jsx)
+- [src/components/VetrinarianComponents/VetPetsEMR.jsx](../src/components/VetrinarianComponents/VetPetsEMR.jsx)
 
 ### Grooming and boarding
 
-- php/grooming.php
-- php/grooming_helpers.php
-- php/grooming_rules.php
-- php/grooming_media.php
-- php/grooming_upload.php
-- php/boarding_management.php
-- src/components/shared/GroomingWorkspace.jsx
-- src/components/AdminDashboardsComponent/GroomingManagement.jsx
-- src/components/AdminDashboardsComponent/PetBoardingManagement.jsx
-- DDL/20260906_01_grooming_management.sql
+- [php/grooming.php](../php/grooming.php)
+- [php/grooming_helpers.php](../php/grooming_helpers.php)
+- [php/grooming_rules.php](../php/grooming_rules.php)
+- [php/grooming_media.php](../php/grooming_media.php)
+- [php/grooming_upload.php](../php/grooming_upload.php)
+- [php/boarding_management.php](../php/boarding_management.php)
+- [src/components/shared/GroomingWorkspace.jsx](../src/components/shared/GroomingWorkspace.jsx)
+- [src/components/AdminDashboardsComponent/GroomingManagement.jsx](../src/components/AdminDashboardsComponent/GroomingManagement.jsx)
+- [src/components/AdminDashboardsComponent/PetBoardingManagement.jsx](../src/components/AdminDashboardsComponent/PetBoardingManagement.jsx)
+- [DDL/20260906_01_grooming_management.sql](../DDL/20260906_01_grooming_management.sql)
 
 ### Services, inventory, and billing
 
-- php/service_catalog.php
-- php/special_services.php
-- php/inventory.php
-- php/inventory_invoice_helpers.php
-- php/visit_billing.php
-- php/payment_methods.php
-- src/components/AdminDashboardsComponent/ServiceCatalogManagement.jsx
-- src/components/AdminDashboardsComponent/AllItemsPage.jsx
-- src/components/AdminDashboardsComponent/StockInPage.jsx
-- src/components/AdminDashboardsComponent/POSmanagement.jsx
-- src/lib/invoicePdf.js
-- DDL/20260819_01_invoice_pdf_documents.sql
+- [php/service_catalog.php](../php/service_catalog.php)
+- [php/special_services.php](../php/special_services.php)
+- [php/inventory.php](../php/inventory.php)
+- [php/inventory_invoice_helpers.php](../php/inventory_invoice_helpers.php)
+- [php/visit_billing.php](../php/visit_billing.php)
+- [php/payment_methods.php](../php/payment_methods.php)
+- [src/components/AdminDashboardsComponent/ServiceCatalogManagement.jsx](../src/components/AdminDashboardsComponent/ServiceCatalogManagement.jsx)
+- [src/components/AdminDashboardsComponent/AllItemsPage.jsx](../src/components/AdminDashboardsComponent/AllItemsPage.jsx)
+- [src/components/AdminDashboardsComponent/StockInPage.jsx](../src/components/AdminDashboardsComponent/StockInPage.jsx)
+- [src/components/AdminDashboardsComponent/POSmanagement.jsx](../src/components/AdminDashboardsComponent/POSmanagement.jsx)
+- [src/lib/invoicePdf.js](../src/lib/invoicePdf.js)
+- [DDL/20260819_01_invoice_pdf_documents.sql](../DDL/20260819_01_invoice_pdf_documents.sql)
 
 ### Consent, notifications, media, and reporting
 
-- php/consent_file_helpers.php
-- php/consent_form_records.php
-- php/consent_record_helpers.php
-- php/notifications.php
-- php/notification_helpers.php
-- php/pet_owner_todos.php
-- php/upload.php
-- php/upload_media.php
-- php/runtime_media.php
-- php/pet_media_monitoring.php
-- php/reports_dashboard.php
-- php/reports_generate.php
-- php/reports_common.php
-- php/system_problem_report.php
-- src/components/AdminDashboardsComponent/ConsentFileManagement.jsx
-- src/components/SuperAdminDashboardComponent/PetMediaMonitoring.jsx
-- src/components/SuperAdminDashboardComponent/SuperAdminReportsDashboard.jsx
-- src/components/SuperAdminDashboardComponent/SuperAdminReportCenter.jsx
-- src/components/SuperAdminDashboardComponent/ReportChartCard.jsx
-- src/services/reportService.js
+- [php/consent_file_helpers.php](../php/consent_file_helpers.php)
+- [php/consent_form_records.php](../php/consent_form_records.php)
+- [php/consent_record_helpers.php](../php/consent_record_helpers.php)
+- [php/notifications.php](../php/notifications.php)
+- [php/notification_helpers.php](../php/notification_helpers.php)
+- [php/pet_owner_todos.php](../php/pet_owner_todos.php)
+- [php/upload.php](../php/upload.php)
+- [php/upload_media.php](../php/upload_media.php)
+- [php/runtime_media.php](../php/runtime_media.php)
+- [php/pet_media_monitoring.php](../php/pet_media_monitoring.php)
+- [php/reports_dashboard.php](../php/reports_dashboard.php)
+- [php/reports_generate.php](../php/reports_generate.php)
+- [php/reports_common.php](../php/reports_common.php)
+- [php/system_problem_report.php](../php/system_problem_report.php)
+- [src/components/AdminDashboardsComponent/ConsentFileManagement.jsx](../src/components/AdminDashboardsComponent/ConsentFileManagement.jsx)
+- [src/components/SuperAdminDashboardComponent/PetMediaMonitoring.jsx](../src/components/SuperAdminDashboardComponent/PetMediaMonitoring.jsx)
+- [src/components/SuperAdminDashboardComponent/SuperAdminReportsDashboard.jsx](../src/components/SuperAdminDashboardComponent/SuperAdminReportsDashboard.jsx)
+- [src/components/SuperAdminDashboardComponent/SuperAdminReportCenter.jsx](../src/components/SuperAdminDashboardComponent/SuperAdminReportCenter.jsx)
+- [src/components/SuperAdminDashboardComponent/ReportChartCard.jsx](../src/components/SuperAdminDashboardComponent/ReportChartCard.jsx)
+- [src/services/reportService.js](../src/services/reportService.js)
+
+### Additional sources reconciled in the October 18 revision
+
+- [php/auth_google.php](../php/auth_google.php)
+- [php/auth_google_complete.php](../php/auth_google_complete.php)
+- [php/account_google.php](../php/account_google.php)
+- [php/google_auth_helpers.php](../php/google_auth_helpers.php)
+- [php/clinic_booking_helpers.php](../php/clinic_booking_helpers.php)
+- [php/clinical_intakes.php](../php/clinical_intakes.php)
+- [php/veterinarian_booking_schedule.php](../php/veterinarian_booking_schedule.php)
+- [php/veterinarian_branch_schedules.php](../php/veterinarian_branch_schedules.php)
+- [php/clinical_confinement_helpers.php](../php/clinical_confinement_helpers.php)
+- [php/pet_certificates.php](../php/pet_certificates.php)
+- [php/prescriptions.php](../php/prescriptions.php)
+- [php/prescription_helpers.php](../php/prescription_helpers.php)
+- [php/staff_activity.php](../php/staff_activity.php)
+- [php/staff_activity_helpers.php](../php/staff_activity_helpers.php)
+- [php/system_backups.php](../php/system_backups.php)
+- [php/system_backup_common.php](../php/system_backup_common.php)
+- [src/services/serviceHealth.js](../src/services/serviceHealth.js)
+- [src/lib/errorPolicy.js](../src/lib/errorPolicy.js)
+- [src/lib/sectionResource.js](../src/lib/sectionResource.js)
+- [src/hooks/useSectionResource.js](../src/hooks/useSectionResource.js)
+- [src/components/shared/ErrorBoundary.jsx](../src/components/shared/ErrorBoundary.jsx)
+- [src/components/shared/ServiceStatusNotice.jsx](../src/components/shared/ServiceStatusNotice.jsx)
+- [src/components/shared/PrescriptionPlanPanel.jsx](../src/components/shared/PrescriptionPlanPanel.jsx)
+- [src/components/shared/PetCertificateDialog.jsx](../src/components/shared/PetCertificateDialog.jsx)
+- [src/components/SuperAdminDashboardComponent/SuperAdminActivityLog.jsx](../src/components/SuperAdminDashboardComponent/SuperAdminActivityLog.jsx)
+- [scripts/check-project.mjs](../scripts/check-project.mjs)
+- [scripts/check-google-auth.php](../scripts/check-google-auth.php)
 
 ## 35. Validation status of this document
 
 This reference was checked against active source connections, but it does not replace runtime acceptance testing.
+
+The October 18 default runner passes 201/201 checks, including 114 frontend tests. Lint/build, the PHP syntax sweep, selected database-free workflow regressions, and the local API router pass. Google configuration/library readiness passes but the local database step fails. Documentation checks validate target files, source line bounds, internal heading links, and section completeness. These checks do not authenticate a real owner or staff browser, exercise every database transaction, or certify deployment; the detailed limitations are in section 36.
 
 For a release-level capability certification, the next verification pass should:
 
@@ -2226,3 +2443,135 @@ For a release-level capability certification, the next verification pass should:
 10. Implement and test an independent backup/restore process before relying on the application for disaster recovery.
 
 Until that runtime pass is completed, this document should be described as the **current program capability reference**, not a production compliance certificate.
+
+## 36. Consolidated limitations and findings
+
+This section combines the September limitations with the current source comparison. **Scope boundary** means an absent or limited product workflow. **Implementation finding** means an existing control needs correction; it is not an acceptable substitute for an advertised security property. **Deployment dependency** means code requires configuration/schema/storage/services. **Unverified** means this review lacks runtime evidence, not that the feature necessarily fails.
+
+### 36.1 Access, identity, privacy, and audit findings
+
+| ID | Type / current status | Limitation and operational consequence | Current cross-reference |
+| --- | --- | --- | --- |
+| SEC-01 | Implementation finding; open | Archive/deactivation labels do not revoke API tokens or universally block sign-in. Do not use archive as an emergency access lock. Some appointment rosters exclude archived accounts, but that does not deactivate authentication. | [php/login.php](../php/login.php#L155); [php/auth_access_helpers.php](../php/auth_access_helpers.php#L110) |
+| SEC-02 | Implementation finding; open | Password change/reset updates the password, optionally records password_changed_at, and leaves existing tokens valid. A compromised session can survive password recovery. | [php/update_password.php](../php/update_password.php#L47); [php/auth_reset_password.php](../php/auth_reset_password.php#L43); [php/auth_access_helpers.php](../php/auth_access_helpers.php#L110) |
+| SEC-03 | Implementation finding; partly corrected | Staff directory responses now strip user_password. Profile serialization still includes all selected user columns, including the stored hash. Limit the remaining endpoint to necessary public fields. | [php/get_accounts.php](../php/get_accounts.php#L46); [php/get_user_profile.php](../php/get_user_profile.php#L62) |
+| SEC-04 | Implementation finding; open | Optional Admin feature permissions default to allowed when their table is absent or the lookup fails. Central role checks remain, but disabled-feature guarantees are not fail-closed. | [php/role_access.php](../php/role_access.php#L56) |
+| SEC-05 | Implementation finding; open | Google sign-in rejects inactive staff profiles. Password sign-in defines inactivity helpers but does not invoke them before token creation. Existing token lookup does not check those staff profile flags. Authentication paths therefore do not enforce one consistent deactivation policy. | [php/google_auth_helpers.php](../php/google_auth_helpers.php#L251); [php/login.php](../php/login.php#L155); [php/auth_access_helpers.php](../php/auth_access_helpers.php#L110) |
+| SEC-06 | Implementation finding; source-confirmed, runtime impact unverified | Clinical intake POST/PATCH check Admin branch access. GET filters a vet to their assignment but does not constrain Admin results to assigned branches. Direct authenticated reads need the same branch boundary. | [php/clinical_intakes.php](../php/clinical_intakes.php#L151) |
+| SEC-07 | Implementation/security limitation | General password-login throttling is absent from the inspected handler. Tokens are stored in browser local storage and can also be accepted in URL query/cookie form. Wildcard API CORS is present. These choices require an explicit deployment/security review; they are not proof of a demonstrated exploit. | [php/login.php](../php/login.php#L155); [php/auth_access_helpers.php](../php/auth_access_helpers.php#L110); [php/index.php](../php/index.php#L3) |
+| SEC-08 | Scope/deployment boundary | Private media depends on authenticated delivery plus server rules/private storage; MIME checks do not scan malware. A misconfigured server can bypass intended direct-access protection. Grooming media access is broader for ready/released/transferred jobs than assigned pending reviews alone. | [php/upload_media.php](../php/upload_media.php#L69); [php/grooming_helpers.php](../php/grooming_helpers.php#L107) |
+| SEC-09 | Scope boundary | Terms/consent capture is not a complete versioned policy-acceptance, withdrawal, privacy-request, or automated retention/deletion program. Staff action files are neither a tamper-proof ledger nor a complete failed-access log. | [php/register.php](../php/register.php#L16); [php/staff_activity_helpers.php](../php/staff_activity_helpers.php#L1198) |
+
+### 36.2 Functional and operational boundaries
+
+| ID | Area | Implemented capability | Remaining boundary / consequence |
+| --- | --- | --- | --- |
+| FUN-01 | Staffing and branches | Assignment, active/accepting roster, clinic hours, closures, shared vet reservations. | No per-vet leave/working-hours workflow, assistant/room/equipment resource plan, payroll, or full HR/credentialing. Retired branch visits must not be advertised as current. See section 7. |
+| FUN-02 | Booking duration | Shared medical capacity, actual vet assignment, cross-clinic conflicts, 30-minute ordinary and 60-minute home/online intervals. | Catalog duration does not determine reservation length. Surgery/dental work can require longer resources than the fixed slot. Home travel/buffer scheduling is not established. See sections 9.5 and 17. |
+| FUN-03 | Queue and emergency care | Queue priorities, network-gated self-service, assignment, intake, clinical completion. | Priority is not formal emergency triage; network/IP gating is not strong physical-presence proof. No guaranteed waiting time. See section 10. |
+| FUN-04 | Patient/clinical governance | Healthy/Emergency/Deceased status, diagnoses, allergies, vaccinations, follow-up, medical summaries. | No complete DNR, euthanasia, remains release, incident/adverse-event, controlled-drug, or emergency-spending workflow. The software does not automatically diagnose. See sections 8, 11, 30.6. |
+| FUN-05 | Owner medical records | Owner-visible organized records, permitted history, email/export, paid update requests. | Owner summaries depend on staff organization/release; they are not an unrestricted internal chart dump. Request completion evidence depends on snapshot schema. See sections 13–14. |
+| FUN-06 | Prescriptions | Independent issued plans, start confirmation, dose checklists, as-needed completion, retained history. | No automatic drug-interaction checking or proof a dose was administered. Issued directions cannot be amended in place. Historical dose correction affects checklist state, not the issued prescription. See section 13.7. |
+| FUN-07 | Certificates | Clinic-registration print data and veterinarian-issued short-validity medical certificate. | Registration is not health/travel clearance. The handler returns the latest non-revoked medical certificate, and no complete public validation/revocation-management workflow was established. See section 8.6. |
+| FUN-08 | Online consultation | Vet-ready/join/close actions, Jitsi call, minimized navigation, diagnosis. | Depends on connectivity, devices and meeting host. Leaving the call does not finish clinical records or verify money. See section 12. |
+| FUN-09 | Grooming | Catalog service selection, photo evidence, staff record, vet review, billing, publication, full-payment release, confinement transfer. | No dedicated groomer-capacity roster; assistant is a name field. No complete dedicated itemized add-on/stock subsystem. Payment-driven pickup flags do not independently verify physical collection. See section 15. |
+| FUN-10 | Boarding/confinement | Room capacity/reservation, clinical referral, consent, approval, observations/tasks, materials, overstay and billing. | Does not supply full abandonment/emergency/DNR/end-of-life policy or hospital/ICU staffing. Clinical referral is not actual room allocation/check-in. See section 16. |
+| FUN-11 | Inventory | Batch/location stock, costs/prices, receipts, guarded stock-out, same-branch transfer and archival trace. | No inter-branch transfer journey, staged receiving approval in the direct transfer operation, or inventory restore button. Not full procurement/accounting. See section 18. |
+| FUN-12 | Payments/refunds | Staff proof review, charges, verified payments, stored invoices, audited backend refund handlers. | Proof is not settlement; no automated provider reconciliation was established. Current POS offers no refund action. Backend refund records do not send money through a payment provider. See section 19. |
+| FUN-13 | Reports | Fifteen business types, print/PDF/Excel, dashboard and separate Activity Log print. | No disease-occurrence/categorized-pet-cases report. Missing sources can produce partial reports; check missing_data. No verified external laboratory/accounting/clinic interoperability. See section 23. |
+| FUN-14 | Notifications | In-app history, preferences, queued email, reminder runner, push hooks. | A committed action does not prove recipient delivery. Workers, scheduler, subscription/browser permission and external services are required. See section 22. |
+| FUN-15 | Backup/recovery | On-demand Super Admin SQL/media/Excel/manifest ZIP and audit metadata. | No retained historical ZIP, app-scheduled/incremental/PITR backup, web restore, or verified clean restore. ZIP is not password encrypted; source/.env are excluded. ZIP size/entry and workbook row limits apply. See section 30.1 and the backup guide. |
+| FUN-16 | Connectivity/recovery | Cached PWA shell, local section retry, confirmed outage notice, stale data handling. | No offline private data/writes or later conflict synchronization. Retrying a crashed subtree can discard its state. An uncertain write must be checked before resubmission. Not every loader uses section-resource handling. See sections 3.6, 27.5, 30.4. |
+
+### 36.3 Deployment and evidence constraints
+
+| ID | Constraint | Evidence and practical meaning |
+| --- | --- | --- |
+| DEP-01 | Current local database prerequisite failure | October 18 check:google passes configuration/library checks but fails database readiness. Today's successful default runner uses selected database-free checks and cannot establish registration, payment, or transactional write readiness. |
+| DEP-02 | Historical configured database import defects | October 14 review found 88 readable tables, but 87 tables missing exported indexes, 75 missing exported foreign-key constraints, and 80 missing required auto-increment metadata. This revision did not re-run the export comparison or apply the prepared repair. The historical synthetic sandbox is separate. |
+| DEP-03 | Feature-specific setup | Current migrations, proper indexes/constraints, private writable storage, workers, HTTPS, provider origins, and persistent uploads are required. A source file or successful GET does not prove a complete installation. See section 29. |
+| QA-01 | Runtime/role isolation | Default tests do not execute every role handoff, wrong-owner/wrong-branch request, double-receive, concurrent stock/payment, or restore journey against a complete database. Intake read scope and auth-policy differences need explicit regression scenarios after correction. |
+| QA-02 | Performance/accessibility | No fresh measured response-time, concurrency, large-data, real-device, screen-reader, or complete responsive acceptance study was run. The build's large chunk warning is a measurement prompt, not proof of unacceptable speed. The earlier targeted fault/layout checks cover only their recorded scenarios. |
+| QA-03 | External integrations and production | Real Google callbacks, OTP/SMTP delivery, push, meeting access, payment-provider behavior, Apache/hosting isolation, deployment survival, and full restore remain outside this revision's runtime evidence. |
+
+### 36.4 Recommended correction and verification order
+
+1. Address profile field exposure, Admin intake GET branch scope, consistent inactive/archive enforcement, token revocation after password recovery, and optional feature fail-open behavior. These are implementation findings, not thesis scope boundaries.
+2. Restore current database/schema readiness in a reviewed environment, then run database-backed role/ownership/branch and concurrent transaction scenarios. Keep the synthetic sandbox separate from the configured clinic database.
+3. Verify private media, persistent invoice/activity/grooming files, export cleanup, and a complete clean-environment restore. Confirm actual mail/reminder/push/video operation separately.
+4. Reconcile service duration, resource staffing, physical collection, emergency, consent, and end-of-life policies with clinic owners; implement any rules promised by the project requirements.
+5. Observe complete role journeys on phone, tablet, desktop, and wide monitors; reconcile reports to known transactions and establish measurable quality acceptance criteria.
+
+## 37. Complete workflow and role handoffs
+
+| Workflow | Actors and sequence | Completion boundary |
+| --- | --- | --- |
+| Account and pet setup | Owner registers/verifies or completes Google onboarding → profile → adds pet or requests co-ownership → authorized approval. | A shareable ID alone does not grant an existing owner's private pet access. |
+| Clinic appointment | Owner selects service/branch/slot/pet/consent/payment evidence → server reserves capacity → Admin reviews/clears/ confirms → queue/vet assignment → Admin intake and saved consent → vet diagnosis/prescription → visit/charges → POS verifies payment → owner reviews released records. | Confirmed appointment, completed clinical care, and paid invoice are separate states. |
+| Walk-in/self-service | Admin registers/selects pet or owner submits network-gated queue → staff handles assignment/consent/intake → vet receives/completes care → billing/history. | Generic queue status changes cannot manufacture clinical completion. |
+| Online consultation | Owner chooses vet/call start/pet/consent/proof → review/confirmation → vet marks ready → owner joins → call and diagnosis → billing/records. | One-hour reservation and vet-ready join rules apply; leaving a call is not a diagnosis/payment action. |
+| Additional prescription | Vet issues a fresh independent plan → owner confirms item starts → scheduled doses or as-needed use → checklist/history. | New issuance preserves prior courses; checklist completion is not evidence of medicine ingestion. |
+| Record update/certificate | Owner requests change and submits evidence → Admin clears/waives payment and assigns → assigned vet edits/organizes records, optionally issues a certificate → actual-change evidence/request completion → owner views. | Certificate issuance has separate vet/date/signature rules; it is not automatic with payment. |
+| Grooming | Approved booking → receiving/intake/before photo → active catalog selections → start → assigned-vet concern review if needed → after photo/finish ready → verified full POS payment releases → permitted summary/photo publication. | Manual release is rejected. Staff must still verify actual collection. |
+| Clinical confinement | Vet diagnosis or grooming review recommends stay → source-linked pending admission/charge → Admin obtains required approval/consent → room reservation/check-in → clinical monitoring/tasks/materials → review billing/discharge/checkout. | A recommendation or transferred grooming status is not itself unit allocation or physical check-in. |
+| Pet Hotel | Owner chooses clinic/room size/stay dates/care/consent/payment evidence → Admin confirms and assigns unit → check-in → care/tasks/materials → charges/checkout/history. | Landing room selection is a prefill; protected availability and room collision checks still decide acceptance. |
+| Inventory and POS | Authorized Admin acknowledges/password-confirms stock changes → batch/movement audit → clinical/service/product charges consume allowed materials → verified money locks charges → saved PDF. | Historical financial/stock snapshots remain even when products are archived. |
+| Governance and recovery | Super Admin manages accounts/branches/permissions/payment settings → reviews reports/activity → creates local backup ZIP → trained operator separately verifies restoration. | Reports and lifecycle inconsistency lists are not database backups or repairs. |
+
+For click-by-click role instructions, use the [role guide](../USER_INSTRUCTIONS_FOR_DIFFERENT_ROLES.md). This matrix describes connected responsibilities, not additional permissions beyond the PHP route and record checks.
+
+## 38. Suggested scope and quality assessment
+
+### 38.1 Recommended capstone scope
+
+If consistent with the approved proposal, five connected objectives describe the system more clearly than a separate objective per screen:
+
+1. Role-based owner and clinic workflow coordination.
+2. Pet registration/ownership and electronic medical records.
+3. Appointment requests, availability, and confirmation.
+4. Queue/intake-to-veterinarian consultation and documented completion.
+5. Billing/payment review and inventory traceability.
+
+Online consultation, prescriptions/certificates, grooming, boarding/confinement, consent, notifications, reports, activity, and backup export support those objectives. Treat a feature as evaluated only when its actual demonstration and test evidence exist.
+
+Suggested wording:
+
+> iPawcus is an integrated web-based veterinary-clinic and pet-owner system covering pet registration and shared ownership, appointment requests and confirmation, queue and physical-intake coordination, veterinarian consultation, organized medical records, prescriptions, and related billing and inventory recording. Configured supporting workflows include online consultation, grooming, boarding and clinical confinement, certificates, consent documents, notifications, reports, activity history, and local backup export. It organizes clinic operations but does not replace professional clinical judgment, formal emergency and end-of-life policy, external payment settlement, full accounting or HR, offline clinical work, or a tested disaster-recovery service. Relevant functions depend on database integrity, connectivity, secure storage, and configured third-party services.
+
+Do not reclassify SEC-01–SEC-06 as intentional scope limitations. They describe behavior of existing controls and require correction or explicit risk treatment.
+
+### 38.2 Qualitative quality screening
+
+The following reconciles the nine quality categories used by the [September ISO/IEC 25010 screening](20260922_system_limitations_iso25010_screening.md). It is a repository-based assessment, not an ISO conformity claim, certification, numeric score, or substitute for measured evaluation.
+
+| Category | Current source-backed assessment | Evidence still required |
+| --- | --- | --- |
+| Functional suitability | Broad connected clinic coverage, with the explicit functional boundaries above. | Approved requirements mapped to successful end-to-end tasks. |
+| Performance efficiency | Polling dedupe/visibility/backoff and deferred exports exist; large build chunks remain. | Measured latency, concurrent load, data scale, export memory/time, and device performance. |
+| Compatibility | Browser, PHP/MySQL, email, push, Google, and Jitsi integration paths exist. | Real provider operation and any promised laboratory/accounting/clinic interoperability. |
+| Interaction capability | Shared controls/themes, validation, section retry, and responsive layouts exist. | Observed task completion, keyboard/screen-reader behavior, training outcomes, and full device coverage. |
+| Reliability | Transactions, locks, dedupe, state guards, and scoped recovery reduce partial/duplicate work. | Complete schema, concurrency/failure scenarios, persistent storage, and verified restoration. |
+| Security | Central route/record guards and protected files exist; specific open findings remain. | Corrected authentication/profile/intake issues and deployed adversarial role/record/media checks. |
+| Maintainability | Unified checks, module regressions, sandbox tooling, and source-linked docs exist. | Complete browser coverage, migration repeatability, and continued regression maintenance. |
+| Flexibility | Configurable branches/services/palettes and shared vet capacity exist. | Procedure-duration, staffing/resource, integration, and deployment adaptation requirements. |
+| Safety | Documentation supports professional decisions; specialized clinical governance is incomplete. | Clinic-approved triage, consent, emergency, DNR/end-of-life, incident, and medication procedures. |
+
+## 39. Document provenance and maintenance
+
+This file is the combined maintained reference. Historical dated reviews retain their original results and must not override current source without rechecking it.
+
+| Source document | Material incorporated / current treatment |
+| --- | --- |
+| [September limitations and quality screening](20260922_system_limitations_iso25010_screening.md) | Functional limitations, quality categories, capstone scope; corrected for directory-field cleanup, shared vet capacity, current tests and newer modules. |
+| [October project audit](20261013_project_audit.md) | Routing/Google/security corrections and role checklist. Its database failure and counts are dated results. |
+| [Configured database verification](20261014_database_verification.md) | Historical schema-import defects and landing Pet Hotel clinic handoff; no repair assumed. |
+| [Sandbox guide](database_sandbox.md) | Separate synthetic database and isolation limits; sandbox success is not production certification. |
+| [Role instructions](../USER_INSTRUCTIONS_FOR_DIFFERENT_ROLES.md) | Operator steps reconciled with backend authority, intake, prescriptions/certificates, refunds and Activity Log placement. |
+| [Shared veterinarian booking](shared-veterinarian-booking.md) and [presence/lunch](vet-presence-and-lunch.md) | Independent online/clinic rules, accepting roster, shared conflicts, retired visits, and informational presence. |
+| [Prescription workflow](prescription-workflow.md) | Add-only issued plans, dose state/history, independent starts and as-needed completion. |
+| [Grooming guide](grooming-management.md) | Photo/catalog/review/POS release and confinement-transfer behavior reconciled with handlers. |
+| [Activity history](staff_activity_history.md) | Current dedicated page, operational module filters, safe details and file-log limitations. |
+| [Backup/recovery](BACKUP_RECOVERY.md) | Local ZIP contents, cleanup, archive/workbook limits, manual unverified restore. |
+| [Error isolation](error_isolation.md) | Current render/request recovery and the limited scope of earlier synthetic browser checks. |
+
+When changing a capability, update its description, role/branch/owner restriction, state transition, dependency, limitation, and source reference together. Re-run relative-link/line-anchor checks after source movement. Record the date and environment for runtime evidence. Do not replace missing measurements with a claim that an implemented screen is production-ready.

@@ -4,6 +4,7 @@ import { X } from 'lucide-react';
 import { hasCancelDismissAction } from './modalCloseVisibility';
 import { isTopmostModal } from './modalKeyboard';
 import { cn } from './utils';
+import ErrorBoundary from '../components/shared/ErrorBoundary';
 
 const SheetContext = React.createContext(null);
 
@@ -180,7 +181,9 @@ const SheetContent = ({ children, side = "right", className, showClose, ...props
         </div>
         )}
         <div className="h-full overflow-y-auto">
-          {children}
+          <ErrorBoundary scope="sheet" title="This panel could not be displayed" onDismiss={() => setOpen(false)}>
+            {children}
+          </ErrorBoundary>
         </div>
       </div>
     </>,

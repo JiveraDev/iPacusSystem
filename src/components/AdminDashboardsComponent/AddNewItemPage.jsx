@@ -1,3 +1,4 @@
+import ErrorBoundary from '../shared/ErrorBoundary.jsx';
 import { createElement, useEffect, useMemo, useState } from 'react';
 import { ArrowLeft, Boxes, CircleDollarSign, ImagePlus, PackagePlus, X } from 'lucide-react';
 import { Button } from '../../ui/button';
@@ -362,10 +363,10 @@ export default function AddNewItemPage() {
 
 function FormSection({ icon, title, description, children }) {
     return (
-        <section className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm sm:p-6 dark:border-slate-800 dark:bg-slate-950">
+        <ErrorBoundary scope="section" title="This section could not be displayed">{() => (<section className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm sm:p-6 dark:border-slate-800 dark:bg-slate-950">
             <div className="mb-5 flex items-start gap-3"><div className="flex size-10 shrink-0 items-center justify-center rounded-xl bg-blue-50 text-blue-700 dark:bg-blue-950/50 dark:text-blue-300">{createElement(icon, { className: 'size-5' })}</div><div><h2 className="text-base font-bold text-slate-950 dark:text-slate-100">{title}</h2><p className="mt-1 text-sm text-slate-500 dark:text-slate-400">{description}</p></div></div>
             {children}
-        </section>
+        </section>)}</ErrorBoundary>
     );
 }
 

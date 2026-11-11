@@ -42,6 +42,7 @@ import { DashboardRouterProvider, getRouteMatch, normalizePath } from "./dashboa
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "../ui/dialog";
 import NotificationBell from "./shared/NotificationBell.jsx";
 import ProtectedImage from "./shared/ProtectedImage.jsx";
+import ErrorBoundary from './shared/ErrorBoundary.jsx';
 import { VideoCallProvider } from "../context/VideoCallProvider.jsx";
 import { clearSessionFormDraftsForUser, useSessionFormPersistence } from "../hooks/useSessionFormPersistence.js";
 import { useAutoRefresh } from "../hooks/useAutoRefresh.js";
@@ -236,7 +237,7 @@ const navItems = [
   { id: "boarding", featureKey: "boarding", label: "Boarding", icon: Hotel, path: "/dashboard/boarding", roles: ADMIN_ROLES, navGroup: "admin" },
   { id: "grooming", featureKey: "grooming", label: "Grooming", icon: Scissors, path: "/dashboard/grooming", roles: ADMIN_ROLES, navGroup: "admin" },
   { id: "queue", featureKey: "queue", label: "Queue", icon: ListChecks, path: "/dashboard/queue", roles: ADMIN_ROLES, navGroup: "admin" },
-  { id: "pet-intake", featureKey: "queue", label: "Pet Intake", icon: ClipboardCheck, path: "/dashboard/pet-intake", roles: ADMIN_ROLES, navGroup: "admin" },
+  { id: "pet-intake", featureKey: "pet_intake", label: "Pet Intake", icon: ClipboardCheck, path: "/dashboard/pet-intake", roles: ADMIN_ROLES, navGroup: "admin" },
   { id: "pos", featureKey: "pos", label: "Point-Of-Sale", icon: CircleDollarSign, path: "/dashboard/pos", roles: ADMIN_ROLES, navGroup: "admin" },
   { id: "service-catalog", featureKey: "service_catalog", label: "Service Catalog", icon: BookOpenCheck, path: "/dashboard/service-catalog", roles: ADMIN_ROLES, navGroup: "admin" },
   { 
@@ -1085,24 +1086,24 @@ export default function Dashboard({ user, onLogout, onUserUpdate, onForgotPasswo
                   onClick={() => setIsMobileNavOpen(false)}
                 />
 
-                <aside
+                <ErrorBoundary scope="section" title="This section could not be displayed">{() => (<aside
                   data-slot="dashboard-sidebar"
                   className={`mobile-dashboard-drawer fixed left-0 top-0 z-50 flex h-full w-[18rem] max-w-[85vw] flex-col border-r border-slate-200 bg-white shadow-2xl transition-all duration-300 dark:border-slate-800 dark:bg-slate-950 ${
                     isMobileNavOpen ? "open" : ""
                   }`}
                 >
                   {renderSidebarContent({ isMobileDrawer: true })}
-                </aside>
+                </aside>)}</ErrorBoundary>
               </>
             ) : (
-              <aside
+              <ErrorBoundary scope="section" title="This section could not be displayed">{() => (<aside
                 data-slot="dashboard-sidebar"
                 className={`fixed left-0 top-0 z-40 h-screen border-r border-slate-200 bg-white transition-all duration-300 dark:border-slate-800 dark:bg-slate-950 ${
                   isSidebarCollapsed ? "w-20" : "w-72"
                 }`}
               >
                 {renderSidebarContent()}
-              </aside>
+              </aside>)}</ErrorBoundary>
             )}
 
             <div
@@ -1111,6 +1112,7 @@ export default function Dashboard({ user, onLogout, onUserUpdate, onForgotPasswo
               }`}
             >
               <main data-dashboard-content data-dashboard-role={normalizeRole(userRole) || 'unknown'} className="mx-auto w-full max-w-[112rem] min-w-0 p-3 sm:p-5 lg:p-8 2xl:p-10">
+                <ErrorBoundary title="This page could not be displayed" scope="dashboard-page" resetKey={`${currentPath}:${user?.id || user?.user_id || ''}`}>
                 <Suspense fallback={
                   <div className="flex h-64 w-full items-center justify-center">
                     <div className="flex flex-col items-center gap-3">
@@ -1133,6 +1135,7 @@ export default function Dashboard({ user, onLogout, onUserUpdate, onForgotPasswo
                     />
                   ) : (
                     <ScreenComponent
+                      key={`${currentPath.split(/[?#]/, 1)[0]}:${user?.id || user?.user_id || ''}:${userRole}`}
                       user={user}
                       onUserUpdate={onUserUpdate}
                       onLogout={onLogout}
@@ -1140,6 +1143,7 @@ export default function Dashboard({ user, onLogout, onUserUpdate, onForgotPasswo
                     />
                   )}
                 </Suspense>
+                </ErrorBoundary>
               </main>
             </div>
           </div>

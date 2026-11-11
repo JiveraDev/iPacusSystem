@@ -5,6 +5,7 @@ import { X } from "lucide-react";
 import { hasCancelDismissAction } from "./modalCloseVisibility";
 import { isTopmostModal } from "./modalKeyboard";
 import { cn } from "./utils";
+import ErrorBoundary from '../components/shared/ErrorBoundary.jsx';
 
 const DialogContext = React.createContext(null);
 
@@ -127,7 +128,7 @@ function DialogContent({ className, children, showClose, ...props }) {
             <X className="size-4" strokeWidth={2.5} />
           </button>
         )}
-        {children}
+        <ErrorBoundary scope="dialog" title="This dialog could not be displayed" onDismiss={() => context.onOpenChange?.(false)}>{children}</ErrorBoundary>
       </div>
     </div>,
     document.body

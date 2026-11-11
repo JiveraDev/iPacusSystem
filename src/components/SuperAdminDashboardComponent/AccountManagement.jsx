@@ -1,3 +1,4 @@
+import ErrorBoundary from '../shared/ErrorBoundary.jsx';
 import { createElement, useEffect, useState } from 'react';
 import { Card, CardContent } from '../../ui/card';
 import { Button } from '../../ui/button';
@@ -848,7 +849,7 @@ export default function AccountManagement() {
                 )}
             />
 
-            <Card className="border-slate-200 shadow-sm">
+            <ErrorBoundary scope="section" title="This section could not be displayed">{() => (<Card className="border-slate-200 shadow-sm">
                 <CardContent className="p-4">
                     <div className="grid gap-3 lg:grid-cols-[minmax(18rem,1fr)_13rem_auto]">
                         <div>
@@ -885,9 +886,9 @@ export default function AccountManagement() {
                         </Button>
                     </div>
                 </CardContent>
-            </Card>
+            </Card>)}</ErrorBoundary>
 
-            <Card className="overflow-hidden border-slate-200 shadow-sm">
+            <ErrorBoundary scope="section" title="This section could not be displayed">{() => (<Card className="overflow-hidden border-slate-200 shadow-sm">
                 <div className="flex flex-col gap-1 border-b border-slate-200 bg-slate-50 px-4 py-3 sm:flex-row sm:items-center sm:justify-between">
                     <div>
                         <h2 className="text-sm font-black uppercase tracking-wide text-slate-700">Account Directory</h2>
@@ -983,7 +984,7 @@ export default function AccountManagement() {
                         </div>
                     )}
                 </div>
-            </Card>
+            </Card>)}</ErrorBoundary>
 
             <Dialog
                 open={showArchiveList}
@@ -1446,7 +1447,7 @@ export default function AccountManagement() {
                     </DialogHeader>
 
                     <div className="max-h-[calc(100dvh-13rem)] overflow-y-auto px-4 py-5 scrollbar-hide sm:px-6">
-                        <section className="grid gap-4 rounded-xl border border-slate-200 bg-slate-50 p-4 dark:border-slate-700 dark:bg-slate-950/50 lg:grid-cols-[minmax(16rem,1fr)_auto] lg:items-end">
+                        <ErrorBoundary scope="section" title="This section could not be displayed">{() => (<section className="grid gap-4 rounded-xl border border-slate-200 bg-slate-50 p-4 dark:border-slate-700 dark:bg-slate-950/50 lg:grid-cols-[minmax(16rem,1fr)_auto] lg:items-end">
                             <div>
                                 <Label className="mb-2 flex items-center gap-2 text-xs font-black uppercase tracking-wide text-slate-600 dark:text-slate-300">
                                     <UsersRound className="size-4" /> Admin account
@@ -1486,7 +1487,7 @@ export default function AccountManagement() {
                                     </Badge>
                                 )}
                             </div>
-                        </section>
+                        </section>)}</ErrorBoundary>
 
                         {isLoadingAccess ? (
                             <div className="flex min-h-72 items-center justify-center gap-3 text-sm font-bold text-slate-500">
@@ -1496,7 +1497,7 @@ export default function AccountManagement() {
                             <div className="mt-5 space-y-4">
                                 {ADMIN_FEATURE_GROUPS.map((group) => {
                                     return (
-                                        <section
+                                        <ErrorBoundary key={group.id} scope="section" title="This section could not be displayed">{() => (<section
                                             key={group.id}
                                             className="overflow-hidden rounded-xl border border-slate-200 bg-white dark:border-slate-700 dark:bg-slate-900"
                                         >
@@ -1530,7 +1531,7 @@ export default function AccountManagement() {
                                                     );
                                                 })}
                                             </div>
-                                        </section>
+                                        </section>)}</ErrorBoundary>
                                     );
                                 })}
                             </div>

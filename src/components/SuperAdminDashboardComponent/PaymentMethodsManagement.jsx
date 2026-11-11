@@ -1,3 +1,4 @@
+import ErrorBoundary from '../shared/ErrorBoundary.jsx';
 import { useMemo, useRef, useState } from 'react';
 import {
     Archive,
@@ -445,7 +446,7 @@ export default function PaymentMethodsManagement() {
             />
 
             <div className="grid gap-4 xl:grid-cols-[minmax(0,1fr)_22rem]">
-                <section className="space-y-4">
+                <ErrorBoundary scope="section" title="This section could not be displayed">{() => (<section className="space-y-4">
                     <Card className="border-slate-200 shadow-none">
                         <CardContent className="grid gap-3 p-4 md:grid-cols-[minmax(0,1fr)_13rem]">
                             <Label htmlFor="payment-method-search" className="sr-only">Search payment methods</Label>
@@ -535,9 +536,9 @@ export default function PaymentMethodsManagement() {
                             </div>
                         )}
                     </div>
-                </section>
+                </section>)}</ErrorBoundary>
 
-                <aside>
+                <ErrorBoundary scope="section" title="This section could not be displayed">{() => (<aside>
                     <Card className="border-blue-200 bg-blue-50 shadow-none xl:sticky xl:top-4">
                         <CardContent className="space-y-4 p-4">
                             <div>
@@ -579,7 +580,7 @@ export default function PaymentMethodsManagement() {
                             </div>
                         </CardContent>
                     </Card>
-                </aside>
+                </aside>)}</ErrorBoundary>
             </div>
 
             <Dialog open={editorOpen} onOpenChange={(open) => {

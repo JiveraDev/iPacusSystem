@@ -1,0 +1,12 @@
+.section-error-state { display: flex; align-items: flex-start; flex-wrap: wrap; gap: .75rem; padding: 1rem; border-radius: .65rem; background: var(--theme-surface-soft, #eef5ff); color: var(--theme-text-muted, #536782); font-size: .8rem; line-height: 1.7; }
+.section-error-state > svg { color: var(--theme-warning-text, #846200); margin-top: .15rem; }
+.section-error-state > div { min-width: min(100%, 12rem); }
+.section-error-title { color: var(--theme-text, #10213f); font-size: .85rem; font-weight: 600; }
+.section-error-state button { min-height: 2.5rem; }
+.section-error-reload { display: block; margin-top: .4rem; color: var(--theme-link, #155dfc); text-align: left; text-decoration: underline; text-underline-offset: 3px; }
+.service-status-notice { width: min(100% - 1.5rem, 100rem); margin: .75rem auto; }
+.root-error-state { max-width: 34rem; padding: 2rem; margin: 12vh auto; color: #10213f; background: #fff; font: 16px/1.6 system-ui, sans-serif; }
+.root-error-state h1 { font-size: 1.4rem; font-weight: 650; }
+.root-error-state p { margin-block: 1rem; }
+.root-error-state button { padding: .6rem 1rem; border: 1px solid #536782; border-radius: .4rem; }
+.root-error-state button:focus-visible { outline: 3px solid #155dfc; outline-offset: 3px; }

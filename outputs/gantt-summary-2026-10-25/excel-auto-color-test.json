@@ -1,0 +1,15 @@
+﻿{
+    "passed":  true,
+    "excelVersion":  "16.0",
+    "workbook":  "C:\\Users\\loren\\PhpstormProjects\\iPacusSystem\\outputs\\gantt-summary-2026-10-25\\iPawcus_Gantt_Auto_Color_2026.xlsx",
+    "tests":  [
+                  "Initial green/yellow dates and user-supplied revision ranges render in Excel.",
+                  "Changing design Date column C moves the green bar, clears the previous range and updates the linked Gantt.",
+                  "Changing testing dates moves the yellow bar and clears the previous range.",
+                  "Editing the original Start/Finish cells on Edit Schedule updates Date column C and both colored Gantt views.",
+                  "Revision bars can be moved into November and December without leaving old colored cells.",
+                  "Date ranges accept a regular hyphen or an en dash between the dates.",
+                  "Clearing Date column C removes the bar in both views."
+              ],
+    "originalWorkbookUnchanged":  true
+}

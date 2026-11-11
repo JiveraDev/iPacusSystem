@@ -1,0 +1,158 @@
+flowchart TB
+    n_start(("Start"))
+    n_login("Register / verify email, or sign in<br/>with password or linked Google account<br/>(Pet Owner)")
+    n_auth("Validate credentials / Google identity,<br/>email verification, token, and role access<br/>(System)")
+    n_authorized{"Access<br/>authorized?"}
+    n_authError("Show access error; correct account /<br/>verification details and retry sign-in<br/>(Pet Owner)")
+    n_dashboard("Open Pet Owner Home;<br/>load own pets and permitted tools<br/>(System)")
+    n_choose{"Choose one<br/>activity"}
+    n_c1_pet("Add/edit a pet, link a shareable ID,<br/>or review a co-parent request<br/>(Pet Owner)")
+    n_c1_petCheck("Check allowed fields, duplicates,<br/>pet identity, and ownership rules<br/>(System)")
+    n_c1_petValid{"Pet / request<br/>valid?"}
+    n_c1_petValid_recovery("Correct pet details<br/>or the shareable ID<br/>(Pet Owner)")
+    n_c1_coParent("If another primary owner exists:<br/>submit / decide co-parent request<br/>(Pet Owner / primary owner)")
+    n_c1_ownership{"Ownership access<br/>granted?"}
+    n_c1_ownership_recovery("View pending or declined request;<br/>return without gaining pet access<br/>(Pet Owner)")
+    n_c1_petSaved("Save allowed pet / ownership change;<br/>refresh My Pets and pet profile<br/>(System)")
+    n_c1_petView("View registration ID, health history,<br/>bookings, consent, and certificates<br/>(Pet Owner)")
+    n_c2_service("Select service, eligible pet(s),<br/>branch, date/time or stay dates<br/>(Pet Owner)")
+    n_c2_availability("Check pet eligibility, service rules,<br/>vet intervals, slots / rooms<br/>(System)")
+    n_c2_available{"Selection<br/>available?"}
+    n_c2_available_recovery("Choose another branch, pet,<br/>schedule, or room/date range<br/>(Pet Owner)")
+    n_c2_bookingSubmit("Provide required concern/contact,<br/>consent/signature, and payment proof<br/>(Pet Owner)")
+    n_c2_pending("Revalidate; create pending booking<br/>and reserve applicable capacity<br/>(System)")
+    n_c2_review("Review booking, required consent,<br/>and applicable advance payment<br/>(Admin)")
+    n_c2_confirmed{"Booking<br/>confirmed?"}
+    n_c2_confirmed_recovery("View pending / cancelled status;<br/>correct only if still editable<br/>(Pet Owner / Admin)")
+    n_c2_attend("Follow the confirmed service:<br/>clinic/home, video, grooming, or hotel<br/>(Pet Owner / clinic staff)")
+    n_c2_video("For online care: join after vet-ready;<br/>consult with the assigned veterinarian<br/>(Pet Owner / Veterinarian)")
+    n_c2_outcome("Track status, permitted results,<br/>invoice balance, and reminders<br/>(Pet Owner)")
+    n_c3_queueAccess("Open Self-Service Queue<br/>while on the allowed clinic network<br/>(Pet Owner)")
+    n_c3_network{"Network access<br/>allowed?"}
+    n_c3_network_recovery("Connect to the configured clinic<br/>network, then retry access<br/>(Pet Owner)")
+    n_c3_queueSelect("Select an owned eligible pet,<br/>open branch, service, and consent<br/>(Pet Owner)")
+    n_c3_queueSign("Sign consent and submit<br/>the queue request<br/>(Pet Owner)")
+    n_c3_queueValid{"Queue rules<br/>satisfied?"}
+    n_c3_queueValid_recovery("Resolve active queue / booking<br/>conflict or invalid selection<br/>(Pet Owner / Admin)")
+    n_c3_queueNumber("Save waiting entry and allocate<br/>branch/day queue number<br/>(System)")
+    n_c3_queueCare("Staff assign vet and complete intake;<br/>vet performs and finalizes care<br/>(Admin / Veterinarian)")
+    n_c3_queueTrack("Track queue and view available<br/>clinical results / billing<br/>(Pet Owner)")
+    n_c4_records("Open an owned pet<br/>and its visible medical records<br/>(Pet Owner)")
+    n_c4_recordRead("View health history / certificates;<br/>request an email copy if needed<br/>(Pet Owner)")
+    n_c4_needChange{"Request a<br/>record update?"}
+    n_c4_needChange_recovery("Finish viewing records<br/>(Pet Owner)")
+    n_c4_request("Describe change; choose enabled<br/>payment method and required proof<br/>(Pet Owner)")
+    n_c4_requestReview("Verify / waive required payment;<br/>approve and assign veterinarian<br/>(Admin)")
+    n_c4_requestAssigned{"Request approved<br/>and assigned?"}
+    n_c4_requestAssigned_recovery("View pending / rejected / cancelled<br/>request and its review notes<br/>(Pet Owner)")
+    n_c4_requestWork("Assigned vet edits actual records<br/>and supplies completion evidence<br/>(Veterinarian)")
+    n_c4_requestDone("Complete request; attempt owner<br/>notification; expose allowed changes<br/>(System)")
+    n_c5_medicine("Open prescriptions issued<br/>for an owned pet<br/>(Pet Owner)")
+    n_c5_directions("Review the issued directions;<br/>confirm eligible medicine start<br/>(Pet Owner)")
+    n_c5_occurrences("Generate scheduled dose occurrences<br/>or start an as-needed item<br/>(System)")
+    n_c5_dose("Record Taken / Skipped / Pending;<br/>mark an as-needed item finished<br/>(Pet Owner)")
+    n_c5_medicineState("Keep unfinished items Active;<br/>show resolved items in History<br/>(System)")
+    n_c5_care("Review follow-ups, dose tasks,<br/>boarding care, and unpaid balances<br/>(Pet Owner)")
+    n_c6_personal("Choose Profile, Notifications,<br/>or Schedule / TODOs<br/>(Pet Owner)")
+    n_c6_personalEdit("Edit profile/password/preferences,<br/>theme, or own personal tasks<br/>(Pet Owner)")
+    n_c6_google("If linking Google: verify a matching<br/>identity for the signed-in account<br/>(Pet Owner / System)")
+    n_c6_personalValid{"Changes<br/>valid?"}
+    n_c6_personalValid_recovery("Correct the highlighted fields<br/>and retry the selected action<br/>(Pet Owner)")
+    n_c6_personalSave("Save allowed changes; display<br/>notifications and source-linked tasks<br/>(System)")
+    n_c6_personalRead("Manage personal tasks; follow links<br/>for read-only clinic-generated items<br/>(Pet Owner)")
+    n_c1_merge{" "}
+    n_c2_merge{" "}
+    n_c3_merge{" "}
+    n_c4_merge{" "}
+    n_c5_merge{" "}
+    n_c6_merge{" "}
+    n_merge{" "}
+    n_again{"Perform another<br/>activity?"}
+    n_logout("Log out; clear local session<br/>(Pet Owner)")
+    n_end(("End"))
+    n_start --> n_login
+    n_login --> n_auth
+    n_auth --> n_authorized
+    n_authorized -->|"No"| n_authError
+    n_authError --> n_login
+    n_authorized -->|"Yes"| n_dashboard
+    n_dashboard --> n_choose
+    n_c1_pet --> n_c1_petCheck
+    n_c1_petCheck --> n_c1_petValid
+    n_c1_petValid -->|"No"| n_c1_petValid_recovery
+    n_c1_petValid_recovery --> n_c1_pet
+    n_c1_petValid -->|"Yes"| n_c1_coParent
+    n_c1_coParent --> n_c1_ownership
+    n_c1_ownership -->|"No"| n_c1_ownership_recovery
+    n_c1_ownership -->|"Yes"| n_c1_petSaved
+    n_c1_petSaved --> n_c1_petView
+    n_choose -->|"[Pets & ownership]"| n_c1_pet
+    n_c2_service --> n_c2_availability
+    n_c2_availability --> n_c2_available
+    n_c2_available -->|"No"| n_c2_available_recovery
+    n_c2_available_recovery --> n_c2_service
+    n_c2_available -->|"Yes"| n_c2_bookingSubmit
+    n_c2_bookingSubmit --> n_c2_pending
+    n_c2_pending --> n_c2_review
+    n_c2_review --> n_c2_confirmed
+    n_c2_confirmed -->|"No"| n_c2_confirmed_recovery
+    n_c2_confirmed -->|"Yes"| n_c2_attend
+    n_c2_attend --> n_c2_video
+    n_c2_video --> n_c2_outcome
+    n_choose -->|"[Bookings & services]"| n_c2_service
+    n_c3_queueAccess --> n_c3_network
+    n_c3_network -->|"No"| n_c3_network_recovery
+    n_c3_network_recovery --> n_c3_queueAccess
+    n_c3_network -->|"Yes"| n_c3_queueSelect
+    n_c3_queueSelect --> n_c3_queueSign
+    n_c3_queueSign --> n_c3_queueValid
+    n_c3_queueValid -->|"No"| n_c3_queueValid_recovery
+    n_c3_queueValid_recovery --> n_c3_queueSelect
+    n_c3_queueValid -->|"Yes"| n_c3_queueNumber
+    n_c3_queueNumber --> n_c3_queueCare
+    n_c3_queueCare --> n_c3_queueTrack
+    n_choose -->|"[Self-service queue]"| n_c3_queueAccess
+    n_c4_records --> n_c4_recordRead
+    n_c4_recordRead --> n_c4_needChange
+    n_c4_needChange -->|"No"| n_c4_needChange_recovery
+    n_c4_needChange -->|"Yes"| n_c4_request
+    n_c4_request --> n_c4_requestReview
+    n_c4_requestReview --> n_c4_requestAssigned
+    n_c4_requestAssigned -->|"No"| n_c4_requestAssigned_recovery
+    n_c4_requestAssigned -->|"Yes"| n_c4_requestWork
+    n_c4_requestWork --> n_c4_requestDone
+    n_choose -->|"[Records & update requests]"| n_c4_records
+    n_c5_medicine --> n_c5_directions
+    n_c5_directions --> n_c5_occurrences
+    n_c5_occurrences --> n_c5_dose
+    n_c5_dose --> n_c5_medicineState
+    n_c5_medicineState --> n_c5_care
+    n_choose -->|"[Prescriptions & care]"| n_c5_medicine
+    n_c6_personal --> n_c6_personalEdit
+    n_c6_personalEdit --> n_c6_google
+    n_c6_google --> n_c6_personalValid
+    n_c6_personalValid -->|"No"| n_c6_personalValid_recovery
+    n_c6_personalValid_recovery --> n_c6_personalEdit
+    n_c6_personalValid -->|"Yes"| n_c6_personalSave
+    n_c6_personalSave --> n_c6_personalRead
+    n_choose -->|"[Profile, schedule & alerts]"| n_c6_personal
+    n_c1_petView --> n_c1_merge
+    n_c2_outcome --> n_c2_merge
+    n_c3_queueTrack --> n_c3_merge
+    n_c4_requestDone --> n_c4_merge
+    n_c5_care --> n_c5_merge
+    n_c6_personalRead --> n_c6_merge
+    n_c1_ownership_recovery --> n_c1_merge
+    n_c2_confirmed_recovery --> n_c2_merge
+    n_c4_needChange_recovery --> n_c4_merge
+    n_c4_requestAssigned_recovery --> n_c4_merge
+    n_c1_merge --> n_merge
+    n_c2_merge --> n_merge
+    n_c3_merge --> n_merge
+    n_c4_merge --> n_merge
+    n_c5_merge --> n_merge
+    n_c6_merge --> n_merge
+    n_merge --> n_again
+    n_again -->|"Yes"| n_choose
+    n_again -->|"No"| n_logout
+    n_logout --> n_end

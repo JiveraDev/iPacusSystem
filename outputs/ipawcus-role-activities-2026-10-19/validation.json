@@ -1,0 +1,46 @@
+{
+  "reviewed": "2026-10-19",
+  "source": "local working tree, including existing uncommitted changes",
+  "checks": [
+    {
+      "role": "Pet Owner",
+      "nodes": 71,
+      "edges": 86,
+      "segments": 150,
+      "allReachable": true,
+      "allCanExit": true,
+      "nodeOverlaps": 0,
+      "edgeNodeCrossings": 0
+    },
+    {
+      "role": "Admin",
+      "nodes": 92,
+      "edges": 110,
+      "segments": 186,
+      "allReachable": true,
+      "allCanExit": true,
+      "nodeOverlaps": 0,
+      "edgeNodeCrossings": 0
+    },
+    {
+      "role": "Veterinarian",
+      "nodes": 70,
+      "edges": 84,
+      "segments": 144,
+      "allReachable": true,
+      "allCanExit": true,
+      "nodeOverlaps": 0,
+      "edgeNodeCrossings": 0
+    },
+    {
+      "role": "Super Admin",
+      "nodes": 66,
+      "edges": 78,
+      "segments": 128,
+      "allReachable": true,
+      "allCanExit": true,
+      "nodeOverlaps": 0,
+      "edgeNodeCrossings": 0
+    }
+  ]
+}

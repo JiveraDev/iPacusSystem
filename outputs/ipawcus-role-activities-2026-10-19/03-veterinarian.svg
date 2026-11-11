@@ -1,0 +1,431 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="2340" height="3308" viewBox="0 0 2340 3308" role="img" aria-labelledby="title description">
+<title id="title">Veterinarian revised activity diagram</title>
+<desc id="description">Current iPawcus workflow, reviewed 19 October 2026. Alternative activity branches use decisions and merges; actor labels identify responsibility.</desc>
+<defs><marker id="arrow" markerWidth="8" markerHeight="7" refX="8" refY="3.5" orient="auto" markerUnits="userSpaceOnUse"><path d="M0 0 L8 3.5 L0 7 Z" fill="#171717"/></marker></defs>
+<rect width="100%" height="100%" fill="white"/>
+<polyline points="1170,187 1170,215" fill="none" stroke="#171717" stroke-width="1.6" stroke-linejoin="round" marker-end="url(#arrow)"/>
+<polyline points="1170,295 1170,340" fill="none" stroke="#171717" stroke-width="1.6" stroke-linejoin="round" marker-end="url(#arrow)"/>
+<polyline points="1170,420 1170,463" fill="none" stroke="#171717" stroke-width="1.6" stroke-linejoin="round" marker-end="url(#arrow)"/>
+<polyline points="1040,515 845,515" fill="none" stroke="#171717" stroke-width="1.6" stroke-linejoin="round" marker-end="url(#arrow)"/>
+<polyline points="515,515 480,515 480,255 950,255" fill="none" stroke="#171717" stroke-width="1.6" stroke-linejoin="round" marker-end="url(#arrow)"/>
+<polyline points="1170,567 1170,612" fill="none" stroke="#171717" stroke-width="1.6" stroke-linejoin="round" marker-end="url(#arrow)"/>
+<polyline points="1170,692 1170,735" fill="none" stroke="#171717" stroke-width="1.6" stroke-linejoin="round" marker-end="url(#arrow)"/>
+<polyline points="270,1054 270,1096" fill="none" stroke="#171717" stroke-width="1.6" stroke-linejoin="round" marker-end="url(#arrow)"/>
+<polyline points="270,1176 270,1218" fill="none" stroke="#171717" stroke-width="1.6" stroke-linejoin="round" marker-end="url(#arrow)"/>
+<polyline points="270,1322 270,1364" fill="none" stroke="#171717" stroke-width="1.6" stroke-linejoin="round" marker-end="url(#arrow)"/>
+<polyline points="134,1411 111,1411 111,1136 134,1136" fill="none" stroke="#171717" stroke-width="1.6" stroke-linejoin="round" marker-end="url(#arrow)"/>
+<polyline points="406,1270 429,1270 429,1547 406,1547" fill="none" stroke="#171717" stroke-width="1.6" stroke-linejoin="round" marker-end="url(#arrow)"/>
+<polyline points="270,1594 270,1636" fill="none" stroke="#171717" stroke-width="1.6" stroke-linejoin="round" marker-end="url(#arrow)"/>
+<polyline points="270,1751 270,1793" fill="none" stroke="#171717" stroke-width="1.6" stroke-linejoin="round" marker-end="url(#arrow)"/>
+<polyline points="270,1897 270,1939" fill="none" stroke="#171717" stroke-width="1.6" stroke-linejoin="round" marker-end="url(#arrow)"/>
+<polyline points="134,1979 111,1979 111,1547 134,1547" fill="none" stroke="#171717" stroke-width="1.6" stroke-linejoin="round" marker-end="url(#arrow)"/>
+<polyline points="406,1845 429,1845 429,2118.5 406,2118.5" fill="none" stroke="#171717" stroke-width="1.6" stroke-linejoin="round" marker-end="url(#arrow)"/>
+<polyline points="270,2176 270,2218" fill="none" stroke="#171717" stroke-width="1.6" stroke-linejoin="round" marker-end="url(#arrow)"/>
+<polyline points="270,2298 270,2340" fill="none" stroke="#171717" stroke-width="1.6" stroke-linejoin="round" marker-end="url(#arrow)"/>
+<polyline points="1170,839 1170,895 270,895 270,960" fill="none" stroke="#171717" stroke-width="1.6" stroke-linejoin="round" marker-end="url(#arrow)"/>
+<polyline points="630,1040 630,1082" fill="none" stroke="#171717" stroke-width="1.6" stroke-linejoin="round" marker-end="url(#arrow)"/>
+<polyline points="630,1162 630,1204" fill="none" stroke="#171717" stroke-width="1.6" stroke-linejoin="round" marker-end="url(#arrow)"/>
+<polyline points="630,1298 630,1340" fill="none" stroke="#171717" stroke-width="1.6" stroke-linejoin="round" marker-end="url(#arrow)"/>
+<polyline points="630,1434 630,1476" fill="none" stroke="#171717" stroke-width="1.6" stroke-linejoin="round" marker-end="url(#arrow)"/>
+<polyline points="630,1570 630,1612" fill="none" stroke="#171717" stroke-width="1.6" stroke-linejoin="round" marker-end="url(#arrow)"/>
+<polyline points="630,1716 630,1758" fill="none" stroke="#171717" stroke-width="1.6" stroke-linejoin="round" marker-end="url(#arrow)"/>
+<polyline points="494,1798 471,1798 471,1523 494,1523" fill="none" stroke="#171717" stroke-width="1.6" stroke-linejoin="round" marker-end="url(#arrow)"/>
+<polyline points="766,1664 789,1664 789,1927 766,1927" fill="none" stroke="#171717" stroke-width="1.6" stroke-linejoin="round" marker-end="url(#arrow)"/>
+<polyline points="630,1974 630,2016" fill="none" stroke="#171717" stroke-width="1.6" stroke-linejoin="round" marker-end="url(#arrow)"/>
+<polyline points="1170,839 1170,895 630,895 630,960" fill="none" stroke="#171717" stroke-width="1.6" stroke-linejoin="round" marker-end="url(#arrow)"/>
+<polyline points="990,1040 990,1082" fill="none" stroke="#171717" stroke-width="1.6" stroke-linejoin="round" marker-end="url(#arrow)"/>
+<polyline points="990,1186 990,1228" fill="none" stroke="#171717" stroke-width="1.6" stroke-linejoin="round" marker-end="url(#arrow)"/>
+<polyline points="1126,1134 1149,1134 1149,1404 1126,1404" fill="none" stroke="#171717" stroke-width="1.6" stroke-linejoin="round" marker-end="url(#arrow)"/>
+<polyline points="990,1444 990,1486" fill="none" stroke="#171717" stroke-width="1.6" stroke-linejoin="round" marker-end="url(#arrow)"/>
+<polyline points="990,1580 990,1622" fill="none" stroke="#171717" stroke-width="1.6" stroke-linejoin="round" marker-end="url(#arrow)"/>
+<polyline points="990,1702 990,1744" fill="none" stroke="#171717" stroke-width="1.6" stroke-linejoin="round" marker-end="url(#arrow)"/>
+<polyline points="990,1848 990,1890" fill="none" stroke="#171717" stroke-width="1.6" stroke-linejoin="round" marker-end="url(#arrow)"/>
+<polyline points="854,1930 831,1930 831,1533 854,1533" fill="none" stroke="#171717" stroke-width="1.6" stroke-linejoin="round" marker-end="url(#arrow)"/>
+<polyline points="1126,1796 1149,1796 1149,2059 1126,2059" fill="none" stroke="#171717" stroke-width="1.6" stroke-linejoin="round" marker-end="url(#arrow)"/>
+<polyline points="990,2106 990,2148" fill="none" stroke="#171717" stroke-width="1.6" stroke-linejoin="round" marker-end="url(#arrow)"/>
+<polyline points="1170,839 1170,895 990,895 990,960" fill="none" stroke="#171717" stroke-width="1.6" stroke-linejoin="round" marker-end="url(#arrow)"/>
+<polyline points="1350,1040 1350,1082" fill="none" stroke="#171717" stroke-width="1.6" stroke-linejoin="round" marker-end="url(#arrow)"/>
+<polyline points="1350,1176 1350,1218" fill="none" stroke="#171717" stroke-width="1.6" stroke-linejoin="round" marker-end="url(#arrow)"/>
+<polyline points="1350,1298 1350,1340" fill="none" stroke="#171717" stroke-width="1.6" stroke-linejoin="round" marker-end="url(#arrow)"/>
+<polyline points="1350,1434 1350,1476" fill="none" stroke="#171717" stroke-width="1.6" stroke-linejoin="round" marker-end="url(#arrow)"/>
+<polyline points="1350,1580 1350,1622" fill="none" stroke="#171717" stroke-width="1.6" stroke-linejoin="round" marker-end="url(#arrow)"/>
+<polyline points="1214,1662 1191,1662 1191,1129 1214,1129" fill="none" stroke="#171717" stroke-width="1.6" stroke-linejoin="round" marker-end="url(#arrow)"/>
+<polyline points="1486,1528 1509,1528 1509,1801.5 1486,1801.5" fill="none" stroke="#171717" stroke-width="1.6" stroke-linejoin="round" marker-end="url(#arrow)"/>
+<polyline points="1350,1859 1350,1901" fill="none" stroke="#171717" stroke-width="1.6" stroke-linejoin="round" marker-end="url(#arrow)"/>
+<polyline points="1170,839 1170,895 1350,895 1350,960" fill="none" stroke="#171717" stroke-width="1.6" stroke-linejoin="round" marker-end="url(#arrow)"/>
+<polyline points="1710,1040 1710,1082" fill="none" stroke="#171717" stroke-width="1.6" stroke-linejoin="round" marker-end="url(#arrow)"/>
+<polyline points="1710,1162 1710,1204" fill="none" stroke="#171717" stroke-width="1.6" stroke-linejoin="round" marker-end="url(#arrow)"/>
+<polyline points="1710,1284 1710,1326" fill="none" stroke="#171717" stroke-width="1.6" stroke-linejoin="round" marker-end="url(#arrow)"/>
+<polyline points="1710,1430 1710,1472" fill="none" stroke="#171717" stroke-width="1.6" stroke-linejoin="round" marker-end="url(#arrow)"/>
+<polyline points="1846,1378 1869,1378 1869,1634 1846,1634" fill="none" stroke="#171717" stroke-width="1.6" stroke-linejoin="round" marker-end="url(#arrow)"/>
+<polyline points="1710,1674 1710,1716" fill="none" stroke="#171717" stroke-width="1.6" stroke-linejoin="round" marker-end="url(#arrow)"/>
+<polyline points="1710,1796 1710,1838" fill="none" stroke="#171717" stroke-width="1.6" stroke-linejoin="round" marker-end="url(#arrow)"/>
+<polyline points="1170,839 1170,895 1710,895 1710,960" fill="none" stroke="#171717" stroke-width="1.6" stroke-linejoin="round" marker-end="url(#arrow)"/>
+<polyline points="2070,1040 2070,1082" fill="none" stroke="#171717" stroke-width="1.6" stroke-linejoin="round" marker-end="url(#arrow)"/>
+<polyline points="2070,1176 2070,1218" fill="none" stroke="#171717" stroke-width="1.6" stroke-linejoin="round" marker-end="url(#arrow)"/>
+<polyline points="2070,1322 2070,1364" fill="none" stroke="#171717" stroke-width="1.6" stroke-linejoin="round" marker-end="url(#arrow)"/>
+<polyline points="1934,1411 1911,1411 1911,1129 1934,1129" fill="none" stroke="#171717" stroke-width="1.6" stroke-linejoin="round" marker-end="url(#arrow)"/>
+<polyline points="2206,1270 2229,1270 2229,1540 2206,1540" fill="none" stroke="#171717" stroke-width="1.6" stroke-linejoin="round" marker-end="url(#arrow)"/>
+<polyline points="2070,1580 2070,1622" fill="none" stroke="#171717" stroke-width="1.6" stroke-linejoin="round" marker-end="url(#arrow)"/>
+<polyline points="2070,1737 2070,1779" fill="none" stroke="#171717" stroke-width="1.6" stroke-linejoin="round" marker-end="url(#arrow)"/>
+<polyline points="1170,839 1170,895 2070,895 2070,960" fill="none" stroke="#171717" stroke-width="1.6" stroke-linejoin="round" marker-end="url(#arrow)"/>
+<polyline points="270,2455 270,2527" fill="none" stroke="#171717" stroke-width="1.6" stroke-linejoin="round" marker-end="url(#arrow)"/>
+<polyline points="630,2096 630,2527" fill="none" stroke="#171717" stroke-width="1.6" stroke-linejoin="round" marker-end="url(#arrow)"/>
+<polyline points="990,2228 990,2527" fill="none" stroke="#171717" stroke-width="1.6" stroke-linejoin="round" marker-end="url(#arrow)"/>
+<polyline points="1350,2016 1350,2527" fill="none" stroke="#171717" stroke-width="1.6" stroke-linejoin="round" marker-end="url(#arrow)"/>
+<polyline points="1710,1932 1710,2527" fill="none" stroke="#171717" stroke-width="1.6" stroke-linejoin="round" marker-end="url(#arrow)"/>
+<polyline points="2070,1873 2070,2527" fill="none" stroke="#171717" stroke-width="1.6" stroke-linejoin="round" marker-end="url(#arrow)"/>
+<polyline points="854,1275 831,1275 831,2543 974,2543" fill="none" stroke="#171717" stroke-width="1.6" stroke-linejoin="round" marker-end="url(#arrow)"/>
+<polyline points="1574,1512 1551,1512 1551,2543 1694,2543" fill="none" stroke="#171717" stroke-width="1.6" stroke-linejoin="round" marker-end="url(#arrow)"/>
+<polyline points="270,2559 270,2620 1170,2620 1170,2657" fill="none" stroke="#171717" stroke-width="1.6" stroke-linejoin="round" marker-end="url(#arrow)"/>
+<polyline points="630,2559 630,2620 1170,2620 1170,2657" fill="none" stroke="#171717" stroke-width="1.6" stroke-linejoin="round" marker-end="url(#arrow)"/>
+<polyline points="990,2559 990,2620 1170,2620 1170,2657" fill="none" stroke="#171717" stroke-width="1.6" stroke-linejoin="round" marker-end="url(#arrow)"/>
+<polyline points="1350,2559 1350,2620 1170,2620 1170,2657" fill="none" stroke="#171717" stroke-width="1.6" stroke-linejoin="round" marker-end="url(#arrow)"/>
+<polyline points="1710,2559 1710,2620 1170,2620 1170,2657" fill="none" stroke="#171717" stroke-width="1.6" stroke-linejoin="round" marker-end="url(#arrow)"/>
+<polyline points="2070,2559 2070,2620 1170,2620 1170,2657" fill="none" stroke="#171717" stroke-width="1.6" stroke-linejoin="round" marker-end="url(#arrow)"/>
+<polyline points="1170,2689 1170,2745" fill="none" stroke="#171717" stroke-width="1.6" stroke-linejoin="round" marker-end="url(#arrow)"/>
+<polyline points="1310,2797 2305,2797 2305,787 1330,787" fill="none" stroke="#171717" stroke-width="1.6" stroke-linejoin="round" marker-end="url(#arrow)"/>
+<polyline points="1170,2849 1170,2897" fill="none" stroke="#171717" stroke-width="1.6" stroke-linejoin="round" marker-end="url(#arrow)"/>
+<polyline points="1170,2977 1170,3019" fill="none" stroke="#171717" stroke-width="1.6" stroke-linejoin="round" marker-end="url(#arrow)"/>
+<circle cx="1170" cy="176" r="11" stroke="#171717" fill="#171717" stroke-width="1.6"/>
+<text x="1170" y="171.04" font-family="Arial,Helvetica,sans-serif" font-size="16" font-weight="400" text-anchor="middle" fill="#171717"></text>
+<text x="1170" y="192" font-family="Arial,Helvetica,sans-serif" font-size="16" font-weight="400" text-anchor="middle" fill="#171717"></text>
+<rect x="950" y="215" width="440" height="80" rx="8" fill="white" stroke="#171717" stroke-width="1.6"/>
+<text x="1170" y="250.52" font-family="Arial,Helvetica,sans-serif" font-size="16" font-weight="400" text-anchor="middle" fill="#171717">Sign in as Veterinarian</text>
+<text x="1170" y="276.48" font-family="Arial,Helvetica,sans-serif" font-size="11" font-weight="400" text-anchor="middle" fill="#555555">Veterinarian</text>
+<rect x="950" y="340" width="440" height="80" rx="8" fill="white" stroke="#171717" stroke-width="1.6"/>
+<text x="1170" y="365.04" font-family="Arial,Helvetica,sans-serif" font-size="16" font-weight="400" text-anchor="middle" fill="#171717">Validate credentials / Google identity,</text>
+<text x="1170" y="386" font-family="Arial,Helvetica,sans-serif" font-size="16" font-weight="400" text-anchor="middle" fill="#171717">email verification, token, and role access</text>
+<text x="1170" y="411.96000000000004" font-family="Arial,Helvetica,sans-serif" font-size="11" font-weight="400" text-anchor="middle" fill="#555555">System</text>
+<polygon points="1170,463 1300,515 1170,567 1040,515" fill="white" stroke="#171717" stroke-width="1.6"/>
+<text x="1170" y="510.35" font-family="Arial,Helvetica,sans-serif" font-size="15" font-weight="400" text-anchor="middle" fill="#171717">Access</text>
+<text x="1170" y="530" font-family="Arial,Helvetica,sans-serif" font-size="15" font-weight="400" text-anchor="middle" fill="#171717">authorized?</text>
+<rect x="515" y="475" width="330" height="80" rx="8" fill="white" stroke="#171717" stroke-width="1.6"/>
+<text x="680" y="500.04" font-family="Arial,Helvetica,sans-serif" font-size="16" font-weight="400" text-anchor="middle" fill="#171717">Show access error; correct account /</text>
+<text x="680" y="521" font-family="Arial,Helvetica,sans-serif" font-size="16" font-weight="400" text-anchor="middle" fill="#171717">verification details and retry sign-in</text>
+<text x="680" y="546.96" font-family="Arial,Helvetica,sans-serif" font-size="11" font-weight="400" text-anchor="middle" fill="#555555">Veterinarian</text>
+<rect x="950" y="612" width="440" height="80" rx="8" fill="white" stroke="#171717" stroke-width="1.6"/>
+<text x="1170" y="637.04" font-family="Arial,Helvetica,sans-serif" font-size="16" font-weight="400" text-anchor="middle" fill="#171717">Load assigned clinics, appointments,</text>
+<text x="1170" y="658" font-family="Arial,Helvetica,sans-serif" font-size="16" font-weight="400" text-anchor="middle" fill="#171717">and veterinarian workspaces</text>
+<text x="1170" y="683.9599999999999" font-family="Arial,Helvetica,sans-serif" font-size="11" font-weight="400" text-anchor="middle" fill="#555555">System</text>
+<polygon points="1170,735 1330,787 1170,839 1010,787" fill="white" stroke="#171717" stroke-width="1.6"/>
+<text x="1170" y="782.35" font-family="Arial,Helvetica,sans-serif" font-size="15" font-weight="400" text-anchor="middle" fill="#171717">Choose one</text>
+<text x="1170" y="802" font-family="Arial,Helvetica,sans-serif" font-size="15" font-weight="400" text-anchor="middle" fill="#171717">activity</text>
+<rect x="134" y="960" width="272" height="94" rx="8" fill="white" stroke="#171717" stroke-width="1.6"/>
+<text x="270" y="981.56" font-family="Arial,Helvetica,sans-serif" font-size="16" font-weight="400" text-anchor="middle" fill="#171717">Open today's assigned patients</text>
+<text x="270" y="1002.52" font-family="Arial,Helvetica,sans-serif" font-size="16" font-weight="400" text-anchor="middle" fill="#171717">and approved appointments in My</text>
+<text x="270" y="1023.4799999999999" font-family="Arial,Helvetica,sans-serif" font-size="16" font-weight="400" text-anchor="middle" fill="#171717">List</text>
+<text x="270" y="1049.44" font-family="Arial,Helvetica,sans-serif" font-size="11" font-weight="400" text-anchor="middle" fill="#555555">Veterinarian</text>
+<rect x="134" y="1096" width="272" height="80" rx="8" fill="white" stroke="#171717" stroke-width="1.6"/>
+<text x="270" y="1121.04" font-family="Arial,Helvetica,sans-serif" font-size="16" font-weight="400" text-anchor="middle" fill="#171717">Review history, owner consent,</text>
+<text x="270" y="1142" font-family="Arial,Helvetica,sans-serif" font-size="16" font-weight="400" text-anchor="middle" fill="#171717">and Admin examination progress</text>
+<text x="270" y="1167.96" font-family="Arial,Helvetica,sans-serif" font-size="11" font-weight="400" text-anchor="middle" fill="#555555">Veterinarian</text>
+<polygon points="270,1218 406,1270 270,1322 134,1270" fill="white" stroke="#171717" stroke-width="1.6"/>
+<text x="270" y="1265.35" font-family="Arial,Helvetica,sans-serif" font-size="15" font-weight="400" text-anchor="middle" fill="#171717">Assigned intake</text>
+<text x="270" y="1285" font-family="Arial,Helvetica,sans-serif" font-size="15" font-weight="400" text-anchor="middle" fill="#171717">complete?</text>
+<rect x="134" y="1364" width="272" height="94" rx="8" fill="white" stroke="#171717" stroke-width="1.6"/>
+<text x="270" y="1385.56" font-family="Arial,Helvetica,sans-serif" font-size="16" font-weight="400" text-anchor="middle" fill="#171717">Wait for Admin examination /</text>
+<text x="270" y="1406.52" font-family="Arial,Helvetica,sans-serif" font-size="16" font-weight="400" text-anchor="middle" fill="#171717">consent;</text>
+<text x="270" y="1427.48" font-family="Arial,Helvetica,sans-serif" font-size="16" font-weight="400" text-anchor="middle" fill="#171717">review again when completed</text>
+<text x="270" y="1453.44" font-family="Arial,Helvetica,sans-serif" font-size="11" font-weight="400" text-anchor="middle" fill="#555555">Veterinarian / Admin</text>
+<rect x="134" y="1500" width="272" height="94" rx="8" fill="white" stroke="#171717" stroke-width="1.6"/>
+<text x="270" y="1521.56" font-family="Arial,Helvetica,sans-serif" font-size="16" font-weight="400" text-anchor="middle" fill="#171717">Examine pet; enter general</text>
+<text x="270" y="1542.52" font-family="Arial,Helvetica,sans-serif" font-size="16" font-weight="400" text-anchor="middle" fill="#171717">diagnosis</text>
+<text x="270" y="1563.48" font-family="Arial,Helvetica,sans-serif" font-size="16" font-weight="400" text-anchor="middle" fill="#171717">or active custom-service findings</text>
+<text x="270" y="1589.44" font-family="Arial,Helvetica,sans-serif" font-size="11" font-weight="400" text-anchor="middle" fill="#555555">Veterinarian</text>
+<rect x="134" y="1636" width="272" height="115" rx="8" fill="white" stroke="#171717" stroke-width="1.6"/>
+<text x="270" y="1657.58" font-family="Arial,Helvetica,sans-serif" font-size="16" font-weight="400" text-anchor="middle" fill="#171717">Record treatment, prescriptions,</text>
+<text x="270" y="1678.54" font-family="Arial,Helvetica,sans-serif" font-size="16" font-weight="400" text-anchor="middle" fill="#171717">tests,</text>
+<text x="270" y="1699.5" font-family="Arial,Helvetica,sans-serif" font-size="16" font-weight="400" text-anchor="middle" fill="#171717">attachments, vaccination, and</text>
+<text x="270" y="1720.46" font-family="Arial,Helvetica,sans-serif" font-size="16" font-weight="400" text-anchor="middle" fill="#171717">follow-up</text>
+<text x="270" y="1746.4199999999998" font-family="Arial,Helvetica,sans-serif" font-size="11" font-weight="400" text-anchor="middle" fill="#555555">Veterinarian</text>
+<polygon points="270,1793 406,1845 270,1897 134,1845" fill="white" stroke="#171717" stroke-width="1.6"/>
+<text x="270" y="1840.35" font-family="Arial,Helvetica,sans-serif" font-size="15" font-weight="400" text-anchor="middle" fill="#171717">Clinical fields</text>
+<text x="270" y="1860" font-family="Arial,Helvetica,sans-serif" font-size="15" font-weight="400" text-anchor="middle" fill="#171717">valid?</text>
+<rect x="134" y="1939" width="272" height="80" rx="8" fill="white" stroke="#171717" stroke-width="1.6"/>
+<text x="270" y="1964.04" font-family="Arial,Helvetica,sans-serif" font-size="16" font-weight="400" text-anchor="middle" fill="#171717">Correct required findings, service,</text>
+<text x="270" y="1985" font-family="Arial,Helvetica,sans-serif" font-size="16" font-weight="400" text-anchor="middle" fill="#171717">vaccination, or attachment details</text>
+<text x="270" y="2010.96" font-family="Arial,Helvetica,sans-serif" font-size="11" font-weight="400" text-anchor="middle" fill="#555555">Veterinarian</text>
+<rect x="134" y="2061" width="272" height="115" rx="8" fill="white" stroke="#171717" stroke-width="1.6"/>
+<text x="270" y="2082.58" font-family="Arial,Helvetica,sans-serif" font-size="16" font-weight="400" text-anchor="middle" fill="#171717">Finalize diagnosis; atomically</text>
+<text x="270" y="2103.54" font-family="Arial,Helvetica,sans-serif" font-size="16" font-weight="400" text-anchor="middle" fill="#171717">complete</text>
+<text x="270" y="2124.5" font-family="Arial,Helvetica,sans-serif" font-size="16" font-weight="400" text-anchor="middle" fill="#171717">queue, assignment, and linked</text>
+<text x="270" y="2145.46" font-family="Arial,Helvetica,sans-serif" font-size="16" font-weight="400" text-anchor="middle" fill="#171717">booking</text>
+<text x="270" y="2171.42" font-family="Arial,Helvetica,sans-serif" font-size="11" font-weight="400" text-anchor="middle" fill="#555555">Veterinarian / System</text>
+<rect x="134" y="2218" width="272" height="80" rx="8" fill="white" stroke="#171717" stroke-width="1.6"/>
+<text x="270" y="2243.04" font-family="Arial,Helvetica,sans-serif" font-size="16" font-weight="400" text-anchor="middle" fill="#171717">Create / reuse visit and charges;</text>
+<text x="270" y="2264" font-family="Arial,Helvetica,sans-serif" font-size="16" font-weight="400" text-anchor="middle" fill="#171717">attempt owner notifications</text>
+<text x="270" y="2289.96" font-family="Arial,Helvetica,sans-serif" font-size="11" font-weight="400" text-anchor="middle" fill="#555555">System</text>
+<rect x="134" y="2340" width="272" height="115" rx="8" fill="white" stroke="#171717" stroke-width="1.6"/>
+<text x="270" y="2361.58" font-family="Arial,Helvetica,sans-serif" font-size="16" font-weight="400" text-anchor="middle" fill="#171717">When indicated, recommend</text>
+<text x="270" y="2382.54" font-family="Arial,Helvetica,sans-serif" font-size="16" font-weight="400" text-anchor="middle" fill="#171717">confinement</text>
+<text x="270" y="2403.5" font-family="Arial,Helvetica,sans-serif" font-size="16" font-weight="400" text-anchor="middle" fill="#171717">from saved diagnosis; Admin</text>
+<text x="270" y="2424.46" font-family="Arial,Helvetica,sans-serif" font-size="16" font-weight="400" text-anchor="middle" fill="#171717">admits pet</text>
+<text x="270" y="2450.42" font-family="Arial,Helvetica,sans-serif" font-size="11" font-weight="400" text-anchor="middle" fill="#555555">Veterinarian / Admin</text>
+<rect x="494" y="960" width="272" height="80" rx="8" fill="white" stroke="#171717" stroke-width="1.6"/>
+<text x="630" y="985.04" font-family="Arial,Helvetica,sans-serif" font-size="16" font-weight="400" text-anchor="middle" fill="#171717">Open own assigned</text>
+<text x="630" y="1006" font-family="Arial,Helvetica,sans-serif" font-size="16" font-weight="400" text-anchor="middle" fill="#171717">confirmed online consultations</text>
+<text x="630" y="1031.96" font-family="Arial,Helvetica,sans-serif" font-size="11" font-weight="400" text-anchor="middle" fill="#555555">Veterinarian</text>
+<rect x="494" y="1082" width="272" height="80" rx="8" fill="white" stroke="#171717" stroke-width="1.6"/>
+<text x="630" y="1107.04" font-family="Arial,Helvetica,sans-serif" font-size="16" font-weight="400" text-anchor="middle" fill="#171717">Start consultation room;</text>
+<text x="630" y="1128" font-family="Arial,Helvetica,sans-serif" font-size="16" font-weight="400" text-anchor="middle" fill="#171717">mark veterinarian ready</text>
+<text x="630" y="1153.96" font-family="Arial,Helvetica,sans-serif" font-size="11" font-weight="400" text-anchor="middle" fill="#555555">Veterinarian / System</text>
+<rect x="494" y="1204" width="272" height="94" rx="8" fill="white" stroke="#171717" stroke-width="1.6"/>
+<text x="630" y="1225.56" font-family="Arial,Helvetica,sans-serif" font-size="16" font-weight="400" text-anchor="middle" fill="#171717">Notify owner; allow authorized</text>
+<text x="630" y="1246.52" font-family="Arial,Helvetica,sans-serif" font-size="16" font-weight="400" text-anchor="middle" fill="#171717">owner</text>
+<text x="630" y="1267.48" font-family="Arial,Helvetica,sans-serif" font-size="16" font-weight="400" text-anchor="middle" fill="#171717">to join the ready room</text>
+<text x="630" y="1293.44" font-family="Arial,Helvetica,sans-serif" font-size="11" font-weight="400" text-anchor="middle" fill="#555555">System / Pet Owner</text>
+<rect x="494" y="1340" width="272" height="94" rx="8" fill="white" stroke="#171717" stroke-width="1.6"/>
+<text x="630" y="1361.56" font-family="Arial,Helvetica,sans-serif" font-size="16" font-weight="400" text-anchor="middle" fill="#171717">Conduct video consultation</text>
+<text x="630" y="1382.52" font-family="Arial,Helvetica,sans-serif" font-size="16" font-weight="400" text-anchor="middle" fill="#171717">using the configured meeting</text>
+<text x="630" y="1403.48" font-family="Arial,Helvetica,sans-serif" font-size="16" font-weight="400" text-anchor="middle" fill="#171717">service</text>
+<text x="630" y="1429.44" font-family="Arial,Helvetica,sans-serif" font-size="11" font-weight="400" text-anchor="middle" fill="#555555">Veterinarian / Pet Owner</text>
+<rect x="494" y="1476" width="272" height="94" rx="8" fill="white" stroke="#171717" stroke-width="1.6"/>
+<text x="630" y="1497.56" font-family="Arial,Helvetica,sans-serif" font-size="16" font-weight="400" text-anchor="middle" fill="#171717">Enter diagnosis, findings,</text>
+<text x="630" y="1518.52" font-family="Arial,Helvetica,sans-serif" font-size="16" font-weight="400" text-anchor="middle" fill="#171717">treatment,</text>
+<text x="630" y="1539.48" font-family="Arial,Helvetica,sans-serif" font-size="16" font-weight="400" text-anchor="middle" fill="#171717">and recommendations</text>
+<text x="630" y="1565.44" font-family="Arial,Helvetica,sans-serif" font-size="11" font-weight="400" text-anchor="middle" fill="#555555">Veterinarian</text>
+<polygon points="630,1612 766,1664 630,1716 494,1664" fill="white" stroke="#171717" stroke-width="1.6"/>
+<text x="630" y="1659.35" font-family="Arial,Helvetica,sans-serif" font-size="15" font-weight="400" text-anchor="middle" fill="#171717">Diagnosis fields</text>
+<text x="630" y="1679" font-family="Arial,Helvetica,sans-serif" font-size="15" font-weight="400" text-anchor="middle" fill="#171717">valid?</text>
+<rect x="494" y="1758" width="272" height="80" rx="8" fill="white" stroke="#171717" stroke-width="1.6"/>
+<text x="630" y="1783.04" font-family="Arial,Helvetica,sans-serif" font-size="16" font-weight="400" text-anchor="middle" fill="#171717">Correct required clinical fields</text>
+<text x="630" y="1804" font-family="Arial,Helvetica,sans-serif" font-size="16" font-weight="400" text-anchor="middle" fill="#171717">and retry save</text>
+<text x="630" y="1829.96" font-family="Arial,Helvetica,sans-serif" font-size="11" font-weight="400" text-anchor="middle" fill="#555555">Veterinarian</text>
+<rect x="494" y="1880" width="272" height="94" rx="8" fill="white" stroke="#171717" stroke-width="1.6"/>
+<text x="630" y="1901.56" font-family="Arial,Helvetica,sans-serif" font-size="16" font-weight="400" text-anchor="middle" fill="#171717">Save diagnosis and complete</text>
+<text x="630" y="1922.52" font-family="Arial,Helvetica,sans-serif" font-size="16" font-weight="400" text-anchor="middle" fill="#171717">session /</text>
+<text x="630" y="1943.48" font-family="Arial,Helvetica,sans-serif" font-size="16" font-weight="400" text-anchor="middle" fill="#171717">booking; create visit/billing context</text>
+<text x="630" y="1969.44" font-family="Arial,Helvetica,sans-serif" font-size="11" font-weight="400" text-anchor="middle" fill="#555555">Veterinarian / System</text>
+<rect x="494" y="2016" width="272" height="80" rx="8" fill="white" stroke="#171717" stroke-width="1.6"/>
+<text x="630" y="2041.04" font-family="Arial,Helvetica,sans-serif" font-size="16" font-weight="400" text-anchor="middle" fill="#171717">Close the local call view;</text>
+<text x="630" y="2062" font-family="Arial,Helvetica,sans-serif" font-size="16" font-weight="400" text-anchor="middle" fill="#171717">review saved results and follow-up</text>
+<text x="630" y="2087.96" font-family="Arial,Helvetica,sans-serif" font-size="11" font-weight="400" text-anchor="middle" fill="#555555">Veterinarian</text>
+<rect x="854" y="960" width="272" height="80" rx="8" fill="white" stroke="#171717" stroke-width="1.6"/>
+<text x="990" y="985.04" font-family="Arial,Helvetica,sans-serif" font-size="16" font-weight="400" text-anchor="middle" fill="#171717">Open approved / assigned</text>
+<text x="990" y="1006" font-family="Arial,Helvetica,sans-serif" font-size="16" font-weight="400" text-anchor="middle" fill="#171717">record-update requests</text>
+<text x="990" y="1031.96" font-family="Arial,Helvetica,sans-serif" font-size="11" font-weight="400" text-anchor="middle" fill="#555555">Veterinarian</text>
+<polygon points="990,1082 1126,1134 990,1186 854,1134" fill="white" stroke="#171717" stroke-width="1.6"/>
+<text x="990" y="1129.35" font-family="Arial,Helvetica,sans-serif" font-size="15" font-weight="400" text-anchor="middle" fill="#171717">Assigned to self;</text>
+<text x="990" y="1149" font-family="Arial,Helvetica,sans-serif" font-size="15" font-weight="400" text-anchor="middle" fill="#171717">payment cleared?</text>
+<rect x="854" y="1228" width="272" height="94" rx="8" fill="white" stroke="#171717" stroke-width="1.6"/>
+<text x="990" y="1249.56" font-family="Arial,Helvetica,sans-serif" font-size="16" font-weight="400" text-anchor="middle" fill="#171717">Wait for Admin approval /</text>
+<text x="990" y="1270.52" font-family="Arial,Helvetica,sans-serif" font-size="16" font-weight="400" text-anchor="middle" fill="#171717">assignment</text>
+<text x="990" y="1291.48" font-family="Arial,Helvetica,sans-serif" font-size="16" font-weight="400" text-anchor="middle" fill="#171717">or cleared / waived payment</text>
+<text x="990" y="1317.44" font-family="Arial,Helvetica,sans-serif" font-size="11" font-weight="400" text-anchor="middle" fill="#555555">Veterinarian / Admin</text>
+<rect x="854" y="1364" width="272" height="80" rx="8" fill="white" stroke="#171717" stroke-width="1.6"/>
+<text x="990" y="1389.04" font-family="Arial,Helvetica,sans-serif" font-size="16" font-weight="400" text-anchor="middle" fill="#171717">Start assigned request;</text>
+<text x="990" y="1410" font-family="Arial,Helvetica,sans-serif" font-size="16" font-weight="400" text-anchor="middle" fill="#171717">record baseline when supported</text>
+<text x="990" y="1435.96" font-family="Arial,Helvetica,sans-serif" font-size="11" font-weight="400" text-anchor="middle" fill="#555555">Veterinarian / System</text>
+<rect x="854" y="1486" width="272" height="94" rx="8" fill="white" stroke="#171717" stroke-width="1.6"/>
+<text x="990" y="1507.56" font-family="Arial,Helvetica,sans-serif" font-size="16" font-weight="400" text-anchor="middle" fill="#171717">Make requested pet /</text>
+<text x="990" y="1528.52" font-family="Arial,Helvetica,sans-serif" font-size="16" font-weight="400" text-anchor="middle" fill="#171717">medical-record</text>
+<text x="990" y="1549.48" font-family="Arial,Helvetica,sans-serif" font-size="16" font-weight="400" text-anchor="middle" fill="#171717">changes using protected editors</text>
+<text x="990" y="1575.44" font-family="Arial,Helvetica,sans-serif" font-size="11" font-weight="400" text-anchor="middle" fill="#555555">Veterinarian</text>
+<rect x="854" y="1622" width="272" height="80" rx="8" fill="white" stroke="#171717" stroke-width="1.6"/>
+<text x="990" y="1647.04" font-family="Arial,Helvetica,sans-serif" font-size="16" font-weight="400" text-anchor="middle" fill="#171717">Add veterinarian completion notes</text>
+<text x="990" y="1668" font-family="Arial,Helvetica,sans-serif" font-size="16" font-weight="400" text-anchor="middle" fill="#171717">and supporting record evidence</text>
+<text x="990" y="1693.96" font-family="Arial,Helvetica,sans-serif" font-size="11" font-weight="400" text-anchor="middle" fill="#555555">Veterinarian</text>
+<polygon points="990,1744 1126,1796 990,1848 854,1796" fill="white" stroke="#171717" stroke-width="1.6"/>
+<text x="990" y="1791.35" font-family="Arial,Helvetica,sans-serif" font-size="15" font-weight="400" text-anchor="middle" fill="#171717">Required change</text>
+<text x="990" y="1811" font-family="Arial,Helvetica,sans-serif" font-size="15" font-weight="400" text-anchor="middle" fill="#171717">evidence present?</text>
+<rect x="854" y="1890" width="272" height="80" rx="8" fill="white" stroke="#171717" stroke-width="1.6"/>
+<text x="990" y="1915.04" font-family="Arial,Helvetica,sans-serif" font-size="16" font-weight="400" text-anchor="middle" fill="#171717">Make the actual correction</text>
+<text x="990" y="1936" font-family="Arial,Helvetica,sans-serif" font-size="16" font-weight="400" text-anchor="middle" fill="#171717">and complete the required notes</text>
+<text x="990" y="1961.96" font-family="Arial,Helvetica,sans-serif" font-size="11" font-weight="400" text-anchor="middle" fill="#555555">Veterinarian</text>
+<rect x="854" y="2012" width="272" height="94" rx="8" fill="white" stroke="#171717" stroke-width="1.6"/>
+<text x="990" y="2033.56" font-family="Arial,Helvetica,sans-serif" font-size="16" font-weight="400" text-anchor="middle" fill="#171717">Complete request; retain transition</text>
+<text x="990" y="2054.52" font-family="Arial,Helvetica,sans-serif" font-size="16" font-weight="400" text-anchor="middle" fill="#171717">/</text>
+<text x="990" y="2075.48" font-family="Arial,Helvetica,sans-serif" font-size="16" font-weight="400" text-anchor="middle" fill="#171717">snapshot evidence when deployed</text>
+<text x="990" y="2101.44" font-family="Arial,Helvetica,sans-serif" font-size="11" font-weight="400" text-anchor="middle" fill="#555555">Veterinarian / System</text>
+<rect x="854" y="2148" width="272" height="80" rx="8" fill="white" stroke="#171717" stroke-width="1.6"/>
+<text x="990" y="2173.04" font-family="Arial,Helvetica,sans-serif" font-size="16" font-weight="400" text-anchor="middle" fill="#171717">Attempt owner notification;</text>
+<text x="990" y="2194" font-family="Arial,Helvetica,sans-serif" font-size="16" font-weight="400" text-anchor="middle" fill="#171717">retain updated record history</text>
+<text x="990" y="2219.96" font-family="Arial,Helvetica,sans-serif" font-size="11" font-weight="400" text-anchor="middle" fill="#555555">System</text>
+<rect x="1214" y="960" width="272" height="80" rx="8" fill="white" stroke="#171717" stroke-width="1.6"/>
+<text x="1350" y="985.04" font-family="Arial,Helvetica,sans-serif" font-size="16" font-weight="400" text-anchor="middle" fill="#171717">Select eligible pet and open</text>
+<text x="1350" y="1006" font-family="Arial,Helvetica,sans-serif" font-size="16" font-weight="400" text-anchor="middle" fill="#171717">medical records / diagnosis history</text>
+<text x="1350" y="1031.96" font-family="Arial,Helvetica,sans-serif" font-size="11" font-weight="400" text-anchor="middle" fill="#555555">Veterinarian</text>
+<rect x="1214" y="1082" width="272" height="94" rx="8" fill="white" stroke="#171717" stroke-width="1.6"/>
+<text x="1350" y="1103.56" font-family="Arial,Helvetica,sans-serif" font-size="16" font-weight="400" text-anchor="middle" fill="#171717">Organize record groups, visibility,</text>
+<text x="1350" y="1124.52" font-family="Arial,Helvetica,sans-serif" font-size="16" font-weight="400" text-anchor="middle" fill="#171717">allergies, vaccines, and source</text>
+<text x="1350" y="1145.48" font-family="Arial,Helvetica,sans-serif" font-size="16" font-weight="400" text-anchor="middle" fill="#171717">items</text>
+<text x="1350" y="1171.44" font-family="Arial,Helvetica,sans-serif" font-size="11" font-weight="400" text-anchor="middle" fill="#555555">Veterinarian</text>
+<rect x="1214" y="1218" width="272" height="80" rx="8" fill="white" stroke="#171717" stroke-width="1.6"/>
+<text x="1350" y="1243.04" font-family="Arial,Helvetica,sans-serif" font-size="16" font-weight="400" text-anchor="middle" fill="#171717">If needed, add an independent</text>
+<text x="1350" y="1264" font-family="Arial,Helvetica,sans-serif" font-size="16" font-weight="400" text-anchor="middle" fill="#171717">prescription or medical certificate</text>
+<text x="1350" y="1289.96" font-family="Arial,Helvetica,sans-serif" font-size="11" font-weight="400" text-anchor="middle" fill="#555555">Veterinarian</text>
+<rect x="1214" y="1340" width="272" height="94" rx="8" fill="white" stroke="#171717" stroke-width="1.6"/>
+<text x="1350" y="1361.56" font-family="Arial,Helvetica,sans-serif" font-size="16" font-weight="400" text-anchor="middle" fill="#171717">Validate prescription directions OR</text>
+<text x="1350" y="1382.52" font-family="Arial,Helvetica,sans-serif" font-size="16" font-weight="400" text-anchor="middle" fill="#171717">certificate exam date,</text>
+<text x="1350" y="1403.48" font-family="Arial,Helvetica,sans-serif" font-size="16" font-weight="400" text-anchor="middle" fill="#171717">validity/signature</text>
+<text x="1350" y="1429.44" font-family="Arial,Helvetica,sans-serif" font-size="11" font-weight="400" text-anchor="middle" fill="#555555">System</text>
+<polygon points="1350,1476 1486,1528 1350,1580 1214,1528" fill="white" stroke="#171717" stroke-width="1.6"/>
+<text x="1350" y="1523.35" font-family="Arial,Helvetica,sans-serif" font-size="15" font-weight="400" text-anchor="middle" fill="#171717">Selected edit /</text>
+<text x="1350" y="1543" font-family="Arial,Helvetica,sans-serif" font-size="15" font-weight="400" text-anchor="middle" fill="#171717">document valid?</text>
+<rect x="1214" y="1622" width="272" height="80" rx="8" fill="white" stroke="#171717" stroke-width="1.6"/>
+<text x="1350" y="1647.04" font-family="Arial,Helvetica,sans-serif" font-size="16" font-weight="400" text-anchor="middle" fill="#171717">Correct record details or required</text>
+<text x="1350" y="1668" font-family="Arial,Helvetica,sans-serif" font-size="16" font-weight="400" text-anchor="middle" fill="#171717">clinical / document fields</text>
+<text x="1350" y="1693.96" font-family="Arial,Helvetica,sans-serif" font-size="11" font-weight="400" text-anchor="middle" fill="#555555">Veterinarian</text>
+<rect x="1214" y="1744" width="272" height="115" rx="8" fill="white" stroke="#171717" stroke-width="1.6"/>
+<text x="1350" y="1765.58" font-family="Arial,Helvetica,sans-serif" font-size="16" font-weight="400" text-anchor="middle" fill="#171717">Save selected record change /</text>
+<text x="1350" y="1786.54" font-family="Arial,Helvetica,sans-serif" font-size="16" font-weight="400" text-anchor="middle" fill="#171717">issue</text>
+<text x="1350" y="1807.5" font-family="Arial,Helvetica,sans-serif" font-size="16" font-weight="400" text-anchor="middle" fill="#171717">document; retain earlier</text>
+<text x="1350" y="1828.46" font-family="Arial,Helvetica,sans-serif" font-size="16" font-weight="400" text-anchor="middle" fill="#171717">prescriptions</text>
+<text x="1350" y="1854.4199999999998" font-family="Arial,Helvetica,sans-serif" font-size="11" font-weight="400" text-anchor="middle" fill="#555555">Veterinarian / System</text>
+<rect x="1214" y="1901" width="272" height="115" rx="8" fill="white" stroke="#171717" stroke-width="1.6"/>
+<text x="1350" y="1922.58" font-family="Arial,Helvetica,sans-serif" font-size="16" font-weight="400" text-anchor="middle" fill="#171717">Notify affected owners; expose</text>
+<text x="1350" y="1943.54" font-family="Arial,Helvetica,sans-serif" font-size="16" font-weight="400" text-anchor="middle" fill="#171717">only</text>
+<text x="1350" y="1964.5" font-family="Arial,Helvetica,sans-serif" font-size="16" font-weight="400" text-anchor="middle" fill="#171717">permitted records / issued</text>
+<text x="1350" y="1985.46" font-family="Arial,Helvetica,sans-serif" font-size="16" font-weight="400" text-anchor="middle" fill="#171717">documents</text>
+<text x="1350" y="2011.4199999999998" font-family="Arial,Helvetica,sans-serif" font-size="11" font-weight="400" text-anchor="middle" fill="#555555">System</text>
+<rect x="1574" y="960" width="272" height="80" rx="8" fill="white" stroke="#171717" stroke-width="1.6"/>
+<text x="1710" y="985.04" font-family="Arial,Helvetica,sans-serif" font-size="16" font-weight="400" text-anchor="middle" fill="#171717">Open grooming concern</text>
+<text x="1710" y="1006" font-family="Arial,Helvetica,sans-serif" font-size="16" font-weight="400" text-anchor="middle" fill="#171717">assigned by Admin</text>
+<text x="1710" y="1031.96" font-family="Arial,Helvetica,sans-serif" font-size="11" font-weight="400" text-anchor="middle" fill="#555555">Veterinarian</text>
+<rect x="1574" y="1082" width="272" height="80" rx="8" fill="white" stroke="#171717" stroke-width="1.6"/>
+<text x="1710" y="1107.04" font-family="Arial,Helvetica,sans-serif" font-size="16" font-weight="400" text-anchor="middle" fill="#171717">Review intake, photos, concern,</text>
+<text x="1710" y="1128" font-family="Arial,Helvetica,sans-serif" font-size="16" font-weight="400" text-anchor="middle" fill="#171717">and relevant patient history</text>
+<text x="1710" y="1153.96" font-family="Arial,Helvetica,sans-serif" font-size="11" font-weight="400" text-anchor="middle" fill="#555555">Veterinarian</text>
+<rect x="1574" y="1204" width="272" height="80" rx="8" fill="white" stroke="#171717" stroke-width="1.6"/>
+<text x="1710" y="1229.04" font-family="Arial,Helvetica,sans-serif" font-size="16" font-weight="400" text-anchor="middle" fill="#171717">Record resume, stop, consultation,</text>
+<text x="1710" y="1250" font-family="Arial,Helvetica,sans-serif" font-size="16" font-weight="400" text-anchor="middle" fill="#171717">or confinement outcome</text>
+<text x="1710" y="1275.96" font-family="Arial,Helvetica,sans-serif" font-size="11" font-weight="400" text-anchor="middle" fill="#555555">Veterinarian</text>
+<polygon points="1710,1326 1846,1378 1710,1430 1574,1378" fill="white" stroke="#171717" stroke-width="1.6"/>
+<text x="1710" y="1373.35" font-family="Arial,Helvetica,sans-serif" font-size="15" font-weight="400" text-anchor="middle" fill="#171717">Confinement</text>
+<text x="1710" y="1393" font-family="Arial,Helvetica,sans-serif" font-size="15" font-weight="400" text-anchor="middle" fill="#171717">recommended?</text>
+<rect x="1574" y="1472" width="272" height="80" rx="8" fill="white" stroke="#171717" stroke-width="1.6"/>
+<text x="1710" y="1497.04" font-family="Arial,Helvetica,sans-serif" font-size="16" font-weight="400" text-anchor="middle" fill="#171717">Save resume / stop / consultation</text>
+<text x="1710" y="1518" font-family="Arial,Helvetica,sans-serif" font-size="16" font-weight="400" text-anchor="middle" fill="#171717">outcome; return control to Admin</text>
+<text x="1710" y="1543.96" font-family="Arial,Helvetica,sans-serif" font-size="11" font-weight="400" text-anchor="middle" fill="#555555">Veterinarian</text>
+<rect x="1574" y="1594" width="272" height="80" rx="8" fill="white" stroke="#171717" stroke-width="1.6"/>
+<text x="1710" y="1619.04" font-family="Arial,Helvetica,sans-serif" font-size="16" font-weight="400" text-anchor="middle" fill="#171717">Provide reason, facility/size, care,</text>
+<text x="1710" y="1640" font-family="Arial,Helvetica,sans-serif" font-size="16" font-weight="400" text-anchor="middle" fill="#171717">and expected discharge details</text>
+<text x="1710" y="1665.96" font-family="Arial,Helvetica,sans-serif" font-size="11" font-weight="400" text-anchor="middle" fill="#555555">Veterinarian</text>
+<rect x="1574" y="1716" width="272" height="80" rx="8" fill="white" stroke="#171717" stroke-width="1.6"/>
+<text x="1710" y="1741.04" font-family="Arial,Helvetica,sans-serif" font-size="16" font-weight="400" text-anchor="middle" fill="#171717">Create linked pending admission /</text>
+<text x="1710" y="1762" font-family="Arial,Helvetica,sans-serif" font-size="16" font-weight="400" text-anchor="middle" fill="#171717">charge; mark grooming transferred</text>
+<text x="1710" y="1787.96" font-family="Arial,Helvetica,sans-serif" font-size="11" font-weight="400" text-anchor="middle" fill="#555555">System</text>
+<rect x="1574" y="1838" width="272" height="94" rx="8" fill="white" stroke="#171717" stroke-width="1.6"/>
+<text x="1710" y="1859.56" font-family="Arial,Helvetica,sans-serif" font-size="16" font-weight="400" text-anchor="middle" fill="#171717">Admin obtains approval/consent,</text>
+<text x="1710" y="1880.52" font-family="Arial,Helvetica,sans-serif" font-size="16" font-weight="400" text-anchor="middle" fill="#171717">assigns unit, and manages the</text>
+<text x="1710" y="1901.48" font-family="Arial,Helvetica,sans-serif" font-size="16" font-weight="400" text-anchor="middle" fill="#171717">stay</text>
+<text x="1710" y="1927.44" font-family="Arial,Helvetica,sans-serif" font-size="11" font-weight="400" text-anchor="middle" fill="#555555">Admin</text>
+<rect x="1934" y="960" width="272" height="80" rx="8" fill="white" stroke="#171717" stroke-width="1.6"/>
+<text x="2070" y="985.04" font-family="Arial,Helvetica,sans-serif" font-size="16" font-weight="400" text-anchor="middle" fill="#171717">Choose booking availability, media,</text>
+<text x="2070" y="1006" font-family="Arial,Helvetica,sans-serif" font-size="16" font-weight="400" text-anchor="middle" fill="#171717">history, profile, alerts, or TODOs</text>
+<text x="2070" y="1031.96" font-family="Arial,Helvetica,sans-serif" font-size="11" font-weight="400" text-anchor="middle" fill="#555555">Veterinarian</text>
+<rect x="1934" y="1082" width="272" height="94" rx="8" fill="white" stroke="#171717" stroke-width="1.6"/>
+<text x="2070" y="1103.56" font-family="Arial,Helvetica,sans-serif" font-size="16" font-weight="400" text-anchor="middle" fill="#171717">Edit selected preferences / tasks;</text>
+<text x="2070" y="1124.52" font-family="Arial,Helvetica,sans-serif" font-size="16" font-weight="400" text-anchor="middle" fill="#171717">for scheduling, set clinic/call</text>
+<text x="2070" y="1145.48" font-family="Arial,Helvetica,sans-serif" font-size="16" font-weight="400" text-anchor="middle" fill="#171717">acceptance</text>
+<text x="2070" y="1171.44" font-family="Arial,Helvetica,sans-serif" font-size="11" font-weight="400" text-anchor="middle" fill="#555555">Veterinarian</text>
+<polygon points="2070,1218 2206,1270 2070,1322 1934,1270" fill="white" stroke="#171717" stroke-width="1.6"/>
+<text x="2070" y="1265.35" font-family="Arial,Helvetica,sans-serif" font-size="15" font-weight="400" text-anchor="middle" fill="#171717">Selected action</text>
+<text x="2070" y="1285" font-family="Arial,Helvetica,sans-serif" font-size="15" font-weight="400" text-anchor="middle" fill="#171717">valid?</text>
+<rect x="1934" y="1364" width="272" height="94" rx="8" fill="white" stroke="#171717" stroke-width="1.6"/>
+<text x="2070" y="1385.56" font-family="Arial,Helvetica,sans-serif" font-size="16" font-weight="400" text-anchor="middle" fill="#171717">Correct selected fields / filters;</text>
+<text x="2070" y="1406.52" font-family="Arial,Helvetica,sans-serif" font-size="16" font-weight="400" text-anchor="middle" fill="#171717">retain coverage for booked</text>
+<text x="2070" y="1427.48" font-family="Arial,Helvetica,sans-serif" font-size="16" font-weight="400" text-anchor="middle" fill="#171717">appointments</text>
+<text x="2070" y="1453.44" font-family="Arial,Helvetica,sans-serif" font-size="11" font-weight="400" text-anchor="middle" fill="#555555">Veterinarian / Admin</text>
+<rect x="1934" y="1500" width="272" height="80" rx="8" fill="white" stroke="#171717" stroke-width="1.6"/>
+<text x="2070" y="1525.04" font-family="Arial,Helvetica,sans-serif" font-size="16" font-weight="400" text-anchor="middle" fill="#171717">Save selected valid change OR</text>
+<text x="2070" y="1546" font-family="Arial,Helvetica,sans-serif" font-size="16" font-weight="400" text-anchor="middle" fill="#171717">display authorized media / history</text>
+<text x="2070" y="1571.96" font-family="Arial,Helvetica,sans-serif" font-size="11" font-weight="400" text-anchor="middle" fill="#555555">System</text>
+<rect x="1934" y="1622" width="272" height="115" rx="8" fill="white" stroke="#171717" stroke-width="1.6"/>
+<text x="2070" y="1643.58" font-family="Arial,Helvetica,sans-serif" font-size="16" font-weight="400" text-anchor="middle" fill="#171717">For schedules: show actual</text>
+<text x="2070" y="1664.54" font-family="Arial,Helvetica,sans-serif" font-size="16" font-weight="400" text-anchor="middle" fill="#171717">assigned</text>
+<text x="2070" y="1685.5" font-family="Arial,Helvetica,sans-serif" font-size="16" font-weight="400" text-anchor="middle" fill="#171717">appointments and weekly online</text>
+<text x="2070" y="1706.46" font-family="Arial,Helvetica,sans-serif" font-size="16" font-weight="400" text-anchor="middle" fill="#171717">starts</text>
+<text x="2070" y="1732.4199999999998" font-family="Arial,Helvetica,sans-serif" font-size="11" font-weight="400" text-anchor="middle" fill="#555555">System</text>
+<rect x="1934" y="1779" width="272" height="94" rx="8" fill="white" stroke="#171717" stroke-width="1.6"/>
+<text x="2070" y="1800.56" font-family="Arial,Helvetica,sans-serif" font-size="16" font-weight="400" text-anchor="middle" fill="#171717">Review notifications, follow-ups,</text>
+<text x="2070" y="1821.52" font-family="Arial,Helvetica,sans-serif" font-size="16" font-weight="400" text-anchor="middle" fill="#171717">personal activity, and next-day</text>
+<text x="2070" y="1842.48" font-family="Arial,Helvetica,sans-serif" font-size="16" font-weight="400" text-anchor="middle" fill="#171717">preview</text>
+<text x="2070" y="1868.44" font-family="Arial,Helvetica,sans-serif" font-size="11" font-weight="400" text-anchor="middle" fill="#555555">Veterinarian</text>
+<polygon points="270,2527 286,2543 270,2559 254,2543" fill="white" stroke="#171717" stroke-width="1.6"/>
+<text x="270" y="2548.52" font-family="Arial,Helvetica,sans-serif" font-size="16" font-weight="400" text-anchor="middle" fill="#171717"></text>
+<polygon points="630,2527 646,2543 630,2559 614,2543" fill="white" stroke="#171717" stroke-width="1.6"/>
+<text x="630" y="2548.52" font-family="Arial,Helvetica,sans-serif" font-size="16" font-weight="400" text-anchor="middle" fill="#171717"></text>
+<polygon points="990,2527 1006,2543 990,2559 974,2543" fill="white" stroke="#171717" stroke-width="1.6"/>
+<text x="990" y="2548.52" font-family="Arial,Helvetica,sans-serif" font-size="16" font-weight="400" text-anchor="middle" fill="#171717"></text>
+<polygon points="1350,2527 1366,2543 1350,2559 1334,2543" fill="white" stroke="#171717" stroke-width="1.6"/>
+<text x="1350" y="2548.52" font-family="Arial,Helvetica,sans-serif" font-size="16" font-weight="400" text-anchor="middle" fill="#171717"></text>
+<polygon points="1710,2527 1726,2543 1710,2559 1694,2543" fill="white" stroke="#171717" stroke-width="1.6"/>
+<text x="1710" y="2548.52" font-family="Arial,Helvetica,sans-serif" font-size="16" font-weight="400" text-anchor="middle" fill="#171717"></text>
+<polygon points="2070,2527 2086,2543 2070,2559 2054,2543" fill="white" stroke="#171717" stroke-width="1.6"/>
+<text x="2070" y="2548.52" font-family="Arial,Helvetica,sans-serif" font-size="16" font-weight="400" text-anchor="middle" fill="#171717"></text>
+<polygon points="1170,2657 1188,2673 1170,2689 1152,2673" fill="white" stroke="#171717" stroke-width="1.6"/>
+<text x="1170" y="2678.52" font-family="Arial,Helvetica,sans-serif" font-size="16" font-weight="400" text-anchor="middle" fill="#171717"></text>
+<polygon points="1170,2745 1310,2797 1170,2849 1030,2797" fill="white" stroke="#171717" stroke-width="1.6"/>
+<text x="1170" y="2792.35" font-family="Arial,Helvetica,sans-serif" font-size="15" font-weight="400" text-anchor="middle" fill="#171717">Perform another</text>
+<text x="1170" y="2812" font-family="Arial,Helvetica,sans-serif" font-size="15" font-weight="400" text-anchor="middle" fill="#171717">activity?</text>
+<rect x="990" y="2897" width="360" height="80" rx="8" fill="white" stroke="#171717" stroke-width="1.6"/>
+<text x="1170" y="2932.52" font-family="Arial,Helvetica,sans-serif" font-size="16" font-weight="400" text-anchor="middle" fill="#171717">Log out; clear local session</text>
+<text x="1170" y="2958.48" font-family="Arial,Helvetica,sans-serif" font-size="11" font-weight="400" text-anchor="middle" fill="#555555">Veterinarian</text>
+<circle cx="1170" cy="3030" r="11" stroke="#171717" fill="white" stroke-width="1.6"/>
+<circle cx="1170" cy="3030" r="7" fill="#171717"/>
+<text x="1170" y="3025.04" font-family="Arial,Helvetica,sans-serif" font-size="16" font-weight="400" text-anchor="middle" fill="#171717"></text>
+<text x="1170" y="3046" font-family="Arial,Helvetica,sans-serif" font-size="16" font-weight="400" text-anchor="middle" fill="#171717"></text>
+<rect x="925" y="490" width="42" height="22" fill="white"/>
+<text x="946" y="506" font-family="Arial,Helvetica,sans-serif" font-size="13" font-weight="700" text-anchor="middle" fill="#171717">No</text>
+<rect x="1180" y="574" width="42" height="22" fill="white"/>
+<text x="1201" y="590" font-family="Arial,Helvetica,sans-serif" font-size="13" font-weight="700" text-anchor="middle" fill="#171717">Yes</text>
+<rect x="280" y="1329" width="42" height="22" fill="white"/>
+<text x="301" y="1345" font-family="Arial,Helvetica,sans-serif" font-size="13" font-weight="700" text-anchor="middle" fill="#171717">No</text>
+<rect x="419" y="1280" width="38" height="22" fill="white"/>
+<text x="438" y="1296" font-family="Arial,Helvetica,sans-serif" font-size="13" font-weight="700" text-anchor="middle" fill="#171717">Yes</text>
+<rect x="280" y="1904" width="42" height="22" fill="white"/>
+<text x="301" y="1920" font-family="Arial,Helvetica,sans-serif" font-size="13" font-weight="700" text-anchor="middle" fill="#171717">No</text>
+<rect x="419" y="1855" width="38" height="22" fill="white"/>
+<text x="438" y="1871" font-family="Arial,Helvetica,sans-serif" font-size="13" font-weight="700" text-anchor="middle" fill="#171717">Yes</text>
+<rect x="116" y="910" width="308" height="36" fill="white"/>
+<text x="270" y="926" font-family="Arial,Helvetica,sans-serif" font-size="17" font-weight="700" text-anchor="middle" fill="#171717">[Clinic cases / My List]</text>
+<rect x="640" y="1723" width="42" height="22" fill="white"/>
+<text x="661" y="1739" font-family="Arial,Helvetica,sans-serif" font-size="13" font-weight="700" text-anchor="middle" fill="#171717">No</text>
+<rect x="779" y="1674" width="38" height="22" fill="white"/>
+<text x="798" y="1690" font-family="Arial,Helvetica,sans-serif" font-size="13" font-weight="700" text-anchor="middle" fill="#171717">Yes</text>
+<rect x="476" y="910" width="308" height="36" fill="white"/>
+<text x="630" y="926" font-family="Arial,Helvetica,sans-serif" font-size="17" font-weight="700" text-anchor="middle" fill="#171717">[Online consultations]</text>
+<rect x="1000" y="1193" width="42" height="22" fill="white"/>
+<text x="1021" y="1209" font-family="Arial,Helvetica,sans-serif" font-size="13" font-weight="700" text-anchor="middle" fill="#171717">No</text>
+<rect x="1139" y="1144" width="38" height="22" fill="white"/>
+<text x="1158" y="1160" font-family="Arial,Helvetica,sans-serif" font-size="13" font-weight="700" text-anchor="middle" fill="#171717">Yes</text>
+<rect x="1000" y="1855" width="42" height="22" fill="white"/>
+<text x="1021" y="1871" font-family="Arial,Helvetica,sans-serif" font-size="13" font-weight="700" text-anchor="middle" fill="#171717">No</text>
+<rect x="1139" y="1806" width="38" height="22" fill="white"/>
+<text x="1158" y="1822" font-family="Arial,Helvetica,sans-serif" font-size="13" font-weight="700" text-anchor="middle" fill="#171717">Yes</text>
+<rect x="836" y="910" width="308" height="36" fill="white"/>
+<text x="990" y="926" font-family="Arial,Helvetica,sans-serif" font-size="17" font-weight="700" text-anchor="middle" fill="#171717">[Assigned record requests]</text>
+<rect x="1360" y="1587" width="42" height="22" fill="white"/>
+<text x="1381" y="1603" font-family="Arial,Helvetica,sans-serif" font-size="13" font-weight="700" text-anchor="middle" fill="#171717">No</text>
+<rect x="1499" y="1538" width="38" height="22" fill="white"/>
+<text x="1518" y="1554" font-family="Arial,Helvetica,sans-serif" font-size="13" font-weight="700" text-anchor="middle" fill="#171717">Yes</text>
+<rect x="1196" y="910" width="308" height="36" fill="white"/>
+<text x="1350" y="926" font-family="Arial,Helvetica,sans-serif" font-size="17" font-weight="700" text-anchor="middle" fill="#171717">[EMR &amp; issued documents]</text>
+<rect x="1720" y="1437" width="42" height="22" fill="white"/>
+<text x="1741" y="1453" font-family="Arial,Helvetica,sans-serif" font-size="13" font-weight="700" text-anchor="middle" fill="#171717">No</text>
+<rect x="1859" y="1388" width="38" height="22" fill="white"/>
+<text x="1878" y="1404" font-family="Arial,Helvetica,sans-serif" font-size="13" font-weight="700" text-anchor="middle" fill="#171717">Yes</text>
+<rect x="1556" y="910" width="308" height="36" fill="white"/>
+<text x="1710" y="926" font-family="Arial,Helvetica,sans-serif" font-size="17" font-weight="700" text-anchor="middle" fill="#171717">[Grooming review]</text>
+<rect x="2080" y="1329" width="42" height="22" fill="white"/>
+<text x="2101" y="1345" font-family="Arial,Helvetica,sans-serif" font-size="13" font-weight="700" text-anchor="middle" fill="#171717">No</text>
+<rect x="2219" y="1280" width="38" height="22" fill="white"/>
+<text x="2238" y="1296" font-family="Arial,Helvetica,sans-serif" font-size="13" font-weight="700" text-anchor="middle" fill="#171717">Yes</text>
+<rect x="1916" y="910" width="308" height="36" fill="white"/>
+<text x="2070" y="926" font-family="Arial,Helvetica,sans-serif" font-size="17" font-weight="700" text-anchor="middle" fill="#171717">[Availability &amp; personal tools]</text>
+<rect x="2248" y="2767" width="44" height="22" fill="white"/>
+<text x="2270" y="2783" font-family="Arial,Helvetica,sans-serif" font-size="13" font-weight="700" text-anchor="middle" fill="#171717">Yes</text>
+<rect x="1180" y="2856" width="42" height="22" fill="white"/>
+<text x="1201" y="2872" font-family="Arial,Helvetica,sans-serif" font-size="13" font-weight="700" text-anchor="middle" fill="#171717">No</text>
+<text x="64" y="55" font-family="Arial,Helvetica,sans-serif" font-size="30" font-weight="700" text-anchor="start" fill="#171717">iPawcus  |  Veterinarian Activity Diagram</text>
+<text x="64" y="94" font-family="Arial,Helvetica,sans-serif" font-size="16" font-weight="400" text-anchor="start" fill="#555555">Assigned clinical care, online consultations, record work, prescriptions/certificates, review, and availability</text>
+<text x="64" y="129" font-family="Arial,Helvetica,sans-serif" font-size="13" font-weight="400" text-anchor="start" fill="#555555">Current local implementation reviewed: 19 October 2026  |  Rounded box: activity  |  Diamond: decision / merge  |  Small label: responsible actor</text>
+<text x="64" y="3101" font-family="Arial,Helvetica,sans-serif" font-size="17" font-weight="700" text-anchor="start" fill="#171717">Reading the revised diagram</text>
+<text x="64" y="3137" font-family="Arial,Helvetica,sans-serif" font-size="14" font-weight="400" text-anchor="start" fill="#555555">Columns are alternative work areas. Merge diamonds combine alternatives; they do not wait for every activity to finish. Pending reviews may be revisited later.</text>
+<text x="64" y="3167" font-family="Arial,Helvetica,sans-serif" font-size="14" font-weight="400" text-anchor="start" fill="#555555">Use the selected action's validation rules. For a timeout or uncertain write result, refresh the record before resubmitting. Leaving an activity returns to the menu.</text>
+<text x="64" y="3197" font-family="Arial,Helvetica,sans-serif" font-size="14" font-weight="400" text-anchor="start" fill="#555555">Current My List is populated by Admin queue assignment. Do not add a compulsory separate Approved List / receive-case screen.</text>
+<text x="64" y="3227" font-family="Arial,Helvetica,sans-serif" font-size="14" font-weight="400" text-anchor="start" fill="#555555">Diagnosis finalization checks the assigned completed intake where installed. Clinical completion creates/reuses billing context; it does not verify payment.</text>
+<text x="64" y="3257" font-family="Arial,Helvetica,sans-serif" font-size="14" font-weight="400" text-anchor="start" fill="#555555">Online availability is a separate recurring call-start calendar. Published branch visits are retired. Only the actual veterinarian role issues medical certificates.</text>
+</svg>

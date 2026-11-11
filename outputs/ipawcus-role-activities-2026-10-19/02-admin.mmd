@@ -1,0 +1,203 @@
+flowchart TB
+    n_start(("Start"))
+    n_login("Sign in as Admin<br/>(Admin)")
+    n_auth("Validate credentials / Google identity,<br/>email verification, token, and role access<br/>(System)")
+    n_authorized{"Access<br/>authorized?"}
+    n_authError("Show access error; correct account /<br/>verification details and retry sign-in<br/>(Admin)")
+    n_dashboard("Load assigned clinic context<br/>and enabled Admin feature permissions<br/>(System)")
+    n_choose{"Choose one<br/>activity"}
+    n_c1_reception("Select/register eligible pet or<br/>open branch booking / queue<br/>(Admin)")
+    n_c1_bookingReview("Review schedule, concern, consent,<br/>and required payment evidence<br/>(Admin)")
+    n_c1_receptionValid{"Booking / queue<br/>rules valid?"}
+    n_c1_receptionValid_recovery("Correct editable details, reject /<br/>cancel, or request valid evidence<br/>(Admin / Pet Owner)")
+    n_c1_bookingAction("Apply permitted confirmation,<br/>reschedule, or pending-branch transfer<br/>(Admin)")
+    n_c1_receive("Receive clinical booking or create<br/>valid walk-in queue; route other services<br/>(Admin / System)")
+    n_c1_number("Allocate branch/day queue number;<br/>preserve source and priority<br/>(System)")
+    n_c1_assign("Assign / reassign eligible branch vet;<br/>queue moves to in-progress<br/>(Admin / System)")
+    n_c1_myList("Create received assignment;<br/>show case in assigned vet My List<br/>(System)")
+    n_c1_handoff("Continue in Pet Intake for clinical care;<br/>use source-aware return/re-entry if needed<br/>(Admin)")
+    n_c2_intake("Open matched clinical booking / queue<br/>in Pet Intake<br/>(Admin)")
+    n_c2_intakeReady{"Queue in progress<br/>with assigned vet?"}
+    n_c2_intakeReady_recovery("Complete the queue and<br/>veterinarian assignment first<br/>(Admin)")
+    n_c2_intakeStart("Start / reuse the examination<br/>for the assigned queue patient<br/>(Admin / System)")
+    n_c2_examination("Record complaint, symptoms, vitals,<br/>physical examination, and attachments<br/>(Admin)")
+    n_c2_consent("Capture and save the signed or<br/>physical owner consent document<br/>(Admin / Pet Owner)")
+    n_c2_consentSaved{"Required consent<br/>saved?"}
+    n_c2_consentSaved_recovery("Save valid consent before<br/>completing the examination<br/>(Admin)")
+    n_c2_intakeComplete("Mark examination completed;<br/>retain recorder and assigned-vet context<br/>(Admin / System)")
+    n_c2_vetDiagnosis("Assigned veterinarian reviews intake<br/>and finalizes clinical diagnosis<br/>(Veterinarian)")
+    n_c3_groom("Open approved grooming booking;<br/>record intake and owner approval<br/>(Admin)")
+    n_c3_groomBefore("Select active-catalog service;<br/>save required before photo<br/>(Admin)")
+    n_c3_groomStart("Check in and start grooming;<br/>record authenticated handler<br/>(Admin / System)")
+    n_c3_groomReview("If concern arises, pause for assigned<br/>vet review; apply permitted outcome<br/>(Admin / Veterinarian)")
+    n_c3_groomResume{"Continue routine<br/>grooming?"}
+    n_c3_groomResume_recovery("Record stop / consultation outcome,<br/>or transfer confinement to Boarding<br/>(Admin / Veterinarian)")
+    n_c3_groomFinish("Save after photo and completion;<br/>prepare permitted owner summary<br/>(Admin)")
+    n_c3_groomReady("Validate active price; mark ready;<br/>create / reuse visit and invoice<br/>(System)")
+    n_c3_groomPay("Post verified full payment in POS;<br/>system releases job / completes booking<br/>(Admin / System)")
+    n_c3_groomPublish("Publish selected summary/photos;<br/>verify actual collection of the pet<br/>(Admin)")
+    n_c4_board("Open approved Pet Hotel booking,<br/>walk-in stay, or vet confinement referral<br/>(Admin)")
+    n_c4_boardConsent("Obtain required owner approval<br/>and saved Boarding consent PDF<br/>(Admin / Pet Owner)")
+    n_c4_boardUnit("Check branch, dates, size,<br/>and eligible unit availability<br/>(Admin / System)")
+    n_c4_unit{"Unit / admission<br/>valid?"}
+    n_c4_unit_recovery("Choose another eligible unit / dates<br/>or resolve missing consent<br/>(Admin)")
+    n_c4_checkin("Reserve / assign unit and check in;<br/>record occupied stay<br/>(Admin / System)")
+    n_c4_monitor("Record observations, care tasks,<br/>documents, and material usage<br/>(Admin)")
+    n_c4_stayBill("Review expected discharge, overstay,<br/>materials, and linked POS charges<br/>(Admin)")
+    n_c4_checkoutValid{"Checkout rules<br/>satisfied?"}
+    n_c4_checkoutValid_recovery("Resolve incomplete care / discharge<br/>or required billing details<br/>(Admin)")
+    n_c4_checkout("Complete permitted checkout;<br/>close assignment and update availability<br/>(Admin / System)")
+    n_c5_pos("Open linked visit / service invoice<br/>or create a walk-in counter sale<br/>(Admin)")
+    n_c5_charges("Review/add allowed service, product,<br/>and material charges<br/>(Admin)")
+    n_c5_posValidate("Validate identity, catalog price,<br/>stock, and immutable-charge rules<br/>(System)")
+    n_c5_chargesValid{"Charges<br/>valid?"}
+    n_c5_chargesValid_recovery("Resolve source mismatch, insufficient<br/>stock, or locked charges<br/>(Admin)")
+    n_c5_payment("Record / verify enabled-method<br/>payment and required reference/proof<br/>(Admin)")
+    n_c5_billing("Recalculate unpaid / partial / paid;<br/>record linked stock movements<br/>(System)")
+    n_c5_invoice("Generate / print invoice or receipt;<br/>save protected PDF when requested<br/>(Admin / System)")
+    n_c5_release("Apply linked service billing effects;<br/>clinical completion stays separate<br/>(System)")
+    n_c6_stock("Select item create/edit, stock in/out,<br/>same-branch transfer, or archive<br/>(Admin)")
+    n_c6_stockInput("Enter branch, batch/receipt, quantity,<br/>supplier, and reason as required<br/>(Admin)")
+    n_c6_stockConfirm("Acknowledge responsibility<br/>and confirm account password<br/>(Admin)")
+    n_c6_stockValid{"Authority / stock<br/>rules valid?"}
+    n_c6_stockValid_recovery("Correct confirmation, quantity,<br/>branch, or referenced-item conflict<br/>(Admin)")
+    n_c6_stockWrite("Lock and save permitted stock change;<br/>retain batch / movement audit<br/>(System)")
+    n_c6_stockView("Review low stock, expiry, disposal,<br/>receipts, transfers, and history<br/>(Admin)")
+    n_c6_stockArchive("Refresh active items and warnings;<br/>retain archived-item historical trace<br/>(System)")
+    n_c7_adminRequest("Open owner record-update request<br/>and review requested changes / proof<br/>(Admin)")
+    n_c7_adminRequestPay("Verify / waive payment or<br/>record the relevant rejection<br/>(Admin)")
+    n_c7_adminRequestApproved{"Request approved;<br/>payment cleared?"}
+    n_c7_adminRequestApproved_recovery("Save rejection / pending review;<br/>notify owner or await valid evidence<br/>(Admin / System)")
+    n_c7_adminRequestAssign("Assign an eligible active veterinarian<br/>and save administrative notes<br/>(Admin)")
+    n_c7_adminRequestVet("Assigned vet starts, makes actual<br/>record changes, and adds evidence<br/>(Veterinarian)")
+    n_c7_adminRequestClose("Vet completes request through its<br/>protected completion action<br/>(Veterinarian / System)")
+    n_c7_adminRequestNotify("Attempt owner notification;<br/>refresh request and visible records<br/>(System)")
+    n_c8_setup("Choose pet records, services/catalog,<br/>consent, own profile, or Vet In/Out<br/>(Admin)")
+    n_c8_setupLoad("Load selected permitted workspace<br/>and current editable content<br/>(System)")
+    n_c8_setupAction("Edit selected record/settings,<br/>service price/materials, or consent<br/>(Admin)")
+    n_c8_setupValid{"Selected action<br/>valid?"}
+    n_c8_setupValid_recovery("Correct fields, price/material preset,<br/>consent, or feature-permission issue<br/>(Admin)")
+    n_c8_setupSave("Save selected allowed change;<br/>update relevant display / content<br/>(Admin / System)")
+    n_c8_setupDone("Attempt relevant notifications;<br/>review own activity from Profile<br/>(System / Admin)")
+    n_c1_merge{" "}
+    n_c2_merge{" "}
+    n_c3_merge{" "}
+    n_c4_merge{" "}
+    n_c5_merge{" "}
+    n_c6_merge{" "}
+    n_c7_merge{" "}
+    n_c8_merge{" "}
+    n_merge{" "}
+    n_again{"Perform another<br/>activity?"}
+    n_logout("Log out; clear local session<br/>(Admin)")
+    n_end(("End"))
+    n_start --> n_login
+    n_login --> n_auth
+    n_auth --> n_authorized
+    n_authorized -->|"No"| n_authError
+    n_authError --> n_login
+    n_authorized -->|"Yes"| n_dashboard
+    n_dashboard --> n_choose
+    n_c1_reception --> n_c1_bookingReview
+    n_c1_bookingReview --> n_c1_receptionValid
+    n_c1_receptionValid -->|"No"| n_c1_receptionValid_recovery
+    n_c1_receptionValid_recovery --> n_c1_reception
+    n_c1_receptionValid -->|"Yes"| n_c1_bookingAction
+    n_c1_bookingAction --> n_c1_receive
+    n_c1_receive --> n_c1_number
+    n_c1_number --> n_c1_assign
+    n_c1_assign --> n_c1_myList
+    n_c1_myList --> n_c1_handoff
+    n_choose -->|"[Reception & queue]"| n_c1_reception
+    n_c2_intake --> n_c2_intakeReady
+    n_c2_intakeReady -->|"No"| n_c2_intakeReady_recovery
+    n_c2_intakeReady_recovery --> n_c2_intake
+    n_c2_intakeReady -->|"Yes"| n_c2_intakeStart
+    n_c2_intakeStart --> n_c2_examination
+    n_c2_examination --> n_c2_consent
+    n_c2_consent --> n_c2_consentSaved
+    n_c2_consentSaved -->|"No"| n_c2_consentSaved_recovery
+    n_c2_consentSaved_recovery --> n_c2_consent
+    n_c2_consentSaved -->|"Yes"| n_c2_intakeComplete
+    n_c2_intakeComplete --> n_c2_vetDiagnosis
+    n_choose -->|"[Pet Intake]"| n_c2_intake
+    n_c3_groom --> n_c3_groomBefore
+    n_c3_groomBefore --> n_c3_groomStart
+    n_c3_groomStart --> n_c3_groomReview
+    n_c3_groomReview --> n_c3_groomResume
+    n_c3_groomResume -->|"No"| n_c3_groomResume_recovery
+    n_c3_groomResume -->|"Yes"| n_c3_groomFinish
+    n_c3_groomFinish --> n_c3_groomReady
+    n_c3_groomReady --> n_c3_groomPay
+    n_c3_groomPay --> n_c3_groomPublish
+    n_choose -->|"[Grooming]"| n_c3_groom
+    n_c4_board --> n_c4_boardConsent
+    n_c4_boardConsent --> n_c4_boardUnit
+    n_c4_boardUnit --> n_c4_unit
+    n_c4_unit -->|"No"| n_c4_unit_recovery
+    n_c4_unit_recovery --> n_c4_boardConsent
+    n_c4_unit -->|"Yes"| n_c4_checkin
+    n_c4_checkin --> n_c4_monitor
+    n_c4_monitor --> n_c4_stayBill
+    n_c4_stayBill --> n_c4_checkoutValid
+    n_c4_checkoutValid -->|"No"| n_c4_checkoutValid_recovery
+    n_c4_checkoutValid_recovery --> n_c4_stayBill
+    n_c4_checkoutValid -->|"Yes"| n_c4_checkout
+    n_choose -->|"[Boarding & confinement]"| n_c4_board
+    n_c5_pos --> n_c5_charges
+    n_c5_charges --> n_c5_posValidate
+    n_c5_posValidate --> n_c5_chargesValid
+    n_c5_chargesValid -->|"No"| n_c5_chargesValid_recovery
+    n_c5_chargesValid_recovery --> n_c5_pos
+    n_c5_chargesValid -->|"Yes"| n_c5_payment
+    n_c5_payment --> n_c5_billing
+    n_c5_billing --> n_c5_invoice
+    n_c5_invoice --> n_c5_release
+    n_choose -->|"[POS & billing]"| n_c5_pos
+    n_c6_stock --> n_c6_stockInput
+    n_c6_stockInput --> n_c6_stockConfirm
+    n_c6_stockConfirm --> n_c6_stockValid
+    n_c6_stockValid -->|"No"| n_c6_stockValid_recovery
+    n_c6_stockValid_recovery --> n_c6_stockInput
+    n_c6_stockValid -->|"Yes"| n_c6_stockWrite
+    n_c6_stockWrite --> n_c6_stockView
+    n_c6_stockView --> n_c6_stockArchive
+    n_choose -->|"[Inventory]"| n_c6_stock
+    n_c7_adminRequest --> n_c7_adminRequestPay
+    n_c7_adminRequestPay --> n_c7_adminRequestApproved
+    n_c7_adminRequestApproved -->|"No"| n_c7_adminRequestApproved_recovery
+    n_c7_adminRequestApproved -->|"Yes"| n_c7_adminRequestAssign
+    n_c7_adminRequestAssign --> n_c7_adminRequestVet
+    n_c7_adminRequestVet --> n_c7_adminRequestClose
+    n_c7_adminRequestClose --> n_c7_adminRequestNotify
+    n_choose -->|"[Record update requests]"| n_c7_adminRequest
+    n_c8_setup --> n_c8_setupLoad
+    n_c8_setupLoad --> n_c8_setupAction
+    n_c8_setupAction --> n_c8_setupValid
+    n_c8_setupValid -->|"No"| n_c8_setupValid_recovery
+    n_c8_setupValid_recovery --> n_c8_setupAction
+    n_c8_setupValid -->|"Yes"| n_c8_setupSave
+    n_c8_setupSave --> n_c8_setupDone
+    n_choose -->|"[Catalog, consent & profile]"| n_c8_setup
+    n_c1_handoff --> n_c1_merge
+    n_c2_vetDiagnosis --> n_c2_merge
+    n_c3_groomPublish --> n_c3_merge
+    n_c4_checkout --> n_c4_merge
+    n_c5_release --> n_c5_merge
+    n_c6_stockArchive --> n_c6_merge
+    n_c7_adminRequestNotify --> n_c7_merge
+    n_c8_setupDone --> n_c8_merge
+    n_c3_groomResume_recovery --> n_c3_merge
+    n_c7_adminRequestApproved_recovery --> n_c7_merge
+    n_c1_merge --> n_merge
+    n_c2_merge --> n_merge
+    n_c3_merge --> n_merge
+    n_c4_merge --> n_merge
+    n_c5_merge --> n_merge
+    n_c6_merge --> n_merge
+    n_c7_merge --> n_merge
+    n_c8_merge --> n_merge
+    n_merge --> n_again
+    n_again -->|"Yes"| n_choose
+    n_again -->|"No"| n_logout
+    n_logout --> n_end

@@ -1,0 +1,21 @@
+{
+  "file": "C:\\Users\\loren\\PhpstormProjects\\iPacusSystem\\outputs\\gantt-summary-2026-10-25\\iPawcus_Gantt_Auto_Color_2026.xlsx",
+  "archive_and_xml_valid": true,
+  "automatic_calculation": true,
+  "sheets": [
+    {
+      "name": "Summary Gantt",
+      "saved_green_cells": 314,
+      "saved_yellow_cells": 51,
+      "date_only_formulas": 30
+    },
+    {
+      "name": "Increment Gantt",
+      "saved_green_cells": 190,
+      "saved_yellow_cells": 51,
+      "date_only_formulas": 24
+    }
+  ],
+  "no_edit_schedule_duration_formulas": true,
+  "passed": true
+}

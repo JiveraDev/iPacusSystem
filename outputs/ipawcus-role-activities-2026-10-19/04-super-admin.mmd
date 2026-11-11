@@ -1,0 +1,145 @@
+flowchart TB
+    n_start(("Start"))
+    n_login("Sign in as Super Admin<br/>(Super Admin)")
+    n_auth("Validate credentials / Google identity,<br/>email verification, token, and role access<br/>(System)")
+    n_authorized{"Access<br/>authorized?"}
+    n_authError("Show access error; correct account /<br/>verification details and retry sign-in<br/>(Super Admin)")
+    n_dashboard("Open Reports Home and<br/>load Super Admin navigation<br/>(System)")
+    n_choose{"Choose one<br/>activity"}
+    n_c1_staff("Load Admin / Veterinarian accounts;<br/>choose create, edit, or status change<br/>(Super Admin)")
+    n_c1_staffInput("Enter required role/profile details;<br/>assign active clinic branch(es)<br/>(Super Admin)")
+    n_c1_features("For Admin: configure feature access,<br/>including the separate Pet Intake switch<br/>(Super Admin)")
+    n_c1_sensitive("Supply required confirmation / master<br/>key for the selected sensitive action<br/>(Super Admin)")
+    n_c1_staffValid{"Account / authority<br/>rules valid?"}
+    n_c1_staffValid_recovery("Correct profile, clinic assignment,<br/>confirmation, or booking-coverage issue<br/>(Super Admin)")
+    n_c1_staffSave("Save personnel / branch / permission<br/>change or permitted archive status<br/>(System)")
+    n_c1_staffNotify("Attempt affected-personnel /<br/>governance notifications<br/>(System)")
+    n_c2_owners("Search and inspect pet-owner<br/>accounts and linked pet ownerships<br/>(Super Admin)")
+    n_c2_ownerAction("Choose owner archive / restore<br/>or removal of a pet ownership link<br/>(Super Admin)")
+    n_c2_ownerConfirm("Review affected owner/pet<br/>and confirm the selected action<br/>(Super Admin)")
+    n_c2_ownerValid{"Owner / link<br/>operation valid?"}
+    n_c2_ownerValid_recovery("Correct selection or cancel<br/>without applying the change<br/>(Super Admin)")
+    n_c2_ownerSave("Persist account status or<br/>remove the selected ownership link<br/>(System)")
+    n_c2_ownerRefresh("Refresh owners / pet links;<br/>attempt relevant notifications<br/>(System)")
+    n_c3_reports("Open Reports Home<br/>or choose a Report Center type<br/>(Super Admin)")
+    n_c3_filters("Select supported branch filter<br/>and date range<br/>(Super Admin)")
+    n_c3_datesValid{"Filters<br/>valid?"}
+    n_c3_datesValid_recovery("Correct range / branch selection<br/>and rerun the report<br/>(Super Admin)")
+    n_c3_reportData("Aggregate actual operational,<br/>clinical, financial, and stock data<br/>(System)")
+    n_c3_reportPreview("Review charts / report rows, totals,<br/>and missing-source notices<br/>(Super Admin)")
+    n_c3_reportExport("Generate printable report, PDF,<br/>or Excel workbook when needed<br/>(Super Admin / System)")
+    n_c3_reportNotice("Attempt report-generation<br/>governance notification<br/>(System)")
+    n_c4_methods("Open configured payment methods;<br/>prepare enable / disable / details edit<br/>(Super Admin)")
+    n_c4_otp("Request the payment-settings<br/>security OTP by email<br/>(Super Admin / System)")
+    n_c4_methodInput("Enter method details and OTP;<br/>submit selected configuration change<br/>(Super Admin)")
+    n_c4_otpValid{"OTP and method<br/>rules valid?"}
+    n_c4_otpValid_recovery("Request / enter a valid code or<br/>correct details / in-use method conflict<br/>(Super Admin)")
+    n_c4_methodSave("Encrypt sensitive account details;<br/>save settings and consume valid OTP<br/>(System)")
+    n_c4_methodList("Refresh enabled payment instructions<br/>available to permitted workflows<br/>(System)")
+    n_c5_oversight("Choose Activity Log, Pet Media,<br/>or lifecycle recovery report<br/>(Super Admin)")
+    n_c5_oversightFilters("Set workspace filters: staff/module,<br/>pet/date range, or recovery scope<br/>(Super Admin)")
+    n_c5_oversightRead("Load authorized action history,<br/>protected file index, or inconsistencies<br/>(System)")
+    n_c5_oversightReview("Review / print supported results;<br/>open permitted records or media<br/>(Super Admin)")
+    n_c5_oversightAction("If action is needed, open the related<br/>workspace and apply its normal rules<br/>(Super Admin)")
+    n_c6_backup("Open Profile > Download Backup;<br/>review readiness and export history<br/>(Super Admin)")
+    n_c6_backupRequest("Choose Create &amp; Download ZIP<br/>(Super Admin)")
+    n_c6_backupBuild("Build consistent SQL/media package,<br/>workbook, manifest, and checksums<br/>(System)")
+    n_c6_backupReady{"Export<br/>succeeds?"}
+    n_c6_backupReady_recovery("Review error / prerequisites;<br/>retry after resolving the issue<br/>(Super Admin)")
+    n_c6_backupDownload("Stream complete backup ZIP<br/>to the local computer<br/>(System)")
+    n_c6_backupClean("Retain audit metadata; clean<br/>temporary server export files<br/>(System)")
+    n_c6_backupLocal("Keep local backup safely; restoration<br/>is a separate manual IT procedure<br/>(Super Admin / IT operator)")
+    n_c7_global("Choose own profile, notifications,<br/>TODOs, or permitted clinic workspace<br/>(Super Admin)")
+    n_c7_globalProfile("Perform selected personal task OR<br/>follow the relevant clinic workflow<br/>(Super Admin)")
+    n_c7_globalClinic("Validate selected action, branch/record<br/>access, and applicable workflow rules<br/>(System)")
+    n_c7_globalSave("Save selected permitted changes;<br/>refresh relevant data and status<br/>(System)")
+    n_c7_globalLimit("Review selected operation results<br/>and related notifications<br/>(Super Admin)")
+    n_c1_merge{" "}
+    n_c2_merge{" "}
+    n_c3_merge{" "}
+    n_c4_merge{" "}
+    n_c5_merge{" "}
+    n_c6_merge{" "}
+    n_c7_merge{" "}
+    n_merge{" "}
+    n_again{"Perform another<br/>activity?"}
+    n_logout("Log out; clear local session<br/>(Super Admin)")
+    n_end(("End"))
+    n_start --> n_login
+    n_login --> n_auth
+    n_auth --> n_authorized
+    n_authorized -->|"No"| n_authError
+    n_authError --> n_login
+    n_authorized -->|"Yes"| n_dashboard
+    n_dashboard --> n_choose
+    n_c1_staff --> n_c1_staffInput
+    n_c1_staffInput --> n_c1_features
+    n_c1_features --> n_c1_sensitive
+    n_c1_sensitive --> n_c1_staffValid
+    n_c1_staffValid -->|"No"| n_c1_staffValid_recovery
+    n_c1_staffValid_recovery --> n_c1_staffInput
+    n_c1_staffValid -->|"Yes"| n_c1_staffSave
+    n_c1_staffSave --> n_c1_staffNotify
+    n_choose -->|"[Staff accounts & access]"| n_c1_staff
+    n_c2_owners --> n_c2_ownerAction
+    n_c2_ownerAction --> n_c2_ownerConfirm
+    n_c2_ownerConfirm --> n_c2_ownerValid
+    n_c2_ownerValid -->|"No"| n_c2_ownerValid_recovery
+    n_c2_ownerValid -->|"Yes"| n_c2_ownerSave
+    n_c2_ownerSave --> n_c2_ownerRefresh
+    n_choose -->|"[Pet-owner accounts]"| n_c2_owners
+    n_c3_reports --> n_c3_filters
+    n_c3_filters --> n_c3_datesValid
+    n_c3_datesValid -->|"No"| n_c3_datesValid_recovery
+    n_c3_datesValid_recovery --> n_c3_filters
+    n_c3_datesValid -->|"Yes"| n_c3_reportData
+    n_c3_reportData --> n_c3_reportPreview
+    n_c3_reportPreview --> n_c3_reportExport
+    n_c3_reportExport --> n_c3_reportNotice
+    n_choose -->|"[Reports & exports]"| n_c3_reports
+    n_c4_methods --> n_c4_otp
+    n_c4_otp --> n_c4_methodInput
+    n_c4_methodInput --> n_c4_otpValid
+    n_c4_otpValid -->|"No"| n_c4_otpValid_recovery
+    n_c4_otpValid_recovery --> n_c4_otp
+    n_c4_otpValid -->|"Yes"| n_c4_methodSave
+    n_c4_methodSave --> n_c4_methodList
+    n_choose -->|"[Payment settings]"| n_c4_methods
+    n_c5_oversight --> n_c5_oversightFilters
+    n_c5_oversightFilters --> n_c5_oversightRead
+    n_c5_oversightRead --> n_c5_oversightReview
+    n_c5_oversightReview --> n_c5_oversightAction
+    n_choose -->|"[Activity, media & recovery]"| n_c5_oversight
+    n_c6_backup --> n_c6_backupRequest
+    n_c6_backupRequest --> n_c6_backupBuild
+    n_c6_backupBuild --> n_c6_backupReady
+    n_c6_backupReady -->|"No"| n_c6_backupReady_recovery
+    n_c6_backupReady_recovery --> n_c6_backup
+    n_c6_backupReady -->|"Yes"| n_c6_backupDownload
+    n_c6_backupDownload --> n_c6_backupClean
+    n_c6_backupClean --> n_c6_backupLocal
+    n_choose -->|"[Local backup download]"| n_c6_backup
+    n_c7_global --> n_c7_globalProfile
+    n_c7_globalProfile --> n_c7_globalClinic
+    n_c7_globalClinic --> n_c7_globalSave
+    n_c7_globalSave --> n_c7_globalLimit
+    n_choose -->|"[Profile & permitted operations]"| n_c7_global
+    n_c1_staffNotify --> n_c1_merge
+    n_c2_ownerRefresh --> n_c2_merge
+    n_c3_reportNotice --> n_c3_merge
+    n_c4_methodList --> n_c4_merge
+    n_c5_oversightAction --> n_c5_merge
+    n_c6_backupLocal --> n_c6_merge
+    n_c7_globalLimit --> n_c7_merge
+    n_c2_ownerValid_recovery --> n_c2_merge
+    n_c1_merge --> n_merge
+    n_c2_merge --> n_merge
+    n_c3_merge --> n_merge
+    n_c4_merge --> n_merge
+    n_c5_merge --> n_merge
+    n_c6_merge --> n_merge
+    n_c7_merge --> n_merge
+    n_merge --> n_again
+    n_again -->|"Yes"| n_choose
+    n_again -->|"No"| n_logout
+    n_logout --> n_end

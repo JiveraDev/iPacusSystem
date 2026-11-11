@@ -1,0 +1,32 @@
+﻿[
+    {
+        "sheet":  "Summary Gantt",
+        "text":  "OCTOBER",
+        "requiredHeight":  34.2,
+        "availableHeight":  25
+    },
+    {
+        "sheet":  "Summary Gantt",
+        "text":  "Increment 4 / Testing\nBookings, consultations and payments",
+        "requiredHeight":  50.5,
+        "availableHeight":  43
+    },
+    {
+        "sheet":  "Summary Gantt",
+        "text":  "Increment 5 / Testing\nClinic operations, billing and inventory",
+        "requiredHeight":  50.5,
+        "availableHeight":  43
+    },
+    {
+        "sheet":  "Increment Gantt",
+        "text":  "OCTOBER",
+        "requiredHeight":  115.6,
+        "availableHeight":  25
+    },
+    {
+        "sheet":  "Increment Gantt",
+        "text":  "1-3",
+        "requiredHeight":  45.4,
+        "availableHeight":  23
+    }
+]

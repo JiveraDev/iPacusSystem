@@ -1,0 +1,13 @@
+﻿{
+    "passed":  true,
+    "excelVersion":  "16.0",
+    "workbook":  "C:\\Users\\loren\\PhpstormProjects\\iPacusSystem\\outputs\\gantt-summary-2026-10-25\\iPawcus_Gantt_Auto_Color_2026.xlsx",
+    "tests":  [
+                  "All 157 feature-task estimates calculate and remain inside their 18 current phase ranges.",
+                  "Typing a task date moves green/yellow bars and clears the old colored range.",
+                  "Changing a phase re-ranges estimated children and preserves manually overridden task dates.",
+                  "Changing a major Summary Gantt phase updates its new phase header and feature-task estimates.",
+                  "Clearing a task date removes its colored bar."
+              ],
+    "existingWorkbookUnchangedByTest":  true
+}

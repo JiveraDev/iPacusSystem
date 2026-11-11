@@ -1,0 +1,59 @@
+{
+  "passed": true,
+  "sourceTasks": 395,
+  "preservedPhase1Records": 10,
+  "scheduledPhase2Rows": 24,
+  "featurePlacementGroups": 21,
+  "workbookSheets": [
+    "Summary Gantt",
+    "Increment Gantt",
+    "Edit Schedule",
+    "Feature Placement",
+    "Guide"
+  ],
+  "monthlyIncrementSpans": [
+    {
+      "increment": 1,
+      "start": "2026-04-20",
+      "end": "2026-05-19",
+      "days": 30
+    },
+    {
+      "increment": 2,
+      "start": "2026-05-11",
+      "end": "2026-06-10",
+      "days": 31
+    },
+    {
+      "increment": 3,
+      "start": "2026-06-04",
+      "end": "2026-07-03",
+      "days": 30
+    },
+    {
+      "increment": 4,
+      "start": "2026-06-27",
+      "end": "2026-07-26",
+      "days": 30
+    },
+    {
+      "increment": 5,
+      "start": "2026-07-20",
+      "end": "2026-08-19",
+      "days": 31
+    },
+    {
+      "increment": 6,
+      "start": "2026-08-13",
+      "end": "2026-09-12",
+      "days": 31
+    }
+  ],
+  "totals": {
+    "development": 146,
+    "throughFinalTesting": 153,
+    "throughDocumentation": 164,
+    "throughDefense": 167
+  },
+  "originalsUnchanged": true
+}

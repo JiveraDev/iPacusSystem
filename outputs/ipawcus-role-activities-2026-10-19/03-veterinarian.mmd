@@ -1,0 +1,155 @@
+flowchart TB
+    n_start(("Start"))
+    n_login("Sign in as Veterinarian<br/>(Veterinarian)")
+    n_auth("Validate credentials / Google identity,<br/>email verification, token, and role access<br/>(System)")
+    n_authorized{"Access<br/>authorized?"}
+    n_authError("Show access error; correct account /<br/>verification details and retry sign-in<br/>(Veterinarian)")
+    n_dashboard("Load assigned clinics, appointments,<br/>and veterinarian workspaces<br/>(System)")
+    n_choose{"Choose one<br/>activity"}
+    n_c1_clinical("Open today's assigned patients<br/>and approved appointments in My List<br/>(Veterinarian)")
+    n_c1_clinicalReview("Review history, owner consent,<br/>and Admin examination progress<br/>(Veterinarian)")
+    n_c1_examReady{"Assigned intake<br/>complete?"}
+    n_c1_examReady_recovery("Wait for Admin examination / consent;<br/>review again when completed<br/>(Veterinarian / Admin)")
+    n_c1_findings("Examine pet; enter general diagnosis<br/>or active custom-service findings<br/>(Veterinarian)")
+    n_c1_treatment("Record treatment, prescriptions, tests,<br/>attachments, vaccination, and follow-up<br/>(Veterinarian)")
+    n_c1_clinicalValid{"Clinical fields<br/>valid?"}
+    n_c1_clinicalValid_recovery("Correct required findings, service,<br/>vaccination, or attachment details<br/>(Veterinarian)")
+    n_c1_clinicalSave("Finalize diagnosis; atomically complete<br/>queue, assignment, and linked booking<br/>(Veterinarian / System)")
+    n_c1_clinicalVisit("Create / reuse visit and charges;<br/>attempt owner notifications<br/>(System)")
+    n_c1_clinicalFollow("When indicated, recommend confinement<br/>from saved diagnosis; Admin admits pet<br/>(Veterinarian / Admin)")
+    n_c2_online("Open own assigned<br/>confirmed online consultations<br/>(Veterinarian)")
+    n_c2_onlineStart("Start consultation room;<br/>mark veterinarian ready<br/>(Veterinarian / System)")
+    n_c2_onlineJoin("Notify owner; allow authorized owner<br/>to join the ready room<br/>(System / Pet Owner)")
+    n_c2_call("Conduct video consultation<br/>using the configured meeting service<br/>(Veterinarian / Pet Owner)")
+    n_c2_onlineFindings("Enter diagnosis, findings, treatment,<br/>and recommendations<br/>(Veterinarian)")
+    n_c2_onlineValid{"Diagnosis fields<br/>valid?"}
+    n_c2_onlineValid_recovery("Correct required clinical fields<br/>and retry save<br/>(Veterinarian)")
+    n_c2_onlineSave("Save diagnosis and complete session /<br/>booking; create visit/billing context<br/>(Veterinarian / System)")
+    n_c2_onlineEnd("Close the local call view;<br/>review saved results and follow-up<br/>(Veterinarian)")
+    n_c3_requests("Open approved / assigned<br/>record-update requests<br/>(Veterinarian)")
+    n_c3_assigned{"Assigned to self;<br/>payment cleared?"}
+    n_c3_assigned_recovery("Wait for Admin approval / assignment<br/>or cleared / waived payment<br/>(Veterinarian / Admin)")
+    n_c3_requestStart("Start assigned request;<br/>record baseline when supported<br/>(Veterinarian / System)")
+    n_c3_requestEdit("Make requested pet / medical-record<br/>changes using protected editors<br/>(Veterinarian)")
+    n_c3_requestNotes("Add veterinarian completion notes<br/>and supporting record evidence<br/>(Veterinarian)")
+    n_c3_requestEvidence{"Required change<br/>evidence present?"}
+    n_c3_requestEvidence_recovery("Make the actual correction<br/>and complete the required notes<br/>(Veterinarian)")
+    n_c3_requestComplete("Complete request; retain transition /<br/>snapshot evidence when deployed<br/>(Veterinarian / System)")
+    n_c3_requestNotify("Attempt owner notification;<br/>retain updated record history<br/>(System)")
+    n_c4_emr("Select eligible pet and open<br/>medical records / diagnosis history<br/>(Veterinarian)")
+    n_c4_organize("Organize record groups, visibility,<br/>allergies, vaccines, and source items<br/>(Veterinarian)")
+    n_c4_document("If needed, add an independent<br/>prescription or medical certificate<br/>(Veterinarian)")
+    n_c4_documentRules("Validate prescription directions OR<br/>certificate exam date, validity/signature<br/>(System)")
+    n_c4_documentValid{"Selected edit /<br/>document valid?"}
+    n_c4_documentValid_recovery("Correct record details or required<br/>clinical / document fields<br/>(Veterinarian)")
+    n_c4_issue("Save selected record change / issue<br/>document; retain earlier prescriptions<br/>(Veterinarian / System)")
+    n_c4_emrPublish("Notify affected owners; expose only<br/>permitted records / issued documents<br/>(System)")
+    n_c5_grooming("Open grooming concern<br/>assigned by Admin<br/>(Veterinarian)")
+    n_c5_groomingRead("Review intake, photos, concern,<br/>and relevant patient history<br/>(Veterinarian)")
+    n_c5_groomingDecision("Record resume, stop, consultation,<br/>or confinement outcome<br/>(Veterinarian)")
+    n_c5_confinement{"Confinement<br/>recommended?"}
+    n_c5_confinement_recovery("Save resume / stop / consultation<br/>outcome; return control to Admin<br/>(Veterinarian)")
+    n_c5_confinementInput("Provide reason, facility/size, care,<br/>and expected discharge details<br/>(Veterinarian)")
+    n_c5_confinementSave("Create linked pending admission /<br/>charge; mark grooming transferred<br/>(System)")
+    n_c5_confinementAdmin("Admin obtains approval/consent,<br/>assigns unit, and manages the stay<br/>(Admin)")
+    n_c6_tools("Choose booking availability, media,<br/>history, profile, alerts, or TODOs<br/>(Veterinarian)")
+    n_c6_availabilityEdit("Edit selected preferences / tasks;<br/>for scheduling, set clinic/call acceptance<br/>(Veterinarian)")
+    n_c6_scheduleValid{"Selected action<br/>valid?"}
+    n_c6_scheduleValid_recovery("Correct selected fields / filters;<br/>retain coverage for booked appointments<br/>(Veterinarian / Admin)")
+    n_c6_toolsOther("Save selected valid change OR<br/>display authorized media / history<br/>(System)")
+    n_c6_toolsSave("For schedules: show actual assigned<br/>appointments and weekly online starts<br/>(System)")
+    n_c6_toolsRead("Review notifications, follow-ups,<br/>personal activity, and next-day preview<br/>(Veterinarian)")
+    n_c1_merge{" "}
+    n_c2_merge{" "}
+    n_c3_merge{" "}
+    n_c4_merge{" "}
+    n_c5_merge{" "}
+    n_c6_merge{" "}
+    n_merge{" "}
+    n_again{"Perform another<br/>activity?"}
+    n_logout("Log out; clear local session<br/>(Veterinarian)")
+    n_end(("End"))
+    n_start --> n_login
+    n_login --> n_auth
+    n_auth --> n_authorized
+    n_authorized -->|"No"| n_authError
+    n_authError --> n_login
+    n_authorized -->|"Yes"| n_dashboard
+    n_dashboard --> n_choose
+    n_c1_clinical --> n_c1_clinicalReview
+    n_c1_clinicalReview --> n_c1_examReady
+    n_c1_examReady -->|"No"| n_c1_examReady_recovery
+    n_c1_examReady_recovery --> n_c1_clinicalReview
+    n_c1_examReady -->|"Yes"| n_c1_findings
+    n_c1_findings --> n_c1_treatment
+    n_c1_treatment --> n_c1_clinicalValid
+    n_c1_clinicalValid -->|"No"| n_c1_clinicalValid_recovery
+    n_c1_clinicalValid_recovery --> n_c1_findings
+    n_c1_clinicalValid -->|"Yes"| n_c1_clinicalSave
+    n_c1_clinicalSave --> n_c1_clinicalVisit
+    n_c1_clinicalVisit --> n_c1_clinicalFollow
+    n_choose -->|"[Clinic cases / My List]"| n_c1_clinical
+    n_c2_online --> n_c2_onlineStart
+    n_c2_onlineStart --> n_c2_onlineJoin
+    n_c2_onlineJoin --> n_c2_call
+    n_c2_call --> n_c2_onlineFindings
+    n_c2_onlineFindings --> n_c2_onlineValid
+    n_c2_onlineValid -->|"No"| n_c2_onlineValid_recovery
+    n_c2_onlineValid_recovery --> n_c2_onlineFindings
+    n_c2_onlineValid -->|"Yes"| n_c2_onlineSave
+    n_c2_onlineSave --> n_c2_onlineEnd
+    n_choose -->|"[Online consultations]"| n_c2_online
+    n_c3_requests --> n_c3_assigned
+    n_c3_assigned -->|"No"| n_c3_assigned_recovery
+    n_c3_assigned -->|"Yes"| n_c3_requestStart
+    n_c3_requestStart --> n_c3_requestEdit
+    n_c3_requestEdit --> n_c3_requestNotes
+    n_c3_requestNotes --> n_c3_requestEvidence
+    n_c3_requestEvidence -->|"No"| n_c3_requestEvidence_recovery
+    n_c3_requestEvidence_recovery --> n_c3_requestEdit
+    n_c3_requestEvidence -->|"Yes"| n_c3_requestComplete
+    n_c3_requestComplete --> n_c3_requestNotify
+    n_choose -->|"[Assigned record requests]"| n_c3_requests
+    n_c4_emr --> n_c4_organize
+    n_c4_organize --> n_c4_document
+    n_c4_document --> n_c4_documentRules
+    n_c4_documentRules --> n_c4_documentValid
+    n_c4_documentValid -->|"No"| n_c4_documentValid_recovery
+    n_c4_documentValid_recovery --> n_c4_organize
+    n_c4_documentValid -->|"Yes"| n_c4_issue
+    n_c4_issue --> n_c4_emrPublish
+    n_choose -->|"[EMR & issued documents]"| n_c4_emr
+    n_c5_grooming --> n_c5_groomingRead
+    n_c5_groomingRead --> n_c5_groomingDecision
+    n_c5_groomingDecision --> n_c5_confinement
+    n_c5_confinement -->|"No"| n_c5_confinement_recovery
+    n_c5_confinement -->|"Yes"| n_c5_confinementInput
+    n_c5_confinementInput --> n_c5_confinementSave
+    n_c5_confinementSave --> n_c5_confinementAdmin
+    n_choose -->|"[Grooming review]"| n_c5_grooming
+    n_c6_tools --> n_c6_availabilityEdit
+    n_c6_availabilityEdit --> n_c6_scheduleValid
+    n_c6_scheduleValid -->|"No"| n_c6_scheduleValid_recovery
+    n_c6_scheduleValid_recovery --> n_c6_availabilityEdit
+    n_c6_scheduleValid -->|"Yes"| n_c6_toolsOther
+    n_c6_toolsOther --> n_c6_toolsSave
+    n_c6_toolsSave --> n_c6_toolsRead
+    n_choose -->|"[Availability & personal tools]"| n_c6_tools
+    n_c1_clinicalFollow --> n_c1_merge
+    n_c2_onlineEnd --> n_c2_merge
+    n_c3_requestNotify --> n_c3_merge
+    n_c4_emrPublish --> n_c4_merge
+    n_c5_confinementAdmin --> n_c5_merge
+    n_c6_toolsRead --> n_c6_merge
+    n_c3_assigned_recovery --> n_c3_merge
+    n_c5_confinement_recovery --> n_c5_merge
+    n_c1_merge --> n_merge
+    n_c2_merge --> n_merge
+    n_c3_merge --> n_merge
+    n_c4_merge --> n_merge
+    n_c5_merge --> n_merge
+    n_c6_merge --> n_merge
+    n_merge --> n_again
+    n_again -->|"Yes"| n_choose
+    n_again -->|"No"| n_logout
+    n_logout --> n_end

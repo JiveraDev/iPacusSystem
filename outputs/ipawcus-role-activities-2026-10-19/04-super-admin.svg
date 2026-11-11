@@ -1,0 +1,397 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="2700" height="2904" viewBox="0 0 2700 2904" role="img" aria-labelledby="title description">
+<title id="title">Super Admin revised activity diagram</title>
+<desc id="description">Current iPawcus workflow, reviewed 19 October 2026. Alternative activity branches use decisions and merges; actor labels identify responsibility.</desc>
+<defs><marker id="arrow" markerWidth="8" markerHeight="7" refX="8" refY="3.5" orient="auto" markerUnits="userSpaceOnUse"><path d="M0 0 L8 3.5 L0 7 Z" fill="#171717"/></marker></defs>
+<rect width="100%" height="100%" fill="white"/>
+<polyline points="1350,187 1350,215" fill="none" stroke="#171717" stroke-width="1.6" stroke-linejoin="round" marker-end="url(#arrow)"/>
+<polyline points="1350,295 1350,340" fill="none" stroke="#171717" stroke-width="1.6" stroke-linejoin="round" marker-end="url(#arrow)"/>
+<polyline points="1350,420 1350,463" fill="none" stroke="#171717" stroke-width="1.6" stroke-linejoin="round" marker-end="url(#arrow)"/>
+<polyline points="1220,515 1025,515" fill="none" stroke="#171717" stroke-width="1.6" stroke-linejoin="round" marker-end="url(#arrow)"/>
+<polyline points="695,515 660,515 660,255 1130,255" fill="none" stroke="#171717" stroke-width="1.6" stroke-linejoin="round" marker-end="url(#arrow)"/>
+<polyline points="1350,567 1350,612" fill="none" stroke="#171717" stroke-width="1.6" stroke-linejoin="round" marker-end="url(#arrow)"/>
+<polyline points="1350,692 1350,735" fill="none" stroke="#171717" stroke-width="1.6" stroke-linejoin="round" marker-end="url(#arrow)"/>
+<polyline points="270,1075 270,1117" fill="none" stroke="#171717" stroke-width="1.6" stroke-linejoin="round" marker-end="url(#arrow)"/>
+<polyline points="270,1197 270,1239" fill="none" stroke="#171717" stroke-width="1.6" stroke-linejoin="round" marker-end="url(#arrow)"/>
+<polyline points="270,1354 270,1396" fill="none" stroke="#171717" stroke-width="1.6" stroke-linejoin="round" marker-end="url(#arrow)"/>
+<polyline points="270,1511 270,1553" fill="none" stroke="#171717" stroke-width="1.6" stroke-linejoin="round" marker-end="url(#arrow)"/>
+<polyline points="270,1657 270,1699" fill="none" stroke="#171717" stroke-width="1.6" stroke-linejoin="round" marker-end="url(#arrow)"/>
+<polyline points="134,1746 111,1746 111,1157 134,1157" fill="none" stroke="#171717" stroke-width="1.6" stroke-linejoin="round" marker-end="url(#arrow)"/>
+<polyline points="406,1605 429,1605 429,1882 406,1882" fill="none" stroke="#171717" stroke-width="1.6" stroke-linejoin="round" marker-end="url(#arrow)"/>
+<polyline points="270,1929 270,1971" fill="none" stroke="#171717" stroke-width="1.6" stroke-linejoin="round" marker-end="url(#arrow)"/>
+<polyline points="1350,839 1350,895 270,895 270,960" fill="none" stroke="#171717" stroke-width="1.6" stroke-linejoin="round" marker-end="url(#arrow)"/>
+<polyline points="630,1054 630,1096" fill="none" stroke="#171717" stroke-width="1.6" stroke-linejoin="round" marker-end="url(#arrow)"/>
+<polyline points="630,1176 630,1218" fill="none" stroke="#171717" stroke-width="1.6" stroke-linejoin="round" marker-end="url(#arrow)"/>
+<polyline points="630,1298 630,1340" fill="none" stroke="#171717" stroke-width="1.6" stroke-linejoin="round" marker-end="url(#arrow)"/>
+<polyline points="630,1444 630,1486" fill="none" stroke="#171717" stroke-width="1.6" stroke-linejoin="round" marker-end="url(#arrow)"/>
+<polyline points="766,1392 789,1392 789,1655 766,1655" fill="none" stroke="#171717" stroke-width="1.6" stroke-linejoin="round" marker-end="url(#arrow)"/>
+<polyline points="630,1702 630,1744" fill="none" stroke="#171717" stroke-width="1.6" stroke-linejoin="round" marker-end="url(#arrow)"/>
+<polyline points="1350,839 1350,895 630,895 630,960" fill="none" stroke="#171717" stroke-width="1.6" stroke-linejoin="round" marker-end="url(#arrow)"/>
+<polyline points="990,1040 990,1082" fill="none" stroke="#171717" stroke-width="1.6" stroke-linejoin="round" marker-end="url(#arrow)"/>
+<polyline points="990,1162 990,1204" fill="none" stroke="#171717" stroke-width="1.6" stroke-linejoin="round" marker-end="url(#arrow)"/>
+<polyline points="990,1308 990,1350" fill="none" stroke="#171717" stroke-width="1.6" stroke-linejoin="round" marker-end="url(#arrow)"/>
+<polyline points="854,1390 831,1390 831,1122 854,1122" fill="none" stroke="#171717" stroke-width="1.6" stroke-linejoin="round" marker-end="url(#arrow)"/>
+<polyline points="1126,1256 1149,1256 1149,1512 1126,1512" fill="none" stroke="#171717" stroke-width="1.6" stroke-linejoin="round" marker-end="url(#arrow)"/>
+<polyline points="990,1552 990,1594" fill="none" stroke="#171717" stroke-width="1.6" stroke-linejoin="round" marker-end="url(#arrow)"/>
+<polyline points="990,1674 990,1716" fill="none" stroke="#171717" stroke-width="1.6" stroke-linejoin="round" marker-end="url(#arrow)"/>
+<polyline points="990,1796 990,1838" fill="none" stroke="#171717" stroke-width="1.6" stroke-linejoin="round" marker-end="url(#arrow)"/>
+<polyline points="1350,839 1350,895 990,895 990,960" fill="none" stroke="#171717" stroke-width="1.6" stroke-linejoin="round" marker-end="url(#arrow)"/>
+<polyline points="1350,1075 1350,1117" fill="none" stroke="#171717" stroke-width="1.6" stroke-linejoin="round" marker-end="url(#arrow)"/>
+<polyline points="1350,1197 1350,1239" fill="none" stroke="#171717" stroke-width="1.6" stroke-linejoin="round" marker-end="url(#arrow)"/>
+<polyline points="1350,1333 1350,1375" fill="none" stroke="#171717" stroke-width="1.6" stroke-linejoin="round" marker-end="url(#arrow)"/>
+<polyline points="1350,1479 1350,1521" fill="none" stroke="#171717" stroke-width="1.6" stroke-linejoin="round" marker-end="url(#arrow)"/>
+<polyline points="1214,1568 1191,1568 1191,1157 1214,1157" fill="none" stroke="#171717" stroke-width="1.6" stroke-linejoin="round" marker-end="url(#arrow)"/>
+<polyline points="1486,1427 1509,1427 1509,1704 1486,1704" fill="none" stroke="#171717" stroke-width="1.6" stroke-linejoin="round" marker-end="url(#arrow)"/>
+<polyline points="1350,1751 1350,1793" fill="none" stroke="#171717" stroke-width="1.6" stroke-linejoin="round" marker-end="url(#arrow)"/>
+<polyline points="1350,839 1350,895 1350,960" fill="none" stroke="#171717" stroke-width="1.6" stroke-linejoin="round" marker-end="url(#arrow)"/>
+<polyline points="1710,1040 1710,1082" fill="none" stroke="#171717" stroke-width="1.6" stroke-linejoin="round" marker-end="url(#arrow)"/>
+<polyline points="1710,1162 1710,1204" fill="none" stroke="#171717" stroke-width="1.6" stroke-linejoin="round" marker-end="url(#arrow)"/>
+<polyline points="1710,1298 1710,1340" fill="none" stroke="#171717" stroke-width="1.6" stroke-linejoin="round" marker-end="url(#arrow)"/>
+<polyline points="1710,1420 1710,1462" fill="none" stroke="#171717" stroke-width="1.6" stroke-linejoin="round" marker-end="url(#arrow)"/>
+<polyline points="1350,839 1350,895 1710,895 1710,960" fill="none" stroke="#171717" stroke-width="1.6" stroke-linejoin="round" marker-end="url(#arrow)"/>
+<polyline points="2070,1054 2070,1096" fill="none" stroke="#171717" stroke-width="1.6" stroke-linejoin="round" marker-end="url(#arrow)"/>
+<polyline points="2070,1176 2070,1218" fill="none" stroke="#171717" stroke-width="1.6" stroke-linejoin="round" marker-end="url(#arrow)"/>
+<polyline points="2070,1333 2070,1375" fill="none" stroke="#171717" stroke-width="1.6" stroke-linejoin="round" marker-end="url(#arrow)"/>
+<polyline points="2070,1479 2070,1521" fill="none" stroke="#171717" stroke-width="1.6" stroke-linejoin="round" marker-end="url(#arrow)"/>
+<polyline points="1934,1561 1911,1561 1911,1007 1934,1007" fill="none" stroke="#171717" stroke-width="1.6" stroke-linejoin="round" marker-end="url(#arrow)"/>
+<polyline points="2206,1427 2229,1427 2229,1683 2206,1683" fill="none" stroke="#171717" stroke-width="1.6" stroke-linejoin="round" marker-end="url(#arrow)"/>
+<polyline points="2070,1723 2070,1765" fill="none" stroke="#171717" stroke-width="1.6" stroke-linejoin="round" marker-end="url(#arrow)"/>
+<polyline points="2070,1845 2070,1887" fill="none" stroke="#171717" stroke-width="1.6" stroke-linejoin="round" marker-end="url(#arrow)"/>
+<polyline points="1350,839 1350,895 2070,895 2070,960" fill="none" stroke="#171717" stroke-width="1.6" stroke-linejoin="round" marker-end="url(#arrow)"/>
+<polyline points="2430,1054 2430,1096" fill="none" stroke="#171717" stroke-width="1.6" stroke-linejoin="round" marker-end="url(#arrow)"/>
+<polyline points="2430,1176 2430,1218" fill="none" stroke="#171717" stroke-width="1.6" stroke-linejoin="round" marker-end="url(#arrow)"/>
+<polyline points="2430,1333 2430,1375" fill="none" stroke="#171717" stroke-width="1.6" stroke-linejoin="round" marker-end="url(#arrow)"/>
+<polyline points="2430,1455 2430,1497" fill="none" stroke="#171717" stroke-width="1.6" stroke-linejoin="round" marker-end="url(#arrow)"/>
+<polyline points="1350,839 1350,895 2430,895 2430,960" fill="none" stroke="#171717" stroke-width="1.6" stroke-linejoin="round" marker-end="url(#arrow)"/>
+<polyline points="270,2051 270,2123" fill="none" stroke="#171717" stroke-width="1.6" stroke-linejoin="round" marker-end="url(#arrow)"/>
+<polyline points="630,1824 630,2123" fill="none" stroke="#171717" stroke-width="1.6" stroke-linejoin="round" marker-end="url(#arrow)"/>
+<polyline points="990,1918 990,2123" fill="none" stroke="#171717" stroke-width="1.6" stroke-linejoin="round" marker-end="url(#arrow)"/>
+<polyline points="1350,1887 1350,2123" fill="none" stroke="#171717" stroke-width="1.6" stroke-linejoin="round" marker-end="url(#arrow)"/>
+<polyline points="1710,1577 1710,2123" fill="none" stroke="#171717" stroke-width="1.6" stroke-linejoin="round" marker-end="url(#arrow)"/>
+<polyline points="2070,1981 2070,2123" fill="none" stroke="#171717" stroke-width="1.6" stroke-linejoin="round" marker-end="url(#arrow)"/>
+<polyline points="2430,1577 2430,2123" fill="none" stroke="#171717" stroke-width="1.6" stroke-linejoin="round" marker-end="url(#arrow)"/>
+<polyline points="494,1526 471,1526 471,2139 614,2139" fill="none" stroke="#171717" stroke-width="1.6" stroke-linejoin="round" marker-end="url(#arrow)"/>
+<polyline points="270,2155 270,2216 1350,2216 1350,2253" fill="none" stroke="#171717" stroke-width="1.6" stroke-linejoin="round" marker-end="url(#arrow)"/>
+<polyline points="630,2155 630,2216 1350,2216 1350,2253" fill="none" stroke="#171717" stroke-width="1.6" stroke-linejoin="round" marker-end="url(#arrow)"/>
+<polyline points="990,2155 990,2216 1350,2216 1350,2253" fill="none" stroke="#171717" stroke-width="1.6" stroke-linejoin="round" marker-end="url(#arrow)"/>
+<polyline points="1350,2155 1350,2216 1350,2253" fill="none" stroke="#171717" stroke-width="1.6" stroke-linejoin="round" marker-end="url(#arrow)"/>
+<polyline points="1710,2155 1710,2216 1350,2216 1350,2253" fill="none" stroke="#171717" stroke-width="1.6" stroke-linejoin="round" marker-end="url(#arrow)"/>
+<polyline points="2070,2155 2070,2216 1350,2216 1350,2253" fill="none" stroke="#171717" stroke-width="1.6" stroke-linejoin="round" marker-end="url(#arrow)"/>
+<polyline points="2430,2155 2430,2216 1350,2216 1350,2253" fill="none" stroke="#171717" stroke-width="1.6" stroke-linejoin="round" marker-end="url(#arrow)"/>
+<polyline points="1350,2285 1350,2341" fill="none" stroke="#171717" stroke-width="1.6" stroke-linejoin="round" marker-end="url(#arrow)"/>
+<polyline points="1490,2393 2665,2393 2665,787 1510,787" fill="none" stroke="#171717" stroke-width="1.6" stroke-linejoin="round" marker-end="url(#arrow)"/>
+<polyline points="1350,2445 1350,2493" fill="none" stroke="#171717" stroke-width="1.6" stroke-linejoin="round" marker-end="url(#arrow)"/>
+<polyline points="1350,2573 1350,2615" fill="none" stroke="#171717" stroke-width="1.6" stroke-linejoin="round" marker-end="url(#arrow)"/>
+<circle cx="1350" cy="176" r="11" stroke="#171717" fill="#171717" stroke-width="1.6"/>
+<text x="1350" y="171.04" font-family="Arial,Helvetica,sans-serif" font-size="16" font-weight="400" text-anchor="middle" fill="#171717"></text>
+<text x="1350" y="192" font-family="Arial,Helvetica,sans-serif" font-size="16" font-weight="400" text-anchor="middle" fill="#171717"></text>
+<rect x="1130" y="215" width="440" height="80" rx="8" fill="white" stroke="#171717" stroke-width="1.6"/>
+<text x="1350" y="250.52" font-family="Arial,Helvetica,sans-serif" font-size="16" font-weight="400" text-anchor="middle" fill="#171717">Sign in as Super Admin</text>
+<text x="1350" y="276.48" font-family="Arial,Helvetica,sans-serif" font-size="11" font-weight="400" text-anchor="middle" fill="#555555">Super Admin</text>
+<rect x="1130" y="340" width="440" height="80" rx="8" fill="white" stroke="#171717" stroke-width="1.6"/>
+<text x="1350" y="365.04" font-family="Arial,Helvetica,sans-serif" font-size="16" font-weight="400" text-anchor="middle" fill="#171717">Validate credentials / Google identity,</text>
+<text x="1350" y="386" font-family="Arial,Helvetica,sans-serif" font-size="16" font-weight="400" text-anchor="middle" fill="#171717">email verification, token, and role access</text>
+<text x="1350" y="411.96000000000004" font-family="Arial,Helvetica,sans-serif" font-size="11" font-weight="400" text-anchor="middle" fill="#555555">System</text>
+<polygon points="1350,463 1480,515 1350,567 1220,515" fill="white" stroke="#171717" stroke-width="1.6"/>
+<text x="1350" y="510.35" font-family="Arial,Helvetica,sans-serif" font-size="15" font-weight="400" text-anchor="middle" fill="#171717">Access</text>
+<text x="1350" y="530" font-family="Arial,Helvetica,sans-serif" font-size="15" font-weight="400" text-anchor="middle" fill="#171717">authorized?</text>
+<rect x="695" y="475" width="330" height="80" rx="8" fill="white" stroke="#171717" stroke-width="1.6"/>
+<text x="860" y="500.04" font-family="Arial,Helvetica,sans-serif" font-size="16" font-weight="400" text-anchor="middle" fill="#171717">Show access error; correct account /</text>
+<text x="860" y="521" font-family="Arial,Helvetica,sans-serif" font-size="16" font-weight="400" text-anchor="middle" fill="#171717">verification details and retry sign-in</text>
+<text x="860" y="546.96" font-family="Arial,Helvetica,sans-serif" font-size="11" font-weight="400" text-anchor="middle" fill="#555555">Super Admin</text>
+<rect x="1130" y="612" width="440" height="80" rx="8" fill="white" stroke="#171717" stroke-width="1.6"/>
+<text x="1350" y="637.04" font-family="Arial,Helvetica,sans-serif" font-size="16" font-weight="400" text-anchor="middle" fill="#171717">Open Reports Home and</text>
+<text x="1350" y="658" font-family="Arial,Helvetica,sans-serif" font-size="16" font-weight="400" text-anchor="middle" fill="#171717">load Super Admin navigation</text>
+<text x="1350" y="683.9599999999999" font-family="Arial,Helvetica,sans-serif" font-size="11" font-weight="400" text-anchor="middle" fill="#555555">System</text>
+<polygon points="1350,735 1510,787 1350,839 1190,787" fill="white" stroke="#171717" stroke-width="1.6"/>
+<text x="1350" y="782.35" font-family="Arial,Helvetica,sans-serif" font-size="15" font-weight="400" text-anchor="middle" fill="#171717">Choose one</text>
+<text x="1350" y="802" font-family="Arial,Helvetica,sans-serif" font-size="15" font-weight="400" text-anchor="middle" fill="#171717">activity</text>
+<rect x="134" y="960" width="272" height="115" rx="8" fill="white" stroke="#171717" stroke-width="1.6"/>
+<text x="270" y="981.58" font-family="Arial,Helvetica,sans-serif" font-size="16" font-weight="400" text-anchor="middle" fill="#171717">Load Admin / Veterinarian</text>
+<text x="270" y="1002.5400000000001" font-family="Arial,Helvetica,sans-serif" font-size="16" font-weight="400" text-anchor="middle" fill="#171717">accounts;</text>
+<text x="270" y="1023.5" font-family="Arial,Helvetica,sans-serif" font-size="16" font-weight="400" text-anchor="middle" fill="#171717">choose create, edit, or status</text>
+<text x="270" y="1044.46" font-family="Arial,Helvetica,sans-serif" font-size="16" font-weight="400" text-anchor="middle" fill="#171717">change</text>
+<text x="270" y="1070.42" font-family="Arial,Helvetica,sans-serif" font-size="11" font-weight="400" text-anchor="middle" fill="#555555">Super Admin</text>
+<rect x="134" y="1117" width="272" height="80" rx="8" fill="white" stroke="#171717" stroke-width="1.6"/>
+<text x="270" y="1142.04" font-family="Arial,Helvetica,sans-serif" font-size="16" font-weight="400" text-anchor="middle" fill="#171717">Enter required role/profile details;</text>
+<text x="270" y="1163" font-family="Arial,Helvetica,sans-serif" font-size="16" font-weight="400" text-anchor="middle" fill="#171717">assign active clinic branch(es)</text>
+<text x="270" y="1188.96" font-family="Arial,Helvetica,sans-serif" font-size="11" font-weight="400" text-anchor="middle" fill="#555555">Super Admin</text>
+<rect x="134" y="1239" width="272" height="115" rx="8" fill="white" stroke="#171717" stroke-width="1.6"/>
+<text x="270" y="1260.58" font-family="Arial,Helvetica,sans-serif" font-size="16" font-weight="400" text-anchor="middle" fill="#171717">For Admin: configure feature</text>
+<text x="270" y="1281.54" font-family="Arial,Helvetica,sans-serif" font-size="16" font-weight="400" text-anchor="middle" fill="#171717">access,</text>
+<text x="270" y="1302.5" font-family="Arial,Helvetica,sans-serif" font-size="16" font-weight="400" text-anchor="middle" fill="#171717">including the separate Pet Intake</text>
+<text x="270" y="1323.46" font-family="Arial,Helvetica,sans-serif" font-size="16" font-weight="400" text-anchor="middle" fill="#171717">switch</text>
+<text x="270" y="1349.4199999999998" font-family="Arial,Helvetica,sans-serif" font-size="11" font-weight="400" text-anchor="middle" fill="#555555">Super Admin</text>
+<rect x="134" y="1396" width="272" height="115" rx="8" fill="white" stroke="#171717" stroke-width="1.6"/>
+<text x="270" y="1417.58" font-family="Arial,Helvetica,sans-serif" font-size="16" font-weight="400" text-anchor="middle" fill="#171717">Supply required confirmation /</text>
+<text x="270" y="1438.54" font-family="Arial,Helvetica,sans-serif" font-size="16" font-weight="400" text-anchor="middle" fill="#171717">master</text>
+<text x="270" y="1459.5" font-family="Arial,Helvetica,sans-serif" font-size="16" font-weight="400" text-anchor="middle" fill="#171717">key for the selected sensitive</text>
+<text x="270" y="1480.46" font-family="Arial,Helvetica,sans-serif" font-size="16" font-weight="400" text-anchor="middle" fill="#171717">action</text>
+<text x="270" y="1506.4199999999998" font-family="Arial,Helvetica,sans-serif" font-size="11" font-weight="400" text-anchor="middle" fill="#555555">Super Admin</text>
+<polygon points="270,1553 406,1605 270,1657 134,1605" fill="white" stroke="#171717" stroke-width="1.6"/>
+<text x="270" y="1600.35" font-family="Arial,Helvetica,sans-serif" font-size="15" font-weight="400" text-anchor="middle" fill="#171717">Account / authority</text>
+<text x="270" y="1620" font-family="Arial,Helvetica,sans-serif" font-size="15" font-weight="400" text-anchor="middle" fill="#171717">rules valid?</text>
+<rect x="134" y="1699" width="272" height="94" rx="8" fill="white" stroke="#171717" stroke-width="1.6"/>
+<text x="270" y="1720.56" font-family="Arial,Helvetica,sans-serif" font-size="16" font-weight="400" text-anchor="middle" fill="#171717">Correct profile, clinic assignment,</text>
+<text x="270" y="1741.52" font-family="Arial,Helvetica,sans-serif" font-size="16" font-weight="400" text-anchor="middle" fill="#171717">confirmation, or booking-coverage</text>
+<text x="270" y="1762.48" font-family="Arial,Helvetica,sans-serif" font-size="16" font-weight="400" text-anchor="middle" fill="#171717">issue</text>
+<text x="270" y="1788.44" font-family="Arial,Helvetica,sans-serif" font-size="11" font-weight="400" text-anchor="middle" fill="#555555">Super Admin</text>
+<rect x="134" y="1835" width="272" height="94" rx="8" fill="white" stroke="#171717" stroke-width="1.6"/>
+<text x="270" y="1856.56" font-family="Arial,Helvetica,sans-serif" font-size="16" font-weight="400" text-anchor="middle" fill="#171717">Save personnel / branch /</text>
+<text x="270" y="1877.52" font-family="Arial,Helvetica,sans-serif" font-size="16" font-weight="400" text-anchor="middle" fill="#171717">permission</text>
+<text x="270" y="1898.48" font-family="Arial,Helvetica,sans-serif" font-size="16" font-weight="400" text-anchor="middle" fill="#171717">change or permitted archive status</text>
+<text x="270" y="1924.44" font-family="Arial,Helvetica,sans-serif" font-size="11" font-weight="400" text-anchor="middle" fill="#555555">System</text>
+<rect x="134" y="1971" width="272" height="80" rx="8" fill="white" stroke="#171717" stroke-width="1.6"/>
+<text x="270" y="1996.04" font-family="Arial,Helvetica,sans-serif" font-size="16" font-weight="400" text-anchor="middle" fill="#171717">Attempt affected-personnel /</text>
+<text x="270" y="2017" font-family="Arial,Helvetica,sans-serif" font-size="16" font-weight="400" text-anchor="middle" fill="#171717">governance notifications</text>
+<text x="270" y="2042.96" font-family="Arial,Helvetica,sans-serif" font-size="11" font-weight="400" text-anchor="middle" fill="#555555">System</text>
+<rect x="494" y="960" width="272" height="94" rx="8" fill="white" stroke="#171717" stroke-width="1.6"/>
+<text x="630" y="981.56" font-family="Arial,Helvetica,sans-serif" font-size="16" font-weight="400" text-anchor="middle" fill="#171717">Search and inspect pet-owner</text>
+<text x="630" y="1002.52" font-family="Arial,Helvetica,sans-serif" font-size="16" font-weight="400" text-anchor="middle" fill="#171717">accounts and linked pet</text>
+<text x="630" y="1023.4799999999999" font-family="Arial,Helvetica,sans-serif" font-size="16" font-weight="400" text-anchor="middle" fill="#171717">ownerships</text>
+<text x="630" y="1049.44" font-family="Arial,Helvetica,sans-serif" font-size="11" font-weight="400" text-anchor="middle" fill="#555555">Super Admin</text>
+<rect x="494" y="1096" width="272" height="80" rx="8" fill="white" stroke="#171717" stroke-width="1.6"/>
+<text x="630" y="1121.04" font-family="Arial,Helvetica,sans-serif" font-size="16" font-weight="400" text-anchor="middle" fill="#171717">Choose owner archive / restore</text>
+<text x="630" y="1142" font-family="Arial,Helvetica,sans-serif" font-size="16" font-weight="400" text-anchor="middle" fill="#171717">or removal of a pet ownership link</text>
+<text x="630" y="1167.96" font-family="Arial,Helvetica,sans-serif" font-size="11" font-weight="400" text-anchor="middle" fill="#555555">Super Admin</text>
+<rect x="494" y="1218" width="272" height="80" rx="8" fill="white" stroke="#171717" stroke-width="1.6"/>
+<text x="630" y="1243.04" font-family="Arial,Helvetica,sans-serif" font-size="16" font-weight="400" text-anchor="middle" fill="#171717">Review affected owner/pet</text>
+<text x="630" y="1264" font-family="Arial,Helvetica,sans-serif" font-size="16" font-weight="400" text-anchor="middle" fill="#171717">and confirm the selected action</text>
+<text x="630" y="1289.96" font-family="Arial,Helvetica,sans-serif" font-size="11" font-weight="400" text-anchor="middle" fill="#555555">Super Admin</text>
+<polygon points="630,1340 766,1392 630,1444 494,1392" fill="white" stroke="#171717" stroke-width="1.6"/>
+<text x="630" y="1387.35" font-family="Arial,Helvetica,sans-serif" font-size="15" font-weight="400" text-anchor="middle" fill="#171717">Owner / link</text>
+<text x="630" y="1407" font-family="Arial,Helvetica,sans-serif" font-size="15" font-weight="400" text-anchor="middle" fill="#171717">operation valid?</text>
+<rect x="494" y="1486" width="272" height="80" rx="8" fill="white" stroke="#171717" stroke-width="1.6"/>
+<text x="630" y="1511.04" font-family="Arial,Helvetica,sans-serif" font-size="16" font-weight="400" text-anchor="middle" fill="#171717">Correct selection or cancel</text>
+<text x="630" y="1532" font-family="Arial,Helvetica,sans-serif" font-size="16" font-weight="400" text-anchor="middle" fill="#171717">without applying the change</text>
+<text x="630" y="1557.96" font-family="Arial,Helvetica,sans-serif" font-size="11" font-weight="400" text-anchor="middle" fill="#555555">Super Admin</text>
+<rect x="494" y="1608" width="272" height="94" rx="8" fill="white" stroke="#171717" stroke-width="1.6"/>
+<text x="630" y="1629.56" font-family="Arial,Helvetica,sans-serif" font-size="16" font-weight="400" text-anchor="middle" fill="#171717">Persist account status or</text>
+<text x="630" y="1650.52" font-family="Arial,Helvetica,sans-serif" font-size="16" font-weight="400" text-anchor="middle" fill="#171717">remove the selected ownership</text>
+<text x="630" y="1671.48" font-family="Arial,Helvetica,sans-serif" font-size="16" font-weight="400" text-anchor="middle" fill="#171717">link</text>
+<text x="630" y="1697.44" font-family="Arial,Helvetica,sans-serif" font-size="11" font-weight="400" text-anchor="middle" fill="#555555">System</text>
+<rect x="494" y="1744" width="272" height="80" rx="8" fill="white" stroke="#171717" stroke-width="1.6"/>
+<text x="630" y="1769.04" font-family="Arial,Helvetica,sans-serif" font-size="16" font-weight="400" text-anchor="middle" fill="#171717">Refresh owners / pet links;</text>
+<text x="630" y="1790" font-family="Arial,Helvetica,sans-serif" font-size="16" font-weight="400" text-anchor="middle" fill="#171717">attempt relevant notifications</text>
+<text x="630" y="1815.96" font-family="Arial,Helvetica,sans-serif" font-size="11" font-weight="400" text-anchor="middle" fill="#555555">System</text>
+<rect x="854" y="960" width="272" height="80" rx="8" fill="white" stroke="#171717" stroke-width="1.6"/>
+<text x="990" y="985.04" font-family="Arial,Helvetica,sans-serif" font-size="16" font-weight="400" text-anchor="middle" fill="#171717">Open Reports Home</text>
+<text x="990" y="1006" font-family="Arial,Helvetica,sans-serif" font-size="16" font-weight="400" text-anchor="middle" fill="#171717">or choose a Report Center type</text>
+<text x="990" y="1031.96" font-family="Arial,Helvetica,sans-serif" font-size="11" font-weight="400" text-anchor="middle" fill="#555555">Super Admin</text>
+<rect x="854" y="1082" width="272" height="80" rx="8" fill="white" stroke="#171717" stroke-width="1.6"/>
+<text x="990" y="1107.04" font-family="Arial,Helvetica,sans-serif" font-size="16" font-weight="400" text-anchor="middle" fill="#171717">Select supported branch filter</text>
+<text x="990" y="1128" font-family="Arial,Helvetica,sans-serif" font-size="16" font-weight="400" text-anchor="middle" fill="#171717">and date range</text>
+<text x="990" y="1153.96" font-family="Arial,Helvetica,sans-serif" font-size="11" font-weight="400" text-anchor="middle" fill="#555555">Super Admin</text>
+<polygon points="990,1204 1126,1256 990,1308 854,1256" fill="white" stroke="#171717" stroke-width="1.6"/>
+<text x="990" y="1251.35" font-family="Arial,Helvetica,sans-serif" font-size="15" font-weight="400" text-anchor="middle" fill="#171717">Filters</text>
+<text x="990" y="1271" font-family="Arial,Helvetica,sans-serif" font-size="15" font-weight="400" text-anchor="middle" fill="#171717">valid?</text>
+<rect x="854" y="1350" width="272" height="80" rx="8" fill="white" stroke="#171717" stroke-width="1.6"/>
+<text x="990" y="1375.04" font-family="Arial,Helvetica,sans-serif" font-size="16" font-weight="400" text-anchor="middle" fill="#171717">Correct range / branch selection</text>
+<text x="990" y="1396" font-family="Arial,Helvetica,sans-serif" font-size="16" font-weight="400" text-anchor="middle" fill="#171717">and rerun the report</text>
+<text x="990" y="1421.96" font-family="Arial,Helvetica,sans-serif" font-size="11" font-weight="400" text-anchor="middle" fill="#555555">Super Admin</text>
+<rect x="854" y="1472" width="272" height="80" rx="8" fill="white" stroke="#171717" stroke-width="1.6"/>
+<text x="990" y="1497.04" font-family="Arial,Helvetica,sans-serif" font-size="16" font-weight="400" text-anchor="middle" fill="#171717">Aggregate actual operational,</text>
+<text x="990" y="1518" font-family="Arial,Helvetica,sans-serif" font-size="16" font-weight="400" text-anchor="middle" fill="#171717">clinical, financial, and stock data</text>
+<text x="990" y="1543.96" font-family="Arial,Helvetica,sans-serif" font-size="11" font-weight="400" text-anchor="middle" fill="#555555">System</text>
+<rect x="854" y="1594" width="272" height="80" rx="8" fill="white" stroke="#171717" stroke-width="1.6"/>
+<text x="990" y="1619.04" font-family="Arial,Helvetica,sans-serif" font-size="16" font-weight="400" text-anchor="middle" fill="#171717">Review charts / report rows, totals,</text>
+<text x="990" y="1640" font-family="Arial,Helvetica,sans-serif" font-size="16" font-weight="400" text-anchor="middle" fill="#171717">and missing-source notices</text>
+<text x="990" y="1665.96" font-family="Arial,Helvetica,sans-serif" font-size="11" font-weight="400" text-anchor="middle" fill="#555555">Super Admin</text>
+<rect x="854" y="1716" width="272" height="80" rx="8" fill="white" stroke="#171717" stroke-width="1.6"/>
+<text x="990" y="1741.04" font-family="Arial,Helvetica,sans-serif" font-size="16" font-weight="400" text-anchor="middle" fill="#171717">Generate printable report, PDF,</text>
+<text x="990" y="1762" font-family="Arial,Helvetica,sans-serif" font-size="16" font-weight="400" text-anchor="middle" fill="#171717">or Excel workbook when needed</text>
+<text x="990" y="1787.96" font-family="Arial,Helvetica,sans-serif" font-size="11" font-weight="400" text-anchor="middle" fill="#555555">Super Admin / System</text>
+<rect x="854" y="1838" width="272" height="80" rx="8" fill="white" stroke="#171717" stroke-width="1.6"/>
+<text x="990" y="1863.04" font-family="Arial,Helvetica,sans-serif" font-size="16" font-weight="400" text-anchor="middle" fill="#171717">Attempt report-generation</text>
+<text x="990" y="1884" font-family="Arial,Helvetica,sans-serif" font-size="16" font-weight="400" text-anchor="middle" fill="#171717">governance notification</text>
+<text x="990" y="1909.96" font-family="Arial,Helvetica,sans-serif" font-size="11" font-weight="400" text-anchor="middle" fill="#555555">System</text>
+<rect x="1214" y="960" width="272" height="115" rx="8" fill="white" stroke="#171717" stroke-width="1.6"/>
+<text x="1350" y="981.58" font-family="Arial,Helvetica,sans-serif" font-size="16" font-weight="400" text-anchor="middle" fill="#171717">Open configured payment</text>
+<text x="1350" y="1002.5400000000001" font-family="Arial,Helvetica,sans-serif" font-size="16" font-weight="400" text-anchor="middle" fill="#171717">methods;</text>
+<text x="1350" y="1023.5" font-family="Arial,Helvetica,sans-serif" font-size="16" font-weight="400" text-anchor="middle" fill="#171717">prepare enable / disable / details</text>
+<text x="1350" y="1044.46" font-family="Arial,Helvetica,sans-serif" font-size="16" font-weight="400" text-anchor="middle" fill="#171717">edit</text>
+<text x="1350" y="1070.42" font-family="Arial,Helvetica,sans-serif" font-size="11" font-weight="400" text-anchor="middle" fill="#555555">Super Admin</text>
+<rect x="1214" y="1117" width="272" height="80" rx="8" fill="white" stroke="#171717" stroke-width="1.6"/>
+<text x="1350" y="1142.04" font-family="Arial,Helvetica,sans-serif" font-size="16" font-weight="400" text-anchor="middle" fill="#171717">Request the payment-settings</text>
+<text x="1350" y="1163" font-family="Arial,Helvetica,sans-serif" font-size="16" font-weight="400" text-anchor="middle" fill="#171717">security OTP by email</text>
+<text x="1350" y="1188.96" font-family="Arial,Helvetica,sans-serif" font-size="11" font-weight="400" text-anchor="middle" fill="#555555">Super Admin / System</text>
+<rect x="1214" y="1239" width="272" height="94" rx="8" fill="white" stroke="#171717" stroke-width="1.6"/>
+<text x="1350" y="1260.56" font-family="Arial,Helvetica,sans-serif" font-size="16" font-weight="400" text-anchor="middle" fill="#171717">Enter method details and OTP;</text>
+<text x="1350" y="1281.52" font-family="Arial,Helvetica,sans-serif" font-size="16" font-weight="400" text-anchor="middle" fill="#171717">submit selected configuration</text>
+<text x="1350" y="1302.48" font-family="Arial,Helvetica,sans-serif" font-size="16" font-weight="400" text-anchor="middle" fill="#171717">change</text>
+<text x="1350" y="1328.44" font-family="Arial,Helvetica,sans-serif" font-size="11" font-weight="400" text-anchor="middle" fill="#555555">Super Admin</text>
+<polygon points="1350,1375 1486,1427 1350,1479 1214,1427" fill="white" stroke="#171717" stroke-width="1.6"/>
+<text x="1350" y="1422.35" font-family="Arial,Helvetica,sans-serif" font-size="15" font-weight="400" text-anchor="middle" fill="#171717">OTP and method</text>
+<text x="1350" y="1442" font-family="Arial,Helvetica,sans-serif" font-size="15" font-weight="400" text-anchor="middle" fill="#171717">rules valid?</text>
+<rect x="1214" y="1521" width="272" height="94" rx="8" fill="white" stroke="#171717" stroke-width="1.6"/>
+<text x="1350" y="1542.56" font-family="Arial,Helvetica,sans-serif" font-size="16" font-weight="400" text-anchor="middle" fill="#171717">Request / enter a valid code or</text>
+<text x="1350" y="1563.52" font-family="Arial,Helvetica,sans-serif" font-size="16" font-weight="400" text-anchor="middle" fill="#171717">correct details / in-use method</text>
+<text x="1350" y="1584.48" font-family="Arial,Helvetica,sans-serif" font-size="16" font-weight="400" text-anchor="middle" fill="#171717">conflict</text>
+<text x="1350" y="1610.44" font-family="Arial,Helvetica,sans-serif" font-size="11" font-weight="400" text-anchor="middle" fill="#555555">Super Admin</text>
+<rect x="1214" y="1657" width="272" height="94" rx="8" fill="white" stroke="#171717" stroke-width="1.6"/>
+<text x="1350" y="1678.56" font-family="Arial,Helvetica,sans-serif" font-size="16" font-weight="400" text-anchor="middle" fill="#171717">Encrypt sensitive account details;</text>
+<text x="1350" y="1699.52" font-family="Arial,Helvetica,sans-serif" font-size="16" font-weight="400" text-anchor="middle" fill="#171717">save settings and consume valid</text>
+<text x="1350" y="1720.48" font-family="Arial,Helvetica,sans-serif" font-size="16" font-weight="400" text-anchor="middle" fill="#171717">OTP</text>
+<text x="1350" y="1746.44" font-family="Arial,Helvetica,sans-serif" font-size="11" font-weight="400" text-anchor="middle" fill="#555555">System</text>
+<rect x="1214" y="1793" width="272" height="94" rx="8" fill="white" stroke="#171717" stroke-width="1.6"/>
+<text x="1350" y="1814.56" font-family="Arial,Helvetica,sans-serif" font-size="16" font-weight="400" text-anchor="middle" fill="#171717">Refresh enabled payment</text>
+<text x="1350" y="1835.52" font-family="Arial,Helvetica,sans-serif" font-size="16" font-weight="400" text-anchor="middle" fill="#171717">instructions</text>
+<text x="1350" y="1856.48" font-family="Arial,Helvetica,sans-serif" font-size="16" font-weight="400" text-anchor="middle" fill="#171717">available to permitted workflows</text>
+<text x="1350" y="1882.44" font-family="Arial,Helvetica,sans-serif" font-size="11" font-weight="400" text-anchor="middle" fill="#555555">System</text>
+<rect x="1574" y="960" width="272" height="80" rx="8" fill="white" stroke="#171717" stroke-width="1.6"/>
+<text x="1710" y="985.04" font-family="Arial,Helvetica,sans-serif" font-size="16" font-weight="400" text-anchor="middle" fill="#171717">Choose Activity Log, Pet Media,</text>
+<text x="1710" y="1006" font-family="Arial,Helvetica,sans-serif" font-size="16" font-weight="400" text-anchor="middle" fill="#171717">or lifecycle recovery report</text>
+<text x="1710" y="1031.96" font-family="Arial,Helvetica,sans-serif" font-size="11" font-weight="400" text-anchor="middle" fill="#555555">Super Admin</text>
+<rect x="1574" y="1082" width="272" height="80" rx="8" fill="white" stroke="#171717" stroke-width="1.6"/>
+<text x="1710" y="1107.04" font-family="Arial,Helvetica,sans-serif" font-size="16" font-weight="400" text-anchor="middle" fill="#171717">Set workspace filters: staff/module,</text>
+<text x="1710" y="1128" font-family="Arial,Helvetica,sans-serif" font-size="16" font-weight="400" text-anchor="middle" fill="#171717">pet/date range, or recovery scope</text>
+<text x="1710" y="1153.96" font-family="Arial,Helvetica,sans-serif" font-size="11" font-weight="400" text-anchor="middle" fill="#555555">Super Admin</text>
+<rect x="1574" y="1204" width="272" height="94" rx="8" fill="white" stroke="#171717" stroke-width="1.6"/>
+<text x="1710" y="1225.56" font-family="Arial,Helvetica,sans-serif" font-size="16" font-weight="400" text-anchor="middle" fill="#171717">Load authorized action history,</text>
+<text x="1710" y="1246.52" font-family="Arial,Helvetica,sans-serif" font-size="16" font-weight="400" text-anchor="middle" fill="#171717">protected file index, or</text>
+<text x="1710" y="1267.48" font-family="Arial,Helvetica,sans-serif" font-size="16" font-weight="400" text-anchor="middle" fill="#171717">inconsistencies</text>
+<text x="1710" y="1293.44" font-family="Arial,Helvetica,sans-serif" font-size="11" font-weight="400" text-anchor="middle" fill="#555555">System</text>
+<rect x="1574" y="1340" width="272" height="80" rx="8" fill="white" stroke="#171717" stroke-width="1.6"/>
+<text x="1710" y="1365.04" font-family="Arial,Helvetica,sans-serif" font-size="16" font-weight="400" text-anchor="middle" fill="#171717">Review / print supported results;</text>
+<text x="1710" y="1386" font-family="Arial,Helvetica,sans-serif" font-size="16" font-weight="400" text-anchor="middle" fill="#171717">open permitted records or media</text>
+<text x="1710" y="1411.96" font-family="Arial,Helvetica,sans-serif" font-size="11" font-weight="400" text-anchor="middle" fill="#555555">Super Admin</text>
+<rect x="1574" y="1462" width="272" height="115" rx="8" fill="white" stroke="#171717" stroke-width="1.6"/>
+<text x="1710" y="1483.58" font-family="Arial,Helvetica,sans-serif" font-size="16" font-weight="400" text-anchor="middle" fill="#171717">If action is needed, open the</text>
+<text x="1710" y="1504.54" font-family="Arial,Helvetica,sans-serif" font-size="16" font-weight="400" text-anchor="middle" fill="#171717">related</text>
+<text x="1710" y="1525.5" font-family="Arial,Helvetica,sans-serif" font-size="16" font-weight="400" text-anchor="middle" fill="#171717">workspace and apply its normal</text>
+<text x="1710" y="1546.46" font-family="Arial,Helvetica,sans-serif" font-size="16" font-weight="400" text-anchor="middle" fill="#171717">rules</text>
+<text x="1710" y="1572.4199999999998" font-family="Arial,Helvetica,sans-serif" font-size="11" font-weight="400" text-anchor="middle" fill="#555555">Super Admin</text>
+<rect x="1934" y="960" width="272" height="94" rx="8" fill="white" stroke="#171717" stroke-width="1.6"/>
+<text x="2070" y="981.56" font-family="Arial,Helvetica,sans-serif" font-size="16" font-weight="400" text-anchor="middle" fill="#171717">Open Profile &gt; Download Backup;</text>
+<text x="2070" y="1002.52" font-family="Arial,Helvetica,sans-serif" font-size="16" font-weight="400" text-anchor="middle" fill="#171717">review readiness and export</text>
+<text x="2070" y="1023.4799999999999" font-family="Arial,Helvetica,sans-serif" font-size="16" font-weight="400" text-anchor="middle" fill="#171717">history</text>
+<text x="2070" y="1049.44" font-family="Arial,Helvetica,sans-serif" font-size="11" font-weight="400" text-anchor="middle" fill="#555555">Super Admin</text>
+<rect x="1934" y="1096" width="272" height="80" rx="8" fill="white" stroke="#171717" stroke-width="1.6"/>
+<text x="2070" y="1131.52" font-family="Arial,Helvetica,sans-serif" font-size="16" font-weight="400" text-anchor="middle" fill="#171717">Choose Create &amp; Download ZIP</text>
+<text x="2070" y="1157.48" font-family="Arial,Helvetica,sans-serif" font-size="11" font-weight="400" text-anchor="middle" fill="#555555">Super Admin</text>
+<rect x="1934" y="1218" width="272" height="115" rx="8" fill="white" stroke="#171717" stroke-width="1.6"/>
+<text x="2070" y="1239.58" font-family="Arial,Helvetica,sans-serif" font-size="16" font-weight="400" text-anchor="middle" fill="#171717">Build consistent SQL/media</text>
+<text x="2070" y="1260.54" font-family="Arial,Helvetica,sans-serif" font-size="16" font-weight="400" text-anchor="middle" fill="#171717">package,</text>
+<text x="2070" y="1281.5" font-family="Arial,Helvetica,sans-serif" font-size="16" font-weight="400" text-anchor="middle" fill="#171717">workbook, manifest, and</text>
+<text x="2070" y="1302.46" font-family="Arial,Helvetica,sans-serif" font-size="16" font-weight="400" text-anchor="middle" fill="#171717">checksums</text>
+<text x="2070" y="1328.4199999999998" font-family="Arial,Helvetica,sans-serif" font-size="11" font-weight="400" text-anchor="middle" fill="#555555">System</text>
+<polygon points="2070,1375 2206,1427 2070,1479 1934,1427" fill="white" stroke="#171717" stroke-width="1.6"/>
+<text x="2070" y="1422.35" font-family="Arial,Helvetica,sans-serif" font-size="15" font-weight="400" text-anchor="middle" fill="#171717">Export</text>
+<text x="2070" y="1442" font-family="Arial,Helvetica,sans-serif" font-size="15" font-weight="400" text-anchor="middle" fill="#171717">succeeds?</text>
+<rect x="1934" y="1521" width="272" height="80" rx="8" fill="white" stroke="#171717" stroke-width="1.6"/>
+<text x="2070" y="1546.04" font-family="Arial,Helvetica,sans-serif" font-size="16" font-weight="400" text-anchor="middle" fill="#171717">Review error / prerequisites;</text>
+<text x="2070" y="1567" font-family="Arial,Helvetica,sans-serif" font-size="16" font-weight="400" text-anchor="middle" fill="#171717">retry after resolving the issue</text>
+<text x="2070" y="1592.96" font-family="Arial,Helvetica,sans-serif" font-size="11" font-weight="400" text-anchor="middle" fill="#555555">Super Admin</text>
+<rect x="1934" y="1643" width="272" height="80" rx="8" fill="white" stroke="#171717" stroke-width="1.6"/>
+<text x="2070" y="1668.04" font-family="Arial,Helvetica,sans-serif" font-size="16" font-weight="400" text-anchor="middle" fill="#171717">Stream complete backup ZIP</text>
+<text x="2070" y="1689" font-family="Arial,Helvetica,sans-serif" font-size="16" font-weight="400" text-anchor="middle" fill="#171717">to the local computer</text>
+<text x="2070" y="1714.96" font-family="Arial,Helvetica,sans-serif" font-size="11" font-weight="400" text-anchor="middle" fill="#555555">System</text>
+<rect x="1934" y="1765" width="272" height="80" rx="8" fill="white" stroke="#171717" stroke-width="1.6"/>
+<text x="2070" y="1790.04" font-family="Arial,Helvetica,sans-serif" font-size="16" font-weight="400" text-anchor="middle" fill="#171717">Retain audit metadata; clean</text>
+<text x="2070" y="1811" font-family="Arial,Helvetica,sans-serif" font-size="16" font-weight="400" text-anchor="middle" fill="#171717">temporary server export files</text>
+<text x="2070" y="1836.96" font-family="Arial,Helvetica,sans-serif" font-size="11" font-weight="400" text-anchor="middle" fill="#555555">System</text>
+<rect x="1934" y="1887" width="272" height="94" rx="8" fill="white" stroke="#171717" stroke-width="1.6"/>
+<text x="2070" y="1908.56" font-family="Arial,Helvetica,sans-serif" font-size="16" font-weight="400" text-anchor="middle" fill="#171717">Keep local backup safely;</text>
+<text x="2070" y="1929.52" font-family="Arial,Helvetica,sans-serif" font-size="16" font-weight="400" text-anchor="middle" fill="#171717">restoration</text>
+<text x="2070" y="1950.48" font-family="Arial,Helvetica,sans-serif" font-size="16" font-weight="400" text-anchor="middle" fill="#171717">is a separate manual IT procedure</text>
+<text x="2070" y="1976.44" font-family="Arial,Helvetica,sans-serif" font-size="11" font-weight="400" text-anchor="middle" fill="#555555">Super Admin / IT operator</text>
+<rect x="2294" y="960" width="272" height="94" rx="8" fill="white" stroke="#171717" stroke-width="1.6"/>
+<text x="2430" y="981.56" font-family="Arial,Helvetica,sans-serif" font-size="16" font-weight="400" text-anchor="middle" fill="#171717">Choose own profile, notifications,</text>
+<text x="2430" y="1002.52" font-family="Arial,Helvetica,sans-serif" font-size="16" font-weight="400" text-anchor="middle" fill="#171717">TODOs, or permitted clinic</text>
+<text x="2430" y="1023.4799999999999" font-family="Arial,Helvetica,sans-serif" font-size="16" font-weight="400" text-anchor="middle" fill="#171717">workspace</text>
+<text x="2430" y="1049.44" font-family="Arial,Helvetica,sans-serif" font-size="11" font-weight="400" text-anchor="middle" fill="#555555">Super Admin</text>
+<rect x="2294" y="1096" width="272" height="80" rx="8" fill="white" stroke="#171717" stroke-width="1.6"/>
+<text x="2430" y="1121.04" font-family="Arial,Helvetica,sans-serif" font-size="16" font-weight="400" text-anchor="middle" fill="#171717">Perform selected personal task OR</text>
+<text x="2430" y="1142" font-family="Arial,Helvetica,sans-serif" font-size="16" font-weight="400" text-anchor="middle" fill="#171717">follow the relevant clinic workflow</text>
+<text x="2430" y="1167.96" font-family="Arial,Helvetica,sans-serif" font-size="11" font-weight="400" text-anchor="middle" fill="#555555">Super Admin</text>
+<rect x="2294" y="1218" width="272" height="115" rx="8" fill="white" stroke="#171717" stroke-width="1.6"/>
+<text x="2430" y="1239.58" font-family="Arial,Helvetica,sans-serif" font-size="16" font-weight="400" text-anchor="middle" fill="#171717">Validate selected action,</text>
+<text x="2430" y="1260.54" font-family="Arial,Helvetica,sans-serif" font-size="16" font-weight="400" text-anchor="middle" fill="#171717">branch/record</text>
+<text x="2430" y="1281.5" font-family="Arial,Helvetica,sans-serif" font-size="16" font-weight="400" text-anchor="middle" fill="#171717">access, and applicable workflow</text>
+<text x="2430" y="1302.46" font-family="Arial,Helvetica,sans-serif" font-size="16" font-weight="400" text-anchor="middle" fill="#171717">rules</text>
+<text x="2430" y="1328.4199999999998" font-family="Arial,Helvetica,sans-serif" font-size="11" font-weight="400" text-anchor="middle" fill="#555555">System</text>
+<rect x="2294" y="1375" width="272" height="80" rx="8" fill="white" stroke="#171717" stroke-width="1.6"/>
+<text x="2430" y="1400.04" font-family="Arial,Helvetica,sans-serif" font-size="16" font-weight="400" text-anchor="middle" fill="#171717">Save selected permitted changes;</text>
+<text x="2430" y="1421" font-family="Arial,Helvetica,sans-serif" font-size="16" font-weight="400" text-anchor="middle" fill="#171717">refresh relevant data and status</text>
+<text x="2430" y="1446.96" font-family="Arial,Helvetica,sans-serif" font-size="11" font-weight="400" text-anchor="middle" fill="#555555">System</text>
+<rect x="2294" y="1497" width="272" height="80" rx="8" fill="white" stroke="#171717" stroke-width="1.6"/>
+<text x="2430" y="1522.04" font-family="Arial,Helvetica,sans-serif" font-size="16" font-weight="400" text-anchor="middle" fill="#171717">Review selected operation results</text>
+<text x="2430" y="1543" font-family="Arial,Helvetica,sans-serif" font-size="16" font-weight="400" text-anchor="middle" fill="#171717">and related notifications</text>
+<text x="2430" y="1568.96" font-family="Arial,Helvetica,sans-serif" font-size="11" font-weight="400" text-anchor="middle" fill="#555555">Super Admin</text>
+<polygon points="270,2123 286,2139 270,2155 254,2139" fill="white" stroke="#171717" stroke-width="1.6"/>
+<text x="270" y="2144.52" font-family="Arial,Helvetica,sans-serif" font-size="16" font-weight="400" text-anchor="middle" fill="#171717"></text>
+<polygon points="630,2123 646,2139 630,2155 614,2139" fill="white" stroke="#171717" stroke-width="1.6"/>
+<text x="630" y="2144.52" font-family="Arial,Helvetica,sans-serif" font-size="16" font-weight="400" text-anchor="middle" fill="#171717"></text>
+<polygon points="990,2123 1006,2139 990,2155 974,2139" fill="white" stroke="#171717" stroke-width="1.6"/>
+<text x="990" y="2144.52" font-family="Arial,Helvetica,sans-serif" font-size="16" font-weight="400" text-anchor="middle" fill="#171717"></text>
+<polygon points="1350,2123 1366,2139 1350,2155 1334,2139" fill="white" stroke="#171717" stroke-width="1.6"/>
+<text x="1350" y="2144.52" font-family="Arial,Helvetica,sans-serif" font-size="16" font-weight="400" text-anchor="middle" fill="#171717"></text>
+<polygon points="1710,2123 1726,2139 1710,2155 1694,2139" fill="white" stroke="#171717" stroke-width="1.6"/>
+<text x="1710" y="2144.52" font-family="Arial,Helvetica,sans-serif" font-size="16" font-weight="400" text-anchor="middle" fill="#171717"></text>
+<polygon points="2070,2123 2086,2139 2070,2155 2054,2139" fill="white" stroke="#171717" stroke-width="1.6"/>
+<text x="2070" y="2144.52" font-family="Arial,Helvetica,sans-serif" font-size="16" font-weight="400" text-anchor="middle" fill="#171717"></text>
+<polygon points="2430,2123 2446,2139 2430,2155 2414,2139" fill="white" stroke="#171717" stroke-width="1.6"/>
+<text x="2430" y="2144.52" font-family="Arial,Helvetica,sans-serif" font-size="16" font-weight="400" text-anchor="middle" fill="#171717"></text>
+<polygon points="1350,2253 1368,2269 1350,2285 1332,2269" fill="white" stroke="#171717" stroke-width="1.6"/>
+<text x="1350" y="2274.52" font-family="Arial,Helvetica,sans-serif" font-size="16" font-weight="400" text-anchor="middle" fill="#171717"></text>
+<polygon points="1350,2341 1490,2393 1350,2445 1210,2393" fill="white" stroke="#171717" stroke-width="1.6"/>
+<text x="1350" y="2388.35" font-family="Arial,Helvetica,sans-serif" font-size="15" font-weight="400" text-anchor="middle" fill="#171717">Perform another</text>
+<text x="1350" y="2408" font-family="Arial,Helvetica,sans-serif" font-size="15" font-weight="400" text-anchor="middle" fill="#171717">activity?</text>
+<rect x="1170" y="2493" width="360" height="80" rx="8" fill="white" stroke="#171717" stroke-width="1.6"/>
+<text x="1350" y="2528.52" font-family="Arial,Helvetica,sans-serif" font-size="16" font-weight="400" text-anchor="middle" fill="#171717">Log out; clear local session</text>
+<text x="1350" y="2554.48" font-family="Arial,Helvetica,sans-serif" font-size="11" font-weight="400" text-anchor="middle" fill="#555555">Super Admin</text>
+<circle cx="1350" cy="2626" r="11" stroke="#171717" fill="white" stroke-width="1.6"/>
+<circle cx="1350" cy="2626" r="7" fill="#171717"/>
+<text x="1350" y="2621.04" font-family="Arial,Helvetica,sans-serif" font-size="16" font-weight="400" text-anchor="middle" fill="#171717"></text>
+<text x="1350" y="2642" font-family="Arial,Helvetica,sans-serif" font-size="16" font-weight="400" text-anchor="middle" fill="#171717"></text>
+<rect x="1105" y="490" width="42" height="22" fill="white"/>
+<text x="1126" y="506" font-family="Arial,Helvetica,sans-serif" font-size="13" font-weight="700" text-anchor="middle" fill="#171717">No</text>
+<rect x="1360" y="574" width="42" height="22" fill="white"/>
+<text x="1381" y="590" font-family="Arial,Helvetica,sans-serif" font-size="13" font-weight="700" text-anchor="middle" fill="#171717">Yes</text>
+<rect x="280" y="1664" width="42" height="22" fill="white"/>
+<text x="301" y="1680" font-family="Arial,Helvetica,sans-serif" font-size="13" font-weight="700" text-anchor="middle" fill="#171717">No</text>
+<rect x="419" y="1615" width="38" height="22" fill="white"/>
+<text x="438" y="1631" font-family="Arial,Helvetica,sans-serif" font-size="13" font-weight="700" text-anchor="middle" fill="#171717">Yes</text>
+<rect x="116" y="910" width="308" height="36" fill="white"/>
+<text x="270" y="926" font-family="Arial,Helvetica,sans-serif" font-size="17" font-weight="700" text-anchor="middle" fill="#171717">[Staff accounts &amp; access]</text>
+<rect x="640" y="1451" width="42" height="22" fill="white"/>
+<text x="661" y="1467" font-family="Arial,Helvetica,sans-serif" font-size="13" font-weight="700" text-anchor="middle" fill="#171717">No</text>
+<rect x="779" y="1402" width="38" height="22" fill="white"/>
+<text x="798" y="1418" font-family="Arial,Helvetica,sans-serif" font-size="13" font-weight="700" text-anchor="middle" fill="#171717">Yes</text>
+<rect x="476" y="910" width="308" height="36" fill="white"/>
+<text x="630" y="926" font-family="Arial,Helvetica,sans-serif" font-size="17" font-weight="700" text-anchor="middle" fill="#171717">[Pet-owner accounts]</text>
+<rect x="1000" y="1315" width="42" height="22" fill="white"/>
+<text x="1021" y="1331" font-family="Arial,Helvetica,sans-serif" font-size="13" font-weight="700" text-anchor="middle" fill="#171717">No</text>
+<rect x="1139" y="1266" width="38" height="22" fill="white"/>
+<text x="1158" y="1282" font-family="Arial,Helvetica,sans-serif" font-size="13" font-weight="700" text-anchor="middle" fill="#171717">Yes</text>
+<rect x="836" y="910" width="308" height="36" fill="white"/>
+<text x="990" y="926" font-family="Arial,Helvetica,sans-serif" font-size="17" font-weight="700" text-anchor="middle" fill="#171717">[Reports &amp; exports]</text>
+<rect x="1360" y="1486" width="42" height="22" fill="white"/>
+<text x="1381" y="1502" font-family="Arial,Helvetica,sans-serif" font-size="13" font-weight="700" text-anchor="middle" fill="#171717">No</text>
+<rect x="1499" y="1437" width="38" height="22" fill="white"/>
+<text x="1518" y="1453" font-family="Arial,Helvetica,sans-serif" font-size="13" font-weight="700" text-anchor="middle" fill="#171717">Yes</text>
+<rect x="1196" y="910" width="308" height="36" fill="white"/>
+<text x="1350" y="926" font-family="Arial,Helvetica,sans-serif" font-size="17" font-weight="700" text-anchor="middle" fill="#171717">[Payment settings]</text>
+<rect x="1556" y="910" width="308" height="36" fill="white"/>
+<text x="1710" y="926" font-family="Arial,Helvetica,sans-serif" font-size="17" font-weight="700" text-anchor="middle" fill="#171717">[Activity, media &amp; recovery]</text>
+<rect x="2080" y="1486" width="42" height="22" fill="white"/>
+<text x="2101" y="1502" font-family="Arial,Helvetica,sans-serif" font-size="13" font-weight="700" text-anchor="middle" fill="#171717">No</text>
+<rect x="2219" y="1437" width="38" height="22" fill="white"/>
+<text x="2238" y="1453" font-family="Arial,Helvetica,sans-serif" font-size="13" font-weight="700" text-anchor="middle" fill="#171717">Yes</text>
+<rect x="1916" y="910" width="308" height="36" fill="white"/>
+<text x="2070" y="926" font-family="Arial,Helvetica,sans-serif" font-size="17" font-weight="700" text-anchor="middle" fill="#171717">[Local backup download]</text>
+<rect x="2276" y="910" width="308" height="36" fill="white"/>
+<text x="2430" y="926" font-family="Arial,Helvetica,sans-serif" font-size="17" font-weight="700" text-anchor="middle" fill="#171717">[Profile &amp; permitted operations]</text>
+<rect x="2608" y="2363" width="44" height="22" fill="white"/>
+<text x="2630" y="2379" font-family="Arial,Helvetica,sans-serif" font-size="13" font-weight="700" text-anchor="middle" fill="#171717">Yes</text>
+<rect x="1360" y="2452" width="42" height="22" fill="white"/>
+<text x="1381" y="2468" font-family="Arial,Helvetica,sans-serif" font-size="13" font-weight="700" text-anchor="middle" fill="#171717">No</text>
+<text x="64" y="55" font-family="Arial,Helvetica,sans-serif" font-size="30" font-weight="700" text-anchor="start" fill="#171717">iPawcus  |  Super Admin Activity Diagram</text>
+<text x="64" y="94" font-family="Arial,Helvetica,sans-serif" font-size="16" font-weight="400" text-anchor="start" fill="#555555">Accounts, branch/feature authority, reports, payment configuration, oversight, and local backup export</text>
+<text x="64" y="129" font-family="Arial,Helvetica,sans-serif" font-size="13" font-weight="400" text-anchor="start" fill="#555555">Current local implementation reviewed: 19 October 2026  |  Rounded box: activity  |  Diamond: decision / merge  |  Small label: responsible actor</text>
+<text x="64" y="2697" font-family="Arial,Helvetica,sans-serif" font-size="17" font-weight="700" text-anchor="start" fill="#171717">Reading the revised diagram</text>
+<text x="64" y="2733" font-family="Arial,Helvetica,sans-serif" font-size="14" font-weight="400" text-anchor="start" fill="#555555">Columns are alternative work areas. Merge diamonds combine alternatives; they do not wait for every activity to finish. Pending reviews may be revisited later.</text>
+<text x="64" y="2763" font-family="Arial,Helvetica,sans-serif" font-size="14" font-weight="400" text-anchor="start" fill="#555555">Use the selected action's validation rules. For a timeout or uncertain write result, refresh the record before resubmitting. Leaving an activity returns to the menu.</text>
+<text x="64" y="2793" font-family="Arial,Helvetica,sans-serif" font-size="14" font-weight="400" text-anchor="start" fill="#555555">Archive is an administrative account label in the current code; do not describe it as revoking existing tokens or reliably blocking password login.</text>
+<text x="64" y="2823" font-family="Arial,Helvetica,sans-serif" font-size="14" font-weight="400" text-anchor="start" fill="#555555">Reports, staff Activity Log, media review, and lifecycle recovery reporting are separate workspaces. The recovery report does not repair records.</text>
+<text x="64" y="2853" font-family="Arial,Helvetica,sans-serif" font-size="14" font-weight="400" text-anchor="start" fill="#555555">Backup exports download locally; no retained ZIP, automated schedule, in-app restore, or verified disaster-recovery workflow is implied.</text>
+</svg>

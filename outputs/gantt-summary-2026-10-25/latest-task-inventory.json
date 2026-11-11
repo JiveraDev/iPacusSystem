@@ -1,0 +1,2767 @@
+[
+  {
+    "row": 6,
+    "name": "Define system access structure",
+    "description": "Define the public entry pages, authenticated dashboard entry, and user access flow.",
+    "group": "Increment 1 - Requirements",
+    "source": "Original schedule"
+  },
+  {
+    "row": 7,
+    "name": "Define user roles and access responsibilities",
+    "description": "Specify the responsibilities and expected access of pet owners, administrators, veterinarians, and the super administrator.",
+    "group": "Increment 1 - Requirements",
+    "source": "Original schedule"
+  },
+  {
+    "row": 8,
+    "name": "Define secure login and recovery requirements",
+    "description": "Specify login validation, inactive-account handling, email verification, OTP expiry, and password recovery requirements.",
+    "group": "Increment 1 - Requirements",
+    "source": "Original schedule"
+  },
+  {
+    "row": 9,
+    "name": "Design landing and authentication page prototypes",
+    "description": "Design the landing, login, registration, email verification, forgot-password, reset-password, and server-down pages.",
+    "group": "Increment 1 - Design",
+    "source": "Original schedule"
+  },
+  {
+    "row": 10,
+    "name": "Design authentication database structure",
+    "description": "Design user, role, account-state, OTP, and password-recovery data structures.",
+    "group": "Increment 1 - Design",
+    "source": "Original schedule"
+  },
+  {
+    "row": 11,
+    "name": "Design authentication system flow",
+    "description": "Document registration, verification, login, password recovery, account-state, and health-check flow.",
+    "group": "Increment 1 - Design",
+    "source": "Original schedule"
+  },
+  {
+    "row": 12,
+    "name": "Develop landing page",
+    "description": "Implement the public landing page and navigation to registration and login.",
+    "group": "Increment 1 - Coding",
+    "source": "Original schedule"
+  },
+  {
+    "row": 13,
+    "name": "Develop registration page",
+    "description": "Implement account registration and pet-owner profile registration.",
+    "group": "Increment 1 - Coding",
+    "source": "Original schedule"
+  },
+  {
+    "row": 14,
+    "name": "Develop login page",
+    "description": "Implement login authentication, session storage, dashboard handoff, and account-state checks.",
+    "group": "Increment 1 - Coding",
+    "source": "Original schedule"
+  },
+  {
+    "row": 15,
+    "name": "Develop email verification OTP",
+    "description": "Generate, send, verify, and resend account-verification OTP codes.",
+    "group": "Increment 1 - Coding",
+    "source": "Original schedule"
+  },
+  {
+    "row": 16,
+    "name": "Develop forgot-password OTP flow",
+    "description": "Allow users to request a reset OTP and verify the code before setting a new password.",
+    "group": "Increment 1 - Coding",
+    "source": "Original schedule"
+  },
+  {
+    "row": 17,
+    "name": "Develop admin and veterinarian account creation",
+    "description": "Allow the super administrator to create, list, activate, and deactivate staff and veterinarian accounts.",
+    "group": "Increment 1 - Coding",
+    "source": "Original schedule"
+  },
+  {
+    "row": 18,
+    "name": "Develop server health check",
+    "description": "Check frontend, API, and database availability before allowing normal application access.",
+    "group": "Increment 1 - Coding",
+    "source": "Original schedule"
+  },
+  {
+    "row": 19,
+    "name": "Develop server-down page",
+    "description": "Display a blocking recovery screen when the API or database is unavailable.",
+    "group": "Increment 1 - Coding",
+    "source": "Original schedule"
+  },
+  {
+    "row": 20,
+    "name": "Test registration and email verification",
+    "description": "Validate registration, OTP creation, expiry, resend, verification, and duplicate-email handling.",
+    "group": "Increment 1 - Testing",
+    "source": "Original schedule"
+  },
+  {
+    "row": 21,
+    "name": "Test login and inactive-account handling",
+    "description": "Validate valid and invalid login, session handling, deactivated login blocking, and dashboard redirection.",
+    "group": "Increment 1 - Testing",
+    "source": "Original schedule"
+  },
+  {
+    "row": 22,
+    "name": "Test password recovery",
+    "description": "Validate reset OTP, new-password validation, expired codes, and successful login after reset.",
+    "group": "Increment 1 - Testing",
+    "source": "Original schedule"
+  },
+  {
+    "row": 23,
+    "name": "Test API and database outage handling",
+    "description": "Stop the API or database and verify the health check, server-down page, retry behavior, and recovery.",
+    "group": "Increment 1 - Testing",
+    "source": "Original schedule"
+  },
+  {
+    "row": 24,
+    "name": "Define profile management requirements",
+    "description": "Define editable profile details, profile images, passwords, schedules, preferences, and account-state controls.",
+    "group": "Increment 2 - Requirements",
+    "source": "Original schedule"
+  },
+  {
+    "row": 25,
+    "name": "Define role-based access requirements",
+    "description": "Specify page, menu, and action access for each system role.",
+    "group": "Increment 2 - Requirements",
+    "source": "Original schedule"
+  },
+  {
+    "row": 26,
+    "name": "Design user profile pages",
+    "description": "Design pet-owner, administrator, veterinarian, and shared profile-management interfaces.",
+    "group": "Increment 2 - Design",
+    "source": "Original schedule"
+  },
+  {
+    "row": 27,
+    "name": "Design role-based dashboard navigation",
+    "description": "Design sidebar visibility, route access, profile links, and administrative account controls.",
+    "group": "Increment 2 - Design",
+    "source": "Original schedule"
+  },
+  {
+    "row": 28,
+    "name": "Design profile and role database structure",
+    "description": "Design profile, schedule, account-state, notification-preference, and role-related database fields.",
+    "group": "Increment 2 - Design",
+    "source": "Original schedule"
+  },
+  {
+    "row": 29,
+    "name": "Develop pet-owner profile management",
+    "description": "Implement profile view, edit, profile image, password, theme, and notification preferences for owners.",
+    "group": "Increment 2 - Coding",
+    "source": "Original schedule"
+  },
+  {
+    "row": 30,
+    "name": "Develop administrator profile management",
+    "description": "Implement administrator profile, profile image, password, theme, and notification preferences.",
+    "group": "Increment 2 - Coding",
+    "source": "Original schedule"
+  },
+  {
+    "row": 31,
+    "name": "Develop veterinarian profile and schedule management",
+    "description": "Implement veterinarian profile editing, profile image, password change, and weekly schedule management.",
+    "group": "Increment 2 - Coding",
+    "source": "Original schedule"
+  },
+  {
+    "row": 32,
+    "name": "Implement dashboard role navigation",
+    "description": "Filter dashboard menus and internal routes according to the authenticated role.",
+    "group": "Increment 2 - Coding",
+    "source": "Original schedule"
+  },
+  {
+    "row": 33,
+    "name": "Develop staff account management interface",
+    "description": "Implement account listing, staff creation, activation, deactivation, position, and employment-status controls.",
+    "group": "Increment 2 - Coding",
+    "source": "Original schedule"
+  },
+  {
+    "row": 34,
+    "name": "Implement theme and dark mode",
+    "description": "Add shared theme provider, persistent light/dark mode, and theme toggle controls.",
+    "group": "Increment 2 - Coding",
+    "source": "Original schedule"
+  },
+  {
+    "row": 35,
+    "name": "Implement shared auto-refresh hooks",
+    "description": "Add quiet refresh behavior to data-heavy dashboard pages without disruptive reloads.",
+    "group": "Increment 2 - Coding",
+    "source": "Original schedule"
+  },
+  {
+    "row": 36,
+    "name": "Implement notification preferences",
+    "description": "Allow users to manage in-app, email, push, booking, queue, and reminder preferences.",
+    "group": "Increment 2 - Coding",
+    "source": "Original schedule"
+  },
+  {
+    "row": 37,
+    "name": "Implement staff account soft removal",
+    "description": "Allow eligible staff accounts to be soft-removed without deleting historical records.",
+    "group": "Increment 2 - Coding",
+    "source": "Original schedule"
+  },
+  {
+    "row": 38,
+    "name": "Require master key for account removal",
+    "description": "Require master-key confirmation before processing an eligible account-removal request.",
+    "group": "Increment 2 - Coding",
+    "source": "Original schedule"
+  },
+  {
+    "row": 39,
+    "name": "Block protected account removal",
+    "description": "Prevent self-removal and removal of protected super-administrator accounts.",
+    "group": "Increment 2 - Coding",
+    "source": "Original schedule"
+  },
+  {
+    "row": 40,
+    "name": "Clean account-directory presentation",
+    "description": "Improve active, inactive, and removed account presentation and remove outdated directory entries.",
+    "group": "Increment 2 - Design",
+    "source": "Original schedule"
+  },
+  {
+    "row": 41,
+    "name": "Test profile updates and persistence",
+    "description": "Validate owner, administrator, and veterinarian profile changes, images, passwords, and stored values.",
+    "group": "Increment 2 - Testing",
+    "source": "Original schedule"
+  },
+  {
+    "row": 42,
+    "name": "Test role-based navigation",
+    "description": "Verify that each role sees the correct menu items and cannot open unauthorized dashboard pages.",
+    "group": "Increment 2 - Testing",
+    "source": "Original schedule"
+  },
+  {
+    "row": 43,
+    "name": "Test account activation, deactivation, and removal",
+    "description": "Validate account status updates, login blocking, master-key confirmation, and protected-account rules.",
+    "group": "Increment 2 - Testing",
+    "source": "Original schedule"
+  },
+  {
+    "row": 44,
+    "name": "Test veterinarian schedule updates",
+    "description": "Validate weekly schedule saving, retrieval, availability display, and booking use.",
+    "group": "Increment 2 - Testing",
+    "source": "Original schedule"
+  },
+  {
+    "row": 45,
+    "name": "Define pet registration and EMR requirements",
+    "description": "Define pet profiles, ownership, diagnosis, treatment, vaccination, attachments, consent, and record-update requirements.",
+    "group": "Increment 3 - Requirements",
+    "source": "Original schedule"
+  },
+  {
+    "row": 46,
+    "name": "Design pet registry and owner pet views",
+    "description": "Design staff pet registry, owner pet list, pet profile, status, and ownership-linking interfaces.",
+    "group": "Increment 3 - Design",
+    "source": "Original schedule"
+  },
+  {
+    "row": 47,
+    "name": "Design EMR and diagnosis interfaces",
+    "description": "Design owner, administrator, and veterinarian record views, diagnosis forms, histories, and update-request pages.",
+    "group": "Increment 3 - Design",
+    "source": "Original schedule"
+  },
+  {
+    "row": 48,
+    "name": "Design pet and medical-record database",
+    "description": "Design pets, ownership, diagnosis, vaccination, organized records, attachments, and consent-related structures.",
+    "group": "Increment 3 - Design",
+    "source": "Original schedule"
+  },
+  {
+    "row": 49,
+    "name": "Develop clinic pet registration",
+    "description": "Allow staff to create pet records with identifying details, images, and status.",
+    "group": "Increment 3 - Coding",
+    "source": "Original schedule"
+  },
+  {
+    "row": 50,
+    "name": "Develop pet search and detail retrieval",
+    "description": "Allow staff to search pets and open detailed pet records.",
+    "group": "Increment 3 - Coding",
+    "source": "Original schedule"
+  },
+  {
+    "row": 51,
+    "name": "Develop pet ownership linking",
+    "description": "Allow pet owners to link an existing clinic pet using its sharable identifier.",
+    "group": "Increment 3 - Coding",
+    "source": "Original schedule"
+  },
+  {
+    "row": 52,
+    "name": "Develop pet profile editing",
+    "description": "Allow authorized users to update pet details, status, and profile image.",
+    "group": "Increment 3 - Coding",
+    "source": "Original schedule"
+  },
+  {
+    "row": 53,
+    "name": "Develop owner medical-record view",
+    "description": "Allow pet owners to view organized medical-record summaries and attachments.",
+    "group": "Increment 3 - Coding",
+    "source": "Original schedule"
+  },
+  {
+    "row": 54,
+    "name": "Develop veterinarian EMR browser",
+    "description": "Allow veterinarians to search pets and view or update organized medical records.",
+    "group": "Increment 3 - Coding",
+    "source": "Original schedule"
+  },
+  {
+    "row": 55,
+    "name": "Develop veterinarian diagnosis form",
+    "description": "Record assessment, diagnosis, treatment, prescription, follow-up, attachments, and optional vaccination.",
+    "group": "Increment 3 - Coding",
+    "source": "Original schedule"
+  },
+  {
+    "row": 56,
+    "name": "Develop veterinarian approved queue and worklist",
+    "description": "Show approved and assigned queue records ready for veterinarian action.",
+    "group": "Increment 3 - Coding",
+    "source": "Original schedule"
+  },
+  {
+    "row": 57,
+    "name": "Develop diagnosis history",
+    "description": "Allow veterinarians to review previously completed diagnosis records.",
+    "group": "Increment 3 - Coding",
+    "source": "Original schedule"
+  },
+  {
+    "row": 58,
+    "name": "Make diagnosis vaccination optional",
+    "description": "Allow diagnosis submission without creating a vaccination record.",
+    "group": "Increment 3 - Coding",
+    "source": "Original schedule"
+  },
+  {
+    "row": 59,
+    "name": "Add extra diagnosis consent",
+    "description": "Allow veterinarians to request, capture, and attach additional signed consent during diagnosis.",
+    "group": "Increment 3 - Coding",
+    "source": "Original schedule"
+  },
+  {
+    "row": 60,
+    "name": "Add medical-record print action",
+    "description": "Provide a direct print action for owner medical records.",
+    "group": "Increment 3 - Coding",
+    "source": "Original schedule"
+  },
+  {
+    "row": 61,
+    "name": "Add medical-record email copy",
+    "description": "Allow an owner-safe medical-record copy to be sent by email.",
+    "group": "Increment 3 - Coding",
+    "source": "Original schedule"
+  },
+  {
+    "row": 62,
+    "name": "Develop record update request submission",
+    "description": "Allow pet owners to request corrections and attach supporting evidence.",
+    "group": "Increment 3 - Coding",
+    "source": "Original schedule"
+  },
+  {
+    "row": 63,
+    "name": "Develop admin record update review",
+    "description": "Allow administrators to approve, reject, assign, and update record-correction requests.",
+    "group": "Increment 3 - Coding",
+    "source": "Original schedule"
+  },
+  {
+    "row": 64,
+    "name": "Develop veterinarian record update worklist",
+    "description": "Allow veterinarians to process assigned medical-record update requests.",
+    "group": "Increment 3 - Coding",
+    "source": "Original schedule"
+  },
+  {
+    "row": 65,
+    "name": "Protect medical and consent media",
+    "description": "Require valid authenticated access before opening protected attachments and signatures.",
+    "group": "Increment 3 - Security",
+    "source": "Original schedule"
+  },
+  {
+    "row": 66,
+    "name": "Detect meaningful medical-record changes",
+    "description": "Compare existing and submitted record content before generating owner notifications.",
+    "group": "Increment 3 - Coding",
+    "source": "Original schedule"
+  },
+  {
+    "row": 67,
+    "name": "Notify owner after meaningful record update",
+    "description": "Send an in-app notification and redirect only when medical-record content meaningfully changes.",
+    "group": "Increment 3 - Coding",
+    "source": "Original schedule"
+  },
+  {
+    "row": 68,
+    "name": "Test pet creation, editing, and ownership linking",
+    "description": "Validate pet creation, duplicate handling, status, image upload, linking, and unlinking.",
+    "group": "Increment 3 - Testing",
+    "source": "Original schedule"
+  },
+  {
+    "row": 69,
+    "name": "Test diagnosis without vaccination",
+    "description": "Save a complete diagnosis with empty vaccination fields.",
+    "group": "Increment 3 - Testing",
+    "source": "Original schedule"
+  },
+  {
+    "row": 70,
+    "name": "Test diagnosis consent and attachments",
+    "description": "Validate extra consent, signatures, protected attachments, and history display.",
+    "group": "Increment 3 - Testing",
+    "source": "Original schedule"
+  },
+  {
+    "row": 71,
+    "name": "Test EMR save, print, and email",
+    "description": "Validate grouped record save, owner visibility, print output, email delivery, and meaningful-change notification.",
+    "group": "Increment 3 - Testing",
+    "source": "Original schedule"
+  },
+  {
+    "row": 72,
+    "name": "Test record update request lifecycle",
+    "description": "Validate owner submission, admin review, veterinarian completion, payment state, and notification redirect.",
+    "group": "Increment 3 - Testing",
+    "source": "Original schedule"
+  },
+  {
+    "row": 73,
+    "name": "Define booking and consultation requirements",
+    "description": "Define service selection, scheduling, payment proof, approval, rescheduling, cancellation, home service, boarding, and online consultation requirements.",
+    "group": "Increment 4 - Requirements",
+    "source": "Original schedule"
+  },
+  {
+    "row": 74,
+    "name": "Design standard booking forms",
+    "description": "Design service booking forms for general check-up, vaccination, surgery, grooming, dental, parasite control, and related services.",
+    "group": "Increment 4 - Design",
+    "source": "Original schedule"
+  },
+  {
+    "row": 75,
+    "name": "Design appointment management interface",
+    "description": "Design admin booking review, approval, rejection, rescheduling, cancellation, receiving, and supporting-file preview.",
+    "group": "Increment 4 - Design",
+    "source": "Original schedule"
+  },
+  {
+    "row": 76,
+    "name": "Design online consultation workflow",
+    "description": "Design consultation booking, schedule selection, payment, confirmation, start, join, end, and diagnosis flow.",
+    "group": "Increment 4 - Design",
+    "source": "Original schedule"
+  },
+  {
+    "row": 77,
+    "name": "Design payment method and proof flow",
+    "description": "Design payment proof upload, QR options, active payment methods, and payment status handling.",
+    "group": "Increment 4 - Design",
+    "source": "Original schedule"
+  },
+  {
+    "row": 78,
+    "name": "Develop standard booking submission",
+    "description": "Allow owners to submit service bookings using linked or temporarily entered pet information.",
+    "group": "Increment 4 - Coding",
+    "source": "Original schedule"
+  },
+  {
+    "row": 79,
+    "name": "Develop booking management actions",
+    "description": "Allow administrators to approve, reject, cancel, reschedule, receive, and review bookings.",
+    "group": "Increment 4 - Coding",
+    "source": "Original schedule"
+  },
+  {
+    "row": 80,
+    "name": "Develop concern and payment-proof upload",
+    "description": "Allow supporting concern files and payment proof to be uploaded and attached to bookings.",
+    "group": "Increment 4 - Coding",
+    "source": "Original schedule"
+  },
+  {
+    "row": 81,
+    "name": "Develop veterinarian schedule selection",
+    "description": "Use veterinarian schedules and existing bookings when selecting consultation dates and times.",
+    "group": "Increment 4 - Coding",
+    "source": "Original schedule"
+  },
+  {
+    "row": 82,
+    "name": "Develop online consultation booking",
+    "description": "Allow pet owners to schedule and pay for an online consultation.",
+    "group": "Increment 4 - Coding",
+    "source": "Original schedule"
+  },
+  {
+    "row": 83,
+    "name": "Develop Jitsi room start and join flow",
+    "description": "Allow veterinarians to start a room and owners to join the active consultation.",
+    "group": "Increment 4 - Coding",
+    "source": "Original schedule"
+  },
+  {
+    "row": 84,
+    "name": "Develop online consultation diagnosis",
+    "description": "Allow veterinarians to submit a diagnosis and complete the online consultation.",
+    "group": "Increment 4 - Coding",
+    "source": "Original schedule"
+  },
+  {
+    "row": 85,
+    "name": "Develop home service details and address",
+    "description": "Collect service address, contact information, transport details, and applicable fees.",
+    "group": "Increment 4 - Coding",
+    "source": "Original schedule"
+  },
+  {
+    "row": 86,
+    "name": "Develop home service signature and confirmation",
+    "description": "Require consent signature and payment information before home service submission.",
+    "group": "Increment 4 - Coding",
+    "source": "Original schedule"
+  },
+  {
+    "row": 87,
+    "name": "Develop boarding booking",
+    "description": "Allow owners to select pets, room type, dates, emergency details, and boarding service information.",
+    "group": "Increment 4 - Coding",
+    "source": "Original schedule"
+  },
+  {
+    "row": 88,
+    "name": "Develop boarding liability consent",
+    "description": "Require a signed liability consent before boarding booking submission or payment.",
+    "group": "Increment 4 - Coding",
+    "source": "Original schedule"
+  },
+  {
+    "row": 89,
+    "name": "Develop boarding room and stay management",
+    "description": "Manage rooms, assignments, reservations, check-in, observations, tasks, documents, desired checkout, and check-out.",
+    "group": "Increment 4 - Coding",
+    "source": "Original schedule"
+  },
+  {
+    "row": 90,
+    "name": "Develop special service catalog and booking",
+    "description": "Allow authorized users to publish and manage special services and owners to submit eligible bookings.",
+    "group": "Increment 4 - Coding",
+    "source": "Original schedule"
+  },
+  {
+    "row": 91,
+    "name": "Develop payment method management",
+    "description": "Allow the super administrator to manage active payment methods, QR images, and OTP-protected updates.",
+    "group": "Increment 4 - Coding",
+    "source": "Original schedule"
+  },
+  {
+    "row": 92,
+    "name": "Assign consent template to online consultation",
+    "description": "Load and store the assigned consent template and signature metadata for online consultation.",
+    "group": "Increment 4 - Consent",
+    "source": "Original schedule"
+  },
+  {
+    "row": 93,
+    "name": "Assign consent template to home service",
+    "description": "Load and store the assigned consent template and signature metadata for home service.",
+    "group": "Increment 4 - Consent",
+    "source": "Original schedule"
+  },
+  {
+    "row": 94,
+    "name": "Assign consent template to boarding",
+    "description": "Load and store the assigned liability consent and signature metadata for boarding.",
+    "group": "Increment 4 - Consent",
+    "source": "Original schedule"
+  },
+  {
+    "row": 95,
+    "name": "Test standard booking lifecycle",
+    "description": "Validate submit, approve, reject, reschedule, cancel, receive, references, supporting files, and notifications.",
+    "group": "Increment 4 - Testing",
+    "source": "Original schedule"
+  },
+  {
+    "row": 96,
+    "name": "Test veterinarian schedule and conflict handling",
+    "description": "Validate available dates, time selection, existing-booking conflicts, and schedule updates.",
+    "group": "Increment 4 - Testing",
+    "source": "Original schedule"
+  },
+  {
+    "row": 97,
+    "name": "Test online consultation start, join, end, and diagnosis",
+    "description": "Validate Jitsi environment configuration and the complete online consultation workflow.",
+    "group": "Increment 4 - Testing",
+    "source": "Original schedule"
+  },
+  {
+    "row": 98,
+    "name": "Test payment proof and payment methods",
+    "description": "Validate protected proof upload, QR image display, OTP updates, active methods, and payment states.",
+    "group": "Increment 4 - Testing",
+    "source": "Original schedule"
+  },
+  {
+    "row": 99,
+    "name": "Test home service workflow",
+    "description": "Validate address, transport fee, assigned consent, signature, payment proof, booking storage, and admin handling.",
+    "group": "Increment 4 - Testing",
+    "source": "Original schedule"
+  },
+  {
+    "row": 100,
+    "name": "Test boarding workflow",
+    "description": "Validate consent, capacity, room assignment, check-in, tasks, observations, documents, and check-out.",
+    "group": "Increment 4 - Testing",
+    "source": "Original schedule"
+  },
+  {
+    "row": 101,
+    "name": "Define queue and service-request requirements",
+    "description": "Define queue creation, self-service access, consent, assignment, movement, diagnosis handoff, billing, and status display requirements.",
+    "group": "Increment 5 - Requirements",
+    "source": "Original schedule"
+  },
+  {
+    "row": 102,
+    "name": "Design admin queue interface",
+    "description": "Design queue list, status controls, assignments, receive, return, re-entry, and cancellation actions.",
+    "group": "Increment 5 - Design",
+    "source": "Original schedule"
+  },
+  {
+    "row": 103,
+    "name": "Design self-service queue interface",
+    "description": "Design clinic-network access, pet selection, consent signing, queue submission, and owner cancellation.",
+    "group": "Increment 5 - Design",
+    "source": "Original schedule"
+  },
+  {
+    "row": 104,
+    "name": "Design veterinarian queue worklist",
+    "description": "Design approved queue and assigned-work views for veterinarian processing.",
+    "group": "Increment 5 - Design",
+    "source": "Original schedule"
+  },
+  {
+    "row": 105,
+    "name": "Design TV status display",
+    "description": "Design a public read-only display for queue, booking, payment, scheduled, and completed statuses without sensitive information.",
+    "group": "Increment 5 - Design",
+    "source": "Original schedule"
+  },
+  {
+    "row": 106,
+    "name": "Develop admin queue registration",
+    "description": "Allow authorized clinic staff to add pets to the queue.",
+    "group": "Increment 5 - Coding",
+    "source": "Original schedule"
+  },
+  {
+    "row": 107,
+    "name": "Develop self-service queue submission",
+    "description": "Allow owners to submit a queue entry using a linked pet after network and consent checks.",
+    "group": "Increment 5 - Coding",
+    "source": "Original schedule"
+  },
+  {
+    "row": 108,
+    "name": "Develop queue status updates",
+    "description": "Allow queue records to move through waiting, assigned, received, in progress, returned, completed, and cancelled states.",
+    "group": "Increment 5 - Coding",
+    "source": "Original schedule"
+  },
+  {
+    "row": 109,
+    "name": "Develop queue assignment to veterinarian",
+    "description": "Allow administrators to assign queue entries to available veterinarians.",
+    "group": "Increment 5 - Coding",
+    "source": "Original schedule"
+  },
+  {
+    "row": 110,
+    "name": "Develop queue receive action",
+    "description": "Allow a veterinarian or authorized user to receive assigned queue work.",
+    "group": "Increment 5 - Coding",
+    "source": "Original schedule"
+  },
+  {
+    "row": 111,
+    "name": "Develop queue return and re-entry",
+    "description": "Allow a queue record to be returned and later re-entered when service is interrupted.",
+    "group": "Increment 5 - Coding",
+    "source": "Original schedule"
+  },
+  {
+    "row": 112,
+    "name": "Assign consent template to self-service queue",
+    "description": "Load the assigned queue consent and persist signer and signature metadata.",
+    "group": "Increment 5 - Consent",
+    "source": "Original schedule"
+  },
+  {
+    "row": 113,
+    "name": "Develop visit and billing record creation",
+    "description": "Create or connect a visit record after diagnosis and prepare it for billing.",
+    "group": "Increment 5 - Coding",
+    "source": "Original schedule"
+  },
+  {
+    "row": 114,
+    "name": "Develop service and product charge entry",
+    "description": "Add service catalog and inventory charges to a visit.",
+    "group": "Increment 5 - Coding",
+    "source": "Original schedule"
+  },
+  {
+    "row": 115,
+    "name": "Develop payment posting and invoice state",
+    "description": "Record visit payments, update balances, and trigger invoice or payment notifications.",
+    "group": "Increment 5 - Coding",
+    "source": "Original schedule"
+  },
+  {
+    "row": 116,
+    "name": "Develop service catalog",
+    "description": "Manage service names, categories, prices, status, and linked materials.",
+    "group": "Increment 5 - Coding",
+    "source": "Original schedule"
+  },
+  {
+    "row": 117,
+    "name": "Link service materials to inventory",
+    "description": "Connect service catalog materials to inventory items used during billing.",
+    "group": "Increment 5 - Coding",
+    "source": "Original schedule"
+  },
+  {
+    "row": 118,
+    "name": "Consume inventory stock from visit charges",
+    "description": "Reduce inventory stock when a billed service or product uses linked inventory materials.",
+    "group": "Increment 5 - Coding",
+    "source": "Original schedule"
+  },
+  {
+    "row": 119,
+    "name": "Reverse stock when charges are replaced",
+    "description": "Create reversing stock movements when a visit charge is removed or replaced.",
+    "group": "Increment 5 - Coding",
+    "source": "Original schedule"
+  },
+  {
+    "row": 120,
+    "name": "Develop React TV status display",
+    "description": "Provide a React route for full-screen queue, booking, payment, scheduled, and completed status monitoring.",
+    "group": "Increment 5 - Coding",
+    "source": "Original schedule"
+  },
+  {
+    "row": 121,
+    "name": "Develop standalone PHP TV status display",
+    "description": "Provide a standalone subdomain package that reads status data without requiring the React build.",
+    "group": "Increment 5 - Coding",
+    "source": "Original schedule"
+  },
+  {
+    "row": 122,
+    "name": "Develop queue and booking lifecycle maintenance",
+    "description": "Expire previous-day queues and process missed eligible bookings according to lifecycle rules.",
+    "group": "Increment 5 - Coding",
+    "source": "Original schedule"
+  },
+  {
+    "row": 123,
+    "name": "Develop lifecycle recovery report",
+    "description": "Identify completed diagnosis records missing visits, charges, or expected billing links.",
+    "group": "Increment 5 - Coding",
+    "source": "Original schedule"
+  },
+  {
+    "row": 124,
+    "name": "Test queue creation and consent",
+    "description": "Validate admin, booking-received, and self-service queue creation with assigned consent.",
+    "group": "Increment 5 - Testing",
+    "source": "Original schedule"
+  },
+  {
+    "row": 125,
+    "name": "Test queue assignment and movement",
+    "description": "Validate assign, receive, return, re-enter, complete, cancel, and previous-day expiry behavior.",
+    "group": "Increment 5 - Testing",
+    "source": "Original schedule"
+  },
+  {
+    "row": 126,
+    "name": "Test diagnosis-to-billing handoff",
+    "description": "Complete a diagnosis and verify visit creation, charges, payment state, and owner notifications.",
+    "group": "Increment 5 - Testing",
+    "source": "Original schedule"
+  },
+  {
+    "row": 127,
+    "name": "Test inventory consumption and reversal",
+    "description": "Validate stock use, insufficient-stock blocking, charge replacement, and movement reversal.",
+    "group": "Increment 5 - Testing",
+    "source": "Original schedule"
+  },
+  {
+    "row": 128,
+    "name": "Test lifecycle maintenance and recovery report",
+    "description": "Validate queue expiry, missed booking handling, notification side effects, and missing-billing detection.",
+    "group": "Increment 5 - Testing",
+    "source": "Original schedule"
+  },
+  {
+    "row": 129,
+    "name": "Test React TV display",
+    "description": "Validate status accuracy, refresh behavior, privacy, and Asia/Manila date boundaries on the React route.",
+    "group": "Increment 5 - Testing",
+    "source": "Original schedule"
+  },
+  {
+    "row": 130,
+    "name": "Test standalone TV display and subdomain",
+    "description": "Validate the standalone package, DNS/document root, refresh, privacy, and consistency with the main application.",
+    "group": "Increment 5 - Testing",
+    "source": "Original schedule"
+  },
+  {
+    "row": 131,
+    "name": "Define dashboard and reporting requirements",
+    "description": "Define KPI, visualization, report, filter, export, monitoring, notification, and inventory requirements.",
+    "group": "Increment 6 - Requirements",
+    "source": "Original schedule"
+  },
+  {
+    "row": 132,
+    "name": "Design admin operational dashboards",
+    "description": "Design admin pages for bookings, queue, boarding, POS, inventory, services, consent, records, and profiles.",
+    "group": "Increment 6 - Design",
+    "source": "Original schedule"
+  },
+  {
+    "row": 133,
+    "name": "Design super-admin KPI dashboard",
+    "description": "Design KPI cards, charts, operational attention tables, date controls, and previous-period comparison layouts.",
+    "group": "Increment 6 - Design",
+    "source": "Original schedule"
+  },
+  {
+    "row": 134,
+    "name": "Design report center and print preview",
+    "description": "Design report selection, filters, date range, table preview, browser print, and CSV export layouts.",
+    "group": "Increment 6 - Design",
+    "source": "Original schedule"
+  },
+  {
+    "row": 135,
+    "name": "Develop admin operational dashboards",
+    "description": "Implement the operational pages used by administrators and the super administrator.",
+    "group": "Increment 6 - Coding",
+    "source": "Original schedule"
+  },
+  {
+    "row": 136,
+    "name": "Develop super-admin KPI dashboard",
+    "description": "Implement dashboard cards, charts, staff/activity monitoring, attention tables, and quiet refresh.",
+    "group": "Increment 6 - Coding",
+    "source": "Original schedule"
+  },
+  {
+    "row": 137,
+    "name": "Implement revenue and service charts",
+    "description": "Implement chart datasets and labels for revenue, service utilization, and comparison periods.",
+    "group": "Increment 6 - Coding",
+    "source": "Original schedule"
+  },
+  {
+    "row": 138,
+    "name": "Implement report generation backend",
+    "description": "Generate report tables from bookings, queues, visits, diagnosis, inventory, consent, and pet records.",
+    "group": "Increment 6 - Coding",
+    "source": "Original schedule"
+  },
+  {
+    "row": 139,
+    "name": "Implement report preview and browser print",
+    "description": "Display generated reports in a print-ready preview and support browser printing.",
+    "group": "Increment 6 - Coding",
+    "source": "Original schedule"
+  },
+  {
+    "row": 140,
+    "name": "Implement CSV report export",
+    "description": "Export generated report rows and columns as CSV files.",
+    "group": "Increment 6 - Coding",
+    "source": "Original schedule"
+  },
+  {
+    "row": 141,
+    "name": "Develop inventory item management",
+    "description": "Implement item creation, editing, images, SKU, category, supplier, location, and stock metadata.",
+    "group": "Increment 6 - Coding",
+    "source": "Original schedule"
+  },
+  {
+    "row": 142,
+    "name": "Develop inventory stock-in",
+    "description": "Record stock receipts with supplier, location, batch, quantity, cost, and expiry details.",
+    "group": "Increment 6 - Coding",
+    "source": "Original schedule"
+  },
+  {
+    "row": 143,
+    "name": "Develop inventory stock-out and disposal",
+    "description": "Record stock-out, damaged, expired, and disposal movements.",
+    "group": "Increment 6 - Coding",
+    "source": "Original schedule"
+  },
+  {
+    "row": 144,
+    "name": "Develop low-stock and near-expiry monitoring",
+    "description": "Display items below reorder level and batches approaching expiry.",
+    "group": "Increment 6 - Coding",
+    "source": "Original schedule"
+  },
+  {
+    "row": 145,
+    "name": "Develop notification bell and feed",
+    "description": "Display grouped notifications, unread counts, read actions, and redirects.",
+    "group": "Increment 6 - Coding",
+    "source": "Original schedule"
+  },
+  {
+    "row": 146,
+    "name": "Develop responsive notification page",
+    "description": "Provide a dedicated small-screen notification page with filtering, pagination, redirects, and quiet refresh.",
+    "group": "Increment 6 - Coding",
+    "source": "Original schedule"
+  },
+  {
+    "row": 147,
+    "name": "Develop reminder processing",
+    "description": "Generate eligible booking, follow-up, boarding, and task reminders.",
+    "group": "Increment 6 - Coding",
+    "source": "Original schedule"
+  },
+  {
+    "row": 148,
+    "name": "Develop browser push notifications",
+    "description": "Register the service worker, manage subscriptions, and support push delivery when configured.",
+    "group": "Increment 6 - Coding",
+    "source": "Original schedule"
+  },
+  {
+    "row": 149,
+    "name": "Develop pet media monitoring",
+    "description": "Aggregate consent, booking, queue, diagnosis, and boarding media with pet, source, and date filters.",
+    "group": "Increment 6 - Coding",
+    "source": "Original schedule"
+  },
+  {
+    "row": 150,
+    "name": "Develop pet-owner account controls",
+    "description": "Review owners, linked pets, activity, account status, ownership links, and removal actions.",
+    "group": "Increment 6 - Coding",
+    "source": "Original schedule"
+  },
+  {
+    "row": 151,
+    "name": "Develop TODO month view",
+    "description": "Display owner tasks in a monthly calendar.",
+    "group": "Increment 6 - Coding",
+    "source": "Original schedule"
+  },
+  {
+    "row": 152,
+    "name": "Develop TODO week and day views",
+    "description": "Display owner tasks in weekly and daily calendar layouts.",
+    "group": "Increment 6 - Coding",
+    "source": "Original schedule"
+  },
+  {
+    "row": 153,
+    "name": "Develop TODO agenda view",
+    "description": "Display scheduled tasks as an ordered agenda list.",
+    "group": "Increment 6 - Coding",
+    "source": "Original schedule"
+  },
+  {
+    "row": 154,
+    "name": "Implement TODO slot and range selection",
+    "description": "Allow users to select calendar slots and date/time ranges while creating tasks.",
+    "group": "Increment 6 - Coding",
+    "source": "Original schedule"
+  },
+  {
+    "row": 155,
+    "name": "Persist TODO start and end times",
+    "description": "Store both start_at and end_at values for scheduled tasks.",
+    "group": "Increment 6 - Coding",
+    "source": "Original schedule"
+  },
+  {
+    "row": 156,
+    "name": "Create shared date picker",
+    "description": "Create a reusable date component for booking, reports, inventory, profile, and task forms.",
+    "group": "Increment 6 - Shared UI",
+    "source": "Original schedule"
+  },
+  {
+    "row": 157,
+    "name": "Standardize system date inputs",
+    "description": "Replace inconsistent date inputs while preserving database-compatible YYYY-MM-DD values.",
+    "group": "Increment 6 - Shared UI",
+    "source": "Original schedule"
+  },
+  {
+    "row": 158,
+    "name": "Test inventory operations",
+    "description": "Validate create item, stock-in, stock-out, supplier, location, batches, low stock, expiry, disposal, and reversals.",
+    "group": "Increment 6 - Testing",
+    "source": "Original schedule"
+  },
+  {
+    "row": 159,
+    "name": "Test notification center",
+    "description": "Validate desktop and mobile layouts, filters, paging, read actions, redirects, and quiet refresh.",
+    "group": "Increment 6 - Testing",
+    "source": "Original schedule"
+  },
+  {
+    "row": 160,
+    "name": "Test email, reminders, and browser push",
+    "description": "Validate reminder eligibility, mail delivery, push permission, subscription, service worker, and delivery.",
+    "group": "Increment 6 - Testing",
+    "source": "Original schedule"
+  },
+  {
+    "row": 161,
+    "name": "Test dashboard KPI and chart accuracy",
+    "description": "Compare dashboard values and chart datasets with representative stored records.",
+    "group": "Increment 6 - Testing",
+    "source": "Original schedule"
+  },
+  {
+    "row": 162,
+    "name": "Test report filters, print, and CSV",
+    "description": "Validate date, service, and animal filters, report tables, browser printing, CSV values, and missing-data notes.",
+    "group": "Increment 6 - Testing",
+    "source": "Original schedule"
+  },
+  {
+    "row": 163,
+    "name": "Test pet media monitoring",
+    "description": "Validate protected media, pet/source/date filters, image preview, schema dependency, and duplicate prevention.",
+    "group": "Increment 6 - Testing",
+    "source": "Original schedule"
+  },
+  {
+    "row": 164,
+    "name": "Test TODO calendar and shared dates",
+    "description": "Validate month/week/day/agenda views, slot selection, range persistence, mobile behavior, and stored date values.",
+    "group": "Increment 6 - Testing",
+    "source": "Original schedule"
+  },
+  {
+    "row": 165,
+    "name": "Test responsive layouts",
+    "description": "Review key pages on phone, tablet, 1080p, and large desktop screens.",
+    "group": "Increment 6 - Testing",
+    "source": "Original schedule"
+  },
+  {
+    "row": 166,
+    "name": "Consolidate canonical DDL and planning documentation",
+    "description": "Maintain current database exports, migration notes, backlog records, deployment instructions, and Gantt documentation.",
+    "group": "Technical Documentation",
+    "source": "Original schedule"
+  },
+  {
+    "row": 167,
+    "name": "Generate API access tokens during login",
+    "description": "Create and associate a bearer token after successful authentication.",
+    "group": "Security Hardening",
+    "source": "Original schedule"
+  },
+  {
+    "row": 168,
+    "name": "Attach bearer tokens to frontend requests",
+    "description": "Send the authenticated token through the Authorization header on protected API requests.",
+    "group": "Security Hardening",
+    "source": "Original schedule"
+  },
+  {
+    "row": 169,
+    "name": "Validate tokens for protected media",
+    "description": "Require a valid token before serving protected consent, concern, payment, and medical files.",
+    "group": "Security Hardening",
+    "source": "Original schedule"
+  },
+  {
+    "row": 170,
+    "name": "Select production database baseline",
+    "description": "Choose the full DDL that will serve as the production database starting point.",
+    "group": "Database Hardening",
+    "source": "Original schedule"
+  },
+  {
+    "row": 171,
+    "name": "Review and order production migrations",
+    "description": "Identify missing, duplicated, and conflicting migrations and arrange the required production order.",
+    "group": "Database Hardening",
+    "source": "Original schedule"
+  },
+  {
+    "row": 172,
+    "name": "Document clean-install database sequence",
+    "description": "Document baseline import and migration steps for a fresh deployment.",
+    "group": "Database Hardening",
+    "source": "Original schedule"
+  },
+  {
+    "row": 173,
+    "name": "Document June 18 upgrade sequence",
+    "description": "Document how an older June 18 database is upgraded to the intended current schema.",
+    "group": "Database Hardening",
+    "source": "Original schedule"
+  },
+  {
+    "row": 174,
+    "name": "Compare consent_form_records definitions",
+    "description": "Compare the reduced and full audit versions of the consent ledger table.",
+    "group": "Database Hardening",
+    "source": "Original schedule"
+  },
+  {
+    "row": 175,
+    "name": "Define final consent ledger columns",
+    "description": "Finalize the columns required by consent helpers, reports, media monitoring, signer details, and audit records.",
+    "group": "Database Hardening",
+    "source": "Original schedule"
+  },
+  {
+    "row": 176,
+    "name": "Create consent ledger reconciliation migration",
+    "description": "Add missing consent ledger columns without deleting existing production data.",
+    "group": "Database Hardening",
+    "source": "Original schedule"
+  },
+  {
+    "row": 177,
+    "name": "Add cash payment enum migration",
+    "description": "Update visit payment methods so cash transactions can be stored.",
+    "group": "Database Hardening",
+    "source": "Original schedule"
+  },
+  {
+    "row": 178,
+    "name": "Create API token migration",
+    "description": "Create the database changes required to store and manage API access tokens.",
+    "group": "Database Hardening",
+    "source": "Original schedule"
+  },
+  {
+    "row": 179,
+    "name": "Create assigned-consent context migration",
+    "description": "Add or align fields linking consent templates, signatures, and source records.",
+    "group": "Database Hardening",
+    "source": "Original schedule"
+  },
+  {
+    "row": 180,
+    "name": "Create account status and removal migration",
+    "description": "Add or confirm account state, removal, deactivation, reason, and audit fields.",
+    "group": "Database Hardening",
+    "source": "Original schedule"
+  },
+  {
+    "row": 181,
+    "name": "Create TODO end-date migration",
+    "description": "Add or verify the field used for task end date and time.",
+    "group": "Database Hardening",
+    "source": "Original schedule"
+  },
+  {
+    "row": 182,
+    "name": "Replace runtime schema changes with migrations",
+    "description": "Remove production dependence on PHP files that automatically create or alter required schema.",
+    "group": "Database Hardening",
+    "source": "Original schedule"
+  },
+  {
+    "row": 183,
+    "name": "Audit tracked environment examples",
+    "description": "Check example configuration files for real database, mail, API, OTP, reminder, or VAPID secrets.",
+    "group": "Security Hardening",
+    "source": "Original schedule"
+  },
+  {
+    "row": 184,
+    "name": "Replace credentials with placeholders",
+    "description": "Ensure tracked example files contain non-sensitive placeholder values only.",
+    "group": "Security Hardening",
+    "source": "Original schedule"
+  },
+  {
+    "row": 185,
+    "name": "Review Git history for exposed secrets",
+    "description": "Inspect repository history for sensitive values committed in earlier revisions.",
+    "group": "Security Hardening",
+    "source": "Original schedule"
+  },
+  {
+    "row": 186,
+    "name": "Rotate exposed credentials",
+    "description": "Rotate database, mail, API, OTP, reminder, and push credentials if exposure is found.",
+    "group": "Security Hardening",
+    "source": "Original schedule"
+  },
+  {
+    "row": 187,
+    "name": "Import clean production database",
+    "description": "Import the selected baseline into an empty test database.",
+    "group": "Database Validation",
+    "source": "Original schedule"
+  },
+  {
+    "row": 188,
+    "name": "Apply ordered migrations to clean database",
+    "description": "Apply every required migration in the documented sequence.",
+    "group": "Database Validation",
+    "source": "Original schedule"
+  },
+  {
+    "row": 189,
+    "name": "Verify clean database schema",
+    "description": "Confirm required tables, columns, indexes, and supported payment/consent/token fields.",
+    "group": "Database Validation",
+    "source": "Original schedule"
+  },
+  {
+    "row": 190,
+    "name": "Run clean-database smoke test",
+    "description": "Test login, pet registration, booking, queue, diagnosis, billing, inventory, notifications, and reports.",
+    "group": "Database Validation",
+    "source": "Original schedule"
+  },
+  {
+    "row": 191,
+    "name": "Upgrade a June 18 database copy",
+    "description": "Apply the intended migration sequence to a safe copy of the June 18 database.",
+    "group": "Database Validation",
+    "source": "Original schedule"
+  },
+  {
+    "row": 192,
+    "name": "Compare upgraded and clean schemas",
+    "description": "Compare tables, columns, indexes, and accepted values after the upgrade.",
+    "group": "Database Validation",
+    "source": "Original schedule"
+  },
+  {
+    "row": 193,
+    "name": "Verify data preservation after upgrade",
+    "description": "Confirm that users, pets, bookings, queues, records, inventory, and payments remain intact.",
+    "group": "Database Validation",
+    "source": "Original schedule"
+  },
+  {
+    "row": 194,
+    "name": "Enforce role checks on account APIs",
+    "description": "Restrict account creation, status changes, profile updates, and removal to authorized roles.",
+    "group": "Backend Authorization",
+    "source": "Original schedule"
+  },
+  {
+    "row": 195,
+    "name": "Enforce role checks on report APIs",
+    "description": "Restrict dashboard and report generation endpoints to authorized administrative users.",
+    "group": "Backend Authorization",
+    "source": "Original schedule"
+  },
+  {
+    "row": 196,
+    "name": "Enforce role checks on owner-account APIs",
+    "description": "Restrict owner status, ownership unlinking, and removal operations.",
+    "group": "Backend Authorization",
+    "source": "Original schedule"
+  },
+  {
+    "row": 197,
+    "name": "Enforce role checks on booking and queue APIs",
+    "description": "Restrict administrative booking and queue actions to authorized staff.",
+    "group": "Backend Authorization",
+    "source": "Original schedule"
+  },
+  {
+    "row": 198,
+    "name": "Enforce role checks on diagnosis APIs",
+    "description": "Restrict diagnosis and medical-record editing to authorized veterinarians.",
+    "group": "Backend Authorization",
+    "source": "Original schedule"
+  },
+  {
+    "row": 199,
+    "name": "Enforce role checks on POS and inventory APIs",
+    "description": "Restrict billing, payment, stock-in, stock-out, disposal, and adjustment operations.",
+    "group": "Backend Authorization",
+    "source": "Original schedule"
+  },
+  {
+    "row": 200,
+    "name": "Return HTTP 403 for unauthorized actions",
+    "description": "Standardize backend denial responses for authenticated users without the required role.",
+    "group": "Backend Authorization",
+    "source": "Original schedule"
+  },
+  {
+    "row": 201,
+    "name": "Add PDF browser preview",
+    "description": "Display supported PDF files in an embedded browser preview.",
+    "group": "Optional Product Polish",
+    "source": "Original schedule"
+  },
+  {
+    "row": 202,
+    "name": "Add non-image file metadata and download",
+    "description": "Show filename, type, size, upload details, and a download fallback for unsupported office documents.",
+    "group": "Optional Product Polish",
+    "source": "Original schedule"
+  },
+  {
+    "row": 203,
+    "name": "Validate production frontend build",
+    "description": "Build and deploy the React frontend and verify public and dashboard routing.",
+    "group": "Deployment",
+    "source": "Original schedule"
+  },
+  {
+    "row": 204,
+    "name": "Validate production PHP API",
+    "description": "Deploy the PHP backend and verify routing, authentication, database access, and error handling.",
+    "group": "Deployment",
+    "source": "Original schedule"
+  },
+  {
+    "row": 205,
+    "name": "Validate production database connection",
+    "description": "Confirm the deployed API uses the intended migrated production database.",
+    "group": "Deployment",
+    "source": "Original schedule"
+  },
+  {
+    "row": 206,
+    "name": "Validate production Jitsi configuration",
+    "description": "Verify online consultation room creation, start, join, end, and diagnosis.",
+    "group": "Deployment",
+    "source": "Original schedule"
+  },
+  {
+    "row": 207,
+    "name": "Validate production mail configuration",
+    "description": "Verify OTP, password reset, notification, and medical-record email delivery.",
+    "group": "Deployment",
+    "source": "Original schedule"
+  },
+  {
+    "row": 208,
+    "name": "Validate production push configuration",
+    "description": "Verify HTTPS, service-worker registration, VAPID keys, subscriptions, and push delivery.",
+    "group": "Deployment",
+    "source": "Original schedule"
+  },
+  {
+    "row": 209,
+    "name": "Validate protected uploads in production",
+    "description": "Verify file upload, token-protected access, deletion, and public/private paths.",
+    "group": "Deployment",
+    "source": "Original schedule"
+  },
+  {
+    "row": 210,
+    "name": "Validate TV status subdomain",
+    "description": "Verify DNS, document root, database access, refresh, timezone, and privacy behavior.",
+    "group": "Deployment",
+    "source": "Original schedule"
+  },
+  {
+    "row": 211,
+    "name": "Validate HTTPS and CORS settings",
+    "description": "Confirm secure communication among frontend, API, uploads, Jitsi, and status display origins.",
+    "group": "Deployment",
+    "source": "Original schedule"
+  },
+  {
+    "row": 212,
+    "name": "Run final frontend lint",
+    "description": "Run the frontend lint command and resolve remaining errors.",
+    "group": "Final Release",
+    "source": "Original schedule"
+  },
+  {
+    "row": 213,
+    "name": "Run final production build",
+    "description": "Generate and inspect the final frontend production build.",
+    "group": "Final Release",
+    "source": "Original schedule"
+  },
+  {
+    "row": 214,
+    "name": "Run PHP syntax checks",
+    "description": "Check changed and newly added backend files for syntax errors.",
+    "group": "Final Release",
+    "source": "Original schedule"
+  },
+  {
+    "row": 215,
+    "name": "Run final authentication regression",
+    "description": "Retest registration, OTP, login, recovery, account status, and sessions.",
+    "group": "Final Release",
+    "source": "Original schedule"
+  },
+  {
+    "row": 216,
+    "name": "Run final clinic workflow regression",
+    "description": "Retest booking, queue, diagnosis, billing, inventory, notifications, reports, and TV display.",
+    "group": "Final Release",
+    "source": "Original schedule"
+  },
+  {
+    "row": 217,
+    "name": "Conduct user acceptance testing",
+    "description": "Allow representative clinic users to complete intended workflows and record findings.",
+    "group": "Final Release",
+    "source": "Original schedule"
+  },
+  {
+    "row": 218,
+    "name": "Correct user acceptance issues",
+    "description": "Apply necessary fixes discovered during user acceptance testing.",
+    "group": "Final Release",
+    "source": "Original schedule"
+  },
+  {
+    "row": 219,
+    "name": "Prepare production release package",
+    "description": "Package the frontend build, PHP backend, migrations, examples, and deployment instructions.",
+    "group": "Final Release",
+    "source": "Original schedule"
+  },
+  {
+    "row": 220,
+    "name": "Prepare post-deployment verification checklist",
+    "description": "Document the checks required immediately after release.",
+    "group": "Final Release",
+    "source": "Original schedule"
+  },
+  {
+    "row": 221,
+    "name": "Decide dashboard debug-bypass strategy",
+    "description": "Decide whether the dashboard and router debug bypass will be removed, restricted, or replaced after explicit approval.",
+    "group": "Deferred Security",
+    "source": "Original schedule"
+  },
+  {
+    "row": 222,
+    "name": "Store administrator feature permissions",
+    "description": "Add persistent per-administrator feature access settings.",
+    "group": "Increment 2 - Coding",
+    "source": "Repository audit"
+  },
+  {
+    "row": 223,
+    "name": "Enforce administrator feature permissions",
+    "description": "Reject protected mutations when the administrator lacks the required feature permission.",
+    "group": "Increment 2 - Coding",
+    "source": "Repository audit"
+  },
+  {
+    "row": 224,
+    "name": "Hide unavailable administrator features",
+    "description": "Apply feature visibility rules to administrator navigation and screens.",
+    "group": "Increment 2 - Coding",
+    "source": "Repository audit"
+  },
+  {
+    "row": 225,
+    "name": "Store service display settings",
+    "description": "Add persistent settings for controlling service visibility and display behavior.",
+    "group": "Increment 5 - Coding",
+    "source": "Repository audit"
+  },
+  {
+    "row": 226,
+    "name": "Correct boarding room branch isolation",
+    "description": "Ensure boarding rooms and related actions resolve against the correct branch.",
+    "group": "Backend Authorization",
+    "source": "Repository audit"
+  },
+  {
+    "row": 227,
+    "name": "Add queue low-test-priority support",
+    "description": "Store and apply the low-test-priority queue behavior.",
+    "group": "Increment 5 - Coding",
+    "source": "Repository audit"
+  },
+  {
+    "row": 228,
+    "name": "Store record-update payment references",
+    "description": "Preserve payment references created while updating clinical records.",
+    "group": "Increment 3 - Coding",
+    "source": "Repository audit"
+  },
+  {
+    "row": 229,
+    "name": "Protect runtime media delivery",
+    "description": "Serve protected runtime media through authenticated access checks.",
+    "group": "Security Hardening",
+    "source": "Repository audit"
+  },
+  {
+    "row": 230,
+    "name": "Harden production and Hostinger routing",
+    "description": "Adjust application and backend routing for production hosting.",
+    "group": "Deployment",
+    "source": "Repository audit"
+  },
+  {
+    "row": 231,
+    "name": "Revalidate branch and account access in updated endpoints",
+    "description": "Apply active-account, archive, role, and branch checks to the newly revised endpoints.",
+    "group": "Backend Authorization",
+    "source": "Repository audit"
+  },
+  {
+    "row": 232,
+    "name": "Create daily veterinarian presence storage",
+    "description": "Store whether each veterinarian is present for the current clinic day.",
+    "group": "Increment 4 - Coding",
+    "source": "Repository audit"
+  },
+  {
+    "row": 233,
+    "name": "Add administrator veterinarian presence toggle",
+    "description": "Let authorized staff mark a veterinarian as in or out.",
+    "group": "Increment 4 - Coding",
+    "source": "Repository audit"
+  },
+  {
+    "row": 234,
+    "name": "Display veterinarian presence on the landing page",
+    "description": "Show current veterinarian availability before a visitor books.",
+    "group": "Increment 4 - Coding",
+    "source": "Repository audit"
+  },
+  {
+    "row": 235,
+    "name": "Display veterinarian presence to pet owners",
+    "description": "Show current veterinarian availability inside the authenticated owner experience.",
+    "group": "Increment 4 - Coding",
+    "source": "Repository audit"
+  },
+  {
+    "row": 236,
+    "name": "Reset veterinarian presence by clinic day",
+    "description": "Reset stale presence state using the Asia/Manila clinic date.",
+    "group": "Increment 4 - Coding",
+    "source": "Repository audit"
+  },
+  {
+    "row": 237,
+    "name": "Quietly refresh veterinarian presence",
+    "description": "Refresh visible presence data without replacing the whole screen with a loading state.",
+    "group": "Increment 4 - Coding",
+    "source": "Repository audit"
+  },
+  {
+    "row": 238,
+    "name": "Enforce veterinarian lunch blackout",
+    "description": "Block veterinarian-dependent appointments from 12:00 PM to 1:00 PM.",
+    "group": "Increment 4 - Coding",
+    "source": "Repository audit"
+  },
+  {
+    "row": 239,
+    "name": "Exempt grooming from veterinarian lunch blackout",
+    "description": "Keep grooming bookable during the veterinarian lunch period.",
+    "group": "Increment 4 - Coding",
+    "source": "Repository audit"
+  },
+  {
+    "row": 240,
+    "name": "Apply lunch rules to booking changes",
+    "description": "Enforce the same lunch validation during creation, rescheduling, branch changes, and reactivation.",
+    "group": "Increment 4 - Coding",
+    "source": "Repository audit"
+  },
+  {
+    "row": 241,
+    "name": "Preserve landing-page booking intent",
+    "description": "Save a visitor's selected service, date, time, branch, veterinarian, and room through authentication.",
+    "group": "Increment 4 - Coding",
+    "source": "Repository audit"
+  },
+  {
+    "row": 242,
+    "name": "Restore booking prefill after authentication",
+    "description": "Reopen the booking flow with the validated saved intent after login or registration.",
+    "group": "Increment 4 - Coding",
+    "source": "Repository audit"
+  },
+  {
+    "row": 243,
+    "name": "Expire and revalidate saved booking intent",
+    "description": "Limit saved intent lifetime and recheck all restored selections before use.",
+    "group": "Increment 4 - Coding",
+    "source": "Repository audit"
+  },
+  {
+    "row": 244,
+    "name": "Test vet presence, lunch, and intent flows",
+    "description": "Cover presence reset, lunch exclusions, grooming exemption, and restored booking data.",
+    "group": "Increment 4 - Testing",
+    "source": "Repository audit"
+  },
+  {
+    "row": 245,
+    "name": "Apply grooming management schema",
+    "description": "Create the grooming jobs, media, review, and workflow data required by the new module.",
+    "group": "Increment 4 - Coding",
+    "source": "Repository audit"
+  },
+  {
+    "row": 246,
+    "name": "Route approved grooming bookings to grooming workspace",
+    "description": "Automatically surface approved grooming bookings in the administrator grooming screen.",
+    "group": "Increment 4 - Coding",
+    "source": "Repository audit"
+  },
+  {
+    "row": 247,
+    "name": "Create or reuse grooming job on first action",
+    "description": "Create one unique grooming job when the first save or photo action occurs and reuse it afterwards.",
+    "group": "Increment 4 - Coding",
+    "source": "Repository audit"
+  },
+  {
+    "row": 248,
+    "name": "Preserve grooming handler assignment",
+    "description": "Keep the approved booking handler as the primary grooming handler.",
+    "group": "Increment 4 - Coding",
+    "source": "Repository audit"
+  },
+  {
+    "row": 249,
+    "name": "Record assisting grooming nurse separately",
+    "description": "Store an assisting nurse without replacing the original handler.",
+    "group": "Increment 4 - Coding",
+    "source": "Repository audit"
+  },
+  {
+    "row": 250,
+    "name": "Enforce grooming intake and start requirements",
+    "description": "Require approved service and intake information before grooming can start.",
+    "group": "Increment 4 - Coding",
+    "source": "Repository audit"
+  },
+  {
+    "row": 251,
+    "name": "Enforce grooming finish requirements",
+    "description": "Require after-service evidence and notes before finishing the grooming job.",
+    "group": "Increment 4 - Coding",
+    "source": "Repository audit"
+  },
+  {
+    "row": 252,
+    "name": "Record grooming pickup and collector",
+    "description": "Require pickup confirmation and the collector's name before closing release.",
+    "group": "Increment 4 - Coding",
+    "source": "Repository audit"
+  },
+  {
+    "row": 253,
+    "name": "Generate owner-safe grooming summary",
+    "description": "Produce a neutral grooming summary without presenting a veterinary diagnosis.",
+    "group": "Increment 4 - Coding",
+    "source": "Repository audit"
+  },
+  {
+    "row": 254,
+    "name": "Request veterinarian grooming review",
+    "description": "Let grooming staff pause a job and send a concern to a branch veterinarian.",
+    "group": "Increment 4 - Coding",
+    "source": "Repository audit"
+  },
+  {
+    "row": 255,
+    "name": "Show assigned grooming reviews to veterinarians",
+    "description": "Give the assigned branch veterinarian a focused grooming review worklist.",
+    "group": "Increment 4 - Coding",
+    "source": "Repository audit"
+  },
+  {
+    "row": 256,
+    "name": "Support resume, stop, or separate consultation decisions",
+    "description": "Let the reviewing veterinarian resume grooming, stop it, or recommend a separate consultation.",
+    "group": "Increment 4 - Coding",
+    "source": "Repository audit"
+  },
+  {
+    "row": 257,
+    "name": "Prevent grooming review from auto-creating diagnosis or fee",
+    "description": "Keep a grooming concern separate from diagnosis and billable consultation creation.",
+    "group": "Increment 4 - Coding",
+    "source": "Repository audit"
+  },
+  {
+    "row": 258,
+    "name": "Use authoritative grooming prices",
+    "description": "Calculate grooming charges from the booking and service catalog rather than client-submitted prices.",
+    "group": "Increment 5 - Coding",
+    "source": "Repository audit"
+  },
+  {
+    "row": 259,
+    "name": "Reuse existing grooming invoice and payments",
+    "description": "Attach grooming charges to the existing visit invoice and avoid duplicate payment records.",
+    "group": "Increment 5 - Coding",
+    "source": "Repository audit"
+  },
+  {
+    "row": 260,
+    "name": "Integrate grooming payment verification with POS",
+    "description": "Show payment state to grooming staff before the pet is released.",
+    "group": "Increment 5 - Coding",
+    "source": "Repository audit"
+  },
+  {
+    "row": 261,
+    "name": "Configure private grooming media storage",
+    "description": "Store grooming media outside directly public paths.",
+    "group": "Security Hardening",
+    "source": "Repository audit"
+  },
+  {
+    "row": 262,
+    "name": "Categorize grooming photos",
+    "description": "Separate reference, before, after, and concern photos.",
+    "group": "Increment 4 - Coding",
+    "source": "Repository audit"
+  },
+  {
+    "row": 263,
+    "name": "Validate grooming media type and size",
+    "description": "Accept only supported image types and enforce the eight-megabyte limit.",
+    "group": "Increment 4 - Coding",
+    "source": "Repository audit"
+  },
+  {
+    "row": 264,
+    "name": "Enforce grooming media count limit",
+    "description": "Limit stored grooming photos to twenty per job.",
+    "group": "Increment 4 - Coding",
+    "source": "Repository audit"
+  },
+  {
+    "row": 265,
+    "name": "Keep grooming concern photos private",
+    "description": "Prevent owner access to internal concern photos and veterinarian-only information.",
+    "group": "Security Hardening",
+    "source": "Repository audit"
+  },
+  {
+    "row": 266,
+    "name": "Publish shareable grooming photos to owner",
+    "description": "Show only approved owner-facing grooming photos in the owner view.",
+    "group": "Increment 4 - Coding",
+    "source": "Repository audit"
+  },
+  {
+    "row": 267,
+    "name": "Enforce grooming branch and ownership access",
+    "description": "Restrict grooming jobs and media by role, branch, feature access, and pet ownership.",
+    "group": "Backend Authorization",
+    "source": "Repository audit"
+  },
+  {
+    "row": 268,
+    "name": "Send grooming workflow notifications",
+    "description": "Notify relevant users for review, readiness, and pickup-related grooming events.",
+    "group": "Increment 6 - Coding",
+    "source": "Repository audit"
+  },
+  {
+    "row": 269,
+    "name": "Record grooming workflow audit events",
+    "description": "Preserve important grooming state and review actions for traceability.",
+    "group": "Security Hardening",
+    "source": "Repository audit"
+  },
+  {
+    "row": 270,
+    "name": "Test grooming workflow and storage rules",
+    "description": "Cover transitions, price integrity, media authorization, and storage behavior.",
+    "group": "Increment 4 - Testing",
+    "source": "Repository audit"
+  },
+  {
+    "row": 271,
+    "name": "Deploy grooming migration and private storage",
+    "description": "Apply the schema and configure a persistent private media root in production.",
+    "group": "Deployment",
+    "source": "Repository audit"
+  },
+  {
+    "row": 272,
+    "name": "Run grooming end-to-end acceptance test",
+    "description": "Verify booking approval through intake, review, billing, owner summary, and pickup in production-like conditions.",
+    "group": "Increment 4 - Testing",
+    "source": "Repository audit"
+  },
+  {
+    "row": 273,
+    "name": "Normalize inventory branch and location fields",
+    "description": "Align inventory records and controls with the correct branch and physical location.",
+    "group": "Increment 6 - Coding",
+    "source": "Repository audit"
+  },
+  {
+    "row": 274,
+    "name": "Add inventory responsibility safeguards",
+    "description": "Prevent inventory actions from being assigned or executed outside the allowed responsibility scope.",
+    "group": "Increment 6 - Coding",
+    "source": "Repository audit"
+  },
+  {
+    "row": 275,
+    "name": "Correct inventory stock calculations",
+    "description": "Repair inventory quantity and movement behavior across the inventory module.",
+    "group": "Increment 6 - Coding",
+    "source": "Repository audit"
+  },
+  {
+    "row": 276,
+    "name": "Update inventory item and stock interface",
+    "description": "Align inventory forms, lists, filters, and actions with the corrected inventory data.",
+    "group": "Increment 6 - Coding",
+    "source": "Repository audit"
+  },
+  {
+    "row": 277,
+    "name": "Preserve invoice history when deleting products",
+    "description": "Remove an inventory product without deleting historical invoice lines, payments, or refunds.",
+    "group": "Increment 6 - Coding",
+    "source": "Repository audit"
+  },
+  {
+    "row": 278,
+    "name": "Backfill blank invoice descriptions before product deletion",
+    "description": "Copy a stable product description into historical invoice lines before detaching the product.",
+    "group": "Increment 6 - Coding",
+    "source": "Repository audit"
+  },
+  {
+    "row": 279,
+    "name": "Detach visit-charge product references safely",
+    "description": "Set deleted product references to null while preserving the recorded charge.",
+    "group": "Increment 6 - Coding",
+    "source": "Repository audit"
+  },
+  {
+    "row": 280,
+    "name": "Require password for inventory deletion",
+    "description": "Reauthenticate the authorized user before a product can be deleted.",
+    "group": "Increment 6 - Coding",
+    "source": "Repository audit"
+  },
+  {
+    "row": 281,
+    "name": "Require branch and reason for inventory deletion",
+    "description": "Capture deletion scope and an audit reason for each removed product.",
+    "group": "Increment 6 - Coding",
+    "source": "Repository audit"
+  },
+  {
+    "row": 282,
+    "name": "Block deletion of linked service materials",
+    "description": "Require the service-catalog material dependency to be cleared before deleting a linked product.",
+    "group": "Increment 6 - Coding",
+    "source": "Repository audit"
+  },
+  {
+    "row": 283,
+    "name": "Delete product operational records transactionally",
+    "description": "Remove batches, movements, transfer lines, and receipt lines in one guarded transaction.",
+    "group": "Increment 6 - Coding",
+    "source": "Repository audit"
+  },
+  {
+    "row": 284,
+    "name": "Audit inventory product deletion",
+    "description": "Record who deleted the product, the branch, reason, and affected record.",
+    "group": "Increment 6 - Coding",
+    "source": "Repository audit"
+  },
+  {
+    "row": 285,
+    "name": "Add inventory deletion regression test",
+    "description": "Verify invoice preservation, reference detachment, dependency checks, and rollback behavior.",
+    "group": "Increment 6 - Testing",
+    "source": "Repository audit"
+  },
+  {
+    "row": 286,
+    "name": "Add shared inventory invoice helper",
+    "description": "Centralize invoice-preservation behavior used by inventory operations.",
+    "group": "Increment 6 - Coding",
+    "source": "Repository audit"
+  },
+  {
+    "row": 287,
+    "name": "Improve inventory failure messages",
+    "description": "Return understandable reasons for invalid stock, dependency, authorization, and deletion actions.",
+    "group": "Increment 6 - Coding",
+    "source": "Repository audit"
+  },
+  {
+    "row": 288,
+    "name": "Add shared pet information edit dialog",
+    "description": "Provide one reusable dialog for editing pet profile information.",
+    "group": "Increment 3 - Coding",
+    "source": "Repository audit"
+  },
+  {
+    "row": 289,
+    "name": "Normalize pet information validation",
+    "description": "Apply consistent required fields and validation to pet information edits.",
+    "group": "Increment 3 - Coding",
+    "source": "Repository audit"
+  },
+  {
+    "row": 290,
+    "name": "Normalize pet update payloads",
+    "description": "Send a stable pet record shape across the screens that can edit pet information.",
+    "group": "Increment 3 - Coding",
+    "source": "Repository audit"
+  },
+  {
+    "row": 291,
+    "name": "Add shared branch-access helper",
+    "description": "Centralize role and branch-scope checks used by updated modules.",
+    "group": "Backend Authorization",
+    "source": "Repository audit"
+  },
+  {
+    "row": 292,
+    "name": "Add branch-access regression tests",
+    "description": "Verify authorized same-branch actions and rejection of cross-branch actions.",
+    "group": "Backend Authorization",
+    "source": "Repository audit"
+  },
+  {
+    "row": 293,
+    "name": "Standardize user-facing API errors",
+    "description": "Convert backend failures into consistent messages that identify the action the user can take.",
+    "group": "Increment 6 - Shared UI",
+    "source": "Repository audit"
+  },
+  {
+    "row": 294,
+    "name": "Correct toast message behavior",
+    "description": "Fix duplicate, unclear, or incorrect success and error notifications.",
+    "group": "Increment 6 - Shared UI",
+    "source": "Repository audit"
+  },
+  {
+    "row": 295,
+    "name": "Add shared application motion shell",
+    "description": "Centralize restrained screen-transition and interface feedback behavior.",
+    "group": "Increment 6 - Shared UI",
+    "source": "Repository audit"
+  },
+  {
+    "row": 296,
+    "name": "Respect reduced-motion preference",
+    "description": "Disable or simplify nonessential motion for users who request reduced motion.",
+    "group": "Increment 6 - Shared UI",
+    "source": "Repository audit"
+  },
+  {
+    "row": 297,
+    "name": "Add shared page-title management",
+    "description": "Set a meaningful browser title for the active iPawcus screen.",
+    "group": "Increment 6 - Shared UI",
+    "source": "Repository audit"
+  },
+  {
+    "row": 298,
+    "name": "Add personnel profile cleanup migration",
+    "description": "Introduce the schema changes required by the revised staff profile model.",
+    "group": "Increment 2 - Coding",
+    "source": "Repository audit"
+  },
+  {
+    "row": 299,
+    "name": "Remove obsolete administrator government ID fields",
+    "description": "Stop requesting and storing obsolete government ID fields for administrator profiles.",
+    "group": "Increment 2 - Coding",
+    "source": "Repository audit"
+  },
+  {
+    "row": 300,
+    "name": "Remove obsolete administrator education fields",
+    "description": "Remove education and professional fields that do not belong to administrator accounts.",
+    "group": "Increment 2 - Coding",
+    "source": "Repository audit"
+  },
+  {
+    "row": 301,
+    "name": "Migrate nurse roles to Assistant Vet",
+    "description": "Normalize Nurse and Senior Nurse accounts to the Assistant Vet role model.",
+    "group": "Increment 2 - Coding",
+    "source": "Repository audit"
+  },
+  {
+    "row": 302,
+    "name": "Preserve veterinarian professional experience",
+    "description": "Retain the professional experience data required for veterinarian profiles.",
+    "group": "Increment 2 - Coding",
+    "source": "Repository audit"
+  },
+  {
+    "row": 303,
+    "name": "Update personnel profile forms",
+    "description": "Align administrator, veterinarian, and assistant-vet forms with the cleaned profile model.",
+    "group": "Increment 2 - Coding",
+    "source": "Repository audit"
+  },
+  {
+    "row": 304,
+    "name": "Update personnel profile APIs",
+    "description": "Accept and return only fields supported by each staff role.",
+    "group": "Increment 2 - Coding",
+    "source": "Repository audit"
+  },
+  {
+    "row": 305,
+    "name": "Validate personnel cleanup against existing accounts",
+    "description": "Confirm migrated staff accounts still load, edit, authenticate, and retain relevant professional data.",
+    "group": "Increment 2 - Testing",
+    "source": "Repository audit"
+  },
+  {
+    "row": 306,
+    "name": "Add configurable service price projections",
+    "description": "Model projected prices for services when calculating operational and report estimates.",
+    "group": "Increment 6 - Coding",
+    "source": "Repository audit"
+  },
+  {
+    "row": 307,
+    "name": "Add general-service projection settings",
+    "description": "Define configurable projection values for regular clinic services.",
+    "group": "Increment 6 - Coding",
+    "source": "Repository audit"
+  },
+  {
+    "row": 308,
+    "name": "Add grooming and kapon projection matrices",
+    "description": "Define projected price ranges and variants for grooming and kapon services.",
+    "group": "Increment 6 - Coding",
+    "source": "Repository audit"
+  },
+  {
+    "row": 309,
+    "name": "Add home-service projection settings",
+    "description": "Define projected charges and configurable assumptions for home services.",
+    "group": "Increment 6 - Coding",
+    "source": "Repository audit"
+  },
+  {
+    "row": 310,
+    "name": "Add boarding room and add-on projections",
+    "description": "Define projected boarding prices by room, duration, and supported add-ons.",
+    "group": "Increment 6 - Coding",
+    "source": "Repository audit"
+  },
+  {
+    "row": 311,
+    "name": "Persist service projection configuration",
+    "description": "Save locally customized projection inputs for later report use.",
+    "group": "Increment 6 - Coding",
+    "source": "Repository audit"
+  },
+  {
+    "row": 312,
+    "name": "Reset service projections to defaults",
+    "description": "Let authorized users restore the supported default projection model.",
+    "group": "Increment 6 - Coding",
+    "source": "Repository audit"
+  },
+  {
+    "row": 313,
+    "name": "Add previous-period report comparisons",
+    "description": "Compare selected report ranges with the immediately preceding equivalent period.",
+    "group": "Increment 6 - Coding",
+    "source": "Repository audit"
+  },
+  {
+    "row": 314,
+    "name": "Add report comparison summaries",
+    "description": "Explain the direction and magnitude of booking, revenue, queue, and boarding changes.",
+    "group": "Increment 6 - Coding",
+    "source": "Repository audit"
+  },
+  {
+    "row": 315,
+    "name": "Add management-action report summaries",
+    "description": "Turn operational report findings into concise management follow-up actions.",
+    "group": "Increment 6 - Coding",
+    "source": "Repository audit"
+  },
+  {
+    "row": 316,
+    "name": "Add operational KPI drill-down navigation",
+    "description": "Let users open the relevant operational view from a report metric or attention item.",
+    "group": "Increment 6 - Coding",
+    "source": "Repository audit"
+  },
+  {
+    "row": 317,
+    "name": "Add operational attention tables",
+    "description": "Surface records that require follow-up instead of showing only aggregate totals.",
+    "group": "Increment 6 - Coding",
+    "source": "Repository audit"
+  },
+  {
+    "row": 318,
+    "name": "Add record-update payment reporting",
+    "description": "Include payments created from clinical record updates in financial reporting.",
+    "group": "Increment 6 - Coding",
+    "source": "Repository audit"
+  },
+  {
+    "row": 319,
+    "name": "Expand report filters and report types",
+    "description": "Add the newer operational, staff, service, booking, queue, and boarding report views.",
+    "group": "Increment 6 - Coding",
+    "source": "Repository audit"
+  },
+  {
+    "row": 320,
+    "name": "Improve report export and print presentation",
+    "description": "Carry active ranges, filters, comparison context, and readable metadata into exported reports.",
+    "group": "Increment 6 - Coding",
+    "source": "Repository audit"
+  },
+  {
+    "row": 321,
+    "name": "Repair service material presets and links",
+    "description": "Reconcile service-catalog material presets with valid inventory products.",
+    "group": "Increment 5 - Coding",
+    "source": "Repository audit"
+  },
+  {
+    "row": 322,
+    "name": "Validate revised reports against source records",
+    "description": "Compare report totals, period changes, and drill-down rows with their underlying records.",
+    "group": "Increment 6 - Testing",
+    "source": "Repository audit"
+  },
+  {
+    "row": 323,
+    "name": "Add system-backup audit schema",
+    "description": "Store each backup request, actor, outcome, timestamps, and error information without retaining the archive.",
+    "group": "Database Hardening",
+    "source": "Repository audit"
+  },
+  {
+    "row": 324,
+    "name": "Add Super Admin backup download control",
+    "description": "Provide a profile control that starts an authorized local backup download.",
+    "group": "Deployment",
+    "source": "Repository audit"
+  },
+  {
+    "row": 325,
+    "name": "Add backup readiness and progress states",
+    "description": "Show preparation, progress, completion, and actionable failure states during backup generation.",
+    "group": "Deployment",
+    "source": "Repository audit"
+  },
+  {
+    "row": 326,
+    "name": "Export complete database SQL",
+    "description": "Generate a database.sql export that can be used during emergency recovery.",
+    "group": "Deployment",
+    "source": "Repository audit"
+  },
+  {
+    "row": 327,
+    "name": "Include public media in backup",
+    "description": "Collect current uploaded public files required by the application.",
+    "group": "Deployment",
+    "source": "Repository audit"
+  },
+  {
+    "row": 328,
+    "name": "Include private grooming media in backup",
+    "description": "Collect protected grooming images without exposing them through public paths.",
+    "group": "Deployment",
+    "source": "Repository audit"
+  },
+  {
+    "row": 329,
+    "name": "Generate emergency operations workbook",
+    "description": "Add a human-readable workbook with operational data needed if the system is unavailable.",
+    "group": "Deployment",
+    "source": "Repository audit"
+  },
+  {
+    "row": 330,
+    "name": "Export emergency booking records",
+    "description": "Add current booking and schedule records to the emergency operations workbook.",
+    "group": "Deployment",
+    "source": "Repository audit"
+  },
+  {
+    "row": 331,
+    "name": "Export emergency queue and boarding records",
+    "description": "Add active queue and boarding information to the emergency operations workbook.",
+    "group": "Deployment",
+    "source": "Repository audit"
+  },
+  {
+    "row": 332,
+    "name": "Export emergency inventory records",
+    "description": "Add current inventory quantities and operational stock details to the emergency workbook.",
+    "group": "Deployment",
+    "source": "Repository audit"
+  },
+  {
+    "row": 333,
+    "name": "Generate backup manifest",
+    "description": "List archive contents, creation metadata, and version details in a machine-readable manifest.",
+    "group": "Deployment",
+    "source": "Repository audit"
+  },
+  {
+    "row": 334,
+    "name": "Generate backup checksums",
+    "description": "Calculate checksums so recovered files can be checked for corruption or omission.",
+    "group": "Deployment",
+    "source": "Repository audit"
+  },
+  {
+    "row": 335,
+    "name": "Generate deleted-files manifest",
+    "description": "Record intentionally absent or deleted media references for recovery review.",
+    "group": "Deployment",
+    "source": "Repository audit"
+  },
+  {
+    "row": 336,
+    "name": "Include restore instructions in backup",
+    "description": "Package a concise restore guide with each backup archive.",
+    "group": "Deployment",
+    "source": "Repository audit"
+  },
+  {
+    "row": 337,
+    "name": "Package backup as a ZIP archive",
+    "description": "Combine the database, media, workbook, manifest, and instructions into one download.",
+    "group": "Deployment",
+    "source": "Repository audit"
+  },
+  {
+    "row": 338,
+    "name": "Stream backup directly to local download",
+    "description": "Send the generated archive to the Super Admin instead of retaining a downloadable copy on the server.",
+    "group": "Deployment",
+    "source": "Repository audit"
+  },
+  {
+    "row": 339,
+    "name": "Clean backup temporary files after success",
+    "description": "Remove temporary working files after a completed local backup download.",
+    "group": "Deployment",
+    "source": "Repository audit"
+  },
+  {
+    "row": 340,
+    "name": "Clean backup temporary files after failure",
+    "description": "Remove partial temporary data when backup generation fails.",
+    "group": "Deployment",
+    "source": "Repository audit"
+  },
+  {
+    "row": 341,
+    "name": "Retain backup audit without retaining ZIP",
+    "description": "Keep an audit record while avoiding persistent server-side backup archives.",
+    "group": "Deployment",
+    "source": "Repository audit"
+  },
+  {
+    "row": 342,
+    "name": "Restrict backup creation to Super Admin",
+    "description": "Enforce role checks before backup status or download operations can run.",
+    "group": "Deployment",
+    "source": "Repository audit"
+  },
+  {
+    "row": 343,
+    "name": "Apply backup feature configuration",
+    "description": "Read environment settings that enable backup generation and identify allowed storage roots.",
+    "group": "Deployment",
+    "source": "Repository audit"
+  },
+  {
+    "row": 344,
+    "name": "Include staff activity files in backup",
+    "description": "Preserve protected staff activity history inside the local recovery archive.",
+    "group": "Deployment",
+    "source": "Repository audit"
+  },
+  {
+    "row": 345,
+    "name": "Document manual backup recovery",
+    "description": "Describe database, media, workbook, integrity, and access recovery steps.",
+    "group": "Technical Documentation",
+    "source": "Repository audit"
+  },
+  {
+    "row": 346,
+    "name": "Apply production backup migration and environment settings",
+    "description": "Enable the backup schema and production-safe configuration on the deployed system.",
+    "group": "Deployment",
+    "source": "Repository audit"
+  },
+  {
+    "row": 347,
+    "name": "Verify backup archive contents",
+    "description": "Confirm the ZIP contains a usable SQL export, media, workbook, manifests, checksums, and instructions.",
+    "group": "Final Release",
+    "source": "Repository audit"
+  },
+  {
+    "row": 348,
+    "name": "Rehearse backup recovery procedure",
+    "description": "Restore a test copy and document any missing dependencies or recovery corrections.",
+    "group": "Final Release",
+    "source": "Repository audit"
+  },
+  {
+    "row": 349,
+    "name": "Add Google identity schema",
+    "description": "Store external Google identities separately from core user credentials.",
+    "group": "Increment 1 - Coding",
+    "source": "Repository audit"
+  },
+  {
+    "row": 350,
+    "name": "Add Google onboarding-token schema",
+    "description": "Store short-lived onboarding tokens needed to finish a new Google registration.",
+    "group": "Increment 1 - Coding",
+    "source": "Repository audit"
+  },
+  {
+    "row": 351,
+    "name": "Load responsive Continue with Google control",
+    "description": "Add the Google identity control to login and registration layouts without breaking mobile sizing.",
+    "group": "Increment 1 - Coding",
+    "source": "Repository audit"
+  },
+  {
+    "row": 352,
+    "name": "Verify Google ID token server-side",
+    "description": "Validate the identity token before trusting the external account data.",
+    "group": "Increment 1 - Coding",
+    "source": "Repository audit"
+  },
+  {
+    "row": 353,
+    "name": "Enforce trusted origins for Google authentication",
+    "description": "Accept Google authentication only from configured application origins.",
+    "group": "Increment 1 - Coding",
+    "source": "Repository audit"
+  },
+  {
+    "row": 354,
+    "name": "Authenticate linked Google accounts",
+    "description": "Match a verified Google identity to its linked iPawcus account.",
+    "group": "Increment 1 - Coding",
+    "source": "Repository audit"
+  },
+  {
+    "row": 355,
+    "name": "Issue iPawcus API session after Google sign-in",
+    "description": "Create the normal authenticated application session after successful Google identity verification.",
+    "group": "Increment 1 - Coding",
+    "source": "Repository audit"
+  },
+  {
+    "row": 356,
+    "name": "Create expiring Google onboarding token",
+    "description": "Issue a fifteen-minute onboarding token for a verified new Google user.",
+    "group": "Increment 1 - Coding",
+    "source": "Repository audit"
+  },
+  {
+    "row": 357,
+    "name": "Complete Google pet-owner registration",
+    "description": "Create the pet-owner account and identity link in one protected transaction.",
+    "group": "Increment 1 - Coding",
+    "source": "Repository audit"
+  },
+  {
+    "row": 358,
+    "name": "Validate Google onboarding terms acceptance",
+    "description": "Require the user to accept the applicable terms before account creation.",
+    "group": "Increment 1 - Coding",
+    "source": "Repository audit"
+  },
+  {
+    "row": 359,
+    "name": "Validate Google onboarding name and contact data",
+    "description": "Validate names, Philippine phone format, and emergency contact fields before creating the account.",
+    "group": "Increment 1 - Coding",
+    "source": "Repository audit"
+  },
+  {
+    "row": 360,
+    "name": "Require account linking for matching unlinked email",
+    "description": "Prevent silent takeover when a verified Google email already belongs to an unlinked iPawcus account.",
+    "group": "Increment 1 - Coding",
+    "source": "Repository audit"
+  },
+  {
+    "row": 361,
+    "name": "Link existing iPawcus account to Google",
+    "description": "Let an authenticated user connect a matching Google identity to the existing account.",
+    "group": "Increment 1 - Coding",
+    "source": "Repository audit"
+  },
+  {
+    "row": 362,
+    "name": "Prevent duplicate Google identity links",
+    "description": "Reject an external identity already attached to another iPawcus user.",
+    "group": "Increment 1 - Coding",
+    "source": "Repository audit"
+  },
+  {
+    "row": 363,
+    "name": "Prevent mismatched-email Google linking",
+    "description": "Require the verified Google email to match the authenticated iPawcus account email.",
+    "group": "Increment 1 - Coding",
+    "source": "Repository audit"
+  },
+  {
+    "row": 364,
+    "name": "Block Google sign-in for inactive accounts",
+    "description": "Apply inactive-account restrictions before issuing an application session.",
+    "group": "Increment 1 - Coding",
+    "source": "Repository audit"
+  },
+  {
+    "row": 365,
+    "name": "Block Google sign-in for archived accounts",
+    "description": "Apply archived-account restrictions before issuing an application session.",
+    "group": "Increment 1 - Coding",
+    "source": "Repository audit"
+  },
+  {
+    "row": 366,
+    "name": "Show Google connection status in profile",
+    "description": "Display whether the current account is connected to a Google identity.",
+    "group": "Increment 1 - Coding",
+    "source": "Repository audit"
+  },
+  {
+    "row": 367,
+    "name": "Quietly refresh Google connection status",
+    "description": "Refresh connection state without disrupting the profile screen.",
+    "group": "Increment 1 - Coding",
+    "source": "Repository audit"
+  },
+  {
+    "row": 368,
+    "name": "Notify user after Google account connection",
+    "description": "Confirm a successful account connection through the existing notification system.",
+    "group": "Increment 1 - Coding",
+    "source": "Repository audit"
+  },
+  {
+    "row": 369,
+    "name": "Record Google staff sign-in activity",
+    "description": "Send successful staff Google sign-ins to the activity-history system.",
+    "group": "Increment 1 - Coding",
+    "source": "Repository audit"
+  },
+  {
+    "row": 370,
+    "name": "Configure production Google credentials and origins",
+    "description": "Set the deployed client ID, dependency, and trusted-origin configuration.",
+    "group": "Deployment",
+    "source": "Repository audit"
+  },
+  {
+    "row": 371,
+    "name": "Apply production Google identity migration",
+    "description": "Create Google identity tables and verify indexes and constraints on the deployed database.",
+    "group": "Deployment",
+    "source": "Repository audit"
+  },
+  {
+    "row": 372,
+    "name": "Test Google login, onboarding, and account linking",
+    "description": "Verify new users, linked users, matching emails, conflicts, inactive accounts, and archived accounts.",
+    "group": "Increment 1 - Testing",
+    "source": "Repository audit"
+  },
+  {
+    "row": 373,
+    "name": "Add staff activity-log file schema",
+    "description": "Store the protected activity-log file reference for each staff account.",
+    "group": "Database Hardening",
+    "source": "Repository audit"
+  },
+  {
+    "row": 374,
+    "name": "Create protected per-user activity files",
+    "description": "Keep each staff member's activity history in a persistent protected JSONL file.",
+    "group": "Security Hardening",
+    "source": "Repository audit"
+  },
+  {
+    "row": 375,
+    "name": "Record successful mutating API requests",
+    "description": "Log successful POST, PUT, PATCH, and DELETE actions while excluding background GET refreshes.",
+    "group": "Security Hardening",
+    "source": "Repository audit"
+  },
+  {
+    "row": 376,
+    "name": "Record staff password sign-ins",
+    "description": "Add successful conventional staff logins to the same activity history.",
+    "group": "Security Hardening",
+    "source": "Repository audit"
+  },
+  {
+    "row": 377,
+    "name": "Record staff Google sign-ins",
+    "description": "Add successful linked-Google staff logins to the same activity history.",
+    "group": "Security Hardening",
+    "source": "Repository audit"
+  },
+  {
+    "row": 378,
+    "name": "Record dashboard page navigation",
+    "description": "Store meaningful staff page visits for later operational review.",
+    "group": "Security Hardening",
+    "source": "Repository audit"
+  },
+  {
+    "row": 379,
+    "name": "Resolve activity action labels",
+    "description": "Convert raw endpoint actions into readable activity descriptions.",
+    "group": "Security Hardening",
+    "source": "Repository audit"
+  },
+  {
+    "row": 380,
+    "name": "Resolve activity target labels",
+    "description": "Identify the relevant booking, pet, user, invoice, item, or other target when it can be safely determined.",
+    "group": "Security Hardening",
+    "source": "Repository audit"
+  },
+  {
+    "row": 381,
+    "name": "Record activity branch and organization scope",
+    "description": "Attach safe branch or organization context to applicable staff activity.",
+    "group": "Security Hardening",
+    "source": "Repository audit"
+  },
+  {
+    "row": 382,
+    "name": "Exclude request bodies from activity history",
+    "description": "Avoid copying arbitrary submitted form content into the staff activity record.",
+    "group": "Security Hardening",
+    "source": "Repository audit"
+  },
+  {
+    "row": 383,
+    "name": "Exclude passwords and tokens from activity history",
+    "description": "Keep credentials, session tokens, and external identity tokens out of activity files.",
+    "group": "Security Hardening",
+    "source": "Repository audit"
+  },
+  {
+    "row": 384,
+    "name": "Add staff profile Activity tab",
+    "description": "Let an authorized staff member review their own activity history.",
+    "group": "Increment 2 - Coding",
+    "source": "Repository audit"
+  },
+  {
+    "row": 385,
+    "name": "Add Super Admin user-activity viewer",
+    "description": "Let the Super Admin review activity history for a selected staff account.",
+    "group": "Increment 2 - Coding",
+    "source": "Repository audit"
+  },
+  {
+    "row": 386,
+    "name": "Enforce own-history activity access",
+    "description": "Limit ordinary authorized staff to their own activity records.",
+    "group": "Security Hardening",
+    "source": "Repository audit"
+  },
+  {
+    "row": 387,
+    "name": "Enforce Super Admin activity access",
+    "description": "Require Super Admin authority before another account's activity can be read.",
+    "group": "Security Hardening",
+    "source": "Repository audit"
+  },
+  {
+    "row": 388,
+    "name": "Paginate staff activity history",
+    "description": "Load long activity histories in manageable pages rather than one unbounded response.",
+    "group": "Increment 2 - Coding",
+    "source": "Repository audit"
+  },
+  {
+    "row": 389,
+    "name": "Handle missing or malformed activity files safely",
+    "description": "Return a calm empty or error state without exposing storage paths or raw file failures.",
+    "group": "Increment 2 - Coding",
+    "source": "Repository audit"
+  },
+  {
+    "row": 390,
+    "name": "Document staff activity history behavior",
+    "description": "Describe captured actions, privacy limits, authorization, storage, and backup inclusion.",
+    "group": "Technical Documentation",
+    "source": "Repository audit"
+  },
+  {
+    "row": 391,
+    "name": "Apply production activity-log migration and storage path",
+    "description": "Create the schema and persistent protected storage directory on the deployed system.",
+    "group": "Deployment",
+    "source": "Repository audit"
+  },
+  {
+    "row": 392,
+    "name": "Test staff activity authorization and privacy",
+    "description": "Verify self-view, Super Admin view, forbidden access, redaction, and excluded GET refreshes.",
+    "group": "Increment 2 - Testing",
+    "source": "Repository audit"
+  },
+  {
+    "row": 393,
+    "name": "Define staff activity retention policy",
+    "description": "Decide how long protected activity files are retained and how authorized cleanup will work.",
+    "group": "Security Hardening",
+    "source": "Repository audit"
+  },
+  {
+    "row": 394,
+    "name": "Add repository capability inventory",
+    "description": "Document the currently implemented modules and their operational readiness.",
+    "group": "Technical Documentation",
+    "source": "Repository audit"
+  },
+  {
+    "row": 395,
+    "name": "Reconcile Gantt tasks with repository capabilities",
+    "description": "Compare the historical Gantt list with migrations, code, tests, and documentation to identify missing tasks.",
+    "group": "Technical Documentation",
+    "source": "Repository audit"
+  },
+  {
+    "row": 396,
+    "name": "Run current-week PHP syntax checks",
+    "description": "Check every new or modified September backend endpoint before deployment.",
+    "group": "Final Release",
+    "source": "Repository audit"
+  },
+  {
+    "row": 397,
+    "name": "Run current-week frontend lint",
+    "description": "Validate the September React, service, hook, and helper changes.",
+    "group": "Final Release",
+    "source": "Repository audit"
+  },
+  {
+    "row": 398,
+    "name": "Run current-week production build",
+    "description": "Confirm all September feature integrations compile into the production bundle.",
+    "group": "Final Release",
+    "source": "Repository audit"
+  },
+  {
+    "row": 399,
+    "name": "Run cross-feature authorization regression",
+    "description": "Retest branch, role, feature, owner, media, backup, Google, grooming, inventory, and activity access boundaries.",
+    "group": "Final Release",
+    "source": "Repository audit"
+  },
+  {
+    "row": 400,
+    "name": "Update production deployment checklist",
+    "description": "Add every new migration, protected storage path, environment value, and post-deployment verification step.",
+    "group": "Final Release",
+    "source": "Repository audit"
+  }
+]
